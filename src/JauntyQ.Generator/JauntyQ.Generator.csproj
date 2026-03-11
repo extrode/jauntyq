@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>JauntyQ.Generator</RootNamespace>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+  <!-- Compile-include SqlParser and Schema sources for generator embedding -->
+  <ItemGroup>
+    <Compile Include="..\JauntyQ.SqlParser\**\*.cs"
+             Exclude="..\JauntyQ.SqlParser\obj\**;..\JauntyQ.SqlParser\bin\**"
+             Link="Embedded\SqlParser\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\JauntyQ.Schema\**\*.cs"
+             Exclude="..\JauntyQ.Schema\obj\**;..\JauntyQ.Schema\bin\**"
+             Link="Embedded\Schema\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
