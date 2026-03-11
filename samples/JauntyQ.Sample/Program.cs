@@ -7,23 +7,26 @@ connection.Open();
 
 SeedDatabase(connection);
 
-// ── GetProducts ────────────────────────────────────────────
+// Create the db object — connection is already open, JauntyQ won't close it
+var db = new JauntyDb(connection);
+
+// ── Products.GetAll ────────────────────────────────────────
 Console.WriteLine("=== All Products ===");
-var products = Queries.GetProducts(connection);
+var products = db.Products.GetAll();
 foreach (var p in products)
     Console.WriteLine($"  [{p.ProductId}] {p.ProductName} — ${p.UnitPrice} (discontinued: {p.Discontinued})");
 
-// ── GetProductsByCategory ──────────────────────────────────
+// ── Products.GetByCategory ─────────────────────────────────
 Console.WriteLine();
 Console.WriteLine("=== Products in 'Beverages' (category 1) ===");
-var beverages = Queries.GetProductsByCategory(connection, 1);
+var beverages = db.Products.GetByCategory(1);
 foreach (var p in beverages)
     Console.WriteLine($"  [{p.ProductId}] {p.ProductName} — ${p.UnitPrice} ({p.CategoryName})");
 
-// ── GetEmployeesWithManagers ───────────────────────────────
+// ── Employees.GetWithManagers ──────────────────────────────
 Console.WriteLine();
 Console.WriteLine("=== Employees & Managers ===");
-var employees = Queries.GetEmployeesWithManagers(connection);
+var employees = db.Employees.GetWithManagers();
 foreach (var e in employees)
 {
     string manager = string.IsNullOrEmpty(e.ManagerFirstName)
@@ -31,6 +34,13 @@ foreach (var e in employees)
         : $"{e.ManagerFirstName} {e.ManagerLastName}";
     Console.WriteLine($"  [{e.EmployeeId}] {e.FirstName} {e.LastName} → reports to {manager}");
 }
+
+// ── Static fallback (no db object needed) ──────────────────
+Console.WriteLine();
+Console.WriteLine("=== Static Fallback: All Products ===");
+var products2 = Products.GetAll(connection);
+foreach (var p in products2)
+    Console.WriteLine($"  [{p.ProductId}] {p.ProductName}");
 
 Console.WriteLine();
 Console.WriteLine("Done.");

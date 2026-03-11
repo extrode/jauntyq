@@ -21,38 +21,30 @@ public class JauntyQGenerator : IIncrementalGenerator
         var schemaFiles = context.AdditionalTextsProvider
             .Where(static f => f.Path.EndsWith(".schema.json", StringComparison.OrdinalIgnoreCase));
 
-        // Combine: all SQL files + the first schema file
+        // Get the first schema file's text
         var schemaText = schemaFiles.Collect().Select(static (files, _) =>
             files.IsEmpty ? null : files[0].GetText()?.ToString());
 
-        var combined = sqlFiles.Combine(schemaText);
+        // Collect ALL SQL files so we can compute entity names and emit aggregated files
+        var allSqlFiles = sqlFiles.Collect();
+        var allSqlWithSchema = allSqlFiles.Combine(schemaText);
 
-        context.RegisterSourceOutput(combined, static (ctx, pair) =>
+        context.RegisterSourceOutput(allSqlWithSchema, static (ctx, pair) =>
         {
-            var (sqlFile, schemaJson) = pair;
-            Execute(ctx, sqlFile, schemaJson);
+            var (sqlFileArray, schemaJson) = pair;
+            ExecuteAll(ctx, sqlFileArray, schemaJson);
         });
     }
 
-    private static void Execute(
+    private static void ExecuteAll(
         SourceProductionContext context,
-        AdditionalText sqlFile,
+        ImmutableArray<AdditionalText> sqlFiles,
         string? schemaJson)
     {
-        var sqlText = sqlFile.GetText(context.CancellationToken)?.ToString();
-        if (string.IsNullOrWhiteSpace(sqlText))
+        if (sqlFiles.IsEmpty)
             return;
 
-        // Derive query name from filename
-        string fileName = System.IO.Path.GetFileNameWithoutExtension(sqlFile.Path);
-
-        // Tokenize
-        var tokens = SqlTokenizer.Tokenize(sqlText!);
-
-        // Parse
-        var queryModel = SqlParser.SqlParser.Parse(tokens, fileName);
-
-        // Load schema
+        // Load schema once
         DatabaseSchema? schema = null;
         if (!string.IsNullOrWhiteSpace(schemaJson))
         {
@@ -63,64 +55,213 @@ public class JauntyQGenerator : IIncrementalGenerator
             catch
             {
                 context.ReportDiagnostic(Diagnostic.Create(
-                    Diagnostics.SchemaLoadFailed, Location.None, sqlFile.Path));
+                    Diagnostics.SchemaLoadFailed, Location.None, "(all)"));
                 return;
             }
         }
 
-        // Validate
-        var errors = QueryValidator.Validate(queryModel, schema);
-        bool hasErrors = false;
-        foreach (var error in errors)
+        // Compute the common directory prefix across all SQL file paths
+        string commonPrefix = ComputeCommonDirectoryPrefix(sqlFiles);
+
+        // Track unique entity names for JauntyDb generation
+        var entityNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+
+        // Process each SQL file
+        foreach (var sqlFile in sqlFiles)
         {
-            var severity = error.Severity == ValidationSeverity.Warning
-                ? DiagnosticSeverity.Warning
-                : DiagnosticSeverity.Error;
+            context.CancellationToken.ThrowIfCancellationRequested();
 
-            var descriptor = new DiagnosticDescriptor(
-                error.Code,
-                error.Code,
-                error.Message,
-                "JauntyQ",
-                severity,
-                true);
+            var sqlText = sqlFile.GetText(context.CancellationToken)?.ToString();
+            if (string.IsNullOrWhiteSpace(sqlText))
+                continue;
 
-            context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
+            // Extract entity and method names from path
+            string entityName = ExtractEntityName(sqlFile.Path, commonPrefix);
+            string methodName = System.IO.Path.GetFileNameWithoutExtension(sqlFile.Path);
 
-            if (error.Severity == ValidationSeverity.Error)
-                hasErrors = true;
-        }
+            // Tokenize
+            var tokens = SqlTokenizer.Tokenize(sqlText!);
 
-        if (hasErrors)
-            return;
+            // Parse
+            var queryModel = SqlParser.SqlParser.Parse(tokens, methodName);
 
-        // Build projection
-        if (schema == null)
-            return;
-
-        var projection = ProjectionBuilder.Build(queryModel, schema);
-
-        // JAUNTY008: Check for unresolved parameter types
-        foreach (var param in queryModel.Parameters)
-        {
-            string inferredType = CodeEmitter.InferParameterType(param.Name, queryModel, projection, schema);
-            if (inferredType == "object")
+            // Validate
+            var errors = QueryValidator.Validate(queryModel, schema);
+            bool hasErrors = false;
+            foreach (var error in errors)
             {
+                var severity = error.Severity == ValidationSeverity.Warning
+                    ? DiagnosticSeverity.Warning
+                    : DiagnosticSeverity.Error;
+
                 var descriptor = new DiagnosticDescriptor(
-                    "JAUNTY008",
-                    "JAUNTY008",
-                    $"Parameter type could not be inferred for '@{param.Name}'",
+                    error.Code,
+                    error.Code,
+                    error.Message,
                     "JauntyQ",
-                    DiagnosticSeverity.Warning,
+                    severity,
                     true);
+
                 context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
+
+                if (error.Severity == ValidationSeverity.Error)
+                    hasErrors = true;
             }
+
+            if (hasErrors)
+                continue;
+
+            // Build projection
+            if (schema == null)
+                continue;
+
+            var projection = ProjectionBuilder.Build(queryModel, schema);
+
+            // JAUNTY008: Check for unresolved parameter types
+            foreach (var param in queryModel.Parameters)
+            {
+                string inferredType = CodeEmitter.InferParameterType(param.Name, queryModel, projection, schema);
+                if (inferredType == "object")
+                {
+                    var descriptor = new DiagnosticDescriptor(
+                        "JAUNTY008",
+                        "JAUNTY008",
+                        $"Parameter type could not be inferred for '@{param.Name}'",
+                        "JauntyQ",
+                        DiagnosticSeverity.Warning,
+                        true);
+                    context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
+                }
+            }
+
+            // Emit per-query source file
+            var source = CodeEmitter.Emit(queryModel, projection, sqlText!, entityName, schema);
+            context.AddSource($"{entityName}.{methodName}.g.cs", SourceText.From(source, Encoding.UTF8));
+
+            entityNames.Add(entityName);
         }
 
-        // Emit code
-        var source = CodeEmitter.Emit(queryModel, projection, sqlText!, schema);
+        // Emit entity core files (constructor + _conn field per entity)
+        foreach (var entity in entityNames)
+        {
+            var coreSource = CodeEmitter.EmitEntityCore(entity);
+            context.AddSource($"{entity}.Core.g.cs", SourceText.From(coreSource, Encoding.UTF8));
+        }
 
-        context.AddSource($"{fileName}.g.cs", SourceText.From(source, Encoding.UTF8));
+        // Emit JauntyDb class
+        if (entityNames.Count > 0)
+        {
+            var sortedEntities = new System.Collections.Generic.List<string>(entityNames);
+            sortedEntities.Sort(StringComparer.Ordinal);
+            var dbSource = CodeEmitter.EmitJauntyDb(sortedEntities);
+            context.AddSource("JauntyDb.g.cs", SourceText.From(dbSource, Encoding.UTF8));
+        }
+    }
+
+    /// <summary>
+    /// Extracts the entity name from a SQL file path by comparing to the common directory prefix.
+    /// Files directly in the root SQL folder get entity name "Queries" (catch-all).
+    /// Files in a subfolder get the subfolder name as entity name.
+    /// </summary>
+    internal static string ExtractEntityName(string filePath, string commonPrefix)
+    {
+        // Normalize separators
+        string normalized = filePath.Replace('\\', '/');
+        string normalizedPrefix = commonPrefix.Replace('\\', '/');
+
+        // Get the relative path after the common prefix
+        string relative;
+        if (normalized.StartsWith(normalizedPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            relative = normalized.Substring(normalizedPrefix.Length);
+        }
+        else
+        {
+            // Fallback: just use the filename
+            relative = System.IO.Path.GetFileName(filePath);
+        }
+
+        // Trim leading separators
+        relative = relative.TrimStart('/');
+
+        // Split into segments
+        var segments = relative.Split('/');
+
+        if (segments.Length >= 2)
+        {
+            // Has a subfolder: segments[0] is the entity name, segments[last] is the filename
+            return segments[0];
+        }
+
+        // No subfolder — catch-all
+        return "Queries";
+    }
+
+    /// <summary>
+    /// Computes the common directory prefix across all SQL file paths.
+    /// This identifies the root SQL folder so we can extract entity subfolder names.
+    /// Uses the grandparent directory of each file (parent-of-parent) to avoid
+    /// swallowing the entity subfolder when all files share the same entity.
+    /// </summary>
+    internal static string ComputeCommonDirectoryPrefix(ImmutableArray<AdditionalText> files)
+    {
+        if (files.IsEmpty)
+            return "";
+
+        // Collect grandparent directories (go up 2 levels from the file).
+        // For files like "db/Products/GetAll.sql", grandparent = "db".
+        // For root-level files like "db/GetOrphaned.sql", grandparent = "" (empty).
+        // We use grandparents so the common prefix doesn't include the entity folder.
+        var dirs = new System.Collections.Generic.List<string>();
+        foreach (var file in files)
+        {
+            string dir = (System.IO.Path.GetDirectoryName(file.Path) ?? "").Replace('\\', '/');
+            string grandparent = (System.IO.Path.GetDirectoryName(dir) ?? "").Replace('\\', '/');
+            dirs.Add(grandparent);
+        }
+
+        // Filter to non-empty grandparents (files with entity subfolders).
+        // Root-level files (grandparent empty) shouldn't affect the common prefix.
+        var nonEmpty = new System.Collections.Generic.List<string>();
+        foreach (var d in dirs)
+        {
+            if (d.Length > 0)
+                nonEmpty.Add(d);
+        }
+
+        if (nonEmpty.Count == 0)
+        {
+            // ALL files are at most 1 folder deep — use the direct parent as root
+            string firstDir = (System.IO.Path.GetDirectoryName(files[0].Path) ?? "").Replace('\\', '/');
+            if (firstDir.Length > 0 && !firstDir.EndsWith("/"))
+                firstDir += "/";
+            return firstDir;
+        }
+
+        // Compute common prefix across non-empty grandparent directories
+        string prefix = nonEmpty[0];
+        for (int i = 1; i < nonEmpty.Count; i++)
+        {
+            string dir = nonEmpty[i];
+            int len = System.Math.Min(prefix.Length, dir.Length);
+            int matchEnd = 0;
+            for (int j = 0; j < len; j++)
+            {
+                if (char.ToLowerInvariant(prefix[j]) != char.ToLowerInvariant(dir[j]))
+                    break;
+                if (prefix[j] == '/')
+                    matchEnd = j + 1;
+                if (j == len - 1)
+                    matchEnd = len;
+            }
+            prefix = prefix.Substring(0, matchEnd);
+        }
+
+        // Ensure prefix ends with separator
+        if (prefix.Length > 0 && !prefix.EndsWith("/"))
+            prefix += "/";
+
+        return prefix;
     }
 
     private static class Diagnostics

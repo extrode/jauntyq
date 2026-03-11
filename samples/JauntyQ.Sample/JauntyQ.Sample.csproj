@@ -16,7 +16,7 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
   </ItemGroup>
   <ItemGroup>
-    <AdditionalFiles Include="Queries\**\*.sql" />
+    <AdditionalFiles Include="db\**\*.sql" />
     <AdditionalFiles Include="schema\*.schema.json" />
   </ItemGroup>
 </Project>
