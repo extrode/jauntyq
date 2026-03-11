@@ -103,7 +103,7 @@ public class JauntyQGenerator : IIncrementalGenerator
         // JAUNTY008: Check for unresolved parameter types
         foreach (var param in queryModel.Parameters)
         {
-            string inferredType = CodeEmitter.InferParameterType(param.Name, queryModel, projection);
+            string inferredType = CodeEmitter.InferParameterType(param.Name, queryModel, projection, schema);
             if (inferredType == "object")
             {
                 var descriptor = new DiagnosticDescriptor(
@@ -118,7 +118,7 @@ public class JauntyQGenerator : IIncrementalGenerator
         }
 
         // Emit code
-        var source = CodeEmitter.Emit(queryModel, projection, sqlText!);
+        var source = CodeEmitter.Emit(queryModel, projection, sqlText!, schema);
 
         context.AddSource($"{fileName}.g.cs", SourceText.From(source, Encoding.UTF8));
     }

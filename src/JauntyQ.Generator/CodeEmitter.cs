@@ -1,10 +1,11 @@
+using JauntyQ.Schema;
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
 
 public static class CodeEmitter
 {
-    public static string Emit(QueryModel query, ProjectionModel projection, string originalSql)
+    public static string Emit(QueryModel query, ProjectionModel projection, string originalSql, DatabaseSchema? schema = null)
     {
         var sb = new System.Text.StringBuilder();
 
@@ -17,7 +18,7 @@ public static class CodeEmitter
         sb.AppendLine("{");
         EmitDto(sb, projection);
         sb.AppendLine();
-        EmitQueryMethod(sb, query, projection, originalSql);
+        EmitQueryMethod(sb, query, projection, originalSql, schema);
         sb.AppendLine("}");
 
         return sb.ToString();
@@ -38,7 +39,8 @@ public static class CodeEmitter
         System.Text.StringBuilder sb,
         QueryModel query,
         ProjectionModel projection,
-        string originalSql)
+        string originalSql,
+        DatabaseSchema? schema)
     {
         sb.AppendLine("    public static partial class Queries");
         sb.AppendLine("    {");
@@ -48,7 +50,7 @@ public static class CodeEmitter
         paramList.Append("System.Data.Common.DbConnection conn");
         foreach (var param in query.Parameters)
         {
-            string paramType = InferParameterType(param.Name, query, projection);
+            string paramType = InferParameterType(param.Name, query, projection, schema);
             string paramName = ToCamelCase(param.Name);
             paramList.Append($", {paramType} {paramName}");
         }
@@ -137,12 +139,18 @@ public static class CodeEmitter
         return getMethod;
     }
 
-    public static string InferParameterType(string paramName, QueryModel query, ProjectionModel projection)
+    public static string InferParameterType(string paramName, QueryModel query, ProjectionModel projection, DatabaseSchema? schema = null)
     {
-        // Try to find the parameter's type from the projection columns
-        // (when the param is used in WHERE col = @param, the col type is the param type)
-        // For now, default to object — the generator will refine this later
-        // A simple heuristic: look for columns with similar names
+        // 1. Try binding-based inference (col = @param parsed by ExtractParameterBindings)
+        var paramRef = query.Parameters.FirstOrDefault(p => p.Name == paramName);
+        if (paramRef != null && !string.IsNullOrEmpty(paramRef.BoundColumnName) && schema != null)
+        {
+            var resolved = ResolveColumnType(paramRef.BoundTableAlias, paramRef.BoundColumnName, query, schema);
+            if (resolved != null)
+                return resolved;
+        }
+
+        // 2. Fallback: match parameter name to a projection column name
         foreach (var col in projection.Columns)
         {
             if (col.Name.Equals(DialectMapper.ToPascalCase(paramName), StringComparison.OrdinalIgnoreCase))
@@ -151,8 +159,47 @@ public static class CodeEmitter
             }
         }
 
-        // Default to object for now
         return "object";
+    }
+
+    private static string? ResolveColumnType(string tableAlias, string columnName, QueryModel query, DatabaseSchema schema)
+    {
+        if (!string.IsNullOrEmpty(tableAlias))
+        {
+            // Qualified — resolve alias to table name
+            string? tableName = ResolveAlias(tableAlias, query);
+            if (tableName != null &&
+                schema.Tables.TryGetValue(tableName, out var tableSchema) &&
+                tableSchema.Columns.TryGetValue(columnName, out var colSchema))
+            {
+                return DialectMapper.MapDbTypeToCSharp(colSchema.DbType, colSchema.IsNullable);
+            }
+        }
+        else
+        {
+            // Unqualified — search all referenced tables
+            foreach (var table in query.Tables)
+            {
+                if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
+                    tableSchema.Columns.TryGetValue(columnName, out var colSchema))
+                {
+                    return DialectMapper.MapDbTypeToCSharp(colSchema.DbType, colSchema.IsNullable);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ResolveAlias(string alias, QueryModel query)
+    {
+        foreach (var table in query.Tables)
+        {
+            string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+            if (string.Equals(key, alias, StringComparison.OrdinalIgnoreCase))
+                return table.TableName;
+        }
+        return null;
     }
 
     private static string ToCamelCase(string name)

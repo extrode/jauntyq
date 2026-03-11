@@ -188,6 +188,65 @@ where p.category_id = @categoryId";
         var source = result.GeneratedTrees[0].GetText().ToString();
         Assert.Contains("public static partial class Queries", source);
     }
+
+    [Fact]
+    public void ParameterType_InferredFromWhereClause()
+    {
+        // category_id is int in schema — parameter type should be inferred as int?
+        // (nullable because products.category_id is nullable in the test schema)
+        var sql = @"select p.product_id, p.product_name
+from products p
+where p.category_id = @categoryId";
+
+        var (result, _) = RunGenerator(sql);
+
+        var source = result.GeneratedTrees[0].GetText().ToString();
+        // Should contain "int? categoryId" (not "object categoryId")
+        Assert.Contains("int?", source);
+        Assert.Contains("categoryId", source);
+        Assert.DoesNotContain("object categoryId", source);
+    }
+
+    [Fact]
+    public void ParameterType_NonNullableColumn_InferredCorrectly()
+    {
+        // product_id is int NOT NULL — parameter type should be plain int
+        var sql = @"select p.product_id
+from products p
+where p.product_id = @productId";
+
+        var (result, _) = RunGenerator(sql);
+
+        var source = result.GeneratedTrees[0].GetText().ToString();
+        Assert.Contains("int productId", source);
+        Assert.DoesNotContain("object productId", source);
+    }
+
+    [Fact]
+    public void ParameterType_StringColumn_InferredCorrectly()
+    {
+        // product_name is varchar NOT NULL — parameter type should be string
+        var sql = @"select p.product_id
+from products p
+where p.product_name = @name";
+
+        var (result, _) = RunGenerator(sql);
+
+        var source = result.GeneratedTrees[0].GetText().ToString();
+        Assert.Contains("string name", source);
+        Assert.DoesNotContain("object name", source);
+    }
+
+    [Fact]
+    public void UnresolvableParameter_EmitsJAUNTY008Warning()
+    {
+        // @limit has no column binding — should emit JAUNTY008
+        var sql = @"select p.product_id from products p limit @limit";
+
+        var (result, _) = RunGenerator(sql);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JAUNTY008");
+    }
 }
 
 /// <summary>

@@ -25,6 +25,9 @@ public static class SqlParser
         // Detect unsupported constructs
         DetectUnsupportedConstructs(tokens, model);
 
+        // Extract parameter-to-column bindings (col = @param or @param = col)
+        ExtractParameterBindings(tokens, model);
+
         while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
         {
             var token = tokens[pos];
@@ -286,6 +289,102 @@ public static class SqlParser
         value == "OUTER" || value == "CROSS" || value == "FULL" ||
         value == "GROUP" || value == "ORDER" || value == "LIMIT" ||
         value == "HAVING" || value == "UNION";
+
+    private static readonly HashSet<string> ComparisonOperators = new()
+    {
+        "=", "!=", "<>", "<", ">", "<=", ">="
+    };
+
+    private static void ExtractParameterBindings(List<Token> tokens, QueryModel model)
+    {
+        // Scan for: identifier <op> @param  or  @param <op> identifier
+        for (int i = 1; i < tokens.Count - 1; i++)
+        {
+            if (tokens[i].Type != TokenType.Symbol || !ComparisonOperators.Contains(tokens[i].Value))
+                continue;
+
+            var left = tokens[i - 1];
+            var right = tokens[i + 1];
+
+            string? paramName = null;
+            string tableAlias = string.Empty;
+            string columnName = string.Empty;
+
+            if (left.Type == TokenType.Identifier && right.Type == TokenType.Parameter)
+            {
+                paramName = right.Value;
+                (tableAlias, columnName) = SplitQualifiedName(left.Value);
+            }
+            else if (left.Type == TokenType.Parameter && right.Type == TokenType.Identifier)
+            {
+                paramName = left.Value;
+                (tableAlias, columnName) = SplitQualifiedName(right.Value);
+            }
+
+            if (paramName == null)
+                continue;
+
+            // Find the ParameterRef and bind it (first binding wins)
+            var paramRef = model.Parameters.FirstOrDefault(p => p.Name == paramName);
+            if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
+            {
+                paramRef.BoundTableAlias = tableAlias;
+                paramRef.BoundColumnName = columnName;
+            }
+        }
+
+        // Also scan for: identifier IN (@param) — common pattern
+        for (int i = 0; i < tokens.Count - 4; i++)
+        {
+            if (tokens[i].Type == TokenType.Identifier &&
+                tokens[i + 1].Type == TokenType.Keyword && tokens[i + 1].Value == "IN" &&
+                tokens[i + 2].Type == TokenType.Symbol && tokens[i + 2].Value == "(" &&
+                tokens[i + 3].Type == TokenType.Parameter)
+            {
+                var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
+                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 3].Value);
+                if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
+                {
+                    paramRef.BoundTableAlias = tableAlias;
+                    paramRef.BoundColumnName = columnName;
+                }
+            }
+        }
+
+        // Also scan for: identifier LIKE @param
+        for (int i = 0; i < tokens.Count - 2; i++)
+        {
+            if (tokens[i].Type == TokenType.Identifier &&
+                tokens[i + 1].Type == TokenType.Keyword && tokens[i + 1].Value == "LIKE" &&
+                tokens[i + 2].Type == TokenType.Parameter)
+            {
+                var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
+                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 2].Value);
+                if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
+                {
+                    paramRef.BoundTableAlias = tableAlias;
+                    paramRef.BoundColumnName = columnName;
+                }
+            }
+        }
+
+        // Also scan for: identifier BETWEEN @param AND ...
+        for (int i = 0; i < tokens.Count - 2; i++)
+        {
+            if (tokens[i].Type == TokenType.Identifier &&
+                tokens[i + 1].Type == TokenType.Keyword && tokens[i + 1].Value == "BETWEEN" &&
+                tokens[i + 2].Type == TokenType.Parameter)
+            {
+                var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
+                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 2].Value);
+                if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
+                {
+                    paramRef.BoundTableAlias = tableAlias;
+                    paramRef.BoundColumnName = columnName;
+                }
+            }
+        }
+    }
 
     private static void DetectUnsupportedConstructs(List<Token> tokens, QueryModel model)
     {

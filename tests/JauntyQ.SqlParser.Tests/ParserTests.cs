@@ -163,4 +163,82 @@ where category_id = @categoryId and supplier_id = @supplierId and active = @cate
         Assert.Equal("categoryId", model.Parameters[0].Name);
         Assert.Equal("supplierId", model.Parameters[1].Name);
     }
+
+    [Fact]
+    public void ParameterBinding_QualifiedColumn()
+    {
+        var sql = @"
+select p.product_id from products p
+where p.category_id = @categoryId";
+
+        var model = ParseSql(sql);
+
+        Assert.Single(model.Parameters);
+        Assert.Equal("p", model.Parameters[0].BoundTableAlias);
+        Assert.Equal("category_id", model.Parameters[0].BoundColumnName);
+    }
+
+    [Fact]
+    public void ParameterBinding_UnqualifiedColumn()
+    {
+        var sql = "select product_id from products where category_id = @categoryId";
+        var model = ParseSql(sql);
+
+        Assert.Single(model.Parameters);
+        Assert.Empty(model.Parameters[0].BoundTableAlias);
+        Assert.Equal("category_id", model.Parameters[0].BoundColumnName);
+    }
+
+    [Fact]
+    public void ParameterBinding_MultipleParams()
+    {
+        var sql = @"
+select p.product_id from products p
+where p.category_id = @categoryId and p.unit_price > @minPrice";
+
+        var model = ParseSql(sql);
+
+        Assert.Equal(2, model.Parameters.Count);
+        Assert.Equal("category_id", model.Parameters[0].BoundColumnName);
+        Assert.Equal("unit_price", model.Parameters[1].BoundColumnName);
+    }
+
+    [Fact]
+    public void ParameterBinding_ReversedOrder()
+    {
+        // @param = column (reversed)
+        var sql = "select product_id from products where @categoryId = category_id";
+        var model = ParseSql(sql);
+
+        Assert.Single(model.Parameters);
+        Assert.Equal("category_id", model.Parameters[0].BoundColumnName);
+    }
+
+    [Fact]
+    public void ParameterBinding_LikeOperator()
+    {
+        var sql = "select product_id from products where product_name like @searchTerm";
+        var model = ParseSql(sql);
+
+        Assert.Single(model.Parameters);
+        Assert.Equal("product_name", model.Parameters[0].BoundColumnName);
+    }
+
+    [Fact]
+    public void UnsupportedConstructs_UnionDetected()
+    {
+        var sql = "select product_id from products union select category_id from categories";
+        var model = ParseSql(sql);
+
+        Assert.Contains("UNION", model.UnsupportedConstructs);
+    }
+
+    [Fact]
+    public void UnsupportedConstructs_CteDetected()
+    {
+        var sql = "with cte as (select product_id from products) select product_id from cte";
+        var model = ParseSql(sql);
+
+        Assert.Contains("CTE", model.UnsupportedConstructs);
+    }
 }
