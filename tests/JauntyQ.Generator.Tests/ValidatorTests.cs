@@ -151,4 +151,59 @@ where p.category_id = @categoryId");
 
         Assert.Empty(errors);
     }
+
+    [Fact]
+    public void DuplicateParameter_JAUNTY005()
+    {
+        // Manually construct a query with duplicate parameters
+        var query = new QueryModel { Name = "DuplicateParamQuery" };
+        query.Tables.Add(new TableRef { TableName = "products", Alias = "p" });
+        query.Columns.Add(new ColumnRef { TableAlias = "p", ColumnName = "product_id", OutputAlias = "" });
+        query.Parameters.Add(new ParameterRef { Name = "categoryId" });
+        query.Parameters.Add(new ParameterRef { Name = "categoryId" });
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JAUNTY005");
+        Assert.Contains(errors, e => e.Message.Contains("categoryId"));
+    }
+
+    [Fact]
+    public void UnionQuery_JAUNTY007()
+    {
+        var query = ParseSql(@"
+select p.product_id from products p
+union
+select c.category_id from categories c");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JAUNTY007");
+        Assert.Contains(errors, e => e.Message.Contains("UNION"));
+        Assert.Equal(ValidationSeverity.Warning, errors.First(e => e.Code == "JAUNTY007").Severity);
+    }
+
+    [Fact]
+    public void SubqueryDetected_JAUNTY007()
+    {
+        var query = ParseSql(@"
+select p.product_id from products p
+where p.category_id in (select c.category_id from categories c)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JAUNTY007" && e.Message.Contains("SUBQUERY"));
+    }
+
+    [Fact]
+    public void CteDetected_JAUNTY007()
+    {
+        var query = ParseSql(@"
+with cte as (select product_id from products)
+select product_id from cte");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JAUNTY007" && e.Message.Contains("CTE"));
+    }
 }

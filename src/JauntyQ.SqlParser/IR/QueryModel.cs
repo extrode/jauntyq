@@ -7,4 +7,5 @@ public class QueryModel
     public List<ColumnRef> Columns { get; } = new();
     public List<JoinRef> Joins { get; } = new();
     public List<ParameterRef> Parameters { get; } = new();
+    public List<string> UnsupportedConstructs { get; } = new();
 }

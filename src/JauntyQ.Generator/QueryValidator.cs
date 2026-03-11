@@ -116,7 +116,20 @@ public static class QueryValidator
             ValidateJoinSide(join.RightTable, join.RightColumn, aliasToTable, schema, errors);
         }
 
+        // JAUNTY007: Unsupported SQL constructs
+        DetectUnsupportedConstructs(query, errors);
+
         return errors;
+    }
+
+    private static void DetectUnsupportedConstructs(QueryModel query, List<ValidationError> errors)
+    {
+        foreach (var construct in query.UnsupportedConstructs)
+        {
+            errors.Add(new ValidationError("JAUNTY007",
+                $"Unsupported SQL construct: {construct}",
+                ValidationSeverity.Warning));
+        }
     }
 
     private static void ValidateJoinSide(

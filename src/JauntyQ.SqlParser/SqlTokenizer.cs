@@ -14,7 +14,7 @@ public static class SqlTokenizer
         "HAVING", "DISTINCT", "TOP", "UNION", "ALL", "EXISTS",
         "CASE", "WHEN", "THEN", "ELSE", "END",
         "ASC", "DESC", "COUNT", "SUM", "AVG", "MIN", "MAX",
-        "CAST", "COALESCE", "NULLIF"
+        "CAST", "COALESCE", "NULLIF", "WITH"
     };
 
     public static List<Token> Tokenize(string sql)
@@ -96,7 +96,8 @@ public static class SqlTokenizer
             if (pos + 1 < len)
             {
                 string two = sql.Substring(pos, 2);
-                if (two == "!=" || two == "<>" || two == "<=" || two == ">=")
+
+                if (two is "!=" or "<>" or "<=" or ">=")
                 {
                     tokens.Add(new Token(TokenType.Symbol, two));
                     pos += 2;
@@ -147,7 +148,7 @@ public static class SqlTokenizer
         char.IsLetterOrDigit(c) || c == '_';
 
     private static bool IsSymbolChar(char c) =>
-        c == ',' || c == '=' || c == '(' || c == ')' || c == '*' ||
-        c == '<' || c == '>' || c == '+' || c == '-' || c == '/' ||
-        c == ';' || c == '.' || c == '!';
+        c is ',' or '=' or '(' or ')' or '*' or
+        '<' or '>' or '+' or '-' or '/' or
+        ';' or '.' or '!';
 }

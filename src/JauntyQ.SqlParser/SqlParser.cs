@@ -22,6 +22,9 @@ public static class SqlParser
             }
         }
 
+        // Detect unsupported constructs
+        DetectUnsupportedConstructs(tokens, model);
+
         while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
         {
             var token = tokens[pos];
@@ -283,4 +286,41 @@ public static class SqlParser
         value == "OUTER" || value == "CROSS" || value == "FULL" ||
         value == "GROUP" || value == "ORDER" || value == "LIMIT" ||
         value == "HAVING" || value == "UNION";
+
+    private static void DetectUnsupportedConstructs(List<Token> tokens, QueryModel model)
+    {
+        bool seenSelect = false;
+
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            var token = tokens[i];
+
+            if (token.Type == TokenType.Keyword)
+            {
+                switch (token.Value)
+                {
+                    case "SELECT":
+                        if (seenSelect)
+                        {
+                            // Subquery (SELECT inside SELECT)
+                            if (!model.UnsupportedConstructs.Contains("SUBQUERY"))
+                                model.UnsupportedConstructs.Add("SUBQUERY");
+                        }
+                        seenSelect = true;
+                        break;
+                    case "UNION":
+                        if (!model.UnsupportedConstructs.Contains("UNION"))
+                            model.UnsupportedConstructs.Add("UNION");
+                        break;
+                }
+            }
+        }
+
+        // CTE detection: WITH keyword at position 0 (before SELECT)
+        if (tokens.Count > 0 && tokens[0].Type == TokenType.Keyword && tokens[0].Value == "WITH")
+        {
+            if (!model.UnsupportedConstructs.Contains("CTE"))
+                model.UnsupportedConstructs.Add("CTE");
+        }
+    }
 }

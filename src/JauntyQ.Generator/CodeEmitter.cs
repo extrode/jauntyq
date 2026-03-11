@@ -137,7 +137,7 @@ public static class CodeEmitter
         return getMethod;
     }
 
-    private static string InferParameterType(string paramName, QueryModel query, ProjectionModel projection)
+    public static string InferParameterType(string paramName, QueryModel query, ProjectionModel projection)
     {
         // Try to find the parameter's type from the projection columns
         // (when the param is used in WHERE col = @param, the col type is the param type)

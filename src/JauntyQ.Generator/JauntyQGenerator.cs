@@ -100,6 +100,23 @@ public class JauntyQGenerator : IIncrementalGenerator
 
         var projection = ProjectionBuilder.Build(queryModel, schema);
 
+        // JAUNTY008: Check for unresolved parameter types
+        foreach (var param in queryModel.Parameters)
+        {
+            string inferredType = CodeEmitter.InferParameterType(param.Name, queryModel, projection);
+            if (inferredType == "object")
+            {
+                var descriptor = new DiagnosticDescriptor(
+                    "JAUNTY008",
+                    "JAUNTY008",
+                    $"Parameter type could not be inferred for '@{param.Name}'",
+                    "JauntyQ",
+                    DiagnosticSeverity.Warning,
+                    true);
+                context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
+            }
+        }
+
         // Emit code
         var source = CodeEmitter.Emit(queryModel, projection, sqlText!);
 
