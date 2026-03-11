@@ -1,0 +1,34 @@
+{
+  "tables": {
+    "products": {
+      "name": "products",
+      "columns": {
+        "product_id": { "name": "product_id", "dbType": "int", "isNullable": false },
+        "product_name": { "name": "product_name", "dbType": "varchar", "isNullable": false },
+        "category_id": { "name": "category_id", "dbType": "int", "isNullable": true },
+        "unit_price": { "name": "unit_price", "dbType": "decimal", "isNullable": false },
+        "discontinued": { "name": "discontinued", "dbType": "bool", "isNullable": false }
+      }
+    },
+    "categories": {
+      "name": "categories",
+      "columns": {
+        "category_id": { "name": "category_id", "dbType": "int", "isNullable": false },
+        "category_name": { "name": "category_name", "dbType": "varchar", "isNullable": false }
+      }
+    },
+    "employees": {
+      "name": "employees",
+      "columns": {
+        "employee_id": { "name": "employee_id", "dbType": "int", "isNullable": false },
+        "first_name": { "name": "first_name", "dbType": "varchar", "isNullable": false },
+        "last_name": { "name": "last_name", "dbType": "varchar", "isNullable": false },
+        "manager_id": { "name": "manager_id", "dbType": "int", "isNullable": true }
+      }
+    }
+  },
+  "foreignKeys": [
+    { "fromTable": "products", "fromColumn": "category_id", "toTable": "categories", "toColumn": "category_id" },
+    { "fromTable": "employees", "fromColumn": "manager_id", "toTable": "employees", "toColumn": "employee_id" }
+  ]
+}
