@@ -65,7 +65,7 @@ where p.category_id = @categoryId");
     }
 
     [Fact]
-    public void MissingColumn_JAUNTY001()
+    public void MissingColumn_JNT2002()
     {
         var query = ParseSql(@"
 select p.product_title
@@ -74,23 +74,23 @@ from products p");
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
         Assert.Single(errors);
-        Assert.Equal("JAUNTY001", errors[0].Code);
+        Assert.Equal("JNT2002", errors[0].Code);
         Assert.Contains("product_title", errors[0].Message);
         Assert.Contains("products", errors[0].Message);
     }
 
     [Fact]
-    public void MissingTable_JAUNTY002()
+    public void MissingTable_JNT2001()
     {
         var query = ParseSql("select order_id from orders");
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JAUNTY002");
+        Assert.Contains(errors, e => e.Code == "JNT2001");
         Assert.Contains(errors, e => e.Message.Contains("orders"));
     }
 
     [Fact]
-    public void AmbiguousColumn_JAUNTY003()
+    public void AmbiguousColumn_JNT2003()
     {
         // category_id exists in both products and categories
         var query = ParseSql(@"
@@ -100,33 +100,33 @@ join categories c on p.category_id = c.category_id");
 
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JAUNTY003");
+        Assert.Contains(errors, e => e.Code == "JNT2003");
         Assert.Contains(errors, e => e.Message.Contains("Ambiguous"));
     }
 
     [Fact]
-    public void EmptyQuery_JAUNTY004()
+    public void EmptyQuery_JNT3001()
     {
         var query = new QueryModel { Name = "EmptyQuery" };
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
         Assert.Single(errors);
-        Assert.Equal("JAUNTY004", errors[0].Code);
+        Assert.Equal("JNT3001", errors[0].Code);
         Assert.Equal(ValidationSeverity.Warning, errors[0].Severity);
     }
 
     [Fact]
-    public void NullSchema_JAUNTY006()
+    public void NullSchema_JNT6001()
     {
         var query = ParseSql("select product_id from products");
         var errors = QueryValidator.Validate(query, null);
 
         Assert.Single(errors);
-        Assert.Equal("JAUNTY006", errors[0].Code);
+        Assert.Equal("JNT6001", errors[0].Code);
     }
 
     [Fact]
-    public void InvalidJoinColumn_JAUNTY001()
+    public void InvalidJoinColumn_JNT2002()
     {
         var query = ParseSql(@"
 select p.product_id, c.category_name
@@ -135,7 +135,7 @@ join categories c on p.cat_id = c.category_id");
 
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JAUNTY001" && e.Message.Contains("cat_id"));
+        Assert.Contains(errors, e => e.Code == "JNT2002" && e.Message.Contains("cat_id"));
     }
 
     [Fact]
@@ -153,7 +153,7 @@ where p.category_id = @categoryId");
     }
 
     [Fact]
-    public void DuplicateParameter_JAUNTY005()
+    public void DuplicateParameter_JNT4004()
     {
         // Manually construct a query with duplicate parameters
         var query = new QueryModel { Name = "DuplicateParamQuery" };
@@ -164,12 +164,12 @@ where p.category_id = @categoryId");
 
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JAUNTY005");
+        Assert.Contains(errors, e => e.Code == "JNT4004");
         Assert.Contains(errors, e => e.Message.Contains("categoryId"));
     }
 
     [Fact]
-    public void UnionQuery_JAUNTY007()
+    public void UnionQuery_JNT1001()
     {
         var query = ParseSql(@"
 select p.product_id from products p
@@ -178,13 +178,13 @@ select c.category_id from categories c");
 
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JAUNTY007");
+        Assert.Contains(errors, e => e.Code == "JNT1001");
         Assert.Contains(errors, e => e.Message.Contains("UNION"));
-        Assert.Equal(ValidationSeverity.Warning, errors.First(e => e.Code == "JAUNTY007").Severity);
+        Assert.Equal(ValidationSeverity.Warning, errors.First(e => e.Code == "JNT1001").Severity);
     }
 
     [Fact]
-    public void SubqueryDetected_JAUNTY007()
+    public void SubqueryDetected_JNT1001()
     {
         var query = ParseSql(@"
 select p.product_id from products p
@@ -192,11 +192,11 @@ where p.category_id in (select c.category_id from categories c)");
 
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JAUNTY007" && e.Message.Contains("SUBQUERY"));
+        Assert.Contains(errors, e => e.Code == "JNT1001" && e.Message.Contains("SUBQUERY"));
     }
 
     [Fact]
-    public void CteDetected_JAUNTY007()
+    public void CteDetected_JNT1001()
     {
         var query = ParseSql(@"
 with cte as (select product_id from products)
@@ -204,6 +204,6 @@ select product_id from cte");
 
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JAUNTY007" && e.Message.Contains("CTE"));
+        Assert.Contains(errors, e => e.Code == "JNT1001" && e.Message.Contains("CTE"));
     }
 }

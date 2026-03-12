@@ -22,27 +22,33 @@ public static class SqlParser
             }
         }
 
-        // Detect statement type from the first keyword
-        DetectStatementType(tokens, model);
-
         // Detect unsupported constructs
         DetectUnsupportedConstructs(tokens, model);
 
-        // For CRUD statements, use specialized parsers
-        if (model.StatementType == StatementType.Insert)
+        // Detect statement type from the first keyword
+        for (int i = 0; i < tokens.Count; i++)
         {
-            ParseInsert(tokens, model);
-            return model;
-        }
-        if (model.StatementType == StatementType.Update)
-        {
-            ParseUpdate(tokens, model);
-            return model;
-        }
-        if (model.StatementType == StatementType.Delete)
-        {
-            ParseDeleteStatement(tokens, model);
-            return model;
+            if (tokens[i].Type == TokenType.Keyword)
+            {
+                switch (tokens[i].Value)
+                {
+                    case "INSERT":
+                        model.StatementType = StatementType.Insert;
+                        ParseInsert(tokens, i + 1, model);
+                        return model;
+                    case "UPDATE":
+                        model.StatementType = StatementType.Update;
+                        ParseUpdate(tokens, i + 1, model);
+                        return model;
+                    case "DELETE":
+                        model.StatementType = StatementType.Delete;
+                        ParseDelete(tokens, i + 1, model);
+                        return model;
+                    case "SELECT":
+                        break; // fall through to normal SELECT parsing
+                }
+                break;
+            }
         }
 
         // Extract parameter-to-column bindings (col = @param or @param = col)
@@ -304,11 +310,11 @@ public static class SqlParser
     }
 
     private static bool IsClauseKeyword(string value) =>
-        value == "FROM" || value == "WHERE" || value == "JOIN" ||
-        value == "LEFT" || value == "RIGHT" || value == "INNER" ||
-        value == "OUTER" || value == "CROSS" || value == "FULL" ||
-        value == "GROUP" || value == "ORDER" || value == "LIMIT" ||
-        value == "HAVING" || value == "UNION";
+        value is "FROM" or "WHERE" or "JOIN" or
+        "LEFT" or "RIGHT" or "INNER" or
+        "OUTER" or "CROSS" or "FULL" or
+        "GROUP" or "ORDER" or "LIMIT" or
+        "HAVING" or "UNION";
 
     private static readonly HashSet<string> ComparisonOperators = new()
     {
@@ -406,45 +412,12 @@ public static class SqlParser
         }
     }
 
-    private static void DetectStatementType(List<Token> tokens, QueryModel model)
-    {
-        for (int i = 0; i < tokens.Count; i++)
-        {
-            if (tokens[i].Type == TokenType.Keyword)
-            {
-                switch (tokens[i].Value)
-                {
-                    case "SELECT":
-                        model.StatementType = StatementType.Select;
-                        return;
-                    case "INSERT":
-                        model.StatementType = StatementType.Insert;
-                        return;
-                    case "UPDATE":
-                        model.StatementType = StatementType.Update;
-                        return;
-                    case "DELETE":
-                        model.StatementType = StatementType.Delete;
-                        return;
-                }
-            }
-        }
-    }
-
     /// <summary>
-    /// Parses: INSERT INTO table (col1, col2) VALUES (@p1, @p2)
-    /// Binds parameters to columns positionally.
+    /// INSERT INTO Table (col1, col2) VALUES (@p1, @p2)
     /// </summary>
-    private static void ParseInsert(List<Token> tokens, QueryModel model)
+    private static void ParseInsert(List<Token> tokens, int pos, QueryModel model)
     {
-        int pos = 0;
-
-        // Skip to INSERT
-        while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "INSERT"))
-            pos++;
-        pos++; // skip INSERT
-
-        // Expect INTO
+        // Skip optional INTO
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "INTO")
             pos++;
 
@@ -456,7 +429,7 @@ public static class SqlParser
             pos++;
         }
 
-        // Column list: (col1, col2, ...)
+        // Column list: ( col1, col2, ... )
         var insertColumns = new List<string>();
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "(")
         {
@@ -464,58 +437,42 @@ public static class SqlParser
             while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")"))
             {
                 if (tokens[pos].Type == TokenType.Identifier)
-                {
                     insertColumns.Add(tokens[pos].Value);
-                }
                 pos++;
             }
             if (pos < tokens.Count) pos++; // skip )
         }
 
-        // Skip to VALUES
-        while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "VALUES"))
+        // Skip VALUES keyword
+        if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "VALUES")
             pos++;
-        if (pos < tokens.Count) pos++; // skip VALUES
 
-        // Values list: (@p1, @p2, ...)
-        var valueParams = new List<string>();
+        // Values list: ( @p1, @p2, ... ) — bind positionally to columns
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "(")
         {
             pos++; // skip (
+            int colIndex = 0;
             while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")"))
             {
-                if (tokens[pos].Type == TokenType.Parameter)
+                if (tokens[pos].Type == TokenType.Parameter && colIndex < insertColumns.Count)
                 {
-                    valueParams.Add(tokens[pos].Value);
+                    var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[pos].Value);
+                    if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
+                    {
+                        paramRef.BoundColumnName = insertColumns[colIndex];
+                    }
+                    colIndex++;
                 }
                 pos++;
-            }
-        }
-
-        // Bind parameters to columns positionally
-        for (int i = 0; i < insertColumns.Count && i < valueParams.Count; i++)
-        {
-            var paramRef = model.Parameters.FirstOrDefault(p => p.Name == valueParams[i]);
-            if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
-            {
-                paramRef.BoundColumnName = insertColumns[i];
-                // No table alias for INSERT — TargetTable is the only table
             }
         }
     }
 
     /// <summary>
-    /// Parses: UPDATE table SET col1 = @p1, col2 = @p2 WHERE col3 = @p3
+    /// UPDATE Table SET col1 = @p1, col2 = @p2 WHERE ...
     /// </summary>
-    private static void ParseUpdate(List<Token> tokens, QueryModel model)
+    private static void ParseUpdate(List<Token> tokens, int pos, QueryModel model)
     {
-        int pos = 0;
-
-        // Skip to UPDATE
-        while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "UPDATE"))
-            pos++;
-        pos++; // skip UPDATE
-
         // Table name
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
         {
@@ -524,60 +481,16 @@ public static class SqlParser
             pos++;
         }
 
-        // Skip to SET
-        while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "SET"))
-            pos++;
-        if (pos < tokens.Count) pos++; // skip SET
-
-        // Parse SET assignments: col = @param, col = @param, ...
-        while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
-        {
-            // Stop at WHERE or other clause keywords
-            if (tokens[pos].Type == TokenType.Keyword && IsClauseKeyword(tokens[pos].Value))
-                break;
-
-            // Look for pattern: identifier = @parameter
-            if (pos + 2 < tokens.Count &&
-                tokens[pos].Type == TokenType.Identifier &&
-                tokens[pos + 1].Type == TokenType.Symbol && tokens[pos + 1].Value == "=" &&
-                tokens[pos + 2].Type == TokenType.Parameter)
-            {
-                var columnName = tokens[pos].Value;
-                var paramName = tokens[pos + 2].Value;
-
-                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == paramName);
-                if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
-                {
-                    paramRef.BoundColumnName = columnName;
-                }
-                pos += 3;
-
-                // Skip comma
-                if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ",")
-                    pos++;
-                continue;
-            }
-
-            pos++;
-        }
-
-        // Also extract WHERE parameter bindings
+        // Parameter bindings handled by ExtractParameterBindings (col = @param pattern)
         ExtractParameterBindings(tokens, model);
     }
 
     /// <summary>
-    /// Parses: DELETE FROM table WHERE col = @param
+    /// DELETE FROM Table WHERE ... or DELETE Table WHERE ...
     /// </summary>
-    private static void ParseDeleteStatement(List<Token> tokens, QueryModel model)
+    private static void ParseDelete(List<Token> tokens, int pos, QueryModel model)
     {
-        int pos = 0;
-
-        // Skip to DELETE
-        while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "DELETE"))
-            pos++;
-        pos++; // skip DELETE
-
-        // Optional FROM
+        // Skip optional FROM
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "FROM")
             pos++;
 
@@ -586,10 +499,9 @@ public static class SqlParser
         {
             model.TargetTable = tokens[pos].Value;
             model.Tables.Add(new TableRef { TableName = tokens[pos].Value, Alias = string.Empty });
-            pos++;
         }
 
-        // Extract WHERE parameter bindings
+        // Parameter bindings handled by ExtractParameterBindings (col = @param in WHERE)
         ExtractParameterBindings(tokens, model);
     }
 

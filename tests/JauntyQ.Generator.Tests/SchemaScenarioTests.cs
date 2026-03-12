@@ -299,7 +299,7 @@ left join employees m on e.manager_id = m.employee_id";
         var query = SqlParser.SqlParser.Parse(tokens, "BadSelfJoin");
         var errors = QueryValidator.Validate(query, LoadEdgeCaseSchema());
 
-        Assert.Contains(errors, e => e.Code == "JAUNTY001" && e.Message.Contains("nonexistent"));
+        Assert.Contains(errors, e => e.Code == "JNT2002" && e.Message.Contains("nonexistent"));
     }
 
     #endregion

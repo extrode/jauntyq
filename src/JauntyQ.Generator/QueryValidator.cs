@@ -9,30 +9,29 @@ public static class QueryValidator
     {
         var errors = new List<ValidationError>();
 
-        // JAUNTY006: Schema not provided
+        // JNT6001: Schema not provided
         if (schema == null)
         {
-            errors.Add(new ValidationError("JAUNTY006",
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT6001,
                 "Schema snapshot not found. Run 'jaunty schema pull'"));
             return errors;
         }
 
-        // JAUNTY004: Empty query
-        if (query.Columns.Count == 0)
+        // JNT3001: Empty query (SELECT only — CRUD has no columns)
+        if (query.StatementType == StatementType.Select && query.Columns.Count == 0)
         {
-            errors.Add(new ValidationError("JAUNTY004",
-                "SQL file is empty or contains no SELECT columns",
-                ValidationSeverity.Warning));
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT3001,
+                "SQL file is empty or contains no SELECT columns"));
             return errors;
         }
 
-        // JAUNTY005: Duplicate parameter names
+        // JNT4004: Duplicate parameter names
         var paramNames = new HashSet<string>();
         foreach (var param in query.Parameters)
         {
             if (!paramNames.Add(param.Name))
             {
-                errors.Add(new ValidationError("JAUNTY005",
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT4004,
                     $"Duplicate parameter name '@{param.Name}'"));
             }
         }
@@ -45,17 +44,17 @@ public static class QueryValidator
             aliasToTable[key] = table.TableName;
         }
 
-        // JAUNTY002: Table exists
+        // JNT2001: Table exists
         foreach (var table in query.Tables)
         {
             if (!schema.Tables.ContainsKey(table.TableName))
             {
-                errors.Add(new ValidationError("JAUNTY002",
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT2001,
                     $"Table '{table.TableName}' does not exist in schema"));
             }
         }
 
-        // JAUNTY001: Column exists + JAUNTY003: Ambiguous column
+        // JNT2002: Column exists + JNT2003: Ambiguous column
         foreach (var col in query.Columns)
         {
             if (col.ColumnName == "*")
@@ -70,14 +69,14 @@ public static class QueryValidator
                     {
                         if (!tableSchema.Columns.ContainsKey(col.ColumnName))
                         {
-                            errors.Add(new ValidationError("JAUNTY001",
+                            errors.Add(new ValidationError(JauntyDiagnostics.JNT2002,
                                 $"Column '{col.ColumnName}' does not exist in table '{tableName}'"));
                         }
                     }
                 }
                 else
                 {
-                    errors.Add(new ValidationError("JAUNTY001",
+                    errors.Add(new ValidationError(JauntyDiagnostics.JNT2002,
                         $"Unknown table alias '{col.TableAlias}'"));
                 }
             }
@@ -98,12 +97,12 @@ public static class QueryValidator
 
                 if (matchingTables.Count == 0)
                 {
-                    errors.Add(new ValidationError("JAUNTY001",
+                    errors.Add(new ValidationError(JauntyDiagnostics.JNT2002,
                         $"Column '{col.ColumnName}' does not exist in any referenced table"));
                 }
                 else if (matchingTables.Count > 1)
                 {
-                    errors.Add(new ValidationError("JAUNTY003",
+                    errors.Add(new ValidationError(JauntyDiagnostics.JNT2003,
                         $"Ambiguous column reference '{col.ColumnName}' found in tables: {string.Join(", ", matchingTables)}"));
                 }
             }
@@ -116,7 +115,7 @@ public static class QueryValidator
             ValidateJoinSide(join.RightTable, join.RightColumn, aliasToTable, schema, errors);
         }
 
-        // JAUNTY007: Unsupported SQL constructs
+        // JNT1001: Unsupported SQL constructs
         DetectUnsupportedConstructs(query, errors);
 
         return errors;
@@ -126,9 +125,8 @@ public static class QueryValidator
     {
         foreach (var construct in query.UnsupportedConstructs)
         {
-            errors.Add(new ValidationError("JAUNTY007",
-                $"Unsupported SQL construct: {construct}",
-                ValidationSeverity.Warning));
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT1001,
+                $"Unsupported SQL construct: {construct}"));
         }
     }
 
@@ -147,7 +145,7 @@ public static class QueryValidator
             {
                 if (!tableSchema.Columns.ContainsKey(columnName))
                 {
-                    errors.Add(new ValidationError("JAUNTY001",
+                    errors.Add(new ValidationError(JauntyDiagnostics.JNT2002,
                         $"Column '{columnName}' does not exist in table '{tableName}'"));
                 }
             }

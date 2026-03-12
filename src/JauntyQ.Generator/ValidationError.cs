@@ -1,3 +1,5 @@
+using Microsoft.CodeAnalysis;
+
 namespace JauntyQ.Generator;
 
 public class ValidationError
@@ -5,12 +7,16 @@ public class ValidationError
     public string Code { get; }
     public string Message { get; }
     public ValidationSeverity Severity { get; }
+    public DiagnosticDescriptor? Descriptor { get; }
 
-    public ValidationError(string code, string message, ValidationSeverity severity = ValidationSeverity.Error)
+    public ValidationError(DiagnosticDescriptor descriptor, string message)
     {
-        Code = code;
+        Descriptor = descriptor;
+        Code = descriptor.Id;
         Message = message;
-        Severity = severity;
+        Severity = descriptor.DefaultSeverity == DiagnosticSeverity.Error
+            ? ValidationSeverity.Error
+            : ValidationSeverity.Warning;
     }
 
     public override string ToString() => $"{Code}: {Message}";

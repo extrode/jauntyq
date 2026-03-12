@@ -55,7 +55,7 @@ public class JauntyQGenerator : IIncrementalGenerator
             catch
             {
                 context.ReportDiagnostic(Diagnostic.Create(
-                    Diagnostics.SchemaLoadFailed, Location.None, "(all)"));
+                    JauntyDiagnostics.JNT6001, Location.None));
                 return;
             }
         }
@@ -96,15 +96,9 @@ public class JauntyQGenerator : IIncrementalGenerator
                 var severity = error.Severity == ValidationSeverity.Warning
                     ? DiagnosticSeverity.Warning
                     : DiagnosticSeverity.Error;
-
+                // Use a simple descriptor with the pre-formatted message
                 var descriptor = new DiagnosticDescriptor(
-                    error.Code,
-                    error.Code,
-                    error.Message,
-                    "JauntyQ",
-                    severity,
-                    true);
-
+                    error.Code, error.Code, error.Message, "JauntyQ", severity, true);
                 context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
 
                 if (error.Severity == ValidationSeverity.Error)
@@ -129,20 +123,14 @@ public class JauntyQGenerator : IIncrementalGenerator
                 // SELECT — build projection and emit reader code
                 var projection = ProjectionBuilder.Build(queryModel, schema);
 
-                // JAUNTY008: Check for unresolved parameter types
+                // JNT4003: Check for unresolved parameter types
                 foreach (var param in queryModel.Parameters)
                 {
                     string inferredType = CodeEmitter.InferParameterType(param.Name, queryModel, projection, schema, directives);
                     if (inferredType == "object")
                     {
-                        var descriptor = new DiagnosticDescriptor(
-                            "JAUNTY008",
-                            "JAUNTY008",
-                            $"Parameter type could not be inferred for '@{param.Name}'",
-                            "JauntyQ",
-                            DiagnosticSeverity.Warning,
-                            true);
-                        context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
+                        context.ReportDiagnostic(Diagnostic.Create(
+                            JauntyDiagnostics.JNT4003, Location.None, param.Name));
                     }
                 }
 
@@ -287,14 +275,4 @@ public class JauntyQGenerator : IIncrementalGenerator
         return prefix;
     }
 
-    private static class Diagnostics
-    {
-        public static readonly DiagnosticDescriptor SchemaLoadFailed = new(
-            "JAUNTY006",
-            "Schema Load Failed",
-            "Failed to load schema for query '{0}'",
-            "JauntyQ",
-            DiagnosticSeverity.Error,
-            true);
-    }
 }

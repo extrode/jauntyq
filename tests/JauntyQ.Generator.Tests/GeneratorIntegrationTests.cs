@@ -297,7 +297,7 @@ where p.category_id = @categoryId";
 
         // Should still get diagnostics
         Assert.NotEmpty(result.Diagnostics);
-        Assert.Contains(result.Diagnostics, d => d.Id == "JAUNTY001");
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT2002");
         // No per-query source generated (core + db also skipped since entity set is empty)
         Assert.Empty(result.GeneratedTrees);
     }
@@ -377,14 +377,14 @@ where p.product_name = @name";
     }
 
     [Fact]
-    public void UnresolvableParameter_EmitsJAUNTY008Warning()
+    public void UnresolvableParameter_EmitsJNT4003Warning()
     {
-        // @limit has no column binding — should emit JAUNTY008
+        // @limit has no column binding — should emit JNT4003
         var sql = @"select p.product_id from products p limit @limit";
 
         var (result, _) = RunGenerator(sql);
 
-        Assert.Contains(result.Diagnostics, d => d.Id == "JAUNTY008");
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT4003");
     }
 
     // ── Entity core file ───────────────────────────────────
