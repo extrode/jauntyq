@@ -17,6 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <AdditionalFiles Include="db\**\*.sql" />
-    <AdditionalFiles Include="schema\*.schema.json" />
+    <AdditionalFiles Include="db\schema\*.schema.json" />
   </ItemGroup>
 </Project>

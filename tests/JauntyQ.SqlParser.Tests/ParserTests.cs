@@ -241,4 +241,153 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
 
         Assert.Contains("CTE", model.UnsupportedConstructs);
     }
+
+    // ── Statement type detection ──────────────────────────
+
+    [Fact]
+    public void Select_DetectedAsSelectType()
+    {
+        var model = ParseSql("select product_id from products");
+        Assert.Equal(StatementType.Select, model.StatementType);
+    }
+
+    [Fact]
+    public void Insert_DetectedAsInsertType()
+    {
+        var model = ParseSql("INSERT INTO Products (ProductName) VALUES (@ProductName)");
+        Assert.Equal(StatementType.Insert, model.StatementType);
+    }
+
+    [Fact]
+    public void Update_DetectedAsUpdateType()
+    {
+        var model = ParseSql("UPDATE Products SET ProductName = @ProductName WHERE ProductID = @ProductID");
+        Assert.Equal(StatementType.Update, model.StatementType);
+    }
+
+    [Fact]
+    public void Delete_DetectedAsDeleteType()
+    {
+        var model = ParseSql("DELETE FROM Products WHERE ProductID = @ProductID");
+        Assert.Equal(StatementType.Delete, model.StatementType);
+    }
+
+    // ── INSERT parsing ────────────────────────────────────
+
+    [Fact]
+    public void Insert_ExtractsTargetTable()
+    {
+        var model = ParseSql("INSERT INTO Products (ProductName, UnitPrice) VALUES (@ProductName, @UnitPrice)");
+
+        Assert.Equal("Products", model.TargetTable);
+        Assert.Single(model.Tables);
+        Assert.Equal("Products", model.Tables[0].TableName);
+    }
+
+    [Fact]
+    public void Insert_ExtractsParameters()
+    {
+        var model = ParseSql("INSERT INTO Products (ProductName, UnitPrice) VALUES (@ProductName, @UnitPrice)");
+
+        Assert.Equal(2, model.Parameters.Count);
+        Assert.Equal("ProductName", model.Parameters[0].Name);
+        Assert.Equal("UnitPrice", model.Parameters[1].Name);
+    }
+
+    [Fact]
+    public void Insert_BindsParametersToColumnsPositionally()
+    {
+        var model = ParseSql("INSERT INTO Products (ProductName, CategoryID, UnitPrice) VALUES (@ProductName, @CategoryID, @UnitPrice)");
+
+        Assert.Equal(3, model.Parameters.Count);
+        Assert.Equal("ProductName", model.Parameters[0].BoundColumnName);
+        Assert.Equal("CategoryID", model.Parameters[1].BoundColumnName);
+        Assert.Equal("UnitPrice", model.Parameters[2].BoundColumnName);
+    }
+
+    [Fact]
+    public void Insert_NoColumnsInSelectProjection()
+    {
+        var model = ParseSql("INSERT INTO Products (ProductName) VALUES (@ProductName)");
+        Assert.Empty(model.Columns); // INSERT has no SELECT projection
+    }
+
+    // ── UPDATE parsing ────────────────────────────────────
+
+    [Fact]
+    public void Update_ExtractsTargetTable()
+    {
+        var model = ParseSql("UPDATE Products SET ProductName = @ProductName WHERE ProductID = @ProductID");
+
+        Assert.Equal("Products", model.TargetTable);
+        Assert.Single(model.Tables);
+        Assert.Equal("Products", model.Tables[0].TableName);
+    }
+
+    [Fact]
+    public void Update_BindsSetParameters()
+    {
+        var model = ParseSql("UPDATE Products SET ProductName = @ProductName, UnitPrice = @UnitPrice WHERE ProductID = @ProductID");
+
+        Assert.Equal(3, model.Parameters.Count);
+
+        var nameParam = model.Parameters.First(p => p.Name == "ProductName");
+        Assert.Equal("ProductName", nameParam.BoundColumnName);
+
+        var priceParam = model.Parameters.First(p => p.Name == "UnitPrice");
+        Assert.Equal("UnitPrice", priceParam.BoundColumnName);
+
+        var idParam = model.Parameters.First(p => p.Name == "ProductID");
+        Assert.Equal("ProductID", idParam.BoundColumnName);
+    }
+
+    [Fact]
+    public void Update_ExtractsWhereParameters()
+    {
+        var model = ParseSql("UPDATE Products SET ProductName = @ProductName WHERE ProductID = @ProductID");
+
+        var idParam = model.Parameters.First(p => p.Name == "ProductID");
+        Assert.Equal("ProductID", idParam.BoundColumnName);
+    }
+
+    // ── DELETE parsing ────────────────────────────────────
+
+    [Fact]
+    public void Delete_ExtractsTargetTable()
+    {
+        var model = ParseSql("DELETE FROM Products WHERE ProductID = @ProductID");
+
+        Assert.Equal("Products", model.TargetTable);
+        Assert.Single(model.Tables);
+        Assert.Equal("Products", model.Tables[0].TableName);
+    }
+
+    [Fact]
+    public void Delete_ExtractsWhereParameterBinding()
+    {
+        var model = ParseSql("DELETE FROM Products WHERE ProductID = @ProductID");
+
+        Assert.Single(model.Parameters);
+        Assert.Equal("ProductID", model.Parameters[0].Name);
+        Assert.Equal("ProductID", model.Parameters[0].BoundColumnName);
+    }
+
+    [Fact]
+    public void Delete_WithoutFrom_StillWorks()
+    {
+        var model = ParseSql("DELETE Products WHERE ProductID = @ProductID");
+
+        Assert.Equal(StatementType.Delete, model.StatementType);
+        Assert.Equal("Products", model.TargetTable);
+    }
+
+    // ── Parameter case preservation ───────────────────────
+
+    [Fact]
+    public void ParameterName_PreservesOriginalCase()
+    {
+        var model = ParseSql("SELECT * FROM Products WHERE CategoryID = @CategoryID");
+        Assert.Single(model.Parameters);
+        Assert.Equal("CategoryID", model.Parameters[0].Name);
+    }
 }

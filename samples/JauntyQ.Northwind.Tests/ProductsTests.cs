@@ -1,4 +1,5 @@
-using JauntyQ.Generated;
+using Microsoft.Data.SqlClient;
+using System.Transactions;
 using Xunit;
 
 namespace JauntyQ.Northwind.Tests;
@@ -44,5 +45,45 @@ public class ProductsTests : IClassFixture<NorthwindFixture>
     {
         var results = _fixture.Db.Products.GetById(9999);
         Assert.Empty(results);
+    }
+
+    [Fact]
+    public void Insert_ReturnsAffectedRows()
+    {
+        // TransactionScope with a fresh connection ensures auto-enlistment and rollback
+        using var scope = new TransactionScope();
+        using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
+        conn.Open();
+        int affected = JauntyQ.Generated.Products.Insert(
+            conn, "TestProduct", 1, 1, 9.99m, false);
+        Assert.Equal(1, affected);
+        // scope.Dispose() without Complete() → rollback
+    }
+
+    [Fact]
+    public void Update_ReturnsAffectedRows()
+    {
+        using var scope = new TransactionScope();
+        using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
+        conn.Open();
+        int affected = JauntyQ.Generated.Products.Update(
+            conn, "UpdatedChai", 19.99m, false, 1);
+        Assert.Equal(1, affected);
+    }
+
+    [Fact]
+    public void Delete_ReturnsAffectedRows()
+    {
+        using var scope = new TransactionScope();
+        using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
+        conn.Open();
+        // Insert a product first, then delete it (avoids FK conflicts with existing data)
+        JauntyQ.Generated.Products.Insert(conn, "ToDelete", null, null, null, false);
+        // Get the inserted product's ID
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT MAX(ProductId) FROM Products";
+        int newId = (int)cmd.ExecuteScalar()!;
+        int affected = JauntyQ.Generated.Products.Delete(conn, newId);
+        Assert.Equal(1, affected);
     }
 }

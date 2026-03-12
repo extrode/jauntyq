@@ -51,7 +51,7 @@ public class ProjectionBuilderTests
         var query = ParseSql("select p.product_id, p.product_name from products p", "GetProducts");
         var projection = ProjectionBuilder.Build(query, CreateTestSchema());
 
-        Assert.Equal("GetProductsRow", projection.Name);
+        Assert.Equal("GetProducts", projection.Name);
         Assert.Equal(2, projection.Columns.Count);
 
         Assert.Equal("ProductId", projection.Columns[0].Name);
@@ -92,7 +92,7 @@ join categories c on p.category_id = c.category_id", "GetProductsByCategory");
 
         var projection = ProjectionBuilder.Build(query, CreateTestSchema());
 
-        Assert.Equal("GetProductsByCategoryRow", projection.Name);
+        Assert.Equal("GetProductsByCategory", projection.Name);
         Assert.Equal(3, projection.Columns.Count);
         Assert.Equal("ProductId", projection.Columns[0].Name);
         Assert.Equal("ProductName", projection.Columns[1].Name);

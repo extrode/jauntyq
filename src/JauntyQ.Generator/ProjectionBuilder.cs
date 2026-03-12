@@ -9,7 +9,7 @@ public static class ProjectionBuilder
     {
         var projection = new ProjectionModel
         {
-            Name = query.Name + "Row"
+            Name = query.Name
         };
 
         // Build alias-to-table map

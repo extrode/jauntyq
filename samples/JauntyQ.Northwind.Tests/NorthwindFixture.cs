@@ -5,7 +5,7 @@ namespace JauntyQ.Northwind.Tests;
 
 public class NorthwindFixture : IDisposable
 {
-    private const string ConnectionString =
+    internal const string ConnectionString =
         "Server=localhost;Database=Northwind;Trusted_Connection=true;TrustServerCertificate=true";
 
     public System.Data.Common.DbConnection Connection { get; }

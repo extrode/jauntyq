@@ -79,8 +79,11 @@ public class JauntyQGenerator : IIncrementalGenerator
             string entityName = ExtractEntityName(sqlFile.Path, commonPrefix);
             string methodName = System.IO.Path.GetFileNameWithoutExtension(sqlFile.Path);
 
-            // Tokenize
-            var tokens = SqlTokenizer.Tokenize(sqlText!);
+            // Parse directives (before tokenization, since tokenizer strips comments)
+            var (directives, cleanedSql) = Directives.DirectiveParser.Parse(sqlText!);
+
+            // Tokenize (use cleaned SQL with directive lines removed)
+            var tokens = SqlTokenizer.Tokenize(cleanedSql);
 
             // Parse
             var queryModel = SqlParser.SqlParser.Parse(tokens, methodName);
@@ -111,31 +114,42 @@ public class JauntyQGenerator : IIncrementalGenerator
             if (hasErrors)
                 continue;
 
-            // Build projection
             if (schema == null)
                 continue;
 
-            var projection = ProjectionBuilder.Build(queryModel, schema);
+            string source;
 
-            // JAUNTY008: Check for unresolved parameter types
-            foreach (var param in queryModel.Parameters)
+            if (queryModel.StatementType != StatementType.Select)
             {
-                string inferredType = CodeEmitter.InferParameterType(param.Name, queryModel, projection, schema);
-                if (inferredType == "object")
+                // CRUD (INSERT, UPDATE, DELETE) — no projection, returns int
+                source = CodeEmitter.EmitCrud(queryModel, cleanedSql, entityName, schema, directives);
+            }
+            else
+            {
+                // SELECT — build projection and emit reader code
+                var projection = ProjectionBuilder.Build(queryModel, schema);
+
+                // JAUNTY008: Check for unresolved parameter types
+                foreach (var param in queryModel.Parameters)
                 {
-                    var descriptor = new DiagnosticDescriptor(
-                        "JAUNTY008",
-                        "JAUNTY008",
-                        $"Parameter type could not be inferred for '@{param.Name}'",
-                        "JauntyQ",
-                        DiagnosticSeverity.Warning,
-                        true);
-                    context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
+                    string inferredType = CodeEmitter.InferParameterType(param.Name, queryModel, projection, schema, directives);
+                    if (inferredType == "object")
+                    {
+                        var descriptor = new DiagnosticDescriptor(
+                            "JAUNTY008",
+                            "JAUNTY008",
+                            $"Parameter type could not be inferred for '@{param.Name}'",
+                            "JauntyQ",
+                            DiagnosticSeverity.Warning,
+                            true);
+                        context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
+                    }
                 }
+
+                source = CodeEmitter.Emit(queryModel, projection, cleanedSql, entityName, schema, directives);
             }
 
             // Emit per-query source file
-            var source = CodeEmitter.Emit(queryModel, projection, sqlText!, entityName, schema);
             context.AddSource($"{entityName}.{methodName}.g.cs", SourceText.From(source, Encoding.UTF8));
 
             entityNames.Add(entityName);
@@ -187,10 +201,19 @@ public class JauntyQGenerator : IIncrementalGenerator
         // Split into segments
         var segments = relative.Split('/');
 
-        if (segments.Length >= 2)
+        // Skip structural prefixes (tables/, views/)
+        int entityIndex = 0;
+        if (segments.Length >= 3 &&
+            (string.Equals(segments[0], "tables", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(segments[0], "views", StringComparison.OrdinalIgnoreCase)))
         {
-            // Has a subfolder: segments[0] is the entity name, segments[last] is the filename
-            return segments[0];
+            entityIndex = 1;
+        }
+
+        if (segments.Length >= entityIndex + 2)
+        {
+            // Has an entity subfolder
+            return segments[entityIndex];
         }
 
         // No subfolder — catch-all

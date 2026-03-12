@@ -132,7 +132,7 @@ where u.user_id = @userId";
         Assert.Empty(errors);
 
         var projection = ProjectionBuilder.Build(query, schema);
-        Assert.Equal("GetUserPermissionsRow", projection.Name);
+        Assert.Equal("GetUserPermissions", projection.Name);
         Assert.Equal(3, projection.Columns.Count);
         Assert.Equal("Username", projection.Columns[0].Name);
         Assert.Equal("string", projection.Columns[0].Type);

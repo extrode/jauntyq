@@ -142,7 +142,7 @@ public class GeneratorIntegrationTests
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("ProductsGetProductsRow", source);
+        Assert.Contains("Result", source);
         Assert.Contains("GetProducts", source);
     }
 
@@ -168,7 +168,7 @@ public class GeneratorIntegrationTests
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("public System.Collections.Generic.List<ProductsGetProductsRow> GetProducts()", source);
+        Assert.Contains("public System.Collections.Generic.List<Result.GetProducts> GetProducts()", source);
     }
 
     // ── Static method (with conn param) ────────────────────
@@ -180,7 +180,7 @@ public class GeneratorIntegrationTests
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("public static System.Collections.Generic.List<ProductsGetProductsRow> GetProducts(System.Data.Common.DbConnection conn)", source);
+        Assert.Contains("public static System.Collections.Generic.List<Result.GetProducts> GetProducts(System.Data.Common.DbConnection conn)", source);
     }
 
     // ── Connection lifecycle ───────────────────────────────
@@ -238,7 +238,7 @@ where p.category_id = @categoryId";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         // Instance method: no conn, just the query parameter
-        Assert.Contains("public System.Collections.Generic.List<ProductsGetProductsRow> GetProducts(int? categoryId)", source);
+        Assert.Contains("public System.Collections.Generic.List<Result.GetProducts> GetProducts(int? categoryId)", source);
     }
 
     [Fact]
@@ -252,7 +252,7 @@ where p.category_id = @categoryId";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         // Static method: conn + query parameter
-        Assert.Contains("public static System.Collections.Generic.List<ProductsGetProductsRow> GetProducts(System.Data.Common.DbConnection conn, int? categoryId)", source);
+        Assert.Contains("public static System.Collections.Generic.List<Result.GetProducts> GetProducts(System.Data.Common.DbConnection conn, int? categoryId)", source);
     }
 
     // ── Nullable columns ───────────────────────────────────
@@ -281,7 +281,7 @@ where p.category_id = @categoryId";
         var (result, _) = RunGenerator(sql, "db/Products/GetProductsByCategory.sql");
 
         var source = GetSource(result, "Products.GetProductsByCategory.g.cs");
-        Assert.Contains("ProductsGetProductsByCategoryRow", source);
+        Assert.Contains("Result.GetProductsByCategory", source);
         Assert.Contains("ProductId", source);
         Assert.Contains("ProductName", source);
         Assert.Contains("CategoryName", source);
@@ -468,6 +468,133 @@ where p.product_name = @name";
 
         var dbSource = GetSource(result, "JauntyDb.g.cs");
         Assert.Contains("public Queries Queries =>", dbSource);
+    }
+    // ── CRUD generation ───────────────────────────────────
+
+    [Fact]
+    public void InsertStatement_GeneratesExecuteNonQuery()
+    {
+        var sql = "INSERT INTO products (product_name, category_id) VALUES (@product_name, @category_id)";
+        var (result, _) = RunGenerator(sql, "db/Products/Insert.sql");
+
+        var source = GetSource(result, "Products.Insert.g.cs");
+        Assert.Contains("public int Insert(", source);
+        Assert.Contains("ExecuteNonQuery()", source);
+        Assert.DoesNotContain("ExecuteReader", source);
+        Assert.DoesNotContain("Result", source);
+    }
+
+    [Fact]
+    public void UpdateStatement_GeneratesExecuteNonQuery()
+    {
+        var sql = "UPDATE products SET product_name = @product_name WHERE product_id = @product_id";
+        var (result, _) = RunGenerator(sql, "db/Products/Update.sql");
+
+        var source = GetSource(result, "Products.Update.g.cs");
+        Assert.Contains("public int Update(", source);
+        Assert.Contains("public static int Update(", source);
+        Assert.Contains("ExecuteNonQuery()", source);
+    }
+
+    [Fact]
+    public void DeleteStatement_GeneratesExecuteNonQuery()
+    {
+        var sql = "DELETE FROM products WHERE product_id = @product_id";
+        var (result, _) = RunGenerator(sql, "db/Products/Delete.sql");
+
+        var source = GetSource(result, "Products.Delete.g.cs");
+        Assert.Contains("public int Delete(", source);
+        Assert.Contains("ExecuteNonQuery()", source);
+    }
+
+    [Fact]
+    public void CrudStatement_InfersParameterTypesFromSchema()
+    {
+        var sql = "INSERT INTO products (product_name, category_id) VALUES (@product_name, @category_id)";
+        var (result, _) = RunGenerator(sql, "db/Products/Insert.sql");
+
+        var source = GetSource(result, "Products.Insert.g.cs");
+        Assert.Contains("string product_name", source);
+        Assert.Contains("int? category_id", source);
+        // Method signature should not have "object" as a parameter type
+        Assert.DoesNotContain("object product_name", source);
+        Assert.DoesNotContain("object category_id", source);
+    }
+
+    [Fact]
+    public void CrudStatement_SharesEntityPartialClass()
+    {
+        var (result, _) = RunGeneratorMultiFile(
+            ("db/Products/GetAll.sql", "select p.product_id, p.product_name from products p"),
+            ("db/Products/Insert.sql", "INSERT INTO products (product_name) VALUES (@product_name)")
+        );
+
+        var getAllSource = GetSource(result, "Products.GetAll.g.cs");
+        Assert.Contains("public partial class Products", getAllSource);
+        Assert.Contains("Result.GetAll", getAllSource);
+
+        var insertSource = GetSource(result, "Products.Insert.g.cs");
+        Assert.Contains("public partial class Products", insertSource);
+        Assert.Contains("public int Insert(", insertSource);
+    }
+
+    // ── Folder structure: tables/ and views/ prefixes ──────
+
+    [Fact]
+    public void TablesPrefix_ExtractsCorrectEntityName()
+    {
+        var sql = "select p.product_id, p.product_name from products p";
+        var (result, _) = RunGeneratorMultiFile(
+            ("db/tables/Products/GetAll.sql", sql),
+            ("db/tables/Categories/GetAll.sql", "select c.category_id, c.category_name from categories c")
+        );
+
+        var productsSource = GetSource(result, "Products.GetAll.g.cs");
+        Assert.Contains("public partial class Products", productsSource);
+        Assert.DoesNotContain("class Tables", productsSource);
+
+        var categoriesSource = GetSource(result, "Categories.GetAll.g.cs");
+        Assert.Contains("public partial class Categories", categoriesSource);
+
+        var dbSource = GetSource(result, "JauntyDb.g.cs");
+        Assert.Contains("public Products Products =>", dbSource);
+        Assert.Contains("public Categories Categories =>", dbSource);
+    }
+
+    [Fact]
+    public void ViewsPrefix_ExtractsCorrectEntityName()
+    {
+        var sql = "select p.product_id, p.product_name from products p";
+        var (result, _) = RunGeneratorMultiFile(
+            ("db/views/ProductSummary/GetAll.sql", sql),
+            ("db/tables/Products/GetById.sql", "select p.product_id, p.product_name from products p where p.product_id = @productId")
+        );
+
+        var viewSource = GetSource(result, "ProductSummary.GetAll.g.cs");
+        Assert.Contains("public partial class ProductSummary", viewSource);
+
+        var tableSource = GetSource(result, "Products.GetById.g.cs");
+        Assert.Contains("public partial class Products", tableSource);
+
+        var dbSource = GetSource(result, "JauntyDb.g.cs");
+        Assert.Contains("public ProductSummary ProductSummary =>", dbSource);
+        Assert.Contains("public Products Products =>", dbSource);
+    }
+
+    [Fact]
+    public void TablesPrefix_CrudWorksCorrectly()
+    {
+        var (result, _) = RunGeneratorMultiFile(
+            ("db/tables/Products/GetAll.sql", "select p.product_id, p.product_name from products p"),
+            ("db/tables/Products/Insert.sql", "INSERT INTO products (product_name, category_id) VALUES (@product_name, @category_id)")
+        );
+
+        var getAllSource = GetSource(result, "Products.GetAll.g.cs");
+        Assert.Contains("Result.GetAll", getAllSource);
+
+        var insertSource = GetSource(result, "Products.Insert.g.cs");
+        Assert.Contains("public int Insert(", insertSource);
+        Assert.Contains("ExecuteNonQuery()", insertSource);
     }
 }
 
