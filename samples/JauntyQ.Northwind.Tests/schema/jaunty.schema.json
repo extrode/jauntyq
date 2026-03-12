@@ -1,0 +1,1179 @@
+{
+  "tables": {
+    "AlphabeticalListOfProducts": {
+      "name": "AlphabeticalListOfProducts",
+      "columns": {
+        "ProductId": {
+          "name": "ProductId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "ProductName": {
+          "name": "ProductName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "SupplierId": {
+          "name": "SupplierId",
+          "dbType": "int",
+          "isNullable": true
+        },
+        "CategoryId": {
+          "name": "CategoryId",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "QuantityPerUnit": {
+          "name": "QuantityPerUnit",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "UnitPrice": {
+          "name": "UnitPrice",
+          "dbType": "money",
+          "isNullable": true
+        },
+        "UnitsInStock": {
+          "name": "UnitsInStock",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "UnitsOnOrder": {
+          "name": "UnitsOnOrder",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "ReorderLevel": {
+          "name": "ReorderLevel",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "Discontinued": {
+          "name": "Discontinued",
+          "dbType": "bit",
+          "isNullable": false
+        },
+        "CategoryName": {
+          "name": "CategoryName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        }
+      }
+    },
+    "Categories": {
+      "name": "Categories",
+      "columns": {
+        "CategoryId": {
+          "name": "CategoryId",
+          "dbType": "smallint",
+          "isNullable": false
+        },
+        "CategoryName": {
+          "name": "CategoryName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "Description": {
+          "name": "Description",
+          "dbType": "ntext",
+          "isNullable": true
+        },
+        "Picture": {
+          "name": "Picture",
+          "dbType": "image",
+          "isNullable": true
+        }
+      }
+    },
+    "CategorySalesFor1997": {
+      "name": "CategorySalesFor1997",
+      "columns": {
+        "CategoryName": {
+          "name": "CategoryName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "CategorySales": {
+          "name": "CategorySales",
+          "dbType": "money",
+          "isNullable": true
+        }
+      }
+    },
+    "CurrentProductList": {
+      "name": "CurrentProductList",
+      "columns": {
+        "ProductId": {
+          "name": "ProductId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "ProductName": {
+          "name": "ProductName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        }
+      }
+    },
+    "CustomerAndSuppliersByCity": {
+      "name": "CustomerAndSuppliersByCity",
+      "columns": {
+        "City": {
+          "name": "City",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "CompanyName": {
+          "name": "CompanyName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "ContactName": {
+          "name": "ContactName",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Relationship": {
+          "name": "Relationship",
+          "dbType": "varchar",
+          "isNullable": false
+        }
+      }
+    },
+    "CustomerCustomerDemo": {
+      "name": "CustomerCustomerDemo",
+      "columns": {
+        "CustomerId": {
+          "name": "CustomerId",
+          "dbType": "nchar",
+          "isNullable": false
+        },
+        "CustomerTypeId": {
+          "name": "CustomerTypeId",
+          "dbType": "nchar",
+          "isNullable": false
+        }
+      }
+    },
+    "CustomerDemographics": {
+      "name": "CustomerDemographics",
+      "columns": {
+        "CustomerTypeId": {
+          "name": "CustomerTypeId",
+          "dbType": "nchar",
+          "isNullable": false
+        },
+        "CustomerDescription": {
+          "name": "CustomerDescription",
+          "dbType": "ntext",
+          "isNullable": true
+        }
+      }
+    },
+    "Customers": {
+      "name": "Customers",
+      "columns": {
+        "CustomerId": {
+          "name": "CustomerId",
+          "dbType": "nchar",
+          "isNullable": false
+        },
+        "CompanyName": {
+          "name": "CompanyName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "ContactName": {
+          "name": "ContactName",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ContactTitle": {
+          "name": "ContactTitle",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Address": {
+          "name": "Address",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "City": {
+          "name": "City",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Region": {
+          "name": "Region",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "PostalCode": {
+          "name": "PostalCode",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Country": {
+          "name": "Country",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Phone": {
+          "name": "Phone",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Fax": {
+          "name": "Fax",
+          "dbType": "nvarchar",
+          "isNullable": true
+        }
+      }
+    },
+    "Employees": {
+      "name": "Employees",
+      "columns": {
+        "EmployeeId": {
+          "name": "EmployeeId",
+          "dbType": "smallint",
+          "isNullable": false
+        },
+        "LastName": {
+          "name": "LastName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "FirstName": {
+          "name": "FirstName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "Title": {
+          "name": "Title",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "TitleOfCourtesy": {
+          "name": "TitleOfCourtesy",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "BirthDate": {
+          "name": "BirthDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "HireDate": {
+          "name": "HireDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "Address": {
+          "name": "Address",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "City": {
+          "name": "City",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Region": {
+          "name": "Region",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "PostalCode": {
+          "name": "PostalCode",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Country": {
+          "name": "Country",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "HomePhone": {
+          "name": "HomePhone",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Extension": {
+          "name": "Extension",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Photo": {
+          "name": "Photo",
+          "dbType": "image",
+          "isNullable": true
+        },
+        "Notes": {
+          "name": "Notes",
+          "dbType": "ntext",
+          "isNullable": true
+        },
+        "ReportsTo": {
+          "name": "ReportsTo",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "PhotoPath": {
+          "name": "PhotoPath",
+          "dbType": "nvarchar",
+          "isNullable": true
+        }
+      }
+    },
+    "EmployeeTerritories": {
+      "name": "EmployeeTerritories",
+      "columns": {
+        "EmployeeId": {
+          "name": "EmployeeId",
+          "dbType": "smallint",
+          "isNullable": false
+        },
+        "TerritoryId": {
+          "name": "TerritoryId",
+          "dbType": "nvarchar",
+          "isNullable": false
+        }
+      }
+    },
+    "Invoices": {
+      "name": "Invoices",
+      "columns": {
+        "ShipName": {
+          "name": "ShipName",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipAddress": {
+          "name": "ShipAddress",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipCity": {
+          "name": "ShipCity",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipRegion": {
+          "name": "ShipRegion",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipPostalCode": {
+          "name": "ShipPostalCode",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipCountry": {
+          "name": "ShipCountry",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "CustomerId": {
+          "name": "CustomerId",
+          "dbType": "nchar",
+          "isNullable": true
+        },
+        "CustomerName": {
+          "name": "CustomerName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "Address": {
+          "name": "Address",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "City": {
+          "name": "City",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Region": {
+          "name": "Region",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "PostalCode": {
+          "name": "PostalCode",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Country": {
+          "name": "Country",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Salesperson": {
+          "name": "Salesperson",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "OrderId": {
+          "name": "OrderId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "OrderDate": {
+          "name": "OrderDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "RequiredDate": {
+          "name": "RequiredDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "ShippedDate": {
+          "name": "ShippedDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "ShipperName": {
+          "name": "ShipperName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "ProductId": {
+          "name": "ProductId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "ProductName": {
+          "name": "ProductName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "UnitPrice": {
+          "name": "UnitPrice",
+          "dbType": "money",
+          "isNullable": false
+        },
+        "Quantity": {
+          "name": "Quantity",
+          "dbType": "smallint",
+          "isNullable": false
+        },
+        "Discount": {
+          "name": "Discount",
+          "dbType": "real",
+          "isNullable": false
+        },
+        "ExtendedPrice": {
+          "name": "ExtendedPrice",
+          "dbType": "money",
+          "isNullable": true
+        },
+        "Freight": {
+          "name": "Freight",
+          "dbType": "money",
+          "isNullable": true
+        }
+      }
+    },
+    "Order Details": {
+      "name": "Order Details",
+      "columns": {
+        "OrderId": {
+          "name": "OrderId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "ProductId": {
+          "name": "ProductId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "UnitPrice": {
+          "name": "UnitPrice",
+          "dbType": "money",
+          "isNullable": false
+        },
+        "Quantity": {
+          "name": "Quantity",
+          "dbType": "smallint",
+          "isNullable": false
+        },
+        "Discount": {
+          "name": "Discount",
+          "dbType": "real",
+          "isNullable": false
+        }
+      }
+    },
+    "OrderDetailsExtended": {
+      "name": "OrderDetailsExtended",
+      "columns": {
+        "OrderId": {
+          "name": "OrderId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "ProductId": {
+          "name": "ProductId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "ProductName": {
+          "name": "ProductName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "UnitPrice": {
+          "name": "UnitPrice",
+          "dbType": "money",
+          "isNullable": false
+        },
+        "Quantity": {
+          "name": "Quantity",
+          "dbType": "smallint",
+          "isNullable": false
+        },
+        "Discount": {
+          "name": "Discount",
+          "dbType": "real",
+          "isNullable": false
+        },
+        "ExtendedPrice": {
+          "name": "ExtendedPrice",
+          "dbType": "money",
+          "isNullable": true
+        }
+      }
+    },
+    "Orders": {
+      "name": "Orders",
+      "columns": {
+        "OrderId": {
+          "name": "OrderId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "CustomerId": {
+          "name": "CustomerId",
+          "dbType": "nchar",
+          "isNullable": true
+        },
+        "EmployeeId": {
+          "name": "EmployeeId",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "OrderDate": {
+          "name": "OrderDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "RequiredDate": {
+          "name": "RequiredDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "ShippedDate": {
+          "name": "ShippedDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "ShipVia": {
+          "name": "ShipVia",
+          "dbType": "int",
+          "isNullable": true
+        },
+        "Freight": {
+          "name": "Freight",
+          "dbType": "money",
+          "isNullable": true
+        },
+        "ShipName": {
+          "name": "ShipName",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipAddress": {
+          "name": "ShipAddress",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipCity": {
+          "name": "ShipCity",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipRegion": {
+          "name": "ShipRegion",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipPostalCode": {
+          "name": "ShipPostalCode",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipCountry": {
+          "name": "ShipCountry",
+          "dbType": "nvarchar",
+          "isNullable": true
+        }
+      }
+    },
+    "OrdersQry": {
+      "name": "OrdersQry",
+      "columns": {
+        "OrderId": {
+          "name": "OrderId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "CustomerId": {
+          "name": "CustomerId",
+          "dbType": "nchar",
+          "isNullable": true
+        },
+        "EmployeeId": {
+          "name": "EmployeeId",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "OrderDate": {
+          "name": "OrderDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "RequiredDate": {
+          "name": "RequiredDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "ShippedDate": {
+          "name": "ShippedDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "ShipVia": {
+          "name": "ShipVia",
+          "dbType": "int",
+          "isNullable": true
+        },
+        "Freight": {
+          "name": "Freight",
+          "dbType": "money",
+          "isNullable": true
+        },
+        "ShipName": {
+          "name": "ShipName",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipAddress": {
+          "name": "ShipAddress",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipCity": {
+          "name": "ShipCity",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipRegion": {
+          "name": "ShipRegion",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipPostalCode": {
+          "name": "ShipPostalCode",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ShipCountry": {
+          "name": "ShipCountry",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "CompanyName": {
+          "name": "CompanyName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "Address": {
+          "name": "Address",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "City": {
+          "name": "City",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Region": {
+          "name": "Region",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "PostalCode": {
+          "name": "PostalCode",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Country": {
+          "name": "Country",
+          "dbType": "nvarchar",
+          "isNullable": true
+        }
+      }
+    },
+    "OrderSubtotals": {
+      "name": "OrderSubtotals",
+      "columns": {
+        "OrderId": {
+          "name": "OrderId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "Subtotal": {
+          "name": "Subtotal",
+          "dbType": "money",
+          "isNullable": true
+        }
+      }
+    },
+    "Products": {
+      "name": "Products",
+      "columns": {
+        "ProductId": {
+          "name": "ProductId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "ProductName": {
+          "name": "ProductName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "SupplierId": {
+          "name": "SupplierId",
+          "dbType": "int",
+          "isNullable": true
+        },
+        "CategoryId": {
+          "name": "CategoryId",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "QuantityPerUnit": {
+          "name": "QuantityPerUnit",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "UnitPrice": {
+          "name": "UnitPrice",
+          "dbType": "money",
+          "isNullable": true
+        },
+        "UnitsInStock": {
+          "name": "UnitsInStock",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "UnitsOnOrder": {
+          "name": "UnitsOnOrder",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "ReorderLevel": {
+          "name": "ReorderLevel",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "Discontinued": {
+          "name": "Discontinued",
+          "dbType": "bit",
+          "isNullable": false
+        }
+      }
+    },
+    "ProductsAboveAveragePrice": {
+      "name": "ProductsAboveAveragePrice",
+      "columns": {
+        "ProductName": {
+          "name": "ProductName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "UnitPrice": {
+          "name": "UnitPrice",
+          "dbType": "money",
+          "isNullable": true
+        }
+      }
+    },
+    "ProductSalesFor1997": {
+      "name": "ProductSalesFor1997",
+      "columns": {
+        "CategoryName": {
+          "name": "CategoryName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "ProductName": {
+          "name": "ProductName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "ProductSales": {
+          "name": "ProductSales",
+          "dbType": "money",
+          "isNullable": true
+        }
+      }
+    },
+    "ProductsByCategory": {
+      "name": "ProductsByCategory",
+      "columns": {
+        "CategoryName": {
+          "name": "CategoryName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "ProductName": {
+          "name": "ProductName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "QuantityPerUnit": {
+          "name": "QuantityPerUnit",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "UnitsInStock": {
+          "name": "UnitsInStock",
+          "dbType": "smallint",
+          "isNullable": true
+        },
+        "Discontinued": {
+          "name": "Discontinued",
+          "dbType": "bit",
+          "isNullable": false
+        }
+      }
+    },
+    "QuarterlyOrders": {
+      "name": "QuarterlyOrders",
+      "columns": {
+        "CustomerId": {
+          "name": "CustomerId",
+          "dbType": "nchar",
+          "isNullable": true
+        },
+        "CompanyName": {
+          "name": "CompanyName",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "City": {
+          "name": "City",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Country": {
+          "name": "Country",
+          "dbType": "nvarchar",
+          "isNullable": true
+        }
+      }
+    },
+    "Region": {
+      "name": "Region",
+      "columns": {
+        "RegionId": {
+          "name": "RegionId",
+          "dbType": "smallint",
+          "isNullable": false
+        },
+        "Description": {
+          "name": "Description",
+          "dbType": "nvarchar",
+          "isNullable": false
+        }
+      }
+    },
+    "SalesByCategory": {
+      "name": "SalesByCategory",
+      "columns": {
+        "CategoryId": {
+          "name": "CategoryId",
+          "dbType": "smallint",
+          "isNullable": false
+        },
+        "CategoryName": {
+          "name": "CategoryName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "ProductName": {
+          "name": "ProductName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "ProductSales": {
+          "name": "ProductSales",
+          "dbType": "money",
+          "isNullable": true
+        }
+      }
+    },
+    "SalesTotalsByAmount": {
+      "name": "SalesTotalsByAmount",
+      "columns": {
+        "SaleAmount": {
+          "name": "SaleAmount",
+          "dbType": "money",
+          "isNullable": true
+        },
+        "OrderId": {
+          "name": "OrderId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "CompanyName": {
+          "name": "CompanyName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "ShippedDate": {
+          "name": "ShippedDate",
+          "dbType": "datetime",
+          "isNullable": true
+        }
+      }
+    },
+    "Shippers": {
+      "name": "Shippers",
+      "columns": {
+        "ShipperId": {
+          "name": "ShipperId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "CompanyName": {
+          "name": "CompanyName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "Phone": {
+          "name": "Phone",
+          "dbType": "nvarchar",
+          "isNullable": true
+        }
+      }
+    },
+    "SummaryOfSalesByQuarter": {
+      "name": "SummaryOfSalesByQuarter",
+      "columns": {
+        "ShippedDate": {
+          "name": "ShippedDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "OrderId": {
+          "name": "OrderId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "Subtotal": {
+          "name": "Subtotal",
+          "dbType": "money",
+          "isNullable": true
+        }
+      }
+    },
+    "SummaryOfSalesByYear": {
+      "name": "SummaryOfSalesByYear",
+      "columns": {
+        "ShippedDate": {
+          "name": "ShippedDate",
+          "dbType": "datetime",
+          "isNullable": true
+        },
+        "OrderId": {
+          "name": "OrderId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "Subtotal": {
+          "name": "Subtotal",
+          "dbType": "money",
+          "isNullable": true
+        }
+      }
+    },
+    "Suppliers": {
+      "name": "Suppliers",
+      "columns": {
+        "SupplierId": {
+          "name": "SupplierId",
+          "dbType": "int",
+          "isNullable": false
+        },
+        "CompanyName": {
+          "name": "CompanyName",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "ContactName": {
+          "name": "ContactName",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "ContactTitle": {
+          "name": "ContactTitle",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Address": {
+          "name": "Address",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "City": {
+          "name": "City",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Region": {
+          "name": "Region",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "PostalCode": {
+          "name": "PostalCode",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Country": {
+          "name": "Country",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Phone": {
+          "name": "Phone",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "Fax": {
+          "name": "Fax",
+          "dbType": "nvarchar",
+          "isNullable": true
+        },
+        "HomePage": {
+          "name": "HomePage",
+          "dbType": "ntext",
+          "isNullable": true
+        }
+      }
+    },
+    "Territories": {
+      "name": "Territories",
+      "columns": {
+        "TerritoryId": {
+          "name": "TerritoryId",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "Description": {
+          "name": "Description",
+          "dbType": "nvarchar",
+          "isNullable": false
+        },
+        "RegionId": {
+          "name": "RegionId",
+          "dbType": "smallint",
+          "isNullable": false
+        }
+      }
+    }
+  },
+  "foreignKeys": [
+    {
+      "fromTable": "Products",
+      "fromColumn": "CategoryId",
+      "toTable": "Categories",
+      "toColumn": "CategoryId"
+    },
+    {
+      "fromTable": "CustomerCustomerDemo",
+      "fromColumn": "CustomerId",
+      "toTable": "Customers",
+      "toColumn": "CustomerId"
+    },
+    {
+      "fromTable": "Orders",
+      "fromColumn": "CustomerId",
+      "toTable": "Customers",
+      "toColumn": "CustomerId"
+    },
+    {
+      "fromTable": "CustomerCustomerDemo",
+      "fromColumn": "CustomerTypeId",
+      "toTable": "CustomerDemographics",
+      "toColumn": "CustomerTypeId"
+    },
+    {
+      "fromTable": "Territories",
+      "fromColumn": "RegionId",
+      "toTable": "Region",
+      "toColumn": "RegionId"
+    },
+    {
+      "fromTable": "EmployeeTerritories",
+      "fromColumn": "TerritoryId",
+      "toTable": "Territories",
+      "toColumn": "TerritoryId"
+    },
+    {
+      "fromTable": "Employees",
+      "fromColumn": "ReportsTo",
+      "toTable": "Employees",
+      "toColumn": "EmployeeId"
+    },
+    {
+      "fromTable": "EmployeeTerritories",
+      "fromColumn": "EmployeeId",
+      "toTable": "Employees",
+      "toColumn": "EmployeeId"
+    },
+    {
+      "fromTable": "Orders",
+      "fromColumn": "EmployeeId",
+      "toTable": "Employees",
+      "toColumn": "EmployeeId"
+    },
+    {
+      "fromTable": "Orders",
+      "fromColumn": "ShipVia",
+      "toTable": "Shippers",
+      "toColumn": "ShipperId"
+    },
+    {
+      "fromTable": "Products",
+      "fromColumn": "SupplierId",
+      "toTable": "Suppliers",
+      "toColumn": "SupplierId"
+    },
+    {
+      "fromTable": "Order Details",
+      "fromColumn": "ProductId",
+      "toTable": "Products",
+      "toColumn": "ProductId"
+    },
+    {
+      "fromTable": "Order Details",
+      "fromColumn": "OrderId",
+      "toTable": "Orders",
+      "toColumn": "OrderId"
+    }
+  ]
+}

@@ -142,7 +142,7 @@ public class GeneratorIntegrationTests
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("GetProductsRow", source);
+        Assert.Contains("ProductsGetProductsRow", source);
         Assert.Contains("GetProducts", source);
     }
 
@@ -168,7 +168,7 @@ public class GeneratorIntegrationTests
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("public System.Collections.Generic.List<GetProductsRow> GetProducts()", source);
+        Assert.Contains("public System.Collections.Generic.List<ProductsGetProductsRow> GetProducts()", source);
     }
 
     // ── Static method (with conn param) ────────────────────
@@ -180,7 +180,7 @@ public class GeneratorIntegrationTests
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("public static System.Collections.Generic.List<GetProductsRow> GetProducts(System.Data.Common.DbConnection conn)", source);
+        Assert.Contains("public static System.Collections.Generic.List<ProductsGetProductsRow> GetProducts(System.Data.Common.DbConnection conn)", source);
     }
 
     // ── Connection lifecycle ───────────────────────────────
@@ -238,7 +238,7 @@ where p.category_id = @categoryId";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         // Instance method: no conn, just the query parameter
-        Assert.Contains("public System.Collections.Generic.List<GetProductsRow> GetProducts(int? categoryId)", source);
+        Assert.Contains("public System.Collections.Generic.List<ProductsGetProductsRow> GetProducts(int? categoryId)", source);
     }
 
     [Fact]
@@ -252,7 +252,7 @@ where p.category_id = @categoryId";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         // Static method: conn + query parameter
-        Assert.Contains("public static System.Collections.Generic.List<GetProductsRow> GetProducts(System.Data.Common.DbConnection conn, int? categoryId)", source);
+        Assert.Contains("public static System.Collections.Generic.List<ProductsGetProductsRow> GetProducts(System.Data.Common.DbConnection conn, int? categoryId)", source);
     }
 
     // ── Nullable columns ───────────────────────────────────
@@ -281,7 +281,7 @@ where p.category_id = @categoryId";
         var (result, _) = RunGenerator(sql, "db/Products/GetProductsByCategory.sql");
 
         var source = GetSource(result, "Products.GetProductsByCategory.g.cs");
-        Assert.Contains("GetProductsByCategoryRow", source);
+        Assert.Contains("ProductsGetProductsByCategoryRow", source);
         Assert.Contains("ProductId", source);
         Assert.Contains("ProductName", source);
         Assert.Contains("CategoryName", source);

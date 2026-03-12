@@ -61,6 +61,18 @@ public static class SqlTokenizer
                 continue;
             }
 
+            // Bracket-quoted identifier: [Name With Spaces]
+            if (sql[pos] == '[')
+            {
+                pos++; // skip opening bracket
+                int start = pos;
+                while (pos < len && sql[pos] != ']')
+                    pos++;
+                tokens.Add(new Token(TokenType.Identifier, sql.Substring(start, pos - start)));
+                if (pos < len) pos++; // skip closing bracket
+                continue;
+            }
+
             // String literal: 'text'
             if (sql[pos] == '\'')
             {
