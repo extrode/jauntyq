@@ -25,10 +25,22 @@ public class DirectiveModel
     public List<ExplicitParam>? ExplicitParams { get; set; }
 
     /// <summary>
+    /// True when: -- @proc or -- @proc Name
+    /// </summary>
+    public bool IsProc { get; set; }
+
+    /// <summary>
+    /// Custom stored procedure name from: -- @proc CustomName
+    /// Null when using default naming convention (Entity_Method).
+    /// </summary>
+    public string? ProcName { get; set; }
+
+    /// <summary>
     /// True if any directives were specified.
     /// </summary>
     public bool HasDirectives =>
-        ResultTypeName != null || ResultIsVoid || InlineColumns != null || ExplicitParams != null;
+        ResultTypeName != null || ResultIsVoid || InlineColumns != null
+        || ExplicitParams != null || IsProc;
 }
 
 public class InlineColumn

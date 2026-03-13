@@ -39,6 +39,16 @@ public static class DirectiveParser
                     ParseParamsDirective(directives, value);
                     continue; // strip this line from cleaned SQL
                 }
+
+                if (commentBody.StartsWith("@proc", StringComparison.OrdinalIgnoreCase))
+                {
+                    directives.IsProc = true;
+                    // "@proc" is 5 chars — anything after is the optional name
+                    var rest = commentBody.Substring(5).Trim();
+                    if (rest.Length > 0)
+                        directives.ProcName = rest;
+                    continue; // strip this line from cleaned SQL
+                }
             }
 
             cleanedLines.Add(line);

@@ -27,8 +27,18 @@ public static class CodeEmitter
         sb.AppendLine("        }");
         sb.AppendLine();
 
+        // Resolve proc name (null if not in proc mode)
+        string? procName = ResolveProcName(directives, entityName, query.Name);
+
         // Query methods (use Result.X as the type)
-        EmitQueryMethods(sb, query, projection, originalSql, entityName, schema, directives);
+        EmitQueryMethods(sb, query, projection, originalSql, entityName, schema, directives, procName);
+
+        // Emit Proc nested class with CREATE PROCEDURE script
+        if (procName != null)
+        {
+            sb.AppendLine();
+            EmitProcScript(sb, procName, query.Name, originalSql, query, projection, schema, directives, isCrud: false);
+        }
 
         sb.AppendLine("    }");
         sb.AppendLine("}");
@@ -64,13 +74,23 @@ public static class CodeEmitter
             paramListWithConn.Append($", {paramType} {param.Name}");
         }
 
+        // Resolve proc name (null if not in proc mode)
+        string? procName = ResolveProcName(directives, entityName, query.Name);
+
         // Instance method
-        EmitCrudMethodBody(sb, query, originalSql, paramListNoConn.ToString(), "_conn", isStatic: false);
+        EmitCrudMethodBody(sb, query, originalSql, paramListNoConn.ToString(), "_conn", isStatic: false, procName: procName);
 
         sb.AppendLine();
 
         // Static method
-        EmitCrudMethodBody(sb, query, originalSql, paramListWithConn.ToString(), "conn", isStatic: true);
+        EmitCrudMethodBody(sb, query, originalSql, paramListWithConn.ToString(), "conn", isStatic: true, procName: procName);
+
+        // Emit Proc nested class with CREATE PROCEDURE script
+        if (procName != null)
+        {
+            sb.AppendLine();
+            EmitProcScript(sb, procName, query.Name, originalSql, query, null, schema, directives, isCrud: true);
+        }
 
         sb.AppendLine("    }");
         sb.AppendLine("}");
@@ -84,7 +104,8 @@ public static class CodeEmitter
         string originalSql,
         string paramList,
         string connVar,
-        bool isStatic)
+        bool isStatic,
+        string? procName = null)
     {
         string modifier = isStatic ? "public static" : "public";
         sb.AppendLine($"        {modifier} int {query.Name}({paramList})");
@@ -98,7 +119,15 @@ public static class CodeEmitter
 
         // Create command
         sb.AppendLine($"                using var cmd = {connVar}.CreateCommand();");
-        sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(originalSql.Trim())}\";");
+        if (procName != null)
+        {
+            sb.AppendLine($"                cmd.CommandText = \"{procName}\";");
+            sb.AppendLine("                cmd.CommandType = System.Data.CommandType.StoredProcedure;");
+        }
+        else
+        {
+            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(originalSql.Trim())}\";");
+        }
 
         // Bind parameters
         for (int i = 0; i < query.Parameters.Count; i++)
@@ -224,7 +253,8 @@ public static class CodeEmitter
         string originalSql,
         string entityName,
         DatabaseSchema? schema,
-        Directives.DirectiveModel? directives = null)
+        Directives.DirectiveModel? directives = null,
+        string? procName = null)
     {
         string returnType = $"Result.{projection.Name}";
 
@@ -243,12 +273,12 @@ public static class CodeEmitter
         }
 
         // Instance method
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramListNoConn.ToString(), "_conn", isStatic: false);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramListNoConn.ToString(), "_conn", isStatic: false, procName: procName);
 
         sb.AppendLine();
 
         // Static method
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramListWithConn.ToString(), "conn", isStatic: true);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramListWithConn.ToString(), "conn", isStatic: true, procName: procName);
     }
 
     private static void EmitMethodBody(
@@ -259,7 +289,8 @@ public static class CodeEmitter
         string originalSql,
         string paramList,
         string connVar,
-        bool isStatic)
+        bool isStatic,
+        string? procName = null)
     {
         string modifier = isStatic ? "public static" : "public";
         sb.AppendLine($"        {modifier} System.Collections.Generic.List<{returnType}> {query.Name}({paramList})");
@@ -273,7 +304,15 @@ public static class CodeEmitter
 
         // Create command
         sb.AppendLine($"                using var cmd = {connVar}.CreateCommand();");
-        sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(originalSql.Trim())}\";");
+        if (procName != null)
+        {
+            sb.AppendLine($"                cmd.CommandText = \"{procName}\";");
+            sb.AppendLine("                cmd.CommandType = System.Data.CommandType.StoredProcedure;");
+        }
+        else
+        {
+            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(originalSql.Trim())}\";");
+        }
 
         // Bind parameters
         for (int i = 0; i < query.Parameters.Count; i++)
@@ -431,6 +470,52 @@ public static class CodeEmitter
     {
         if (string.IsNullOrEmpty(name)) return name;
         return char.ToLowerInvariant(name[0]) + name.Substring(1);
+    }
+
+    private static string? ResolveProcName(Directives.DirectiveModel? directives, string entityName, string methodName)
+    {
+        if (directives == null || !directives.IsProc)
+            return null;
+        return directives.ProcName ?? $"{entityName}_{methodName}";
+    }
+
+    private static void EmitProcScript(
+        System.Text.StringBuilder sb,
+        string procName,
+        string methodName,
+        string originalSql,
+        QueryModel query,
+        ProjectionModel? projection,
+        DatabaseSchema? schema,
+        Directives.DirectiveModel? directives,
+        bool isCrud)
+    {
+        // Build parameter list for CREATE PROCEDURE
+        var procParams = new System.Collections.Generic.List<string>();
+        foreach (var param in query.Parameters)
+        {
+            string csharpType;
+            if (isCrud)
+                csharpType = InferCrudParameterType(param, query, schema, directives);
+            else if (projection != null)
+                csharpType = InferParameterType(param.Name, query, projection, schema, directives);
+            else
+                csharpType = "object";
+
+            var sqlType = CSharpToSqlTypeMapper.Map(csharpType);
+            procParams.Add($"    @{param.Name} {sqlType}");
+        }
+
+        var paramBlock = procParams.Count > 0
+            ? "\n" + string.Join(",\n", procParams) + "\n"
+            : "";
+
+        var procSql = $"CREATE OR ALTER PROCEDURE [{procName}]{paramBlock}AS\nBEGIN\n    SET NOCOUNT ON;\n    {originalSql.Trim()}\nEND";
+
+        sb.AppendLine("        public static partial class Proc");
+        sb.AppendLine("        {");
+        sb.AppendLine($"            public const string {methodName} = @\"{EscapeVerbatimString(procSql)}\";");
+        sb.AppendLine("        }");
     }
 
     private static string EscapeVerbatimString(string s)

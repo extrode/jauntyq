@@ -596,6 +596,89 @@ where p.product_name = @name";
         Assert.Contains("public int Insert(", insertSource);
         Assert.Contains("ExecuteNonQuery()", insertSource);
     }
+
+    // ── @proc directive ───────────────────────────────────
+
+    [Fact]
+    public void ProcDirective_EmitsStoredProcedureCommandType()
+    {
+        var sql = "-- @proc\nselect p.product_id, p.product_name from products p where p.category_id = @categoryId";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("cmd.CommandType = System.Data.CommandType.StoredProcedure", source);
+    }
+
+    [Fact]
+    public void ProcDirective_DefaultNaming()
+    {
+        var sql = "-- @proc\nselect p.product_id, p.product_name from products p where p.category_id = @categoryId";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("cmd.CommandText = \"Products_GetProducts\"", source);
+    }
+
+    [Fact]
+    public void ProcDirective_CustomName()
+    {
+        var sql = "-- @proc sp_GetProducts\nselect p.product_id, p.product_name from products p where p.category_id = @categoryId";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("cmd.CommandText = \"sp_GetProducts\"", source);
+        Assert.DoesNotContain("Products_GetProducts", source);
+    }
+
+    [Fact]
+    public void ProcDirective_EmitsProcConstant()
+    {
+        var sql = "-- @proc\nselect p.product_id, p.product_name from products p where p.category_id = @categoryId";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("public static partial class Proc", source);
+        Assert.Contains("public const string GetProducts", source);
+        Assert.Contains("CREATE OR ALTER PROCEDURE [Products_GetProducts]", source);
+        Assert.Contains("SET NOCOUNT ON", source);
+    }
+
+    [Fact]
+    public void ProcDirective_ProcConstantIncludesParameterTypes()
+    {
+        var sql = "-- @proc\nselect p.product_id, p.product_name from products p where p.category_id = @categoryId";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        // category_id is nullable int in schema → C# int? → SQL int
+        Assert.Contains("@categoryId int", source);
+    }
+
+    [Fact]
+    public void ProcDirective_CrudInsert()
+    {
+        var sql = "-- @proc\nINSERT INTO products (product_name, category_id) VALUES (@product_name, @category_id)";
+        var (result, _) = RunGenerator(sql, "db/Products/Insert.sql");
+
+        var source = GetSource(result, "Products.Insert.g.cs");
+        Assert.Contains("cmd.CommandType = System.Data.CommandType.StoredProcedure", source);
+        Assert.Contains("cmd.CommandText = \"Products_Insert\"", source);
+        Assert.Contains("public static partial class Proc", source);
+        Assert.Contains("CREATE OR ALTER PROCEDURE [Products_Insert]", source);
+    }
+
+    [Fact]
+    public void NoProcDirective_RemainsTextMode()
+    {
+        var sql = "select p.product_id, p.product_name from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.DoesNotContain("CommandType", source);
+        Assert.DoesNotContain("StoredProcedure", source);
+        Assert.DoesNotContain("partial class Proc", source);
+        Assert.Contains("cmd.CommandText = @\"", source);
+    }
 }
 
 /// <summary>

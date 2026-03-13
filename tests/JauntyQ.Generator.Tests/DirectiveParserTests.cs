@@ -158,6 +158,76 @@ public class DirectiveParserTests
         Assert.Equal("int?", directives.ExplicitParams![0].CSharpType);
     }
 
+    // ── @proc ────────────────────────────────────────────
+
+    [Fact]
+    public void Proc_NoName_SetsIsProc()
+    {
+        var sql = "-- @proc\nSELECT * FROM Products";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.True(directives.IsProc);
+        Assert.Null(directives.ProcName);
+        Assert.True(directives.HasDirectives);
+        Assert.DoesNotContain("@proc", cleaned);
+        Assert.Contains("SELECT", cleaned);
+    }
+
+    [Fact]
+    public void Proc_WithName_SetsProcName()
+    {
+        var sql = "-- @proc usp_GetProducts\nSELECT * FROM Products";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.True(directives.IsProc);
+        Assert.Equal("usp_GetProducts", directives.ProcName);
+        Assert.DoesNotContain("@proc", cleaned);
+    }
+
+    [Fact]
+    public void Proc_StrippedFromCleanedSql()
+    {
+        var sql = "-- @proc CustomName\nSELECT ProductId FROM Products";
+        var (_, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.DoesNotContain("@proc", cleaned);
+        Assert.DoesNotContain("CustomName", cleaned);
+        Assert.Contains("SELECT", cleaned);
+    }
+
+    [Fact]
+    public void Proc_CombinedWithParams()
+    {
+        var sql = "-- @proc\n-- @params CategoryId:int\nSELECT * FROM Products WHERE CategoryId = @CategoryId";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.True(directives.IsProc);
+        Assert.NotNull(directives.ExplicitParams);
+        Assert.Single(directives.ExplicitParams!);
+        Assert.DoesNotContain("@proc", cleaned);
+        Assert.DoesNotContain("@params", cleaned);
+    }
+
+    [Fact]
+    public void Proc_CombinedWithResult()
+    {
+        var sql = "-- @proc\n-- @result ProductDto\nSELECT * FROM Products";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.True(directives.IsProc);
+        Assert.Equal("ProductDto", directives.ResultTypeName);
+    }
+
+    [Fact]
+    public void NoProcDirective_IsProcFalse()
+    {
+        var sql = "SELECT * FROM Products";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.False(directives.IsProc);
+        Assert.Null(directives.ProcName);
+    }
+
     // ── Multiple directives ───────────────────────────────
 
     [Fact]
