@@ -99,4 +99,14 @@ public static class JauntyDiagnostics
         "JauntyQ.Configuration",
         DiagnosticSeverity.Error,
         true);
+
+    // ── 7xxx: Dialect ─────────────────────────────────────
+
+    public static readonly DiagnosticDescriptor JNT7001 = new(
+        "JNT7001",
+        "Identity Return Unavailable",
+        "{0}",
+        "JauntyQ.Dialect",
+        DiagnosticSeverity.Error,
+        true);
 }

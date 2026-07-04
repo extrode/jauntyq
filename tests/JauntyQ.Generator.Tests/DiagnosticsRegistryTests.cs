@@ -75,6 +75,6 @@ public class DiagnosticsRegistryTests
     [Fact]
     public void Registry_ContainsExpectedCount()
     {
-        Assert.Equal(9, DiagnosticFields.Length); // +JNT3002 SELECT * forbidden (2026-07-04)
+        Assert.Equal(10, DiagnosticFields.Length); // +JNT3002 SELECT*, +JNT7001 identity (2026-07-04)
     }
 }

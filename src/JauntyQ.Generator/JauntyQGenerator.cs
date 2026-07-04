@@ -128,6 +128,29 @@ public class JauntyQGenerator : IIncrementalGenerator
             if (schema == null)
                 continue;
 
+            // -- @identity preconditions (JNT7001). Synthetic auto-CRUD SQL
+            // only carries the directive when resolvable; this gate catches
+            // user files.
+            if (directives.ReturnsIdentity)
+            {
+                string? problem = null;
+                if (directives.IsProc)
+                    problem = "-- @identity cannot be combined with -- @proc";
+                else if (queryModel.StatementType != StatementType.Insert)
+                    problem = "-- @identity is only valid on INSERT statements";
+                else if (string.IsNullOrEmpty(schema.Dialect))
+                    problem = "-- @identity requires a dialect in the schema snapshot; re-run 'jaunty schema pull' with the current CLI";
+                else if (CodeEmitter.ResolveIdentityInfo(queryModel, schema, directives) == null)
+                    problem = $"-- @identity requires exactly one identity column on the target table '{queryModel.TargetTable}'";
+
+                if (problem != null)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        JauntyDiagnostics.JNT7001, Location.None, problem));
+                    continue;
+                }
+            }
+
             string source;
 
             if (queryModel.StatementType != StatementType.Select)

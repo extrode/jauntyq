@@ -46,6 +46,12 @@ public static class DirectiveParser
                     continue; // strip this line from cleaned SQL
                 }
 
+                if (string.Equals(commentBody, "@identity", StringComparison.OrdinalIgnoreCase))
+                {
+                    directives.ReturnsIdentity = true;
+                    continue; // strip this line from cleaned SQL
+                }
+
                 if (commentBody.StartsWith("@proc", StringComparison.OrdinalIgnoreCase))
                 {
                     directives.IsProc = true;

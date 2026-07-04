@@ -850,6 +850,35 @@ where p.product_id = @product_id";
         }
         return count;
     }
+
+    // ── Tier 1: transactions ───────────────────────────────
+
+    [Fact]
+    public void JauntyDb_ExposesTransactionApi()
+    {
+        var sql = "select p.product_id from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "JauntyDb.g.cs");
+        Assert.Contains("public Transaction BeginTransaction()", source);
+        Assert.Contains("public async System.Threading.Tasks.Task<Transaction> BeginTransactionAsync(", source);
+        Assert.Contains("public sealed class Transaction : System.IDisposable", source);
+        Assert.Contains("new Products(this)", source);
+    }
+
+    [Fact]
+    public void InstanceMethods_EnlistInActiveTransaction_StaticsDoNot()
+    {
+        var sql = "select p.product_id from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        // exactly the two instance variants (sync + async) enlist
+        Assert.Equal(2, CountOccurrences(source, "if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;"));
+
+        var core = GetSource(result, "Products.Core.g.cs");
+        Assert.Contains("internal Products(JauntyDb db)", core);
+    }
 }
 
 /// <summary>
