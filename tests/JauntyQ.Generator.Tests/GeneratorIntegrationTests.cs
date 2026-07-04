@@ -900,6 +900,158 @@ where p.product_id = @product_id";
 }
 
 /// <summary>
+/// GW-4: incremental pipeline caching. Editing one .sql file must not re-run
+/// the per-file transform for other files, and a body edit that keeps a
+/// file's shape (entity, method, canonical row) must leave the aggregate
+/// input (synthetics / POCO overloads / facade) cached.
+/// </summary>
+public class IncrementalCachingTests
+{
+    private const string SchemaJson = @"{
+  ""tables"": {
+    ""products"": {
+      ""name"": ""products"",
+      ""columns"": {
+        ""product_id"": { ""name"": ""product_id"", ""dbType"": ""int"", ""isNullable"": false },
+        ""product_name"": { ""name"": ""product_name"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""unit_price"": { ""name"": ""unit_price"", ""dbType"": ""decimal"", ""isNullable"": false }
+      }
+    }
+  }
+}";
+
+    private const string SqlA = @"select product_id, product_name
+from products
+where products.unit_price > @unit_price";
+
+    private const string SqlB = @"select product_id
+from products
+where products.product_name = @product_name";
+
+    private static GeneratorDriver CreateDriver(params AdditionalText[] texts)
+    {
+        var generator = new JauntyQGenerator().AsSourceGenerator();
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(
+            new[] { generator },
+            driverOptions: new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None, trackIncrementalGeneratorSteps: true));
+        driver = driver.AddAdditionalTexts(ImmutableArray.Create(texts));
+        driver = driver.WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
+        return driver;
+    }
+
+    private static CSharpCompilation CreateCompilation() =>
+        CSharpCompilation.Create("IncrementalTestAssembly",
+            new[] { CSharpSyntaxTree.ParseText("") },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+    [Fact]
+    public void EditingOneFile_LeavesOtherFilePerFileStepCached()
+    {
+        var fileA = new InMemoryAdditionalText("db/Products/GetExpensive.sql", SqlA);
+        var fileB = new InMemoryAdditionalText("db/Products/GetIdByName.sql", SqlB);
+        var schema = new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson);
+
+        var driver = CreateDriver(fileA, fileB, schema);
+        var compilation = CreateCompilation();
+        driver = driver.RunGenerators(compilation);
+
+        // Body-only edit: > becomes >= (same entity/method/shape)
+        var edited = new InMemoryAdditionalText(fileA.Path, SqlA.Replace(">", ">="));
+        driver = driver.ReplaceAdditionalText(fileA, edited);
+        driver = driver.RunGenerators(compilation);
+
+        var steps = driver.GetRunResult().Results[0].TrackedSteps["JauntyQ_PerFile"];
+        int recomputed = 0, cached = 0, total = 0;
+        foreach (var step in steps)
+        {
+            foreach (var output in step.Outputs)
+            {
+                total++;
+                if (output.Reason == IncrementalStepRunReason.Modified || output.Reason == IncrementalStepRunReason.New)
+                    recomputed++;
+                if (output.Reason == IncrementalStepRunReason.Cached || output.Reason == IncrementalStepRunReason.Unchanged)
+                    cached++;
+            }
+        }
+
+        Assert.Equal(2, total);      // one per .sql file
+        Assert.Equal(1, recomputed); // the edited file
+        Assert.Equal(1, cached);     // the untouched file
+    }
+
+    [Fact]
+    public void BodyEditSameShape_LeavesAggregateInputCached()
+    {
+        var fileA = new InMemoryAdditionalText("db/Products/GetExpensive.sql", SqlA);
+        var fileB = new InMemoryAdditionalText("db/Products/GetIdByName.sql", SqlB);
+        var schema = new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson);
+
+        var driver = CreateDriver(fileA, fileB, schema);
+        var compilation = CreateCompilation();
+        driver = driver.RunGenerators(compilation);
+
+        var edited = new InMemoryAdditionalText(fileA.Path, SqlA.Replace(">", ">="));
+        driver = driver.ReplaceAdditionalText(fileA, edited);
+        driver = driver.RunGenerators(compilation);
+
+        // Same file set, same shapes: synthetics/POCOs/facade must not re-run.
+        var steps = driver.GetRunResult().Results[0].TrackedSteps["JauntyQ_AggregateInput"];
+        Assert.NotEmpty(steps);
+        foreach (var step in steps)
+        {
+            foreach (var output in step.Outputs)
+            {
+                Assert.True(
+                    output.Reason == IncrementalStepRunReason.Cached || output.Reason == IncrementalStepRunReason.Unchanged,
+                    $"aggregate input re-ran after a body-only edit: {output.Reason}");
+            }
+        }
+    }
+
+    [Fact]
+    public void ShapeChange_ReRunsAggregate()
+    {
+        var fileA = new InMemoryAdditionalText("db/Products/GetExpensive.sql", SqlA);
+        var fileB = new InMemoryAdditionalText("db/Products/GetIdByName.sql", SqlB);
+        var schema = new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson);
+
+        var driver = CreateDriver(fileA, fileB, schema);
+        var compilation = CreateCompilation();
+        driver = driver.RunGenerators(compilation);
+
+        // Same method, new shape: full-column projection now resolves to the
+        // canonical row POCO, so the aggregate must wake up and emit it.
+        var edited = new InMemoryAdditionalText(fileA.Path, @"select product_id, product_name, unit_price
+from products
+where products.unit_price > @unit_price");
+        driver = driver.ReplaceAdditionalText(fileA, edited);
+        driver = driver.RunGenerators(compilation);
+
+        var result = driver.GetRunResult().Results[0];
+
+        bool aggregateReRan = false;
+        foreach (var step in result.TrackedSteps["JauntyQ_AggregateInput"])
+        {
+            foreach (var output in step.Outputs)
+            {
+                if (output.Reason == IncrementalStepRunReason.Modified || output.Reason == IncrementalStepRunReason.New)
+                    aggregateReRan = true;
+            }
+        }
+        Assert.True(aggregateReRan);
+
+        bool rowPocoEmitted = false;
+        foreach (var source in result.GeneratedSources)
+        {
+            if (source.HintName == "Products.Row.g.cs")
+                rowPocoEmitted = true;
+        }
+        Assert.True(rowPocoEmitted);
+    }
+}
+
+/// <summary>
 /// In-memory AdditionalText for testing the generator.
 /// </summary>
 internal class InMemoryAdditionalText : AdditionalText
