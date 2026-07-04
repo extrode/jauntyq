@@ -11,7 +11,7 @@ namespace JauntyQ.Northwind.Tests;
 /// </summary>
 public class Tier1LiveTests
 {
-    private static JauntyQDb FreshDb() => new(new SqlConnection(NorthwindFixture.ConnectionString));
+    private static JauntyDb FreshDb() => new(new SqlConnection(NorthwindFixture.ConnectionString));
 
     [Fact]
     public void IdentityInsert_InsideTransaction_ReturnsNewId_RollbackDiscards()

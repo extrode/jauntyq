@@ -9,13 +9,13 @@ public class NorthwindFixture : IDisposable
         "Server=localhost;Database=Northwind;Trusted_Connection=true;TrustServerCertificate=true";
 
     public System.Data.Common.DbConnection Connection { get; }
-    public JauntyQDb Db { get; }
+    public JauntyDb Db { get; }
 
     public NorthwindFixture()
     {
         Connection = new SqlConnection(ConnectionString);
         Connection.Open();
-        Db = new JauntyQDb(Connection);
+        Db = new JauntyDb(Connection);
     }
 
     public void Dispose()
