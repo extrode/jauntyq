@@ -10,7 +10,7 @@ namespace JauntyQ.Generator;
 ///   2xxx — Schema validation errors
 ///   3xxx — Query shape / projection errors
 ///   4xxx — Parameter binding errors
-///   5xxx — Generator internal errors
+///   5xxx — Value safety (literal/constant vs column constraints)
 ///   6xxx — Configuration errors
 ///   7xxx — Dialect errors
 ///   8xxx — Performance warnings
@@ -87,6 +87,24 @@ public static class JauntyDiagnostics
         "Duplicate Parameter",
         "Duplicate parameter name '@{0}'",
         "JauntyQ.Parameters",
+        DiagnosticSeverity.Error,
+        true);
+
+    // ── 5xxx: Value safety ────────────────────────────────
+
+    public static readonly DiagnosticDescriptor JNT5001 = new(
+        "JNT5001",
+        "String Literal Exceeds Column Length",
+        "{0}",
+        "JauntyQ.ValueSafety",
+        DiagnosticSeverity.Error,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT5002 = new(
+        "JNT5002",
+        "Numeric Literal Out Of Range",
+        "{0}",
+        "JauntyQ.ValueSafety",
         DiagnosticSeverity.Error,
         true);
 

@@ -36,7 +36,7 @@ public static class ProjectionBuilder
                             projection.Columns.Add(new ProjectionColumn
                             {
                                 Name = DialectMapper.ToPascalCase(schemaCol.Name),
-                                Type = DialectMapper.MapDbTypeToCSharp(schemaCol.DbType, schemaCol.IsNullable),
+                                Type = DialectMapper.MapColumnToCSharp(schemaCol),
                                 Ordinal = ordinal++,
                                 SourceName = schemaCol.Name
                             });
@@ -86,7 +86,7 @@ public static class ProjectionBuilder
 
             // Determine C# type
             string csharpType = schemaColumn != null
-                ? DialectMapper.MapDbTypeToCSharp(schemaColumn.DbType, schemaColumn.IsNullable)
+                ? DialectMapper.MapColumnToCSharp(schemaColumn)
                 : "object";
 
             projection.Columns.Add(new ProjectionColumn

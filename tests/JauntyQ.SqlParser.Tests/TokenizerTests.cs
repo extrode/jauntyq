@@ -190,7 +190,7 @@ where p.category_id = @categoryId";
         var tokens = SqlTokenizer.Tokenize("where price > 19.99");
 
         // WHERE(0) price(1) >(2) 19.99(3)
-        Assert.Equal(TokenType.Literal, tokens[3].Type);
+        Assert.Equal(TokenType.Number, tokens[3].Type);
         Assert.Equal("19.99", tokens[3].Value);
     }
 

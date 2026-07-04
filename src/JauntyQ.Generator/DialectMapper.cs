@@ -18,6 +18,15 @@ public static class DialectMapper
         return string.Join("", parts);
     }
 
+    /// <summary>
+    /// Column-aware mapping: rowversion concurrency tokens are byte[]? (the
+    /// value is database-assigned and unknown until first read) regardless
+    /// of the reported db type. SQL Server reports rowversion as data type
+    /// 'timestamp', which would otherwise map to System.DateTime.
+    /// </summary>
+    public static string MapColumnToCSharp(JauntyQ.Schema.ColumnSchema column) =>
+        column.IsRowVersion ? "byte[]?" : MapDbTypeToCSharp(column.DbType, column.IsNullable);
+
     public static string MapDbTypeToCSharp(string dbType, bool isNullable)
     {
         string csharpType = NormalizeDbType(dbType.ToLowerInvariant()) switch
