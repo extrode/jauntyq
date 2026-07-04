@@ -18,9 +18,9 @@ public class CustomersTests : IClassFixture<NorthwindFixture>
     [Fact]
     public void GetById_ReturnsAlfki()
     {
-        var results = _fixture.Db.Customers.GetById("ALFKI");
-        Assert.Single(results);
-        Assert.Equal("Alfreds Futterkiste", results[0].CompanyName);
+        var customer = _fixture.Db.Customers.GetById("ALFKI");
+        Assert.NotNull(customer);
+        Assert.Equal("Alfreds Futterkiste", customer.CompanyName);
     }
 
     [Fact]

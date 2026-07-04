@@ -18,10 +18,10 @@ public class EmployeesTests : IClassFixture<NorthwindFixture>
     [Fact]
     public void GetById_ReturnsNancyDavolio()
     {
-        var results = _fixture.Db.Employees.GetById(1);
-        Assert.Single(results);
-        Assert.Equal("Davolio", results[0].LastName);
-        Assert.Equal("Nancy", results[0].FirstName);
+        var employee = _fixture.Db.Employees.GetById(1);
+        Assert.NotNull(employee);
+        Assert.Equal("Davolio", employee.LastName);
+        Assert.Equal("Nancy", employee.FirstName);
     }
 
     [Fact]

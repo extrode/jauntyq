@@ -18,15 +18,15 @@ public class CategoriesTests : IClassFixture<NorthwindFixture>
     [Fact]
     public void GetById_ReturnsBeverages()
     {
-        var results = _fixture.Db.Categories.GetById(1);
-        Assert.Single(results);
-        Assert.Equal("Beverages", results[0].CategoryName);
+        var category = _fixture.Db.Categories.GetById(1);
+        Assert.NotNull(category);
+        Assert.Equal("Beverages", category.CategoryName);
     }
 
     [Fact]
     public void GetById_NonExistent_ReturnsEmpty()
     {
-        var results = _fixture.Db.Categories.GetById(999);
-        Assert.Empty(results);
+        var category = _fixture.Db.Categories.GetById(999);
+        Assert.Null(category);
     }
 }

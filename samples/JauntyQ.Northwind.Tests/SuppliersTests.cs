@@ -18,8 +18,8 @@ public class SuppliersTests : IClassFixture<NorthwindFixture>
     [Fact]
     public void GetById_ReturnsSupplier1()
     {
-        var results = _fixture.Db.Suppliers.GetById(1);
-        Assert.Single(results);
-        Assert.NotNull(results[0].CompanyName);
+        var supplier = _fixture.Db.Suppliers.GetById(1);
+        Assert.NotNull(supplier);
+        Assert.NotNull(supplier.CompanyName);
     }
 }

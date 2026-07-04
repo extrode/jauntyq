@@ -26,9 +26,25 @@ public class AutoCrudTests
         ""event_id"": { ""name"": ""event_id"", ""dbType"": ""int"", ""isNullable"": false },
         ""detail"": { ""name"": ""detail"", ""dbType"": ""varchar"", ""isNullable"": true }
       }
+    },
+    ""categories"": {
+      ""name"": ""categories"",
+      ""columns"": {
+        ""category_id"": { ""name"": ""category_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""category_name"": { ""name"": ""category_name"", ""dbType"": ""varchar"", ""isNullable"": false }
+      }
+    },
+    ""customers"": {
+      ""name"": ""customers"",
+      ""columns"": {
+        ""customer_id"": { ""name"": ""customer_id"", ""dbType"": ""varchar"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""company_name"": { ""name"": ""company_name"", ""dbType"": ""varchar"", ""isNullable"": false }
+      }
     }
   },
-  ""foreignKeys"": []
+  ""foreignKeys"": [
+    { ""fromTable"": ""products"", ""fromColumn"": ""category_id"", ""toTable"": ""categories"", ""toColumn"": ""category_id"" }
+  ]
 }";
 
     private static (GeneratorDriverRunResult result, Compilation compilation) RunAutoCrud(
@@ -99,15 +115,77 @@ public class AutoCrudTests
     }
 
     [Fact]
-    public void GetById_IsSingleRowAndTyped()
+    public void GetById_IsSingleRowAndTyped_ReturnsCanonicalPoco()
     {
         var (result, _) = RunAutoCrud();
 
         var source = TryGetSource(result, "Products.GetById.auto.g.cs");
         Assert.NotNull(source);
-        Assert.Contains("public Result.GetById? GetById(int product_id)", source);
-        Assert.Contains("System.Threading.Tasks.Task<Result.GetById?> GetByIdAsync(", source);
+        Assert.Contains("public Product? GetById(int product_id)", source);
+        Assert.Contains("System.Threading.Tasks.Task<Product?> GetByIdAsync(", source);
         Assert.Contains("p0.DbType = System.Data.DbType.Int32;", source);
+        Assert.Contains("Product.Read(reader)", source);
+        Assert.DoesNotContain("Result.GetById", source);
+    }
+
+    [Fact]
+    public void CanonicalRowPoco_EmittedWithSharedRead()
+    {
+        var (result, _) = RunAutoCrud();
+
+        var poco = TryGetSource(result, "Products.Row.g.cs");
+        Assert.NotNull(poco);
+        Assert.Contains("public class Product", poco);
+        Assert.Contains("public required int ProductId { get; set; }", poco);
+        Assert.Contains("public static Product Read(System.Data.Common.DbDataReader reader)", poco);
+
+        var getAll = TryGetSource(result, "Products.GetAll.auto.g.cs");
+        Assert.NotNull(getAll);
+        Assert.Contains("System.Collections.Generic.List<Product> GetAll(", getAll);
+    }
+
+    [Fact]
+    public void FkLoader_Synthesized_FromForeignKeys()
+    {
+        var (result, _) = RunAutoCrud();
+
+        var source = TryGetSource(result, "Products.GetByCategoryId.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("List<Product> GetByCategoryId(int? category_id)", source);
+        Assert.Contains("where products.category_id = @category_id", source);
+    }
+
+    [Fact]
+    public void Upsert_Synthesized_ForNonIdentityKey_SkippedForIdentityKey()
+    {
+        var (result, compilation) = RunAutoCrud();
+
+        // customers: string PK, not identity -> upsert exists (sqlserver MERGE)
+        var upsert = TryGetSource(result, "Customers.Upsert.auto.g.cs");
+        Assert.NotNull(upsert);
+        Assert.Contains("merge into customers with (holdlock) as target", upsert);
+        Assert.Contains("when matched then update set company_name = src.company_name", upsert);
+        Assert.Contains("public int Upsert(", upsert);
+        Assert.Contains("UpsertAsync(", upsert);
+
+        // products: identity PK -> no upsert
+        Assert.Null(TryGetSource(result, "Products.Upsert.auto.g.cs"));
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Upsert_PostgresAndMySql_DialectSql()
+    {
+        var (pg, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"postgres\""));
+        var pgSource = TryGetSource(pg, "Customers.Upsert.auto.g.cs");
+        Assert.NotNull(pgSource);
+        Assert.Contains("on conflict (customer_id) do update set company_name = excluded.company_name", pgSource);
+
+        var (my, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"mysql\""));
+        var mySource = TryGetSource(my, "Customers.Upsert.auto.g.cs");
+        Assert.NotNull(mySource);
+        Assert.Contains("on duplicate key update company_name = values(company_name)", mySource);
     }
 
     [Fact]

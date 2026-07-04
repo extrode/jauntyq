@@ -101,4 +101,65 @@ public class Tier1LiveTests
         Assert.Throws<InvalidOperationException>(() => db.BeginTransaction());
         tx.Rollback();
     }
+
+    // ── Tier 1.5: canonical POCOs, FK loaders, Upsert ──────
+
+    [Fact]
+    public void CanonicalPocoTypes_AreTheApi()
+    {
+        var db = FreshDb();
+
+        // explicit types: full-row queries return the singular POCO
+        Shipper? one = db.Shippers.GetById(1);
+        List<Shipper> all = db.Shippers.GetAll();
+
+        Assert.NotNull(one);
+        Assert.Equal("Speedy Express", one.CompanyName);
+        Assert.Equal(3, all.Count);
+
+        // already-singular table name falls back to <Entity>Row
+        RegionRow? region = db.Region.GetById(1);
+        Assert.NotNull(region);
+    }
+
+    [Fact]
+    public void FkLoader_GetByCategoryId_ReturnsCategoryProducts()
+    {
+        var db = FreshDb();
+
+        List<Product> beverages = db.Products.GetByCategoryId(1);
+
+        Assert.NotEmpty(beverages);
+        Assert.Contains(beverages, p => p.ProductName == "Chai");
+    }
+
+    [Fact]
+    public void Upsert_UpdatesExisting_InsertsNew_InsideRollback()
+    {
+        var db = FreshDb();
+
+        using (var tx = db.BeginTransaction())
+        {
+            // existing key -> update path
+            int updated = db.Customers.Upsert(
+                "ALFKI", "Alfreds Umbenannt", null, null, null, null, null, null, null, null, null);
+            Assert.True(updated >= 1);
+            var alfki = db.Customers.GetById("ALFKI");
+            Assert.NotNull(alfki);
+            Assert.Equal("Alfreds Umbenannt", alfki.CompanyName);
+
+            // new key -> insert path
+            int inserted = db.Customers.Upsert(
+                "ZZ999", "Zebra Zone Ltd", null, null, null, null, null, null, null, null, null);
+            Assert.True(inserted >= 1);
+            Assert.NotNull(db.Customers.GetById("ZZ999"));
+
+            tx.Rollback();
+        }
+
+        var restored = db.Customers.GetById("ALFKI");
+        Assert.NotNull(restored);
+        Assert.Equal("Alfreds Futterkiste", restored.CompanyName);
+        Assert.Null(db.Customers.GetById("ZZ999"));
+    }
 }
