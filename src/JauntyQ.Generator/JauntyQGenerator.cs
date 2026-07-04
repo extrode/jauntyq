@@ -74,7 +74,7 @@ public class JauntyQGenerator : IIncrementalGenerator
         // Compute the common directory prefix across all SQL file paths
         string commonPrefix = ComputeCommonDirectoryPrefix(sqlFiles);
 
-        // Track unique entity names for JauntyDb generation
+        // Track unique entity names for JauntyQDb generation
         var entityNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
 
         // entity.method slots claimed by user SQL files: a user file always
@@ -308,13 +308,13 @@ public class JauntyQGenerator : IIncrementalGenerator
             context.AddSource($"{entity}.Core.g.cs", SourceText.From(coreSource, Encoding.UTF8));
         }
 
-        // Emit JauntyDb class
+        // Emit JauntyQDb class
         if (entityNames.Count > 0)
         {
             var sortedEntities = new System.Collections.Generic.List<string>(entityNames);
             sortedEntities.Sort(StringComparer.Ordinal);
-            var dbSource = CodeEmitter.EmitJauntyDb(sortedEntities);
-            context.AddSource("JauntyDb.g.cs", SourceText.From(dbSource, Encoding.UTF8));
+            var dbSource = CodeEmitter.EmitJauntyQDb(sortedEntities);
+            context.AddSource("JauntyQDb.g.cs", SourceText.From(dbSource, Encoding.UTF8));
         }
     }
 

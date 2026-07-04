@@ -108,7 +108,7 @@ public class AutoCrudTests
         Assert.NotNull(TryGetSource(result, "Products.Insert.auto.g.cs"));
         Assert.NotNull(TryGetSource(result, "Products.Update.auto.g.cs"));
         Assert.NotNull(TryGetSource(result, "Products.Delete.auto.g.cs"));
-        Assert.NotNull(TryGetSource(result, "JauntyDb.g.cs"));
+        Assert.NotNull(TryGetSource(result, "JauntyQDb.g.cs"));
 
         // Everything must actually compile
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
