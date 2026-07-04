@@ -284,4 +284,40 @@ WHERE CategoryId = @CategoryId";
         Assert.Contains("FROM Products", cleaned);
         Assert.Contains("WHERE CategoryId = @CategoryId", cleaned);
     }
+    // ── @first directive ──────────────────────────────────
+
+    [Fact]
+    public void First_SetsIsFirstAndIsStripped()
+    {
+        var sql = @"-- @first
+SELECT ProductId FROM Products WHERE ProductId = @ProductId";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.True(directives.IsFirst);
+        Assert.DoesNotContain("@first", cleaned);
+        Assert.Contains("SELECT ProductId", cleaned);
+    }
+
+    [Fact]
+    public void First_CaseInsensitive()
+    {
+        var sql = @"-- @FIRST
+SELECT ProductId FROM Products WHERE ProductId = @ProductId";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.True(directives.IsFirst);
+    }
+
+    [Fact]
+    public void Firstborn_DoesNotSetIsFirst()
+    {
+        // @firstborn is not a recognized directive -- must not trip the @first check
+        var sql = @"-- @firstborn
+SELECT ProductId FROM Products";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.False(directives.IsFirst);
+        // The line is not a directive so it is preserved in the cleaned SQL
+        Assert.Contains("@firstborn", cleaned);
+    }
 }

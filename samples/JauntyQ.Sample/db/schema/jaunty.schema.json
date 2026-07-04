@@ -1,29 +1,30 @@
 {
+  "dialect": "sqlite",
   "tables": {
     "products": {
       "name": "products",
       "columns": {
-        "product_id": { "name": "product_id", "dbType": "int", "isNullable": false },
-        "product_name": { "name": "product_name", "dbType": "varchar", "isNullable": false },
-        "category_id": { "name": "category_id", "dbType": "int", "isNullable": true },
-        "unit_price": { "name": "unit_price", "dbType": "decimal", "isNullable": false },
-        "discontinued": { "name": "discontinued", "dbType": "bool", "isNullable": false }
+        "product_id": { "name": "product_id", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "product_name": { "name": "product_name", "dbType": "varchar", "isNullable": false, "isPrimaryKey": false, "isIdentity": false },
+        "category_id": { "name": "category_id", "dbType": "int", "isNullable": true, "isPrimaryKey": false, "isIdentity": false },
+        "unit_price": { "name": "unit_price", "dbType": "decimal", "isNullable": false, "isPrimaryKey": false, "isIdentity": false },
+        "discontinued": { "name": "discontinued", "dbType": "bool", "isNullable": false, "isPrimaryKey": false, "isIdentity": false }
       }
     },
     "categories": {
       "name": "categories",
       "columns": {
-        "category_id": { "name": "category_id", "dbType": "int", "isNullable": false },
-        "category_name": { "name": "category_name", "dbType": "varchar", "isNullable": false }
+        "category_id": { "name": "category_id", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "category_name": { "name": "category_name", "dbType": "varchar", "isNullable": false, "isPrimaryKey": false, "isIdentity": false }
       }
     },
     "employees": {
       "name": "employees",
       "columns": {
-        "employee_id": { "name": "employee_id", "dbType": "int", "isNullable": false },
-        "first_name": { "name": "first_name", "dbType": "varchar", "isNullable": false },
-        "last_name": { "name": "last_name", "dbType": "varchar", "isNullable": false },
-        "manager_id": { "name": "manager_id", "dbType": "int", "isNullable": true }
+        "employee_id": { "name": "employee_id", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "first_name": { "name": "first_name", "dbType": "varchar", "isNullable": false, "isPrimaryKey": false, "isIdentity": false },
+        "last_name": { "name": "last_name", "dbType": "varchar", "isNullable": false, "isPrimaryKey": false, "isIdentity": false },
+        "manager_id": { "name": "manager_id", "dbType": "int", "isNullable": true, "isPrimaryKey": false, "isIdentity": false }
       }
     }
   },
