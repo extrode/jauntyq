@@ -19,9 +19,34 @@ public class ProductsTests : IClassFixture<NorthwindFixture>
     [Fact]
     public void GetById_ReturnsChai()
     {
-        var results = _fixture.Db.Products.GetById(1);
-        Assert.Single(results);
-        Assert.Equal("Chai", results[0].ProductName);
+        // -- @first: single row or null
+        var product = _fixture.Db.Products.GetById(1);
+        Assert.NotNull(product);
+        Assert.Equal("Chai", product.ProductName);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ReturnsChai()
+    {
+        var product = await _fixture.Db.Products.GetByIdAsync(1);
+        Assert.NotNull(product);
+        Assert.Equal("Chai", product.ProductName);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_Returns77Products()
+    {
+        var results = await _fixture.Db.Products.GetAllAsync();
+        Assert.Equal(77, results.Count);
+    }
+
+    [Fact]
+    public async Task GetByCategoryAsync_StaticWithCancellation_ReturnsProducts()
+    {
+        using var cts = new CancellationTokenSource();
+        using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
+        var results = await JauntyQ.Generated.Products.GetByCategoryAsync(conn, 1, cts.Token);
+        Assert.NotEmpty(results);
     }
 
     [Fact]
@@ -41,10 +66,22 @@ public class ProductsTests : IClassFixture<NorthwindFixture>
     }
 
     [Fact]
-    public void GetById_NonExistent_ReturnsEmpty()
+    public void GetById_NonExistent_ReturnsNull()
     {
-        var results = _fixture.Db.Products.GetById(9999);
-        Assert.Empty(results);
+        var product = _fixture.Db.Products.GetById(9999);
+        Assert.Null(product);
+    }
+
+    [Fact]
+    public async Task InsertAsync_RollsBackWithTransactionScope()
+    {
+        using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
+        using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
+        conn.Open();
+        int affected = await JauntyQ.Generated.Products.InsertAsync(
+            conn, "TestProductAsync", 1, 1, 9.99m, false);
+        Assert.Equal(1, affected);
+        // scope.Dispose() without Complete() -> rollback
     }
 
     [Fact]

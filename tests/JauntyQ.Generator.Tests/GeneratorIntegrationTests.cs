@@ -128,11 +128,11 @@ public class GeneratorIntegrationTests
     [Fact]
     public void SimpleQuery_GeneratesThreeFiles()
     {
-        // One SQL file should produce: query file + entity core + JauntyDb = 3
+        // One SQL file should produce: shape guard + query file + entity core + JauntyDb = 4
         var sql = "select p.product_id, p.product_name from products p";
         var (result, _) = RunGenerator(sql);
 
-        Assert.Equal(3, result.GeneratedTrees.Length);
+        Assert.Equal(4, result.GeneratedTrees.Length);
     }
 
     [Fact]
@@ -155,8 +155,8 @@ public class GeneratorIntegrationTests
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("public int ProductId { get; set; }", source);
-        Assert.Contains("public string ProductName { get; set; }", source);
+        Assert.Contains("public required int ProductId { get; set; }", source);
+        Assert.Contains("public required string ProductName { get; set; }", source);
     }
 
     // ── Instance method (no conn param) ────────────────────
@@ -298,8 +298,10 @@ where p.category_id = @categoryId";
         // Should still get diagnostics
         Assert.NotEmpty(result.Diagnostics);
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT2002");
-        // No per-query source generated (core + db also skipped since entity set is empty)
-        Assert.Empty(result.GeneratedTrees);
+        // Only the always-present shape guard source; no per-query source generated
+        // (core + db also skipped since entity set is empty)
+        var single = Assert.Single(result.GeneratedTrees);
+        Assert.Contains("JauntyQShapeGuard", single.FilePath);
     }
 
     // ── Namespace ──────────────────────────────────────────
@@ -678,6 +680,86 @@ where p.product_name = @name";
         Assert.DoesNotContain("StoredProcedure", source);
         Assert.DoesNotContain("partial class Proc", source);
         Assert.Contains("cmd.CommandText = @\"", source);
+    }
+
+    // ── GW-2: async variants ───────────────────────────────
+
+    [Fact]
+    public void AsyncVariants_AreGenerated()
+    {
+        var sql = "select p.product_id, p.product_name from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("GetProductsAsync(", source);
+        Assert.Contains("System.Threading.CancellationToken cancellationToken = default", source);
+        Assert.Contains("ExecuteReaderAsync(cancellationToken).ConfigureAwait(false)", source);
+        Assert.Contains("OpenAsync(cancellationToken).ConfigureAwait(false)", source);
+        Assert.Contains("CloseAsync().ConfigureAwait(false)", source);
+    }
+
+    [Fact]
+    public void CrudAsyncVariants_AreGenerated()
+    {
+        var sql = "INSERT INTO products (product_name, category_id) VALUES (@product_name, @category_id)";
+        var (result, _) = RunGenerator(sql, "db/Products/Insert.sql");
+
+        var source = GetSource(result, "Products.Insert.g.cs");
+        Assert.Contains("InsertAsync(", source);
+        Assert.Contains("ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false)", source);
+    }
+
+    // ── GW-2: one-time shape guard ─────────────────────────
+
+    [Fact]
+    public void ShapeGuard_ColumnArrayAndValidateCall_AreEmitted()
+    {
+        var sql = "select p.product_id, p.product_name from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("private static readonly string[] __GetProductsColumns = { \"product_id\", \"product_name\" };", source);
+        Assert.Contains("JauntyQShapeGuard.Validate(reader, __GetProductsColumns, \"Products.GetProducts\");", source);
+    }
+
+    // ── GW-2: -- @first ────────────────────────────────────
+
+    [Fact]
+    public void FirstDirective_ReturnsNullableRowInsteadOfList()
+    {
+        var sql = "-- @first\nselect p.product_id, p.product_name from products p where p.product_id = @product_id";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("public Result.GetProducts? GetProducts(", source);
+        Assert.Contains("System.Threading.Tasks.Task<Result.GetProducts?> GetProductsAsync(", source);
+        Assert.Contains("return null;", source);
+        Assert.DoesNotContain("List<Result.GetProducts>", source);
+    }
+
+    // ── GW-2: DbType binding ───────────────────────────────
+
+    [Fact]
+    public void Parameters_GetDbTypeFromSchema()
+    {
+        var sql = "select p.product_id from products p where p.category_id = @category_id";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("p0.DbType = System.Data.DbType.Int32;", source);
+    }
+
+    // ── GW-2: leading comment stripping ────────────────────
+
+    [Fact]
+    public void LeadingComments_AreStrippedFromCommandText()
+    {
+        var sql = "--select old_col from old_table\n\nselect p.product_id from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.DoesNotContain("old_table", source);
+        Assert.Contains("select p.product_id from products p", source);
     }
 }
 

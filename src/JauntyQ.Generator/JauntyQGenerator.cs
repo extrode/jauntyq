@@ -13,6 +13,10 @@ public class JauntyQGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
+        // Shared one-time shape guard (exists exactly once per compilation)
+        context.RegisterPostInitializationOutput(static ctx =>
+            ctx.AddSource("JauntyQShapeGuard.g.cs", SourceText.From(CodeEmitter.EmitShapeGuardSource(), Encoding.UTF8)));
+
         // Collect SQL files
         var sqlFiles = context.AdditionalTextsProvider
             .Where(static f => f.Path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase));
