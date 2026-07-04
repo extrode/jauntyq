@@ -66,7 +66,7 @@ public class JauntyQGenerator : IIncrementalGenerator
         });
 
         // Aggregated outputs (synthetics, POCO overloads, row POCOs, entity
-        // cores, JauntyQDb) depend only on each file's value-equatable shape
+        // cores, JauntyDb) depend only on each file's value-equatable shape
         // summary — body edits that keep the shape leave all of it cached.
         var summaries = perFile
             .Select(static (r, _) => r.Summary)
@@ -219,7 +219,7 @@ public class JauntyQGenerator : IIncrementalGenerator
 
     /// <summary>
     /// Emits everything that spans files: auto-CRUD synthetics, POCO write
-    /// overloads, canonical row POCOs, entity cores and the JauntyQDb facade.
+    /// overloads, canonical row POCOs, entity cores and the JauntyDb facade.
     /// Driven by the file summaries only, so it re-runs when a file is
     /// added/removed/renamed or changes shape — not on every body edit.
     /// </summary>
@@ -242,7 +242,7 @@ public class JauntyQGenerator : IIncrementalGenerator
 
         var schema = schemaState.Schema;
 
-        // Track unique entity names for JauntyQDb generation
+        // Track unique entity names for JauntyDb generation
         var entityNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
 
         // entity.method slots claimed by user SQL files: a user file always
@@ -356,13 +356,13 @@ public class JauntyQGenerator : IIncrementalGenerator
             context.AddSource($"{entity}.Core.g.cs", SourceText.From(coreSource, Encoding.UTF8));
         }
 
-        // Emit JauntyQDb class
+        // Emit JauntyDb class
         if (entityNames.Count > 0)
         {
             var sortedEntities = new System.Collections.Generic.List<string>(entityNames);
             sortedEntities.Sort(StringComparer.Ordinal);
-            var dbSource = CodeEmitter.EmitJauntyQDb(sortedEntities);
-            context.AddSource("JauntyQDb.g.cs", SourceText.From(dbSource, Encoding.UTF8));
+            var dbSource = CodeEmitter.EmitJauntyDb(sortedEntities);
+            context.AddSource("JauntyDb.g.cs", SourceText.From(dbSource, Encoding.UTF8));
         }
     }
 

@@ -522,11 +522,11 @@ namespace JauntyQ.Generated
         sb.AppendLine($"    public partial class {entityName}");
         sb.AppendLine("    {");
         sb.AppendLine("        private readonly System.Data.Common.DbConnection _conn;");
-        sb.AppendLine("        private readonly JauntyQDb? _db;");
+        sb.AppendLine("        private readonly JauntyDb? _db;");
         sb.AppendLine();
         sb.AppendLine($"        internal {entityName}(System.Data.Common.DbConnection conn) => _conn = conn;");
         sb.AppendLine();
-        sb.AppendLine($"        internal {entityName}(JauntyQDb db)");
+        sb.AppendLine($"        internal {entityName}(JauntyDb db)");
         sb.AppendLine("        {");
         sb.AppendLine("            _db = db;");
         sb.AppendLine("            _conn = db.Connection;");
@@ -537,7 +537,7 @@ namespace JauntyQ.Generated
         return sb.ToString();
     }
 
-    public static string EmitJauntyQDb(System.Collections.Generic.IEnumerable<string> entityNames)
+    public static string EmitJauntyDb(System.Collections.Generic.IEnumerable<string> entityNames)
     {
         var sb = new System.Text.StringBuilder();
 
@@ -546,14 +546,14 @@ namespace JauntyQ.Generated
         sb.AppendLine();
         sb.AppendLine("namespace JauntyQ.Generated");
         sb.AppendLine("{");
-        sb.AppendLine("    public class JauntyQDb");
+        sb.AppendLine("    public class JauntyDb");
         sb.AppendLine("    {");
         sb.AppendLine("""
         private readonly System.Data.Common.DbConnection _conn;
         private System.Data.Common.DbTransaction? _tx;
         private bool _txOpenedConnection;
 
-        public JauntyQDb(System.Data.Common.DbConnection conn) => _conn = conn;
+        public JauntyDb(System.Data.Common.DbConnection conn) => _conn = conn;
 
         internal System.Data.Common.DbConnection Connection => _conn;
         internal System.Data.Common.DbTransaction? CurrentTransaction => _tx;
@@ -567,7 +567,7 @@ namespace JauntyQ.Generated
         public Transaction BeginTransaction()
         {
             if (_tx != null)
-                throw new System.InvalidOperationException("A JauntyQDb transaction is already active.");
+                throw new System.InvalidOperationException("A JauntyDb transaction is already active.");
             _txOpenedConnection = _conn.State != System.Data.ConnectionState.Open;
             if (_txOpenedConnection) _conn.Open();
             _tx = _conn.BeginTransaction();
@@ -577,7 +577,7 @@ namespace JauntyQ.Generated
         public async System.Threading.Tasks.Task<Transaction> BeginTransactionAsync(System.Threading.CancellationToken cancellationToken = default)
         {
             if (_tx != null)
-                throw new System.InvalidOperationException("A JauntyQDb transaction is already active.");
+                throw new System.InvalidOperationException("A JauntyDb transaction is already active.");
             _txOpenedConnection = _conn.State != System.Data.ConnectionState.Open;
             if (_txOpenedConnection) await _conn.OpenAsync(cancellationToken).ConfigureAwait(false);
             _tx = await _conn.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
@@ -594,10 +594,10 @@ namespace JauntyQ.Generated
 
         public sealed class Transaction : System.IDisposable
         {
-            private readonly JauntyQDb _db;
+            private readonly JauntyDb _db;
             private System.Data.Common.DbTransaction? _inner;
 
-            internal Transaction(JauntyQDb db, System.Data.Common.DbTransaction inner)
+            internal Transaction(JauntyDb db, System.Data.Common.DbTransaction inner)
             {
                 _db = db;
                 _inner = inner;

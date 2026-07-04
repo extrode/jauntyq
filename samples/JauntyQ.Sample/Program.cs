@@ -8,7 +8,7 @@ connection.Open();
 SeedDatabase(connection);
 
 // Create the db object — connection is already open, JauntyQ won't close it
-var db = new JauntyQDb(connection);
+var db = new JauntyDb(connection);
 
 // ── Products.GetAll ────────────────────────────────────────
 Console.WriteLine("=== All Products ===");
