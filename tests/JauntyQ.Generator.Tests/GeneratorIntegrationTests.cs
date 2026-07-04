@@ -695,7 +695,7 @@ where p.product_name = @name";
         var source = GetSource(result, "Products.GetProducts.g.cs");
         Assert.Contains("GetProductsAsync(", source);
         Assert.Contains("System.Threading.CancellationToken cancellationToken = default", source);
-        Assert.Contains("ExecuteReaderAsync(cancellationToken).ConfigureAwait(false)", source);
+        Assert.Contains("ExecuteReaderAsync(System.Data.CommandBehavior.SingleResult, cancellationToken).ConfigureAwait(false)", source);
         Assert.Contains("OpenAsync(cancellationToken).ConfigureAwait(false)", source);
         Assert.Contains("CloseAsync().ConfigureAwait(false)", source);
     }
@@ -804,6 +804,51 @@ where p.product_id = @product_id";
         var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT3002");
         Assert.Contains("p.product_id", diag.GetMessage());
         Assert.Contains("c.category_name", diag.GetMessage());
+    }
+
+    // ── shared materializer + CommandBehavior hints ────────
+
+    [Fact]
+    public void Materializer_EmittedOnce_CalledFromAllFourVariants()
+    {
+        var sql = "select p.product_id, p.product_name from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Equal(1, CountOccurrences(source, "__MapGetProducts(System.Data.Common.DbDataReader reader)"));
+        Assert.Equal(4, CountOccurrences(source, "__MapGetProducts(reader)"));
+    }
+
+    [Fact]
+    public void ListQuery_UsesSingleResultBehavior()
+    {
+        var sql = "select p.product_id from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("cmd.ExecuteReader(System.Data.CommandBehavior.SingleResult)", source);
+        Assert.DoesNotContain("SingleRow", source);
+    }
+
+    [Fact]
+    public void FirstDirective_UsesSingleRowBehavior()
+    {
+        var sql = "-- @first\nselect p.product_id from products p where p.product_id = @product_id";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("System.Data.CommandBehavior.SingleRow | System.Data.CommandBehavior.SingleResult", source);
+    }
+
+    private static int CountOccurrences(string haystack, string needle)
+    {
+        int count = 0, idx = 0;
+        while ((idx = haystack.IndexOf(needle, idx, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            idx += needle.Length;
+        }
+        return count;
     }
 }
 
