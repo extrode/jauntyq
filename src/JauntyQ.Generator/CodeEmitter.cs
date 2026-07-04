@@ -433,6 +433,16 @@ namespace JauntyQ.Generated
 
         string queryId = $"{entityName}.{query.Name}";
 
+        // One materializer shared by all four variants. A direct static call
+        // (not a delegate): the JIT inlines small static methods, while
+        // delegate invocations are indirect calls it will not reliably
+        // inline - see docs/design-decisions.md (row materialization).
+        sb.AppendLine($"        private static {returnType} __Map{query.Name}(System.Data.Common.DbDataReader reader) => new {returnType}");
+        sb.AppendLine("        {");
+        EmitColumnAssignments(sb, projection, indent: "            ");
+        sb.AppendLine("        };");
+        sb.AppendLine();
+
         // Instance sync
         EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, isFirst, queryId, procName);
         sb.AppendLine();
@@ -492,11 +502,16 @@ namespace JauntyQ.Generated
 
         EmitParameterBinding(sb, paramInfos);
 
-        // Execute reader + one-time shape guard
+        // Execute reader + one-time shape guard. SingleResult (and SingleRow
+        // for @first) lets the provider optimize buffering for the shape we
+        // are guaranteed to consume.
+        string behavior = isFirst
+            ? "System.Data.CommandBehavior.SingleRow | System.Data.CommandBehavior.SingleResult"
+            : "System.Data.CommandBehavior.SingleResult";
         sb.AppendLine();
         sb.AppendLine(isAsync
-            ? "                using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);"
-            : "                using var reader = cmd.ExecuteReader();");
+            ? $"                using var reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
+            : $"                using var reader = cmd.ExecuteReader({behavior});");
         sb.AppendLine($"                global::JauntyQ.Generated.JauntyQShapeGuard.Validate(reader, __{query.Name}Columns, \"{queryId}\");");
 
         string readCall = isAsync
@@ -507,20 +522,14 @@ namespace JauntyQ.Generated
         {
             sb.AppendLine($"                if (!({readCall}))");
             sb.AppendLine("                    return null;");
-            sb.AppendLine($"                return new {returnType}");
-            sb.AppendLine("                {");
-            EmitColumnAssignments(sb, projection, indent: "                    ");
-            sb.AppendLine("                };");
+            sb.AppendLine($"                return __Map{query.Name}(reader);");
         }
         else
         {
             sb.AppendLine($"                var results = new System.Collections.Generic.List<{returnType}>();");
             sb.AppendLine($"                while ({readCall})");
             sb.AppendLine("                {");
-            sb.AppendLine($"                    results.Add(new {returnType}");
-            sb.AppendLine("                    {");
-            EmitColumnAssignments(sb, projection, indent: "                        ");
-            sb.AppendLine("                    });");
+            sb.AppendLine($"                    results.Add(__Map{query.Name}(reader));");
             sb.AppendLine("                }");
             sb.AppendLine("                return results;");
         }
