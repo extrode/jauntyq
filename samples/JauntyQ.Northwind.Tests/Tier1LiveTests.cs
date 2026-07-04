@@ -134,32 +134,56 @@ public class Tier1LiveTests
     }
 
     [Fact]
-    public void Upsert_UpdatesExisting_InsertsNew_InsideRollback()
+    public void PocoOverloads_ReadModifyWrite_UpdateAndUpsert()
     {
         var db = FreshDb();
 
         using (var tx = db.BeginTransaction())
         {
-            // existing key -> update path
-            int updated = db.Customers.Upsert(
-                "ALFKI", "Alfreds Umbenannt", null, null, null, null, null, null, null, null, null);
-            Assert.True(updated >= 1);
-            var alfki = db.Customers.GetById("ALFKI");
-            Assert.NotNull(alfki);
-            Assert.Equal("Alfreds Umbenannt", alfki.CompanyName);
+            // the canonical read-modify-write flow (Shippers: synthetic
+            // Update, so the POCO overload exists; Products' user-written
+            // Update.sql owns its own signature and gets none - by design)
+            Shipper? shipper = db.Shippers.GetById(1);
+            Assert.NotNull(shipper);
+            shipper.CompanyName = "Speedy Express (renamed)";
+            int updated = db.Shippers.Update(shipper);
+            Assert.Equal(1, updated);
+            Assert.Equal("Speedy Express (renamed)", db.Shippers.GetById(1)!.CompanyName);
 
-            // new key -> insert path
-            int inserted = db.Customers.Upsert(
-                "ZZ999", "Zebra Zone Ltd", null, null, null, null, null, null, null, null, null);
-            Assert.True(inserted >= 1);
-            Assert.NotNull(db.Customers.GetById("ZZ999"));
+            // upsert an existing row via its POCO
+            Customer? alfki = db.Customers.GetById("ALFKI");
+            Assert.NotNull(alfki);
+            alfki.CompanyName = "Alfreds Umbenannt";
+            Assert.True(db.Customers.Upsert(alfki) >= 1);
+            Assert.Equal("Alfreds Umbenannt", db.Customers.GetById("ALFKI")!.CompanyName);
 
             tx.Rollback();
         }
 
-        var restored = db.Customers.GetById("ALFKI");
-        Assert.NotNull(restored);
-        Assert.Equal("Alfreds Futterkiste", restored.CompanyName);
-        Assert.Null(db.Customers.GetById("ZZ999"));
+        Assert.Equal("Speedy Express", db.Shippers.GetById(1)!.CompanyName);
+        Assert.Equal("Alfreds Futterkiste", db.Customers.GetById("ALFKI")!.CompanyName);
+    }
+
+    [Fact]
+    public void PocoInsert_WritesIdentityBack()
+    {
+        var db = FreshDb();
+
+        using (var tx = db.BeginTransaction())
+        {
+            var shipper = new Shipper { CompanyName = "Poco Shipping Co", Phone = "(555) 777-8888" };
+            Assert.Equal(0, shipper.ShipperId);
+
+            int id = db.Shippers.Insert(shipper);
+
+            Assert.True(id > 0);
+            Assert.Equal(id, shipper.ShipperId); // identity written back
+            Assert.NotNull(db.Shippers.GetById(id));
+
+            db.Shippers.Delete(shipper); // POCO delete, by PK
+            Assert.Null(db.Shippers.GetById(id));
+
+            tx.Rollback();
+        }
     }
 }

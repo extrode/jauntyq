@@ -136,7 +136,8 @@ public class AutoCrudTests
         var poco = TryGetSource(result, "Products.Row.g.cs");
         Assert.NotNull(poco);
         Assert.Contains("public class Product", poco);
-        Assert.Contains("public required int ProductId { get; set; }", poco);
+        Assert.Contains("public int ProductId { get; set; }", poco); // value types: no `required`
+        Assert.Contains("public required string ProductName { get; set; }", poco);
         Assert.Contains("public static Product Read(System.Data.Common.DbDataReader reader)", poco);
 
         var getAll = TryGetSource(result, "Products.GetAll.auto.g.cs");
@@ -291,6 +292,39 @@ public class AutoCrudTests
         Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
         Assert.Contains("only valid on INSERT", diag.GetMessage());
         Assert.Null(TryGetSource(result, "Products.Rename.g.cs"));
+    }
+
+    [Fact]
+    public void PocoOverloads_ForwardToScalars_WithIdentityWriteback()
+    {
+        var (result, compilation) = RunAutoCrud();
+
+        var source = TryGetSource(result, "Products.Poco.auto.g.cs");
+        Assert.NotNull(source);
+        // identity write-back on Insert
+        Assert.Contains("public int Insert(Product row)", source);
+        Assert.Contains("row.ProductId = id;", source);
+        // Update/Delete forward in scalar order
+        Assert.Contains("public int Update(Product row) => Update(row.ProductName, row.CategoryId, row.ProductId);", source);
+        Assert.Contains("public int Delete(Product row) => Delete(row.ProductId);", source);
+        // Customers (non-identity key): Upsert overload
+        var cust = TryGetSource(result, "Customers.Poco.auto.g.cs");
+        Assert.NotNull(cust);
+        Assert.Contains("public int Upsert(Customer row) => Upsert(row.CustomerId, row.CompanyName);", cust);
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void PocoOverloads_Suppressed_WhenUserOverridesScalar()
+    {
+        var (result, _) = RunAutoCrud(autoCrud: true,
+            ("db/Products/Update.sql", "update products set product_name = @product_name where product_id = @product_id"));
+
+        var source = TryGetSource(result, "Products.Poco.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.DoesNotContain("Update(Product row)", source); // user owns Update's signature
+        Assert.Contains("public int Delete(Product row)", source);
     }
 
     // ── pure synthesis ─────────────────────────────────────

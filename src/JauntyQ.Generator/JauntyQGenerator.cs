@@ -84,6 +84,10 @@ public class JauntyQGenerator : IIncrementalGenerator
         // tables whose canonical row POCO (e.g. Shipper) is actually used
         var neededRowTables = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // per-table synthetic write methods (POCO overloads forward to these;
+        // user-overridden methods own their signature and get no overload)
+        var syntheticWrites = new System.Collections.Generic.Dictionary<string, (string Entity, bool Insert, bool Update, bool Delete, bool Upsert)>(StringComparer.OrdinalIgnoreCase);
+
         // Process each SQL file
         foreach (var sqlFile in sqlFiles)
         {
@@ -231,6 +235,7 @@ public class JauntyQGenerator : IIncrementalGenerator
                     string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, schema.Tables[synth.TableName], schema.Dialect);
                     context.AddSource($"{synth.EntityName}.Upsert.auto.g.cs", SourceText.From(upsertSource, Encoding.UTF8));
                     entityNames.Add(synth.EntityName);
+                    RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, "Upsert");
                     continue;
                 }
 
@@ -260,6 +265,25 @@ public class JauntyQGenerator : IIncrementalGenerator
 
                 context.AddSource($"{synth.EntityName}.{synth.MethodName}.auto.g.cs", SourceText.From(source, Encoding.UTF8));
                 entityNames.Add(synth.EntityName);
+                if (synth.MethodName is "Insert" or "Update" or "Delete")
+                    RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, synth.MethodName);
+            }
+        }
+
+        // POCO-taking overloads for synthetic write methods
+        if (schema != null)
+        {
+            foreach (var kvp in syntheticWrites)
+            {
+                if (!schema.Tables.TryGetValue(kvp.Key, out var tableSchema))
+                    continue;
+                var info = kvp.Value;
+                string rowType = Inflector.RowTypeName(DialectMapper.ToPascalCase(tableSchema.Name));
+                string overloadSource = CodeEmitter.EmitPocoOverloads(
+                    info.Entity, rowType, tableSchema, schema.Dialect,
+                    info.Insert, info.Update, info.Delete, info.Upsert);
+                context.AddSource($"{info.Entity}.Poco.auto.g.cs", SourceText.From(overloadSource, Encoding.UTF8));
+                neededRowTables.Add(tableSchema.Name);
             }
         }
 
@@ -292,6 +316,22 @@ public class JauntyQGenerator : IIncrementalGenerator
             var dbSource = CodeEmitter.EmitJauntyDb(sortedEntities);
             context.AddSource("JauntyDb.g.cs", SourceText.From(dbSource, Encoding.UTF8));
         }
+    }
+
+    private static void RecordSyntheticWrite(
+        System.Collections.Generic.Dictionary<string, (string Entity, bool Insert, bool Update, bool Delete, bool Upsert)> map,
+        string tableName, string entityName, string method)
+    {
+        map.TryGetValue(tableName, out var info);
+        info.Entity = entityName;
+        switch (method)
+        {
+            case "Insert": info.Insert = true; break;
+            case "Update": info.Update = true; break;
+            case "Delete": info.Delete = true; break;
+            case "Upsert": info.Upsert = true; break;
+        }
+        map[tableName] = info;
     }
 
     /// <summary>
