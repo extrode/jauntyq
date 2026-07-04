@@ -10,5 +10,6 @@ public class QueryModel
     public List<JoinRef> Joins { get; } = new();
     public List<ParameterRef> Parameters { get; } = new();
     public List<LiteralBinding> Literals { get; } = new();
+    public List<PerfHint> PerfHints { get; } = new();
     public List<string> UnsupportedConstructs { get; } = new();
 }
