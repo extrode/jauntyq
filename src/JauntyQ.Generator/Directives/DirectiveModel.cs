@@ -36,11 +36,17 @@ public class DirectiveModel
     public string? ProcName { get; set; }
 
     /// <summary>
+    /// True when: -- @first
+    /// SELECT returns a single row (Row?) instead of List&lt;Row&gt;.
+    /// </summary>
+    public bool IsFirst { get; set; }
+
+    /// <summary>
     /// True if any directives were specified.
     /// </summary>
     public bool HasDirectives =>
         ResultTypeName != null || ResultIsVoid || InlineColumns != null
-        || ExplicitParams != null || IsProc;
+        || ExplicitParams != null || IsProc || IsFirst;
 }
 
 public class InlineColumn

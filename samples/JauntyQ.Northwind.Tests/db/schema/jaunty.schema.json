@@ -1,4 +1,5 @@
 {
+  "dialect": "sqlserver",
   "tables": {
     "AlphabeticalListOfProducts": {
       "name": "AlphabeticalListOfProducts",
@@ -6,57 +7,105 @@
         "ProductId": {
           "name": "ProductId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "SupplierId": {
           "name": "SupplierId",
           "dbType": "int",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CategoryId": {
           "name": "CategoryId",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "QuantityPerUnit": {
           "name": "QuantityPerUnit",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "UnitsInStock": {
           "name": "UnitsInStock",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "UnitsOnOrder": {
           "name": "UnitsOnOrder",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ReorderLevel": {
           "name": "ReorderLevel",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Discontinued": {
           "name": "Discontinued",
           "dbType": "bit",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CategoryName": {
           "name": "CategoryName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
+        }
+      }
+    },
+    "bulk_test": {
+      "name": "bulk_test",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "bigint",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
+        },
+        "name": {
+          "name": "name",
+          "dbType": "nvarchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
+        },
+        "value": {
+          "name": "value",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -66,22 +115,30 @@
         "CategoryId": {
           "name": "CategoryId",
           "dbType": "smallint",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
         },
         "CategoryName": {
           "name": "CategoryName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Description": {
           "name": "Description",
           "dbType": "ntext",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Picture": {
           "name": "Picture",
           "dbType": "image",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -91,12 +148,49 @@
         "CategoryName": {
           "name": "CategoryName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CategorySales": {
           "name": "CategorySales",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
+        }
+      }
+    },
+    "csv_import_test": {
+      "name": "csv_import_test",
+      "columns": {
+        "Name": {
+          "name": "Name",
+          "dbType": "nvarchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
+        },
+        "Age": {
+          "name": "Age",
+          "dbType": "int",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
+        },
+        "City": {
+          "name": "City",
+          "dbType": "nvarchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
+        },
+        "Email": {
+          "name": "Email",
+          "dbType": "nvarchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -106,12 +200,16 @@
         "ProductId": {
           "name": "ProductId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": true
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -121,22 +219,30 @@
         "City": {
           "name": "City",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ContactName": {
           "name": "ContactName",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Relationship": {
           "name": "Relationship",
           "dbType": "varchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -146,12 +252,16 @@
         "CustomerId": {
           "name": "CustomerId",
           "dbType": "nchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false
         },
         "CustomerTypeId": {
           "name": "CustomerTypeId",
           "dbType": "nchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false
         }
       }
     },
@@ -161,12 +271,16 @@
         "CustomerTypeId": {
           "name": "CustomerTypeId",
           "dbType": "nchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false
         },
         "CustomerDescription": {
           "name": "CustomerDescription",
           "dbType": "ntext",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -176,57 +290,79 @@
         "CustomerId": {
           "name": "CustomerId",
           "dbType": "nchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ContactName": {
           "name": "ContactName",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ContactTitle": {
           "name": "ContactTitle",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Address": {
           "name": "Address",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Region": {
           "name": "Region",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "PostalCode": {
           "name": "PostalCode",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Phone": {
           "name": "Phone",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Fax": {
           "name": "Fax",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -236,92 +372,128 @@
         "EmployeeId": {
           "name": "EmployeeId",
           "dbType": "smallint",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
         },
         "LastName": {
           "name": "LastName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "FirstName": {
           "name": "FirstName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Title": {
           "name": "Title",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "TitleOfCourtesy": {
           "name": "TitleOfCourtesy",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "BirthDate": {
           "name": "BirthDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "HireDate": {
           "name": "HireDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Address": {
           "name": "Address",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Region": {
           "name": "Region",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "PostalCode": {
           "name": "PostalCode",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "HomePhone": {
           "name": "HomePhone",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Extension": {
           "name": "Extension",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Photo": {
           "name": "Photo",
           "dbType": "image",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Notes": {
           "name": "Notes",
           "dbType": "ntext",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ReportsTo": {
           "name": "ReportsTo",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "PhotoPath": {
           "name": "PhotoPath",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -331,12 +503,16 @@
         "EmployeeId": {
           "name": "EmployeeId",
           "dbType": "smallint",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false
         },
         "TerritoryId": {
           "name": "TerritoryId",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false
         }
       }
     },
@@ -346,132 +522,184 @@
         "ShipName": {
           "name": "ShipName",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipAddress": {
           "name": "ShipAddress",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipCity": {
           "name": "ShipCity",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipRegion": {
           "name": "ShipRegion",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipPostalCode": {
           "name": "ShipPostalCode",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipCountry": {
           "name": "ShipCountry",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CustomerId": {
           "name": "CustomerId",
           "dbType": "nchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CustomerName": {
           "name": "CustomerName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Address": {
           "name": "Address",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Region": {
           "name": "Region",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "PostalCode": {
           "name": "PostalCode",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Salesperson": {
           "name": "Salesperson",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "OrderDate": {
           "name": "OrderDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "RequiredDate": {
           "name": "RequiredDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShippedDate": {
           "name": "ShippedDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipperName": {
           "name": "ShipperName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ProductId": {
           "name": "ProductId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Quantity": {
           "name": "Quantity",
           "dbType": "smallint",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Discount": {
           "name": "Discount",
           "dbType": "real",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ExtendedPrice": {
           "name": "ExtendedPrice",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Freight": {
           "name": "Freight",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -481,27 +709,37 @@
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false
         },
         "ProductId": {
           "name": "ProductId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Quantity": {
           "name": "Quantity",
           "dbType": "smallint",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Discount": {
           "name": "Discount",
           "dbType": "real",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -511,37 +749,51 @@
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ProductId": {
           "name": "ProductId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Quantity": {
           "name": "Quantity",
           "dbType": "smallint",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Discount": {
           "name": "Discount",
           "dbType": "real",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ExtendedPrice": {
           "name": "ExtendedPrice",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -551,72 +803,100 @@
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
         },
         "CustomerId": {
           "name": "CustomerId",
           "dbType": "nchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "EmployeeId": {
           "name": "EmployeeId",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "OrderDate": {
           "name": "OrderDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "RequiredDate": {
           "name": "RequiredDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShippedDate": {
           "name": "ShippedDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipVia": {
           "name": "ShipVia",
           "dbType": "int",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Freight": {
           "name": "Freight",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipName": {
           "name": "ShipName",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipAddress": {
           "name": "ShipAddress",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipCity": {
           "name": "ShipCity",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipRegion": {
           "name": "ShipRegion",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipPostalCode": {
           "name": "ShipPostalCode",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipCountry": {
           "name": "ShipCountry",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -626,102 +906,142 @@
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CustomerId": {
           "name": "CustomerId",
           "dbType": "nchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "EmployeeId": {
           "name": "EmployeeId",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "OrderDate": {
           "name": "OrderDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "RequiredDate": {
           "name": "RequiredDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShippedDate": {
           "name": "ShippedDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipVia": {
           "name": "ShipVia",
           "dbType": "int",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Freight": {
           "name": "Freight",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipName": {
           "name": "ShipName",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipAddress": {
           "name": "ShipAddress",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipCity": {
           "name": "ShipCity",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipRegion": {
           "name": "ShipRegion",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipPostalCode": {
           "name": "ShipPostalCode",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShipCountry": {
           "name": "ShipCountry",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Address": {
           "name": "Address",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Region": {
           "name": "Region",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "PostalCode": {
           "name": "PostalCode",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -731,12 +1051,16 @@
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Subtotal": {
           "name": "Subtotal",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -746,52 +1070,72 @@
         "ProductId": {
           "name": "ProductId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "SupplierId": {
           "name": "SupplierId",
           "dbType": "int",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CategoryId": {
           "name": "CategoryId",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "QuantityPerUnit": {
           "name": "QuantityPerUnit",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "UnitsInStock": {
           "name": "UnitsInStock",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "UnitsOnOrder": {
           "name": "UnitsOnOrder",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ReorderLevel": {
           "name": "ReorderLevel",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Discontinued": {
           "name": "Discontinued",
           "dbType": "bit",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -801,12 +1145,16 @@
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -816,17 +1164,23 @@
         "CategoryName": {
           "name": "CategoryName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ProductSales": {
           "name": "ProductSales",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -836,27 +1190,37 @@
         "CategoryName": {
           "name": "CategoryName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "QuantityPerUnit": {
           "name": "QuantityPerUnit",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "UnitsInStock": {
           "name": "UnitsInStock",
           "dbType": "smallint",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Discontinued": {
           "name": "Discontinued",
           "dbType": "bit",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -866,22 +1230,30 @@
         "CustomerId": {
           "name": "CustomerId",
           "dbType": "nchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -891,12 +1263,16 @@
         "RegionId": {
           "name": "RegionId",
           "dbType": "smallint",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
         },
         "Description": {
           "name": "Description",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -906,22 +1282,30 @@
         "CategoryId": {
           "name": "CategoryId",
           "dbType": "smallint",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CategoryName": {
           "name": "CategoryName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ProductSales": {
           "name": "ProductSales",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -931,22 +1315,30 @@
         "SaleAmount": {
           "name": "SaleAmount",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ShippedDate": {
           "name": "ShippedDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -956,17 +1348,23 @@
         "ShipperId": {
           "name": "ShipperId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Phone": {
           "name": "Phone",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -976,17 +1374,23 @@
         "ShippedDate": {
           "name": "ShippedDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Subtotal": {
           "name": "Subtotal",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -996,17 +1400,23 @@
         "ShippedDate": {
           "name": "ShippedDate",
           "dbType": "datetime",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Subtotal": {
           "name": "Subtotal",
           "dbType": "money",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -1016,62 +1426,86 @@
         "SupplierId": {
           "name": "SupplierId",
           "dbType": "int",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ContactName": {
           "name": "ContactName",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "ContactTitle": {
           "name": "ContactTitle",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Address": {
           "name": "Address",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Region": {
           "name": "Region",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "PostalCode": {
           "name": "PostalCode",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Phone": {
           "name": "Phone",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "Fax": {
           "name": "Fax",
           "dbType": "nvarchar",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "HomePage": {
           "name": "HomePage",
           "dbType": "ntext",
-          "isNullable": true
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     },
@@ -1081,17 +1515,23 @@
         "TerritoryId": {
           "name": "TerritoryId",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false
         },
         "Description": {
           "name": "Description",
           "dbType": "nvarchar",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         },
         "RegionId": {
           "name": "RegionId",
           "dbType": "smallint",
-          "isNullable": false
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false
         }
       }
     }

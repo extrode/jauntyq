@@ -40,6 +40,12 @@ public static class DirectiveParser
                     continue; // strip this line from cleaned SQL
                 }
 
+                if (string.Equals(commentBody, "@first", StringComparison.OrdinalIgnoreCase))
+                {
+                    directives.IsFirst = true;
+                    continue; // strip this line from cleaned SQL
+                }
+
                 if (commentBody.StartsWith("@proc", StringComparison.OrdinalIgnoreCase))
                 {
                     directives.IsProc = true;

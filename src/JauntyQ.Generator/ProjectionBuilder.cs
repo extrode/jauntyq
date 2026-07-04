@@ -37,7 +37,8 @@ public static class ProjectionBuilder
                             {
                                 Name = DialectMapper.ToPascalCase(schemaCol.Name),
                                 Type = DialectMapper.MapDbTypeToCSharp(schemaCol.DbType, schemaCol.IsNullable),
-                                Ordinal = ordinal++
+                                Ordinal = ordinal++,
+                                SourceName = schemaCol.Name
                             });
                         }
                     }
@@ -92,7 +93,8 @@ public static class ProjectionBuilder
             {
                 Name = propName,
                 Type = csharpType,
-                Ordinal = ordinal++
+                Ordinal = ordinal++,
+                SourceName = !string.IsNullOrEmpty(col.OutputAlias) ? col.OutputAlias : col.ColumnName
             });
         }
 

@@ -12,4 +12,10 @@ public class ColumnSchema
 
     [JsonPropertyName("isNullable")]
     public bool IsNullable { get; set; }
+
+    [JsonPropertyName("isPrimaryKey")]
+    public bool IsPrimaryKey { get; set; }
+
+    [JsonPropertyName("isIdentity")]
+    public bool IsIdentity { get; set; }
 }
