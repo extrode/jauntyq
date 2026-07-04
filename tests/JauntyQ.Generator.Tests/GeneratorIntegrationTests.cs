@@ -381,14 +381,32 @@ where p.product_name = @name";
     }
 
     [Fact]
-    public void UnresolvableParameter_EmitsJNT4003Warning()
+    public void UnresolvableParameter_EmitsJNT4003Error_AndEmitsNoSource()
     {
-        // @limit has no column binding — should emit JNT4003
+        // @limit has no column binding — should emit JNT4003 as an error and
+        // skip emitting the query source entirely (no `object` fallback).
         var sql = @"select p.product_id from products p limit @limit";
 
         var (result, _) = RunGenerator(sql);
 
-        Assert.Contains(result.Diagnostics, d => d.Id == "JNT4003");
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT4003");
+        Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
+        Assert.Contains("-- @params limit:<type>", diag.GetMessage());
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains("Products.GetProducts"));
+    }
+
+    [Fact]
+    public void UnresolvableCrudParameter_EmitsJNT4003Error_AndEmitsNoSource()
+    {
+        // The column list references a column that doesn't exist in the
+        // schema, so the parameter bound to it (positionally) can't resolve
+        // a type.
+        var sql = "INSERT INTO products (unknown_column) VALUES (@unknown_thing)";
+        var (result, _) = RunGenerator(sql, "db/Products/Insert.sql");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT4003");
+        Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains("Products.Insert"));
     }
 
     // ── Entity core file ───────────────────────────────────
@@ -849,6 +867,35 @@ where p.product_id = @product_id";
             idx += needle.Length;
         }
         return count;
+    }
+
+    // ── Tier 1: transactions ───────────────────────────────
+
+    [Fact]
+    public void JauntyDb_ExposesTransactionApi()
+    {
+        var sql = "select p.product_id from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "JauntyDb.g.cs");
+        Assert.Contains("public Transaction BeginTransaction()", source);
+        Assert.Contains("public async System.Threading.Tasks.Task<Transaction> BeginTransactionAsync(", source);
+        Assert.Contains("public sealed class Transaction : System.IDisposable", source);
+        Assert.Contains("new Products(this)", source);
+    }
+
+    [Fact]
+    public void InstanceMethods_EnlistInActiveTransaction_StaticsDoNot()
+    {
+        var sql = "select p.product_id from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        // exactly the two instance variants (sync + async) enlist
+        Assert.Equal(2, CountOccurrences(source, "if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;"));
+
+        var core = GetSource(result, "Products.Core.g.cs");
+        Assert.Contains("internal Products(JauntyDb db)", core);
     }
 }
 

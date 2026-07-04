@@ -42,11 +42,18 @@ public class DirectiveModel
     public bool IsFirst { get; set; }
 
     /// <summary>
+    /// True when: -- @identity
+    /// INSERT returns the database-assigned identity value (typed per the
+    /// key column) instead of the affected row count.
+    /// </summary>
+    public bool ReturnsIdentity { get; set; }
+
+    /// <summary>
     /// True if any directives were specified.
     /// </summary>
     public bool HasDirectives =>
         ResultTypeName != null || ResultIsVoid || InlineColumns != null
-        || ExplicitParams != null || IsProc || IsFirst;
+        || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity;
 }
 
 public class InlineColumn

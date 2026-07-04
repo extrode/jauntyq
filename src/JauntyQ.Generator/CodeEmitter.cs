@@ -77,17 +77,22 @@ public static class CodeEmitter
         // Resolve proc name (null if not in proc mode)
         string? procName = ResolveProcName(directives, entityName, query.Name);
 
+        // -- @identity: resolve the single identity key column of the target
+        // table (the generator validates preconditions and reports JNT7001;
+        // by the time we emit, this either resolves or the file was skipped).
+        IdentityInfo? identity = ResolveIdentityInfo(query, schema, directives);
+
         // Instance sync
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, procName: procName);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, procName: procName, identity: identity);
         sb.AppendLine();
         // Static sync
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, procName: procName);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, procName: procName, identity: identity);
         sb.AppendLine();
         // Instance async
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, procName: procName);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, procName: procName, identity: identity);
         sb.AppendLine();
         // Static async
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, procName: procName);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, procName: procName, identity: identity);
 
         // Emit Proc nested class with CREATE PROCEDURE script
         if (procName != null)
@@ -179,11 +184,13 @@ namespace JauntyQ.Generated
         string connVar,
         bool isStatic,
         bool isAsync,
-        string? procName = null)
+        string? procName = null,
+        IdentityInfo? identity = null)
     {
         string modifier = isStatic ? "public static" : "public";
         string asyncModifier = isAsync ? " async" : "";
-        string returnType = isAsync ? "System.Threading.Tasks.Task<int>" : "int";
+        string syncReturn = identity != null ? identity.Value.CSharpType : "int";
+        string returnType = isAsync ? $"System.Threading.Tasks.Task<{syncReturn}>" : syncReturn;
         string methodName = isAsync ? $"{query.Name}Async" : query.Name;
         string paramList = BuildParamList(paramInfos, isStatic, isAsync);
 
@@ -200,10 +207,20 @@ namespace JauntyQ.Generated
 
         // Create command
         sb.AppendLine($"                using var cmd = {connVar}.CreateCommand();");
+        if (!isStatic)
+        {
+            sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
+        }
         if (procName != null)
         {
             sb.AppendLine($"                cmd.CommandText = \"{procName}\";");
             sb.AppendLine("                cmd.CommandType = System.Data.CommandType.StoredProcedure;");
+        }
+        else if (identity != null)
+        {
+            string identitySql = BuildIdentityInsertSql(
+                StripLeadingSqlComments(originalSql), identity.Value.Dialect, identity.Value.ColumnName);
+            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(identitySql)}\";");
         }
         else
         {
@@ -214,9 +231,25 @@ namespace JauntyQ.Generated
 
         // Execute
         sb.AppendLine();
-        sb.AppendLine(isAsync
-            ? "                return await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);"
-            : "                return cmd.ExecuteNonQuery();");
+        if (identity != null)
+        {
+            string behavior = "System.Data.CommandBehavior.SingleRow | System.Data.CommandBehavior.SingleResult";
+            sb.AppendLine(isAsync
+                ? $"                using var reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
+                : $"                using var reader = cmd.ExecuteReader({behavior});");
+            string readCall = isAsync
+                ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)"
+                : "reader.Read()";
+            sb.AppendLine($"                if (!({readCall}))");
+            sb.AppendLine("                    throw new System.InvalidOperationException(\"INSERT did not return an identity value.\");");
+            sb.AppendLine($"                return {GetIdentityReaderCall(identity.Value)};");
+        }
+        else
+        {
+            sb.AppendLine(isAsync
+                ? "                return await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);"
+                : "                return cmd.ExecuteNonQuery();");
+        }
 
         EmitFinallyClose(sb, connVar, isAsync);
         sb.AppendLine("        }");
@@ -274,6 +307,104 @@ namespace JauntyQ.Generated
         }
     }
 
+    internal readonly struct IdentityInfo
+    {
+        public readonly string ColumnName;
+        public readonly string CSharpType;
+        public readonly string Dialect;
+
+        public IdentityInfo(string columnName, string csharpType, string dialect)
+        {
+            ColumnName = columnName;
+            CSharpType = csharpType;
+            Dialect = dialect;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the single identity key column for an -- @identity INSERT.
+    /// Returns null when preconditions are not met (the generator reports
+    /// JNT7001 for user files before emission; synthetics only carry the
+    /// directive when resolvable).
+    /// </summary>
+    internal static IdentityInfo? ResolveIdentityInfo(QueryModel query, DatabaseSchema? schema, Directives.DirectiveModel? directives)
+    {
+        if (directives?.ReturnsIdentity != true || schema == null || string.IsNullOrEmpty(schema.Dialect))
+            return null;
+        if (query.StatementType != StatementType.Insert || query.TargetTable == null)
+            return null;
+        if (!schema.Tables.TryGetValue(query.TargetTable, out var tableSchema))
+            return null;
+
+        ColumnSchema? identityCol = null;
+        foreach (var col in tableSchema.Columns.Values)
+        {
+            if (!col.IsIdentity)
+                continue;
+            if (identityCol != null)
+                return null; // multiple identity columns: unsupported
+            identityCol = col;
+        }
+        if (identityCol == null)
+            return null;
+
+        string csharpType = DialectMapper.MapDbTypeToCSharp(identityCol.DbType, isNullable: false);
+        return new IdentityInfo(identityCol.Name, csharpType, schema.Dialect);
+    }
+
+    /// <summary>
+    /// Rewrites a plain INSERT so it returns the database-assigned identity:
+    /// OUTPUT INSERTED.x (SQL Server, before VALUES), RETURNING x
+    /// (PostgreSQL/SQLite), or a trailing SELECT LAST_INSERT_ID() (MySQL).
+    /// </summary>
+    internal static string BuildIdentityInsertSql(string sql, string dialect, string identityColumn)
+    {
+        string trimmed = sql.TrimEnd();
+        while (trimmed.EndsWith(";"))
+            trimmed = trimmed.Substring(0, trimmed.Length - 1).TrimEnd();
+
+        switch (dialect)
+        {
+            case "sqlserver":
+            {
+                int idx = FindValuesKeyword(trimmed);
+                if (idx < 0)
+                    return trimmed; // generator validated the shape; defensive only
+                return trimmed.Substring(0, idx) + $"output inserted.{identityColumn}\n" + trimmed.Substring(idx);
+            }
+            case "postgres":
+            case "sqlite":
+                return trimmed + $"\nreturning {identityColumn}";
+            case "mysql":
+                return trimmed + ";\nselect last_insert_id()";
+            default:
+                return trimmed;
+        }
+    }
+
+    private static int FindValuesKeyword(string sql)
+    {
+        for (int i = 0; i + 6 <= sql.Length; i++)
+        {
+            if (string.Compare(sql, i, "values", 0, 6, StringComparison.OrdinalIgnoreCase) != 0)
+                continue;
+            bool startOk = i == 0 || !char.IsLetterOrDigit(sql[i - 1]) && sql[i - 1] != '_' && sql[i - 1] != '@';
+            bool endOk = i + 6 == sql.Length || !char.IsLetterOrDigit(sql[i + 6]) && sql[i + 6] != '_';
+            if (startOk && endOk)
+                return i;
+        }
+        return -1;
+    }
+
+    private static string GetIdentityReaderCall(IdentityInfo identity)
+    {
+        // MySQL's LAST_INSERT_ID() is BIGINT UNSIGNED regardless of the key
+        // type; read as long and narrow explicitly.
+        if (identity.Dialect == "mysql" && identity.CSharpType != "long")
+            return $"checked(({identity.CSharpType})reader.GetInt64(0))";
+        return GetReaderCall(identity.CSharpType, 0);
+    }
+
     private static void EmitFinallyClose(System.Text.StringBuilder sb, string connVar, bool isAsync)
     {
         sb.AppendLine("            }");
@@ -317,7 +448,7 @@ namespace JauntyQ.Generated
         };
     }
 
-    private static string InferCrudParameterType(ParameterRef param, QueryModel query, DatabaseSchema? schema, Directives.DirectiveModel? directives = null)
+    internal static string InferCrudParameterType(ParameterRef param, QueryModel query, DatabaseSchema? schema, Directives.DirectiveModel? directives = null)
     {
         // Check @params directive first
         if (directives?.ExplicitParams != null)
@@ -362,7 +493,15 @@ namespace JauntyQ.Generated
         sb.AppendLine($"    public partial class {entityName}");
         sb.AppendLine("    {");
         sb.AppendLine("        private readonly System.Data.Common.DbConnection _conn;");
+        sb.AppendLine("        private readonly JauntyDb? _db;");
+        sb.AppendLine();
         sb.AppendLine($"        internal {entityName}(System.Data.Common.DbConnection conn) => _conn = conn;");
+        sb.AppendLine();
+        sb.AppendLine($"        internal {entityName}(JauntyDb db)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            _db = db;");
+        sb.AppendLine("            _conn = db.Connection;");
+        sb.AppendLine("        }");
         sb.AppendLine("    }");
         sb.AppendLine("}");
 
@@ -380,16 +519,98 @@ namespace JauntyQ.Generated
         sb.AppendLine("{");
         sb.AppendLine("    public class JauntyDb");
         sb.AppendLine("    {");
-        sb.AppendLine("        private readonly System.Data.Common.DbConnection _conn;");
-        sb.AppendLine();
-        sb.AppendLine("        public JauntyDb(System.Data.Common.DbConnection conn) => _conn = conn;");
+        sb.AppendLine("""
+        private readonly System.Data.Common.DbConnection _conn;
+        private System.Data.Common.DbTransaction? _tx;
+        private bool _txOpenedConnection;
+
+        public JauntyDb(System.Data.Common.DbConnection conn) => _conn = conn;
+
+        internal System.Data.Common.DbConnection Connection => _conn;
+        internal System.Data.Common.DbTransaction? CurrentTransaction => _tx;
+
+        /// <summary>
+        /// Opens the connection if needed and starts a transaction. Every
+        /// db.* call automatically enlists until Commit/Rollback/Dispose;
+        /// if the connection was opened here it is closed when the
+        /// transaction ends. Dispose without Commit rolls back.
+        /// </summary>
+        public Transaction BeginTransaction()
+        {
+            if (_tx != null)
+                throw new System.InvalidOperationException("A JauntyDb transaction is already active.");
+            _txOpenedConnection = _conn.State != System.Data.ConnectionState.Open;
+            if (_txOpenedConnection) _conn.Open();
+            _tx = _conn.BeginTransaction();
+            return new Transaction(this, _tx);
+        }
+
+        public async System.Threading.Tasks.Task<Transaction> BeginTransactionAsync(System.Threading.CancellationToken cancellationToken = default)
+        {
+            if (_tx != null)
+                throw new System.InvalidOperationException("A JauntyDb transaction is already active.");
+            _txOpenedConnection = _conn.State != System.Data.ConnectionState.Open;
+            if (_txOpenedConnection) await _conn.OpenAsync(cancellationToken).ConfigureAwait(false);
+            _tx = await _conn.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            return new Transaction(this, _tx);
+        }
+
+        private void EndTransaction()
+        {
+            _tx = null;
+            if (_txOpenedConnection && _conn.State != System.Data.ConnectionState.Closed)
+                _conn.Close();
+            _txOpenedConnection = false;
+        }
+
+        public sealed class Transaction : System.IDisposable
+        {
+            private readonly JauntyDb _db;
+            private System.Data.Common.DbTransaction? _inner;
+
+            internal Transaction(JauntyDb db, System.Data.Common.DbTransaction inner)
+            {
+                _db = db;
+                _inner = inner;
+            }
+
+            public void Commit()
+            {
+                if (_inner == null)
+                    throw new System.InvalidOperationException("Transaction already completed.");
+                _inner.Commit();
+                End();
+            }
+
+            public void Rollback()
+            {
+                if (_inner == null)
+                    throw new System.InvalidOperationException("Transaction already completed.");
+                _inner.Rollback();
+                End();
+            }
+
+            public void Dispose()
+            {
+                if (_inner == null) return;
+                End(); // disposing an uncommitted DbTransaction rolls back
+            }
+
+            private void End()
+            {
+                _inner!.Dispose();
+                _inner = null;
+                _db.EndTransaction();
+            }
+        }
+""");
 
         foreach (var entity in entityNames)
         {
             string fieldName = "_" + ToCamelCase(entity);
             sb.AppendLine();
             sb.AppendLine($"        private {entity}? {fieldName};");
-            sb.AppendLine($"        public {entity} {entity} => {fieldName} ??= new {entity}(_conn);");
+            sb.AppendLine($"        public {entity} {entity} => {fieldName} ??= new {entity}(this);");
         }
 
         sb.AppendLine("    }");
@@ -490,6 +711,10 @@ namespace JauntyQ.Generated
 
         // Create command
         sb.AppendLine($"                using var cmd = {connVar}.CreateCommand();");
+        if (!isStatic)
+        {
+            sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
+        }
         if (procName != null)
         {
             sb.AppendLine($"                cmd.CommandText = \"{procName}\";");

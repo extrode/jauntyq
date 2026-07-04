@@ -59,7 +59,7 @@ public class DiagnosticsRegistryTests
     [InlineData("JNT2002", DiagnosticSeverity.Error, "JauntyQ.Schema")]
     [InlineData("JNT2003", DiagnosticSeverity.Error, "JauntyQ.Schema")]
     [InlineData("JNT3001", DiagnosticSeverity.Warning, "JauntyQ.Projection")]
-    [InlineData("JNT4003", DiagnosticSeverity.Warning, "JauntyQ.Parameters")]
+    [InlineData("JNT4003", DiagnosticSeverity.Error, "JauntyQ.Parameters")]
     [InlineData("JNT4004", DiagnosticSeverity.Error, "JauntyQ.Parameters")]
     [InlineData("JNT6001", DiagnosticSeverity.Error, "JauntyQ.Configuration")]
     public void Descriptor_HasCorrectSeverityAndCategory(string id, DiagnosticSeverity severity, string category)
@@ -75,6 +75,6 @@ public class DiagnosticsRegistryTests
     [Fact]
     public void Registry_ContainsExpectedCount()
     {
-        Assert.Equal(9, DiagnosticFields.Length); // +JNT3002 SELECT * forbidden (2026-07-04)
+        Assert.Equal(10, DiagnosticFields.Length); // +JNT3002 SELECT*, +JNT7001 identity (2026-07-04)
     }
 }

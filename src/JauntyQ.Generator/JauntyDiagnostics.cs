@@ -77,9 +77,9 @@ public static class JauntyDiagnostics
     public static readonly DiagnosticDescriptor JNT4003 = new(
         "JNT4003",
         "Parameter Type Unresolved",
-        "Parameter type could not be inferred for '@{0}'",
+        "Parameter type could not be inferred for '@{0}'. Declare it explicitly with: -- @params {0}:<type>.",
         "JauntyQ.Parameters",
-        DiagnosticSeverity.Warning,
+        DiagnosticSeverity.Error,
         true);
 
     public static readonly DiagnosticDescriptor JNT4004 = new(
@@ -97,6 +97,16 @@ public static class JauntyDiagnostics
         "Schema Missing",
         "Schema snapshot not found; run 'jaunty schema pull'",
         "JauntyQ.Configuration",
+        DiagnosticSeverity.Error,
+        true);
+
+    // ── 7xxx: Dialect ─────────────────────────────────────
+
+    public static readonly DiagnosticDescriptor JNT7001 = new(
+        "JNT7001",
+        "Identity Return Unavailable",
+        "{0}",
+        "JauntyQ.Dialect",
         DiagnosticSeverity.Error,
         true);
 }

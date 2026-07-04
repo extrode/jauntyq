@@ -70,14 +70,19 @@ public static class AutoCrud
             result.Add(new SyntheticQuery(entityName, "GetById",
                 $"-- @first\nselect {colList}\nfrom {table.Name}\nwhere {pkWhere}"));
 
-            // Insert — identity columns are database-assigned, never bound
+            // Insert — identity columns are database-assigned, never bound.
+            // When the table has a single identity key and the snapshot knows
+            // the dialect, the synthetic Insert returns the new id (-- @identity).
             var insertCols = columns.Where(c => !c.IsIdentity).ToList();
             if (insertCols.Count > 0)
             {
                 string insertColList = string.Join(", ", insertCols.Select(c => c.Name));
                 string insertParams = string.Join(", ", insertCols.Select(c => $"@{c.Name}"));
+                bool returnsIdentity = !string.IsNullOrEmpty(schema.Dialect)
+                    && columns.Count(c => c.IsIdentity) == 1;
+                string prefix = returnsIdentity ? "-- @identity\n" : "";
                 result.Add(new SyntheticQuery(entityName, "Insert",
-                    $"insert into {table.Name} ({insertColList})\nvalues ({insertParams})"));
+                    $"{prefix}insert into {table.Name} ({insertColList})\nvalues ({insertParams})"));
             }
 
             // Update — SET every non-PK column, WHERE the full primary key

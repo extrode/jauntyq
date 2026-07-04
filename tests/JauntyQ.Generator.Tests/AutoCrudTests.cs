@@ -33,6 +33,10 @@ public class AutoCrudTests
 
     private static (GeneratorDriverRunResult result, Compilation compilation) RunAutoCrud(
         bool autoCrud = true, params (string path, string sql)[] sqlFiles)
+        => RunAutoCrudWithSchema(PkSchemaJson, autoCrud, sqlFiles);
+
+    private static (GeneratorDriverRunResult result, Compilation compilation) RunAutoCrudWithSchema(
+        string schemaJson, bool autoCrud = true, params (string path, string sql)[] sqlFiles)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText("");
         var runtimeDir = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location)!;
@@ -56,7 +60,7 @@ public class AutoCrudTests
         var texts = new List<AdditionalText>();
         foreach (var (path, sql) in sqlFiles)
             texts.Add(new InMemoryAdditionalText(path, sql));
-        texts.Add(new InMemoryAdditionalText("schema/jaunty.schema.json", PkSchemaJson));
+        texts.Add(new InMemoryAdditionalText("schema/jaunty.schema.json", schemaJson));
 
         var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
             .AddAdditionalTexts(ImmutableArray.CreateRange(texts))
@@ -148,6 +152,67 @@ public class AutoCrudTests
         var (result, _) = RunAutoCrud(autoCrud: false);
 
         Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains(".auto.g.cs"));
+    }
+
+    // ── -- @identity (Tier 1) ──────────────────────────────
+
+    [Fact]
+    public void SyntheticInsert_SqlServer_ReturnsIdentityViaOutputClause()
+    {
+        var (result, _) = RunAutoCrud();
+
+        var source = TryGetSource(result, "Products.Insert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("output inserted.product_id", source);
+        Assert.Contains("public int Insert(", source);
+        Assert.Contains("INSERT did not return an identity value.", source);
+        Assert.Contains("reader.GetInt32(0)", source);
+        Assert.DoesNotContain("ExecuteNonQuery", source);
+    }
+
+    [Fact]
+    public void SyntheticInsert_Postgres_UsesReturning()
+    {
+        var (result, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"postgres\""));
+
+        var source = TryGetSource(result, "Products.Insert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("returning product_id", source);
+    }
+
+    [Fact]
+    public void SyntheticInsert_MySql_UsesLastInsertId_WithCheckedNarrowing()
+    {
+        var (result, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"mysql\""));
+
+        var source = TryGetSource(result, "Products.Insert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("select last_insert_id()", source);
+        Assert.Contains("checked((int)reader.GetInt64(0))", source);
+    }
+
+    [Fact]
+    public void UserInsert_WithoutDirective_StillReturnsRowcount()
+    {
+        var (result, _) = RunAutoCrud(autoCrud: true,
+            ("db/Products/Insert.sql", "insert into products (product_name, category_id) values (@product_name, @category_id)"));
+
+        var source = TryGetSource(result, "Products.Insert.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("ExecuteNonQuery()", source);
+        Assert.DoesNotContain("output inserted", source);
+    }
+
+    [Fact]
+    public void IdentityDirective_OnUpdate_ReportsJNT7001()
+    {
+        var (result, _) = RunAutoCrud(autoCrud: false,
+            ("db/Products/Rename.sql", "-- @identity\nupdate products set product_name = @product_name where product_id = @product_id"));
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT7001");
+        Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
+        Assert.Contains("only valid on INSERT", diag.GetMessage());
+        Assert.Null(TryGetSource(result, "Products.Rename.g.cs"));
     }
 
     // ── pure synthesis ─────────────────────────────────────
