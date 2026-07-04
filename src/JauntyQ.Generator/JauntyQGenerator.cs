@@ -17,9 +17,16 @@ public class JauntyQGenerator : IIncrementalGenerator
         context.RegisterPostInitializationOutput(static ctx =>
             ctx.AddSource("JauntyQShapeGuard.g.cs", SourceText.From(CodeEmitter.EmitShapeGuardSource(), Encoding.UTF8)));
 
-        // Collect SQL files
+        // Collect SQL query files (migrations are a separate pipeline)
         var sqlFiles = context.AdditionalTextsProvider
-            .Where(static f => f.Path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase));
+            .Where(static f => f.Path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) && !IsMigrationPath(f.Path));
+
+        // Migration files: db/migrations/NNNN_name.sql, applied to the
+        // snapshot in filename order to form the effective schema.
+        var migrationFiles = context.AdditionalTextsProvider
+            .Where(static f => f.Path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) && IsMigrationPath(f.Path))
+            .Select(static (f, ct) => (Name: System.IO.Path.GetFileName(f.Path), Text: f.GetText(ct)?.ToString() ?? ""))
+            .Collect();
 
         // Collect schema files
         var schemaFiles = context.AdditionalTextsProvider
@@ -29,9 +36,12 @@ public class JauntyQGenerator : IIncrementalGenerator
         var schemaText = schemaFiles.Collect().Select(static (files, _) =>
             files.IsEmpty ? null : files[0].GetText()?.ToString());
 
-        // Parse the snapshot once; the instance is cached until the json text changes,
-        // so every downstream node sees the same reference (cheap equality).
-        var schemaState = schemaText.Select(static (json, _) => SchemaState.Load(json));
+        // Parse the snapshot once and apply pending migrations to produce
+        // the EFFECTIVE schema that validation and emission run against.
+        // Cached until the snapshot json or any migration text changes.
+        var schemaState = schemaText
+            .Combine(migrationFiles)
+            .Select(static (pair, _) => SchemaState.Load(pair.Left, pair.Right));
 
         // Auto-CRUD is on unless the consumer sets <JauntyQAutoCrud>false</JauntyQAutoCrud>
         var autoCrudEnabled = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) =>
@@ -233,6 +243,9 @@ public class JauntyQGenerator : IIncrementalGenerator
         if (files.IsEmpty && !schemaState.HasJson)
             return;
 
+        foreach (var diag in schemaState.MigrationDiagnostics)
+            context.ReportDiagnostic(diag.ToDiagnostic());
+
         if (schemaState.ParseFailed)
         {
             context.ReportDiagnostic(Diagnostic.Create(
@@ -415,6 +428,21 @@ public class JauntyQGenerator : IIncrementalGenerator
     }
 
     /// <summary>
+    /// Files under a "migrations" directory segment are DDL migrations, not
+    /// query files. Convention: db/migrations/NNNN_name.sql, applied in
+    /// filename order. Keep query entity folders away from that name.
+    /// </summary>
+    internal static bool IsMigrationPath(string path)
+    {
+        foreach (var segment in path.Replace('\\', '/').Split('/'))
+        {
+            if (string.Equals(segment, "migrations", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Extracts the entity name from a SQL file path by comparing to the common directory prefix.
     /// Files directly in the root SQL folder get entity name "Queries" (catch-all).
     /// Files in a subfolder get the subfolder name as entity name.
@@ -551,25 +579,57 @@ internal sealed class SchemaState
     public bool ParseFailed { get; }
     public bool HasJson { get; }
 
-    private SchemaState(DatabaseSchema? schema, bool parseFailed, bool hasJson)
+    /// <summary>JNT9001/JNT9002 from parsing and simulating pending migrations.</summary>
+    public ImmutableArray<DiagnosticInfo> MigrationDiagnostics { get; }
+
+    private SchemaState(DatabaseSchema? schema, bool parseFailed, bool hasJson,
+        ImmutableArray<DiagnosticInfo> migrationDiagnostics = default)
     {
         Schema = schema;
         ParseFailed = parseFailed;
         HasJson = hasJson;
+        MigrationDiagnostics = migrationDiagnostics.IsDefault
+            ? ImmutableArray<DiagnosticInfo>.Empty
+            : migrationDiagnostics;
     }
 
-    public static SchemaState Load(string? json)
+    public static SchemaState Load(string? json, ImmutableArray<(string Name, string Text)> migrations)
     {
         if (string.IsNullOrWhiteSpace(json))
             return new SchemaState(null, parseFailed: false, hasJson: false);
+
+        DatabaseSchema snapshot;
         try
         {
-            return new SchemaState(SchemaLoader.Load(json!), parseFailed: false, hasJson: true);
+            snapshot = SchemaLoader.Load(json!);
         }
         catch
         {
             return new SchemaState(null, parseFailed: true, hasJson: true);
         }
+
+        if (migrations.IsDefaultOrEmpty)
+            return new SchemaState(snapshot, parseFailed: false, hasJson: true);
+
+        // Pending migrations are applied to a clone of the snapshot in
+        // filename order; the generator validates and emits against the
+        // post-migration world, so a breaking migration fails this build
+        // instead of the deploy.
+        var ordered = new System.Collections.Generic.List<(string Name, string Text)>(migrations);
+        ordered.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
+
+        var parsed = new System.Collections.Generic.List<(string FileName, System.Collections.Generic.List<Migrations.MigrationStatement> Statements)>();
+        foreach (var migration in ordered)
+            parsed.Add((migration.Name, Migrations.MigrationParser.Parse(migration.Text)));
+
+        var errors = new System.Collections.Generic.List<ValidationError>();
+        var effective = Migrations.SchemaSimulator.Apply(snapshot, parsed, errors);
+
+        var diagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>(errors.Count);
+        foreach (var error in errors)
+            diagnostics.Add(DiagnosticInfo.From(error.Descriptor!, error.Message));
+
+        return new SchemaState(effective, parseFailed: false, hasJson: true, diagnostics.MoveToImmutable());
     }
 }
 
