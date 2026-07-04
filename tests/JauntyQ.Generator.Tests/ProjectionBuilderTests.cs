@@ -125,7 +125,7 @@ join categories c on p.category_id = c.category_id", "GetProductsByCategory");
         Assert.Equal("int", DialectMapper.MapDbTypeToCSharp("int", false));
         Assert.Equal("int?", DialectMapper.MapDbTypeToCSharp("int", true));
         Assert.Equal("string", DialectMapper.MapDbTypeToCSharp("varchar", false));
-        Assert.Equal("string", DialectMapper.MapDbTypeToCSharp("varchar", true)); // string is always nullable ref type
+        Assert.Equal("string?", DialectMapper.MapDbTypeToCSharp("varchar", true)); // nullable column -> nullable reference type
         Assert.Equal("bool", DialectMapper.MapDbTypeToCSharp("bool", false));
         Assert.Equal("decimal", DialectMapper.MapDbTypeToCSharp("decimal", false));
         Assert.Equal("double", DialectMapper.MapDbTypeToCSharp("float", false));

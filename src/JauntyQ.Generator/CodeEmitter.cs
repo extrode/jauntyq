@@ -76,7 +76,8 @@ public static class CodeEmitter
         foreach (var param in query.Parameters)
         {
             string paramType = InferCrudParameterType(param, query, schema, directives);
-            paramInfos.Add(new EmittedParam(param.Name, paramType));
+            bool isNullable = IsBoundColumnNullable(param, query, schema);
+            paramInfos.Add(new EmittedParam(param.Name, paramType, isNullable));
         }
 
         // Resolve proc name (null if not in proc mode)
@@ -160,11 +161,13 @@ namespace JauntyQ.Generated
     {
         public readonly string Name;
         public readonly string CSharpType;
+        public readonly bool IsNullable;
 
-        public EmittedParam(string name, string csharpType)
+        public EmittedParam(string name, string csharpType, bool isNullable = false)
         {
             Name = name;
             CSharpType = csharpType;
+            IsNullable = isNullable;
         }
     }
 
@@ -197,7 +200,7 @@ namespace JauntyQ.Generated
         string syncReturn = identity != null ? identity.Value.CSharpType : "int";
         string returnType = isAsync ? $"System.Threading.Tasks.Task<{syncReturn}>" : syncReturn;
         string methodName = isAsync ? $"{query.Name}Async" : query.Name;
-        string paramList = BuildParamList(paramInfos, isStatic, isAsync);
+        string paramList = BuildParamList(paramInfos, isStatic, isAsync, trailingNullableDefaults: true);
 
         sb.AppendLine($"        {modifier}{asyncModifier} {returnType} {methodName}({paramList})");
         sb.AppendLine("        {");
@@ -260,16 +263,28 @@ namespace JauntyQ.Generated
         sb.AppendLine("        }");
     }
 
-    private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync)
+    private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync, bool trailingNullableDefaults = false)
     {
+        // C# optional parameters must be trailing: give `= default` to the
+        // longest suffix of nullable-column parameters so callers pass only
+        // what the schema actually requires.
+        int firstDefault = paramInfos.Count;
+        if (trailingNullableDefaults)
+        {
+            while (firstDefault > 0 && paramInfos[firstDefault - 1].IsNullable)
+                firstDefault--;
+        }
+
         var sb = new System.Text.StringBuilder();
         if (isStatic)
             sb.Append("System.Data.Common.DbConnection conn");
 
-        foreach (var p in paramInfos)
+        for (int i = 0; i < paramInfos.Count; i++)
         {
+            var p = paramInfos[i];
             if (sb.Length > 0) sb.Append(", ");
             sb.Append($"{p.CSharpType} {p.Name}");
+            if (i >= firstDefault) sb.Append(" = default");
         }
 
         if (isAsync)
@@ -451,6 +466,15 @@ namespace JauntyQ.Generated
             "byte[]" => "Binary",
             _ => null
         };
+    }
+
+    private static bool IsBoundColumnNullable(ParameterRef param, QueryModel query, DatabaseSchema? schema)
+    {
+        if (schema == null || string.IsNullOrEmpty(param.BoundColumnName) || query.TargetTable == null)
+            return false;
+        return schema.Tables.TryGetValue(query.TargetTable, out var tableSchema)
+            && tableSchema.Columns.TryGetValue(param.BoundColumnName, out var col)
+            && col.IsNullable;
     }
 
     internal static string InferCrudParameterType(ParameterRef param, QueryModel query, DatabaseSchema? schema, Directives.DirectiveModel? directives = null)
@@ -725,7 +749,7 @@ namespace JauntyQ.Generated
         var paramInfos = new System.Collections.Generic.List<EmittedParam>();
         foreach (var col in columns)
         {
-            paramInfos.Add(new EmittedParam(col.Name, DialectMapper.MapDbTypeToCSharp(col.DbType, col.IsNullable)));
+            paramInfos.Add(new EmittedParam(col.Name, DialectMapper.MapDbTypeToCSharp(col.DbType, col.IsNullable), col.IsNullable));
         }
 
         var stub = new QueryModel { Name = "Upsert" };

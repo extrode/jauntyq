@@ -26,7 +26,7 @@ public static class DialectMapper
             "bigint" or "int8" or "bigserial" => isNullable ? "long?" : "long",
             "smallint" or "int2" or "tinyint" => isNullable ? "short?" : "short",
             "varchar" or "text" or "nvarchar" or "ntext" or "character varying"
-                or "char" or "nchar" or "character" => "string",
+                or "char" or "nchar" or "character" => isNullable ? "string?" : "string",
             "bool" or "boolean" or "bit" => isNullable ? "bool?" : "bool",
             "decimal" or "numeric" or "money" or "smallmoney" => isNullable ? "decimal?" : "decimal",
             "float" or "double precision" or "float8" => isNullable ? "double?" : "double",
@@ -36,7 +36,7 @@ public static class DialectMapper
                 or "smalldatetime" => isNullable ? "System.DateTime?" : "System.DateTime",
             "time" or "time without time zone" => isNullable ? "System.TimeSpan?" : "System.TimeSpan",
             "uniqueidentifier" or "uuid" => isNullable ? "System.Guid?" : "System.Guid",
-            "bytea" or "varbinary" or "binary" or "image" => "byte[]",
+            "bytea" or "varbinary" or "binary" or "image" => isNullable ? "byte[]?" : "byte[]",
             _ => "object"
         };
 

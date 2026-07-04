@@ -265,7 +265,7 @@ from orders o";
         Assert.Equal("int", projection.Columns[0].Type);       // order_id NOT NULL
         Assert.Equal("int?", projection.Columns[1].Type);      // employee_id nullable
         Assert.Equal("decimal", projection.Columns[2].Type);   // total NOT NULL
-        Assert.Equal("string", projection.Columns[3].Type);    // notes nullable (text -> string)
+        Assert.Equal("string?", projection.Columns[3].Type);   // notes nullable (text -> string?)
     }
 
     [Fact]
