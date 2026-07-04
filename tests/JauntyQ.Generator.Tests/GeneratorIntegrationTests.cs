@@ -130,7 +130,7 @@ public class GeneratorIntegrationTests
     [Fact]
     public void SimpleQuery_GeneratesThreeFiles()
     {
-        // One SQL file should produce: shape guard + query file + entity core + JauntyDb = 4
+        // One SQL file should produce: shape guard + query file + entity core + JauntyQDb = 4
         var sql = "select p.product_id, p.product_name from products p";
         var (result, _) = RunGenerator(sql);
 
@@ -423,30 +423,30 @@ where p.product_name = @name";
         Assert.Contains("internal Products(System.Data.Common.DbConnection conn)", source);
     }
 
-    // ── JauntyDb file ──────────────────────────────────────
+    // ── JauntyQDb file ──────────────────────────────────────
 
     [Fact]
-    public void JauntyDb_GeneratedWithEntityAccessor()
+    public void JauntyQDb_GeneratedWithEntityAccessor()
     {
         var sql = "select p.product_id from products p";
         var (result, _) = RunGenerator(sql);
 
-        var source = GetSource(result, "JauntyDb.g.cs");
-        Assert.Contains("public class JauntyDb", source);
+        var source = GetSource(result, "JauntyQDb.g.cs");
+        Assert.Contains("public class JauntyQDb", source);
         Assert.Contains("public Products Products =>", source);
     }
 
     // ── Multi-file / multi-entity ──────────────────────────
 
     [Fact]
-    public void MultipleEntities_GeneratesCorrectJauntyDb()
+    public void MultipleEntities_GeneratesCorrectJauntyQDb()
     {
         var (result, _) = RunGeneratorMultiFile(
             ("db/Products/GetAll.sql", "select p.product_id, p.product_name from products p"),
             ("db/Categories/GetAll.sql", "select c.category_id, c.category_name from categories c")
         );
 
-        var dbSource = GetSource(result, "JauntyDb.g.cs");
+        var dbSource = GetSource(result, "JauntyQDb.g.cs");
         Assert.Contains("public Products Products =>", dbSource);
         Assert.Contains("public Categories Categories =>", dbSource);
 
@@ -488,7 +488,7 @@ where p.product_name = @name";
         var source = GetSource(result, "Queries.GetOrphaned.g.cs");
         Assert.Contains("public partial class Queries", source);
 
-        var dbSource = GetSource(result, "JauntyDb.g.cs");
+        var dbSource = GetSource(result, "JauntyQDb.g.cs");
         Assert.Contains("public Queries Queries =>", dbSource);
     }
     // ── CRUD generation ───────────────────────────────────
@@ -578,7 +578,7 @@ where p.product_name = @name";
         var categoriesSource = GetSource(result, "Categories.GetAll.g.cs");
         Assert.Contains("public partial class Categories", categoriesSource);
 
-        var dbSource = GetSource(result, "JauntyDb.g.cs");
+        var dbSource = GetSource(result, "JauntyQDb.g.cs");
         Assert.Contains("public Products Products =>", dbSource);
         Assert.Contains("public Categories Categories =>", dbSource);
     }
@@ -598,7 +598,7 @@ where p.product_name = @name";
         var tableSource = GetSource(result, "Products.GetById.g.cs");
         Assert.Contains("public partial class Products", tableSource);
 
-        var dbSource = GetSource(result, "JauntyDb.g.cs");
+        var dbSource = GetSource(result, "JauntyQDb.g.cs");
         Assert.Contains("public ProductSummary ProductSummary =>", dbSource);
         Assert.Contains("public Products Products =>", dbSource);
     }
@@ -872,12 +872,12 @@ where p.product_id = @product_id";
     // ── Tier 1: transactions ───────────────────────────────
 
     [Fact]
-    public void JauntyDb_ExposesTransactionApi()
+    public void JauntyQDb_ExposesTransactionApi()
     {
         var sql = "select p.product_id from products p";
         var (result, _) = RunGenerator(sql);
 
-        var source = GetSource(result, "JauntyDb.g.cs");
+        var source = GetSource(result, "JauntyQDb.g.cs");
         Assert.Contains("public Transaction BeginTransaction()", source);
         Assert.Contains("public async System.Threading.Tasks.Task<Transaction> BeginTransactionAsync(", source);
         Assert.Contains("public sealed class Transaction : System.IDisposable", source);
@@ -895,7 +895,7 @@ where p.product_id = @product_id";
         Assert.Equal(2, CountOccurrences(source, "if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;"));
 
         var core = GetSource(result, "Products.Core.g.cs");
-        Assert.Contains("internal Products(JauntyDb db)", core);
+        Assert.Contains("internal Products(JauntyQDb db)", core);
     }
 }
 
