@@ -14,7 +14,7 @@ namespace JauntyQ.Generator;
 ///   6xxx — Configuration errors
 ///   7xxx — Dialect errors
 ///   8xxx — Performance warnings
-///   9xxx — Reserved / future
+///   9xxx — Migrations
 /// </summary>
 public static class JauntyDiagnostics
 {
@@ -125,6 +125,24 @@ public static class JauntyDiagnostics
         "Identity Return Unavailable",
         "{0}",
         "JauntyQ.Dialect",
+        DiagnosticSeverity.Error,
+        true);
+
+    // ── 9xxx: Migrations ──────────────────────────────────
+
+    public static readonly DiagnosticDescriptor JNT9001 = new(
+        "JNT9001",
+        "Migration Statement Not Simulated",
+        "{0}",
+        "JauntyQ.Migrations",
+        DiagnosticSeverity.Warning,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT9002 = new(
+        "JNT9002",
+        "Migration Invalid Against Schema",
+        "{0}",
+        "JauntyQ.Migrations",
         DiagnosticSeverity.Error,
         true);
 }
