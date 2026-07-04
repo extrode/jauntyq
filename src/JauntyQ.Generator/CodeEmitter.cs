@@ -448,7 +448,7 @@ namespace JauntyQ.Generated
         };
     }
 
-    private static string InferCrudParameterType(ParameterRef param, QueryModel query, DatabaseSchema? schema, Directives.DirectiveModel? directives = null)
+    internal static string InferCrudParameterType(ParameterRef param, QueryModel query, DatabaseSchema? schema, Directives.DirectiveModel? directives = null)
     {
         // Check @params directive first
         if (directives?.ExplicitParams != null)

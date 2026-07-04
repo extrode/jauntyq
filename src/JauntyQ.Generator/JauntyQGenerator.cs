@@ -156,6 +156,23 @@ public class JauntyQGenerator : IIncrementalGenerator
             if (queryModel.StatementType != StatementType.Select)
             {
                 // CRUD (INSERT, UPDATE, DELETE) — no projection, returns int
+
+                // JNT4003: Check for unresolved parameter types
+                bool hasUnresolvedCrudParam = false;
+                foreach (var param in queryModel.Parameters)
+                {
+                    string inferredType = CodeEmitter.InferCrudParameterType(param, queryModel, schema, directives);
+                    if (inferredType == "object")
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(
+                            JauntyDiagnostics.JNT4003, Location.None, param.Name));
+                        hasUnresolvedCrudParam = true;
+                    }
+                }
+
+                if (hasUnresolvedCrudParam)
+                    continue;
+
                 source = CodeEmitter.EmitCrud(queryModel, cleanedSql, entityName, schema, directives);
             }
             else
@@ -164,6 +181,7 @@ public class JauntyQGenerator : IIncrementalGenerator
                 var projection = ProjectionBuilder.Build(queryModel, schema);
 
                 // JNT4003: Check for unresolved parameter types
+                bool hasUnresolvedParam = false;
                 foreach (var param in queryModel.Parameters)
                 {
                     string inferredType = CodeEmitter.InferParameterType(param.Name, queryModel, projection, schema, directives);
@@ -171,8 +189,12 @@ public class JauntyQGenerator : IIncrementalGenerator
                     {
                         context.ReportDiagnostic(Diagnostic.Create(
                             JauntyDiagnostics.JNT4003, Location.None, param.Name));
+                        hasUnresolvedParam = true;
                     }
                 }
+
+                if (hasUnresolvedParam)
+                    continue;
 
                 source = CodeEmitter.Emit(queryModel, projection, cleanedSql, entityName, schema, directives);
             }

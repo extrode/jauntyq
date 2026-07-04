@@ -59,7 +59,7 @@ public class DiagnosticsRegistryTests
     [InlineData("JNT2002", DiagnosticSeverity.Error, "JauntyQ.Schema")]
     [InlineData("JNT2003", DiagnosticSeverity.Error, "JauntyQ.Schema")]
     [InlineData("JNT3001", DiagnosticSeverity.Warning, "JauntyQ.Projection")]
-    [InlineData("JNT4003", DiagnosticSeverity.Warning, "JauntyQ.Parameters")]
+    [InlineData("JNT4003", DiagnosticSeverity.Error, "JauntyQ.Parameters")]
     [InlineData("JNT4004", DiagnosticSeverity.Error, "JauntyQ.Parameters")]
     [InlineData("JNT6001", DiagnosticSeverity.Error, "JauntyQ.Configuration")]
     public void Descriptor_HasCorrectSeverityAndCategory(string id, DiagnosticSeverity severity, string category)

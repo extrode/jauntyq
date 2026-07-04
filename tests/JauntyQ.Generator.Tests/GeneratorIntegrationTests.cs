@@ -381,14 +381,32 @@ where p.product_name = @name";
     }
 
     [Fact]
-    public void UnresolvableParameter_EmitsJNT4003Warning()
+    public void UnresolvableParameter_EmitsJNT4003Error_AndEmitsNoSource()
     {
-        // @limit has no column binding — should emit JNT4003
+        // @limit has no column binding — should emit JNT4003 as an error and
+        // skip emitting the query source entirely (no `object` fallback).
         var sql = @"select p.product_id from products p limit @limit";
 
         var (result, _) = RunGenerator(sql);
 
-        Assert.Contains(result.Diagnostics, d => d.Id == "JNT4003");
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT4003");
+        Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
+        Assert.Contains("-- @params limit:<type>", diag.GetMessage());
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains("Products.GetProducts"));
+    }
+
+    [Fact]
+    public void UnresolvableCrudParameter_EmitsJNT4003Error_AndEmitsNoSource()
+    {
+        // The column list references a column that doesn't exist in the
+        // schema, so the parameter bound to it (positionally) can't resolve
+        // a type.
+        var sql = "INSERT INTO products (unknown_column) VALUES (@unknown_thing)";
+        var (result, _) = RunGenerator(sql, "db/Products/Insert.sql");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT4003");
+        Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains("Products.Insert"));
     }
 
     // ── Entity core file ───────────────────────────────────
