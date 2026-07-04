@@ -90,16 +90,16 @@ public static class CodeEmitter
         IdentityInfo? identity = ResolveIdentityInfo(query, schema, directives);
 
         // Instance sync
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, procName: procName, identity: identity);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, procName: procName, identity: identity, dialect: schema?.Dialect);
         sb.AppendLine();
         // Static sync
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, procName: procName, identity: identity);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, procName: procName, identity: identity, dialect: schema?.Dialect);
         sb.AppendLine();
         // Instance async
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, procName: procName, identity: identity);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, procName: procName, identity: identity, dialect: schema?.Dialect);
         sb.AppendLine();
         // Static async
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, procName: procName, identity: identity);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, procName: procName, identity: identity, dialect: schema?.Dialect);
 
         // Emit Proc nested class with CREATE PROCEDURE script
         if (procName != null)
@@ -325,7 +325,8 @@ namespace JauntyQ.Generated
         bool isStatic,
         bool isAsync,
         string? procName = null,
-        IdentityInfo? identity = null)
+        IdentityInfo? identity = null,
+        string? dialect = null)
     {
         string modifier = isStatic ? "public static" : "public";
         string asyncModifier = isAsync ? " async" : "";
@@ -369,7 +370,7 @@ namespace JauntyQ.Generated
             sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(StripLeadingSqlComments(originalSql))}\";");
         }
 
-        EmitParameterBinding(sb, paramInfos);
+        EmitParameterBinding(sb, paramInfos, dialect);
 
         // Execute
         sb.AppendLine();
@@ -430,13 +431,27 @@ namespace JauntyQ.Generated
         return sb.ToString();
     }
 
-    private static void EmitParameterBinding(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos)
+    private static void EmitParameterBinding(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos, string? dialect = null)
     {
         for (int i = 0; i < paramInfos.Count; i++)
         {
             var param = paramInfos[i];
             string varName = $"p{i}";
             sb.AppendLine();
+
+            // PostgreSQL: NpgsqlParameter<T>.TypedValue keeps the value
+            // strongly typed end to end - no object boxing at the ADO.NET
+            // boundary, and Npgsql infers the exact wire type from T (no
+            // DbType). PostgreSQL parameter typing is OID-based, so the
+            // per-length plan-cache concern does not apply and Size is not
+            // emitted; the client-side write guards still run.
+            if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
+            {
+                sb.AppendLine($"                var {varName} = new global::Npgsql.NpgsqlParameter<{param.CSharpType}> {{ ParameterName = \"@{param.Name}\", TypedValue = {param.Name} }};");
+                sb.AppendLine($"                cmd.Parameters.Add({varName});");
+                continue;
+            }
+
             sb.AppendLine($"                var {varName} = cmd.CreateParameter();");
             sb.AppendLine($"                {varName}.ParameterName = \"@{param.Name}\";");
             string? adoDbType = MapCSharpTypeToAdoDbType(param.CSharpType);
@@ -899,13 +914,13 @@ namespace JauntyQ.Generated
         sb.AppendLine("{");
         sb.AppendLine($"    public partial class {entityName}");
         sb.AppendLine("    {");
-        EmitCrudMethodBody(sb, stub, sql, paramInfos, "_conn", isStatic: false, isAsync: false);
+        EmitCrudMethodBody(sb, stub, sql, paramInfos, "_conn", isStatic: false, isAsync: false, dialect: dialect);
         sb.AppendLine();
-        EmitCrudMethodBody(sb, stub, sql, paramInfos, "conn", isStatic: true, isAsync: false);
+        EmitCrudMethodBody(sb, stub, sql, paramInfos, "conn", isStatic: true, isAsync: false, dialect: dialect);
         sb.AppendLine();
-        EmitCrudMethodBody(sb, stub, sql, paramInfos, "_conn", isStatic: false, isAsync: true);
+        EmitCrudMethodBody(sb, stub, sql, paramInfos, "_conn", isStatic: false, isAsync: true, dialect: dialect);
         sb.AppendLine();
-        EmitCrudMethodBody(sb, stub, sql, paramInfos, "conn", isStatic: true, isAsync: true);
+        EmitCrudMethodBody(sb, stub, sql, paramInfos, "conn", isStatic: true, isAsync: true, dialect: dialect);
         sb.AppendLine("    }");
         sb.AppendLine("}");
 
@@ -1090,16 +1105,16 @@ namespace JauntyQ.Generated
         }
 
         // Instance sync
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, isFirst, queryId, mapperCall, procName);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, isFirst, queryId, mapperCall, procName, schema?.Dialect);
         sb.AppendLine();
         // Static sync
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, isFirst, queryId, mapperCall, procName);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, isFirst, queryId, mapperCall, procName, schema?.Dialect);
         sb.AppendLine();
         // Instance async
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, isFirst, queryId, mapperCall, procName);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, isFirst, queryId, mapperCall, procName, schema?.Dialect);
         sb.AppendLine();
         // Static async
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, isFirst, queryId, mapperCall, procName);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, isFirst, queryId, mapperCall, procName, schema?.Dialect);
     }
 
     private static void EmitMethodBody(
@@ -1115,7 +1130,8 @@ namespace JauntyQ.Generated
         bool isFirst,
         string queryId,
         string mapperCall,
-        string? procName = null)
+        string? procName = null,
+        string? dialect = null)
     {
         string modifier = isStatic ? "public static" : "public";
         string asyncModifier = isAsync ? " async" : "";
@@ -1153,7 +1169,7 @@ namespace JauntyQ.Generated
             sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(StripLeadingSqlComments(originalSql))}\";");
         }
 
-        EmitParameterBinding(sb, paramInfos);
+        EmitParameterBinding(sb, paramInfos, dialect);
 
         // Execute reader + one-time shape guard. SingleResult (and SingleRow
         // for @first) lets the provider optimize buffering for the shape we
