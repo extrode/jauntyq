@@ -18,4 +18,42 @@ public class ColumnSchema
 
     [JsonPropertyName("isIdentity")]
     public bool IsIdentity { get; set; }
+
+    /// <summary>
+    /// Max length for string/binary columns: characters for text, bytes for
+    /// binary; -1 means unbounded (varchar(max), text, bytea). Null when the
+    /// type has no length or the snapshot predates value-safety metadata.
+    /// </summary>
+    [JsonPropertyName("maxLength")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxLength { get; set; }
+
+    /// <summary>Numeric precision (total digits) for decimal/numeric columns.</summary>
+    [JsonPropertyName("precision")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Precision { get; set; }
+
+    /// <summary>Numeric scale (fraction digits) for decimal/numeric columns.</summary>
+    [JsonPropertyName("scale")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Scale { get; set; }
+
+    /// <summary>
+    /// True for Unicode text columns (nvarchar/nchar, or a Unicode charset),
+    /// false for single-byte-charset text, null for non-text columns or
+    /// snapshots that predate value-safety metadata.
+    /// </summary>
+    [JsonPropertyName("isUnicode")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IsUnicode { get; set; }
+
+    /// <summary>
+    /// True for database-maintained concurrency tokens (SQL Server
+    /// rowversion/timestamp). Never written by the application; used to
+    /// generate optimistic-concurrency WHERE clauses. Explicit flag because
+    /// SQL Server reports rowversion as data type 'timestamp', which
+    /// collides with the PostgreSQL datetime type of the same name.
+    /// </summary>
+    [JsonPropertyName("isRowVersion")]
+    public bool IsRowVersion { get; set; }
 }

@@ -25,6 +25,9 @@ public static class SqlParser
         // Detect unsupported constructs
         DetectUnsupportedConstructs(tokens, model);
 
+        // Capture literals bound to columns (compile-time value-safety checks)
+        ExtractLiteralBindings(tokens, model);
+
         // Detect statement type from the first keyword
         for (int i = 0; i < tokens.Count; i++)
         {
@@ -413,6 +416,86 @@ public static class SqlParser
     }
 
     /// <summary>
+    /// Captures literals compared to or assigned into columns:
+    /// col = 'x', col >= 19.99, SET col = 'x', col IN (1, 2, 3).
+    /// LIKE patterns are deliberately skipped (wildcards make length
+    /// reasoning unsound). Best-effort: unresolvable bindings are simply
+    /// not validated.
+    /// </summary>
+    private static void ExtractLiteralBindings(List<Token> tokens, QueryModel model)
+    {
+        // identifier <op> literal  or  literal <op> identifier
+        for (int i = 1; i < tokens.Count - 1; i++)
+        {
+            if (tokens[i].Type != TokenType.Symbol || !ComparisonOperators.Contains(tokens[i].Value))
+                continue;
+
+            var left = tokens[i - 1];
+            var right = tokens[i + 1];
+
+            bool found = false;
+            TokenType literalType = TokenType.Literal;
+            string literalValue = string.Empty;
+            string tableAlias = string.Empty;
+            string columnName = string.Empty;
+
+            if (left.Type == TokenType.Identifier &&
+                (right.Type == TokenType.Literal || right.Type == TokenType.Number))
+            {
+                found = true;
+                literalType = right.Type;
+                literalValue = right.Value;
+                (tableAlias, columnName) = SplitQualifiedName(left.Value);
+            }
+            else if ((left.Type == TokenType.Literal || left.Type == TokenType.Number) &&
+                     right.Type == TokenType.Identifier)
+            {
+                found = true;
+                literalType = left.Type;
+                literalValue = left.Value;
+                (tableAlias, columnName) = SplitQualifiedName(right.Value);
+            }
+
+            if (!found)
+                continue;
+
+            model.Literals.Add(new LiteralBinding
+            {
+                Kind = literalType == TokenType.Literal ? LiteralKind.String : LiteralKind.Number,
+                Value = literalValue,
+                BoundTableAlias = tableAlias,
+                BoundColumnName = columnName
+            });
+        }
+
+        // identifier IN ( literal, literal, ... ) — every literal in the list is checked
+        for (int i = 0; i < tokens.Count - 3; i++)
+        {
+            if (tokens[i].Type == TokenType.Identifier &&
+                tokens[i + 1].Type == TokenType.Keyword && tokens[i + 1].Value == "IN" &&
+                tokens[i + 2].Type == TokenType.Symbol && tokens[i + 2].Value == "(")
+            {
+                var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
+                int j = i + 3;
+                while (j < tokens.Count && !(tokens[j].Type == TokenType.Symbol && tokens[j].Value == ")"))
+                {
+                    if (tokens[j].Type == TokenType.Literal || tokens[j].Type == TokenType.Number)
+                    {
+                        model.Literals.Add(new LiteralBinding
+                        {
+                            Kind = tokens[j].Type == TokenType.Literal ? LiteralKind.String : LiteralKind.Number,
+                            Value = tokens[j].Value,
+                            BoundTableAlias = tableAlias,
+                            BoundColumnName = columnName
+                        });
+                    }
+                    j++;
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// INSERT INTO Table (col1, col2) VALUES (@p1, @p2)
     /// </summary>
     private static void ParseInsert(List<Token> tokens, int pos, QueryModel model)
@@ -447,24 +530,92 @@ public static class SqlParser
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "VALUES")
             pos++;
 
-        // Values list: ( @p1, @p2, ... ) — bind positionally to columns
+        // Values list: ( @p1, 'literal', ... ) — split into top-level
+        // comma-separated slots so parameters AND literals advance the
+        // column index together; each slot binds positionally to its column.
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "(")
         {
             pos++; // skip (
             int colIndex = 0;
-            while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")"))
+            int depth = 0;
+            var slot = new List<Token>();
+            while (pos < tokens.Count)
             {
-                if (tokens[pos].Type == TokenType.Parameter && colIndex < insertColumns.Count)
+                var t = tokens[pos];
+                if (t.Type == TokenType.Symbol && t.Value == "(")
                 {
-                    var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[pos].Value);
-                    if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
+                    depth++;
+                    slot.Add(t);
+                }
+                else if (t.Type == TokenType.Symbol && t.Value == ")")
+                {
+                    if (depth == 0)
                     {
-                        paramRef.BoundColumnName = insertColumns[colIndex];
+                        BindInsertSlot(slot, insertColumns, colIndex, model);
+                        break;
                     }
+                    depth--;
+                    slot.Add(t);
+                }
+                else if (t.Type == TokenType.Symbol && t.Value == "," && depth == 0)
+                {
+                    BindInsertSlot(slot, insertColumns, colIndex, model);
                     colIndex++;
+                    slot.Clear();
+                }
+                else
+                {
+                    slot.Add(t);
                 }
                 pos++;
             }
+        }
+    }
+
+    /// <summary>
+    /// Binds one INSERT VALUES slot to its column: a lone @param binds the
+    /// parameter, a lone literal (or -number) records a LiteralBinding for
+    /// value-safety validation. Multi-token expressions are skipped but
+    /// still consume their column position.
+    /// </summary>
+    private static void BindInsertSlot(List<Token> slot, List<string> insertColumns, int colIndex, QueryModel model)
+    {
+        if (colIndex >= insertColumns.Count)
+            return;
+
+        if (slot.Count == 1 && slot[0].Type == TokenType.Parameter)
+        {
+            var paramRef = model.Parameters.FirstOrDefault(p => p.Name == slot[0].Value);
+            if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
+            {
+                paramRef.BoundColumnName = insertColumns[colIndex];
+                paramRef.IsWriteTarget = true;
+            }
+            return;
+        }
+
+        if (slot.Count == 1 && (slot[0].Type == TokenType.Literal || slot[0].Type == TokenType.Number))
+        {
+            model.Literals.Add(new LiteralBinding
+            {
+                Kind = slot[0].Type == TokenType.Literal ? LiteralKind.String : LiteralKind.Number,
+                Value = slot[0].Value,
+                BoundColumnName = insertColumns[colIndex]
+            });
+            return;
+        }
+
+        // Negative numeric literal: '-' Number
+        if (slot.Count == 2 &&
+            slot[0].Type == TokenType.Symbol && slot[0].Value == "-" &&
+            slot[1].Type == TokenType.Number)
+        {
+            model.Literals.Add(new LiteralBinding
+            {
+                Kind = LiteralKind.Number,
+                Value = "-" + slot[1].Value,
+                BoundColumnName = insertColumns[colIndex]
+            });
         }
     }
 
@@ -483,6 +634,32 @@ public static class SqlParser
 
         // Parameter bindings handled by ExtractParameterBindings (col = @param pattern)
         ExtractParameterBindings(tokens, model);
+
+        // Parameters assigned in the SET clause (before WHERE) are write
+        // targets; everything after WHERE is a comparison.
+        bool inSet = false;
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            if (tokens[i].Type == TokenType.Keyword)
+            {
+                if (tokens[i].Value == "SET")
+                {
+                    inSet = true;
+                    continue;
+                }
+                if (tokens[i].Value == "WHERE")
+                    break;
+            }
+            if (inSet && i >= 2 &&
+                tokens[i].Type == TokenType.Parameter &&
+                tokens[i - 1].Type == TokenType.Symbol && tokens[i - 1].Value == "=" &&
+                tokens[i - 2].Type == TokenType.Identifier)
+            {
+                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i].Value);
+                if (paramRef != null)
+                    paramRef.IsWriteTarget = true;
+            }
+        }
     }
 
     /// <summary>

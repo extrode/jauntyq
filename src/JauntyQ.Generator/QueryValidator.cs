@@ -123,10 +123,134 @@ public static class QueryValidator
             ValidateJoinSide(join.RightTable, join.RightColumn, aliasToTable, schema, errors);
         }
 
+        // JNT5001/JNT5002: literals must fit their target columns
+        ValidateLiterals(query, aliasToTable, schema, errors);
+
         // JNT1001: Unsupported SQL constructs
         DetectUnsupportedConstructs(query, errors);
 
         return errors;
+    }
+
+    /// <summary>
+    /// Value safety: every SQL literal the parser bound to a column is
+    /// proven to fit that column at compile time — string length against
+    /// maxLength, numeric literals against decimal precision/scale and
+    /// integer ranges. Unresolvable bindings are skipped (never guessed).
+    /// </summary>
+    private static void ValidateLiterals(
+        QueryModel query,
+        Dictionary<string, string> aliasToTable,
+        DatabaseSchema schema,
+        List<ValidationError> errors)
+    {
+        foreach (var lit in query.Literals)
+        {
+            var column = ResolveColumn(query, lit.BoundTableAlias, lit.BoundColumnName, aliasToTable, schema, out string? tableName);
+            if (column == null)
+                continue; // unresolvable, or already reported as JNT2002
+
+            if (lit.Kind == LiteralKind.String)
+            {
+                if (column.MaxLength is int max && max > 0)
+                {
+                    // '' in the raw token is one escaped quote character
+                    int length = lit.Value.Replace("''", "'").Length;
+                    if (length > max)
+                    {
+                        errors.Add(new ValidationError(JauntyDiagnostics.JNT5001,
+                            $"String literal ({length} chars) exceeds {tableName}.{column.Name} max length of {max}. " +
+                            "It would truncate on write and can never match on read."));
+                    }
+                }
+            }
+            else
+            {
+                ValidateNumericLiteral(lit, column, tableName!, errors);
+            }
+        }
+    }
+
+    private static void ValidateNumericLiteral(
+        LiteralBinding lit, ColumnSchema column, string tableName, List<ValidationError> errors)
+    {
+        if (!decimal.TryParse(lit.Value,
+                System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowDecimalPoint,
+                System.Globalization.CultureInfo.InvariantCulture, out decimal value))
+            return;
+
+        // decimal/numeric/money: integer digits must fit precision - scale
+        if (column.Precision is int precision && precision > 0)
+        {
+            int scale = column.Scale ?? 0;
+            decimal integerPart = decimal.Truncate(Math.Abs(value));
+            int intDigits = integerPart == 0
+                ? 0
+                : integerPart.ToString(System.Globalization.CultureInfo.InvariantCulture).Length;
+            if (intDigits > precision - scale)
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT5002,
+                    $"Numeric literal {lit.Value} does not fit {tableName}.{column.Name} ({column.DbType}, precision {precision}, scale {scale}): " +
+                    $"at most {precision - scale} digit(s) before the decimal point. It would overflow at runtime."));
+            }
+            return;
+        }
+
+        // integer families: compile-time range check
+        string dbType = column.DbType.ToLowerInvariant();
+        int paren = dbType.IndexOf('(');
+        if (paren >= 0)
+            dbType = dbType.Substring(0, paren);
+
+        (decimal Min, decimal Max)? range = dbType switch
+        {
+            "int" or "int4" or "integer" or "serial" => (int.MinValue, int.MaxValue),
+            "bigint" or "int8" or "bigserial" => (long.MinValue, long.MaxValue),
+            "smallint" or "int2" => (short.MinValue, short.MaxValue),
+            "tinyint" => (0m, 255m),
+            _ => ((decimal, decimal)?)null
+        };
+
+        if (range.HasValue && (value < range.Value.Min || value > range.Value.Max))
+        {
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT5002,
+                $"Numeric literal {lit.Value} is out of range for {tableName}.{column.Name} ({column.DbType}). It would overflow at runtime."));
+        }
+    }
+
+    private static ColumnSchema? ResolveColumn(
+        QueryModel query, string tableAlias, string columnName,
+        Dictionary<string, string> aliasToTable, DatabaseSchema schema, out string? tableName)
+    {
+        tableName = null;
+        if (string.IsNullOrEmpty(columnName))
+            return null;
+
+        if (!string.IsNullOrEmpty(tableAlias))
+        {
+            if (aliasToTable.TryGetValue(tableAlias, out string? resolved) &&
+                schema.Tables.TryGetValue(resolved, out var aliasedTable) &&
+                aliasedTable.Columns.TryGetValue(columnName, out var aliasedColumn))
+            {
+                tableName = resolved;
+                return aliasedColumn;
+            }
+            return null;
+        }
+
+        ColumnSchema? match = null;
+        foreach (var table in query.Tables)
+        {
+            if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
+                tableSchema.Columns.TryGetValue(columnName, out var column))
+            {
+                if (match != null)
+                    return null; // ambiguous — JNT2003 territory, skip the value check
+                match = column;
+                tableName = table.TableName;
+            }
+        }
+        return match;
     }
 
     private static void DetectUnsupportedConstructs(QueryModel query, List<ValidationError> errors)

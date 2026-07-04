@@ -77,7 +77,8 @@ public static class CodeEmitter
         {
             string paramType = InferCrudParameterType(param, query, schema, directives);
             bool isNullable = IsBoundColumnNullable(param, query, schema);
-            paramInfos.Add(new EmittedParam(param.Name, paramType, isNullable));
+            var column = ResolveBoundColumn(param, query, schema, out string? boundTable);
+            paramInfos.Add(CreateEmittedParam(param.Name, paramType, isNullable, column, boundTable, param.IsWriteTarget));
         }
 
         // Resolve proc name (null if not in proc mode)
@@ -162,12 +163,143 @@ namespace JauntyQ.Generated
         public readonly string Name;
         public readonly string CSharpType;
         public readonly bool IsNullable;
+        public readonly int? MaxLength;       // chars for text, bytes for binary; -1 = unbounded (MAX)
+        public readonly int? Precision;
+        public readonly int? Scale;
+        public readonly bool IsWriteTarget;   // INSERT value / UPDATE SET / upsert column
+        public readonly string? ColumnDisplay; // "table.column" for guard messages
 
-        public EmittedParam(string name, string csharpType, bool isNullable = false)
+        public EmittedParam(string name, string csharpType, bool isNullable = false,
+            int? maxLength = null, int? precision = null, int? scale = null,
+            bool isWriteTarget = false, string? columnDisplay = null)
         {
             Name = name;
             CSharpType = csharpType;
             IsNullable = isNullable;
+            MaxLength = maxLength;
+            Precision = precision;
+            Scale = scale;
+            IsWriteTarget = isWriteTarget;
+            ColumnDisplay = columnDisplay;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the schema column a parameter is bound to (CRUD target table
+    /// first, then alias-qualified, then unique unqualified match).
+    /// </summary>
+    private static ColumnSchema? ResolveBoundColumn(ParameterRef param, QueryModel query, DatabaseSchema? schema, out string? tableName)
+    {
+        tableName = null;
+        if (schema == null || string.IsNullOrEmpty(param.BoundColumnName))
+            return null;
+
+        if (query.TargetTable != null &&
+            schema.Tables.TryGetValue(query.TargetTable, out var target) &&
+            target.Columns.TryGetValue(param.BoundColumnName, out var targetCol))
+        {
+            tableName = query.TargetTable;
+            return targetCol;
+        }
+
+        if (!string.IsNullOrEmpty(param.BoundTableAlias))
+        {
+            string? resolved = ResolveAlias(param.BoundTableAlias, query);
+            if (resolved != null &&
+                schema.Tables.TryGetValue(resolved, out var aliased) &&
+                aliased.Columns.TryGetValue(param.BoundColumnName, out var aliasedCol))
+            {
+                tableName = resolved;
+                return aliasedCol;
+            }
+            return null;
+        }
+
+        foreach (var table in query.Tables)
+        {
+            if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
+                tableSchema.Columns.TryGetValue(param.BoundColumnName, out var col))
+            {
+                tableName = table.TableName;
+                return col;
+            }
+        }
+        return null;
+    }
+
+    private static EmittedParam CreateEmittedParam(string name, string csharpType, bool isNullable,
+        ColumnSchema? column, string? tableName, bool isWriteTarget)
+    {
+        if (column == null)
+            return new EmittedParam(name, csharpType, isNullable);
+        return new EmittedParam(name, csharpType, isNullable,
+            column.MaxLength, column.Precision, column.Scale, isWriteTarget,
+            tableName != null ? $"{tableName}.{column.Name}" : column.Name);
+    }
+
+    /// <summary>
+    /// Client-side length guards for write parameters. Fails fast with the
+    /// exact column and limit instead of a server round-trip ending in a
+    /// truncation error; also what makes the fixed DbParameter.Size safe
+    /// (ADO.NET providers silently truncate oversize values to Size).
+    /// </summary>
+    private static void EmitValueGuards(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos)
+    {
+        bool any = false;
+        foreach (var param in paramInfos)
+        {
+            if (!param.IsWriteTarget || param.MaxLength is not int max || max <= 0)
+                continue;
+            bool isText = param.CSharpType is "string" or "string?";
+            bool isBinary = param.CSharpType is "byte[]" or "byte[]?";
+            if (!isText && !isBinary)
+                continue;
+            string unit = isText ? "characters" : "bytes";
+            string condition = param.CSharpType is "string" or "byte[]"
+                ? $"{param.Name}.Length > {max}"
+                : $"{param.Name} != null && {param.Name}.Length > {max}";
+            sb.AppendLine($"            if ({condition})");
+            sb.AppendLine($"                throw new System.ArgumentException($\"Value ({{{param.Name}.Length}} {unit}) exceeds {param.ColumnDisplay} max length ({max}).\", nameof({param.Name}));");
+            any = true;
+        }
+        if (any)
+            sb.AppendLine();
+    }
+
+    /// <summary>
+    /// DbParameter.Size / Precision / Scale from the schema snapshot.
+    /// Fixed Size keeps the server plan cache to one plan per query instead
+    /// of one per distinct value length. Write parameters are guarded above,
+    /// so the fixed Size can never truncate; comparison parameters size
+    /// dynamically because a truncated key could match the wrong row.
+    /// </summary>
+    private static void EmitParameterSizing(System.Text.StringBuilder sb, EmittedParam param, string varName)
+    {
+        bool isText = param.CSharpType is "string" or "string?";
+        bool isBinary = param.CSharpType is "byte[]" or "byte[]?";
+        if ((isText || isBinary) && param.MaxLength is int max)
+        {
+            if (max < 0)
+            {
+                sb.AppendLine($"                {varName}.Size = -1;");
+            }
+            else if (param.IsWriteTarget)
+            {
+                sb.AppendLine($"                {varName}.Size = {max};");
+            }
+            else
+            {
+                string sizeExpr = param.CSharpType is "string" or "byte[]"
+                    ? $"{param.Name}.Length > {max} ? {param.Name}.Length : {max}"
+                    : $"{param.Name} == null ? {max} : ({param.Name}.Length > {max} ? {param.Name}.Length : {max})";
+                sb.AppendLine($"                {varName}.Size = {sizeExpr};");
+            }
+        }
+
+        if (param.CSharpType is "decimal" or "decimal?" && param.Precision is int precision && precision > 0)
+        {
+            sb.AppendLine($"                {varName}.Precision = {precision};");
+            sb.AppendLine($"                {varName}.Scale = {param.Scale ?? 0};");
         }
     }
 
@@ -204,6 +336,8 @@ namespace JauntyQ.Generated
 
         sb.AppendLine($"        {modifier}{asyncModifier} {returnType} {methodName}({paramList})");
         sb.AppendLine("        {");
+
+        EmitValueGuards(sb, paramInfos);
 
         // Connection lifecycle
         sb.AppendLine($"            bool weOpened = {connVar}.State != System.Data.ConnectionState.Open;");
@@ -310,6 +444,7 @@ namespace JauntyQ.Generated
             {
                 sb.AppendLine($"                {varName}.DbType = System.Data.DbType.{adoDbType};");
             }
+            EmitParameterSizing(sb, param, varName);
             // DbParameter.Value is object, so value types box exactly once per
             // call here - an ADO.NET boundary cost every library pays. For
             // non-nullable value types the DBNull coalesce is dead code, so
@@ -497,7 +632,7 @@ namespace JauntyQ.Generated
             {
                 if (tableSchema.Columns.TryGetValue(param.BoundColumnName, out var colSchema))
                 {
-                    return DialectMapper.MapDbTypeToCSharp(colSchema.DbType, colSchema.IsNullable);
+                    return DialectMapper.MapColumnToCSharp(colSchema);
                 }
             }
 
@@ -666,7 +801,7 @@ namespace JauntyQ.Generated
         sb.AppendLine("    {");
         foreach (var col in tableSchema.Columns.Values)
         {
-            string csharpType = DialectMapper.MapDbTypeToCSharp(col.DbType, col.IsNullable);
+            string csharpType = DialectMapper.MapColumnToCSharp(col);
             // `required` only where CS8618 applies (non-nullable reference
             // types); value types stay optional so POCO-based Insert doesn't
             // force callers to zero-fill database-assigned keys.
@@ -681,7 +816,7 @@ namespace JauntyQ.Generated
         int colCount = tableSchema.Columns.Count;
         foreach (var col in tableSchema.Columns.Values)
         {
-            string csharpType = DialectMapper.MapDbTypeToCSharp(col.DbType, col.IsNullable);
+            string csharpType = DialectMapper.MapColumnToCSharp(col);
             string comma = ordinal < colCount - 1 ? "," : "";
             sb.AppendLine($"            {DialectMapper.ToPascalCase(col.Name)} = {GetReaderCall(csharpType, ordinal)}{comma}");
             ordinal++;
@@ -701,7 +836,9 @@ namespace JauntyQ.Generated
     /// </summary>
     public static string EmitUpsert(string entityName, TableSchema tableSchema, string dialect)
     {
-        var columns = new System.Collections.Generic.List<ColumnSchema>(tableSchema.Columns.Values);
+        // Rowversion tokens are database-assigned: excluded from the upsert
+        // column set entirely. Upsert is documented last-writer-wins.
+        var columns = tableSchema.Columns.Values.Where(c => !c.IsRowVersion).ToList();
         var pkCols = columns.FindAll(c => c.IsPrimaryKey);
         var setCols = columns.FindAll(c => !c.IsPrimaryKey);
 
@@ -749,7 +886,7 @@ namespace JauntyQ.Generated
         var paramInfos = new System.Collections.Generic.List<EmittedParam>();
         foreach (var col in columns)
         {
-            paramInfos.Add(new EmittedParam(col.Name, DialectMapper.MapDbTypeToCSharp(col.DbType, col.IsNullable), col.IsNullable));
+            paramInfos.Add(CreateEmittedParam(col.Name, DialectMapper.MapColumnToCSharp(col), col.IsNullable, col, tableSchema.Name, isWriteTarget: true));
         }
 
         var stub = new QueryModel { Name = "Upsert" };
@@ -792,9 +929,10 @@ namespace JauntyQ.Generated
         bool hasUpsert)
     {
         var columns = new System.Collections.Generic.List<ColumnSchema>(tableSchema.Columns.Values);
+        var versionCols = columns.FindAll(c => c.IsRowVersion);
         var pkCols = columns.FindAll(c => c.IsPrimaryKey);
-        var setCols = columns.FindAll(c => !c.IsPrimaryKey);
-        var insertCols = columns.FindAll(c => !c.IsIdentity);
+        var setCols = columns.FindAll(c => !c.IsPrimaryKey && !c.IsRowVersion);
+        var insertCols = columns.FindAll(c => !c.IsIdentity && !c.IsRowVersion);
         ColumnSchema? identityCol = null;
         foreach (var c in columns)
         {
@@ -872,17 +1010,20 @@ namespace JauntyQ.Generated
             // scalar Update parameter order: SET columns then PK columns
             var updateArgsCols = new System.Collections.Generic.List<ColumnSchema>(setCols);
             updateArgsCols.AddRange(pkCols);
+            updateArgsCols.AddRange(versionCols);
             Forward("Update", updateArgsCols);
         }
 
         if (hasDelete && pkCols.Count > 0)
         {
-            Forward("Delete", pkCols);
+            var deleteArgsCols = new System.Collections.Generic.List<ColumnSchema>(pkCols);
+            deleteArgsCols.AddRange(versionCols);
+            Forward("Delete", deleteArgsCols);
         }
 
         if (hasUpsert)
         {
-            Forward("Upsert", columns);
+            Forward("Upsert", columns.FindAll(c => !c.IsRowVersion));
         }
 
         sb.AppendLine("    }");
@@ -921,7 +1062,8 @@ namespace JauntyQ.Generated
         foreach (var param in query.Parameters)
         {
             string paramType = InferParameterType(param.Name, query, projection, schema, directives);
-            paramInfos.Add(new EmittedParam(param.Name, paramType));
+            var column = ResolveBoundColumn(param, query, schema, out string? boundTable);
+            paramInfos.Add(CreateEmittedParam(param.Name, paramType, isNullable: false, column, boundTable, isWriteTarget: false));
         }
 
         string queryId = $"{entityName}.{query.Name}";
@@ -984,6 +1126,8 @@ namespace JauntyQ.Generated
 
         sb.AppendLine($"        {modifier}{asyncModifier} {declaredReturn} {methodName}({paramList})");
         sb.AppendLine("        {");
+
+        EmitValueGuards(sb, paramInfos);
 
         // Connection lifecycle
         sb.AppendLine($"            bool weOpened = {connVar}.State != System.Data.ConnectionState.Open;");
@@ -1137,7 +1281,7 @@ namespace JauntyQ.Generated
                 schema.Tables.TryGetValue(tableName, out var tableSchema) &&
                 tableSchema.Columns.TryGetValue(columnName, out var colSchema))
             {
-                return DialectMapper.MapDbTypeToCSharp(colSchema.DbType, colSchema.IsNullable);
+                return DialectMapper.MapColumnToCSharp(colSchema);
             }
         }
         else
@@ -1148,7 +1292,7 @@ namespace JauntyQ.Generated
                 if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
                     tableSchema.Columns.TryGetValue(columnName, out var colSchema))
                 {
-                    return DialectMapper.MapDbTypeToCSharp(colSchema.DbType, colSchema.IsNullable);
+                    return DialectMapper.MapColumnToCSharp(colSchema);
                 }
             }
         }

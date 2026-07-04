@@ -9,77 +9,96 @@
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "SupplierId": {
           "name": "SupplierId",
           "dbType": "int",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "CategoryId": {
           "name": "CategoryId",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "QuantityPerUnit": {
           "name": "QuantityPerUnit",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 20,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         },
         "UnitsInStock": {
           "name": "UnitsInStock",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "UnitsOnOrder": {
           "name": "UnitsOnOrder",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ReorderLevel": {
           "name": "ReorderLevel",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Discontinued": {
           "name": "Discontinued",
           "dbType": "bit",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "CategoryName": {
           "name": "CategoryName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -91,21 +110,26 @@
           "dbType": "bigint",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": true
+          "isIdentity": true,
+          "isRowVersion": false
         },
         "name": {
           "name": "name",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 255,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "value": {
           "name": "value",
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         }
       }
     },
@@ -117,28 +141,37 @@
           "dbType": "smallint",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": true
+          "isIdentity": true,
+          "isRowVersion": false
         },
         "CategoryName": {
           "name": "CategoryName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Description": {
           "name": "Description",
           "dbType": "ntext",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 1073741823,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Picture": {
           "name": "Picture",
           "dbType": "image",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 2147483647,
+          "isRowVersion": false
         }
       }
     },
@@ -150,14 +183,20 @@
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "CategorySales": {
           "name": "CategorySales",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         }
       }
     },
@@ -169,28 +208,38 @@
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 255,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Age": {
           "name": "Age",
           "dbType": "int",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 255,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Email": {
           "name": "Email",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 255,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -202,14 +251,18 @@
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": true
+          "isIdentity": true,
+          "isRowVersion": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -221,28 +274,40 @@
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ContactName": {
           "name": "ContactName",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 30,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Relationship": {
           "name": "Relationship",
           "dbType": "varchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 9,
+          "isUnicode": false,
+          "isRowVersion": false
         }
       }
     },
@@ -254,14 +319,20 @@
           "dbType": "nchar",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 5,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "CustomerTypeId": {
           "name": "CustomerTypeId",
           "dbType": "nchar",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -273,14 +344,20 @@
           "dbType": "nchar",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "CustomerDescription": {
           "name": "CustomerDescription",
           "dbType": "ntext",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 1073741823,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -292,77 +369,110 @@
           "dbType": "nchar",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 5,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ContactName": {
           "name": "ContactName",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 30,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ContactTitle": {
           "name": "ContactTitle",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 30,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Address": {
           "name": "Address",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 60,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Region": {
           "name": "Region",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "PostalCode": {
           "name": "PostalCode",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Phone": {
           "name": "Phone",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 24,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Fax": {
           "name": "Fax",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 24,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -374,126 +484,171 @@
           "dbType": "smallint",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": true
+          "isIdentity": true,
+          "isRowVersion": false
         },
         "LastName": {
           "name": "LastName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 20,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "FirstName": {
           "name": "FirstName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Title": {
           "name": "Title",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 30,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "TitleOfCourtesy": {
           "name": "TitleOfCourtesy",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 25,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "BirthDate": {
           "name": "BirthDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "HireDate": {
           "name": "HireDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Address": {
           "name": "Address",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 60,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Region": {
           "name": "Region",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "PostalCode": {
           "name": "PostalCode",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "HomePhone": {
           "name": "HomePhone",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 24,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Extension": {
           "name": "Extension",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 4,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Photo": {
           "name": "Photo",
           "dbType": "image",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 2147483647,
+          "isRowVersion": false
         },
         "Notes": {
           "name": "Notes",
           "dbType": "ntext",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 1073741823,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ReportsTo": {
           "name": "ReportsTo",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "PhotoPath": {
           "name": "PhotoPath",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 255,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -505,14 +660,18 @@
           "dbType": "smallint",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "TerritoryId": {
           "name": "TerritoryId",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 20,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -524,182 +683,246 @@
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipAddress": {
           "name": "ShipAddress",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 60,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipCity": {
           "name": "ShipCity",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipRegion": {
           "name": "ShipRegion",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipPostalCode": {
           "name": "ShipPostalCode",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipCountry": {
           "name": "ShipCountry",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "CustomerId": {
           "name": "CustomerId",
           "dbType": "nchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 5,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "CustomerName": {
           "name": "CustomerName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Address": {
           "name": "Address",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 60,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Region": {
           "name": "Region",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "PostalCode": {
           "name": "PostalCode",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Salesperson": {
           "name": "Salesperson",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 31,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "OrderDate": {
           "name": "OrderDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "RequiredDate": {
           "name": "RequiredDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ShippedDate": {
           "name": "ShippedDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ShipperName": {
           "name": "ShipperName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ProductId": {
           "name": "ProductId",
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         },
         "Quantity": {
           "name": "Quantity",
           "dbType": "smallint",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Discount": {
           "name": "Discount",
           "dbType": "real",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ExtendedPrice": {
           "name": "ExtendedPrice",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         },
         "Freight": {
           "name": "Freight",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         }
       }
     },
@@ -711,35 +934,42 @@
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ProductId": {
           "name": "ProductId",
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         },
         "Quantity": {
           "name": "Quantity",
           "dbType": "smallint",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Discount": {
           "name": "Discount",
           "dbType": "real",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         }
       }
     },
@@ -751,49 +981,62 @@
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ProductId": {
           "name": "ProductId",
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         },
         "Quantity": {
           "name": "Quantity",
           "dbType": "smallint",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Discount": {
           "name": "Discount",
           "dbType": "real",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ExtendedPrice": {
           "name": "ExtendedPrice",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         }
       }
     },
@@ -805,98 +1048,128 @@
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": true
+          "isIdentity": true,
+          "isRowVersion": false
         },
         "CustomerId": {
           "name": "CustomerId",
           "dbType": "nchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 5,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "EmployeeId": {
           "name": "EmployeeId",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "OrderDate": {
           "name": "OrderDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "RequiredDate": {
           "name": "RequiredDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ShippedDate": {
           "name": "ShippedDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ShipVia": {
           "name": "ShipVia",
           "dbType": "int",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Freight": {
           "name": "Freight",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         },
         "ShipName": {
           "name": "ShipName",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipAddress": {
           "name": "ShipAddress",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 60,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipCity": {
           "name": "ShipCity",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipRegion": {
           "name": "ShipRegion",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipPostalCode": {
           "name": "ShipPostalCode",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipCountry": {
           "name": "ShipCountry",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -908,140 +1181,188 @@
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "CustomerId": {
           "name": "CustomerId",
           "dbType": "nchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 5,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "EmployeeId": {
           "name": "EmployeeId",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "OrderDate": {
           "name": "OrderDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "RequiredDate": {
           "name": "RequiredDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ShippedDate": {
           "name": "ShippedDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ShipVia": {
           "name": "ShipVia",
           "dbType": "int",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Freight": {
           "name": "Freight",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         },
         "ShipName": {
           "name": "ShipName",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipAddress": {
           "name": "ShipAddress",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 60,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipCity": {
           "name": "ShipCity",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipRegion": {
           "name": "ShipRegion",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipPostalCode": {
           "name": "ShipPostalCode",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShipCountry": {
           "name": "ShipCountry",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Address": {
           "name": "Address",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 60,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Region": {
           "name": "Region",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "PostalCode": {
           "name": "PostalCode",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -1053,14 +1374,18 @@
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Subtotal": {
           "name": "Subtotal",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         }
       }
     },
@@ -1072,70 +1397,86 @@
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": true
+          "isIdentity": true,
+          "isRowVersion": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "SupplierId": {
           "name": "SupplierId",
           "dbType": "int",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "CategoryId": {
           "name": "CategoryId",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "QuantityPerUnit": {
           "name": "QuantityPerUnit",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 20,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         },
         "UnitsInStock": {
           "name": "UnitsInStock",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "UnitsOnOrder": {
           "name": "UnitsOnOrder",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "ReorderLevel": {
           "name": "ReorderLevel",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Discontinued": {
           "name": "Discontinued",
           "dbType": "bit",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         }
       }
     },
@@ -1147,14 +1488,20 @@
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "UnitPrice": {
           "name": "UnitPrice",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         }
       }
     },
@@ -1166,21 +1513,30 @@
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ProductSales": {
           "name": "ProductSales",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         }
       }
     },
@@ -1192,35 +1548,46 @@
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "QuantityPerUnit": {
           "name": "QuantityPerUnit",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 20,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "UnitsInStock": {
           "name": "UnitsInStock",
           "dbType": "smallint",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Discontinued": {
           "name": "Discontinued",
           "dbType": "bit",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         }
       }
     },
@@ -1232,28 +1599,40 @@
           "dbType": "nchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 5,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -1265,14 +1644,18 @@
           "dbType": "smallint",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": true
+          "isIdentity": true,
+          "isRowVersion": false
         },
         "Description": {
           "name": "Description",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 50,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -1284,28 +1667,38 @@
           "dbType": "smallint",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "CategoryName": {
           "name": "CategoryName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ProductName": {
           "name": "ProductName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ProductSales": {
           "name": "ProductSales",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         }
       }
     },
@@ -1317,28 +1710,36 @@
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         },
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ShippedDate": {
           "name": "ShippedDate",
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         }
       }
     },
@@ -1350,21 +1751,28 @@
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": true
+          "isIdentity": true,
+          "isRowVersion": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Phone": {
           "name": "Phone",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 24,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -1376,21 +1784,26 @@
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Subtotal": {
           "name": "Subtotal",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         }
       }
     },
@@ -1402,21 +1815,26 @@
           "dbType": "datetime",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "OrderId": {
           "name": "OrderId",
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         },
         "Subtotal": {
           "name": "Subtotal",
           "dbType": "money",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "precision": 19,
+          "scale": 4,
+          "isRowVersion": false
         }
       }
     },
@@ -1428,84 +1846,118 @@
           "dbType": "int",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": true
+          "isIdentity": true,
+          "isRowVersion": false
         },
         "CompanyName": {
           "name": "CompanyName",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ContactName": {
           "name": "ContactName",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 30,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "ContactTitle": {
           "name": "ContactTitle",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 30,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Address": {
           "name": "Address",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 60,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "City": {
           "name": "City",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Region": {
           "name": "Region",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "PostalCode": {
           "name": "PostalCode",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Country": {
           "name": "Country",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 15,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Phone": {
           "name": "Phone",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 24,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Fax": {
           "name": "Fax",
           "dbType": "nvarchar",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 24,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "HomePage": {
           "name": "HomePage",
           "dbType": "ntext",
           "isNullable": true,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 1073741823,
+          "isUnicode": true,
+          "isRowVersion": false
         }
       }
     },
@@ -1517,21 +1969,28 @@
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": true,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 20,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "Description": {
           "name": "Description",
           "dbType": "nvarchar",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "maxLength": 50,
+          "isUnicode": true,
+          "isRowVersion": false
         },
         "RegionId": {
           "name": "RegionId",
           "dbType": "smallint",
           "isNullable": false,
           "isPrimaryKey": false,
-          "isIdentity": false
+          "isIdentity": false,
+          "isRowVersion": false
         }
       }
     }

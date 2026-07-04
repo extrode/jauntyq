@@ -1,0 +1,190 @@
+using System.Collections.Immutable;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using JauntyQ.Generator;
+using Xunit;
+
+namespace JauntyQ.Generator.Tests;
+
+/// <summary>
+/// Tier 2 value safety: SQL literals proven against column constraints at
+/// compile time (JNT5001/JNT5002), client-side length guards on write
+/// parameters, and DbParameter.Size/Precision/Scale emission from the
+/// schema snapshot.
+/// </summary>
+public class ValueSafetyTests
+{
+    private const string SchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""products"": {
+      ""name"": ""products"",
+      ""columns"": {
+        ""product_id"": { ""name"": ""product_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""product_name"": { ""name"": ""product_name"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 40, ""isUnicode"": false },
+        ""unit_price"": { ""name"": ""unit_price"", ""dbType"": ""decimal"", ""isNullable"": false, ""precision"": 10, ""scale"": 2 },
+        ""quantity"": { ""name"": ""quantity"", ""dbType"": ""smallint"", ""isNullable"": false },
+        ""notes"": { ""name"": ""notes"", ""dbType"": ""nvarchar"", ""isNullable"": true, ""maxLength"": -1, ""isUnicode"": true }
+      }
+    }
+  }
+}";
+
+    private static GeneratorDriverRunResult Run(string sql, string path = "db/Products/TestQuery.sql")
+    {
+        var compilation = CSharpCompilation.Create("ValueSafetyTestAssembly",
+            new[] { CSharpSyntaxTree.ParseText("") },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
+            .AddAdditionalTexts(ImmutableArray.Create<AdditionalText>(
+                new InMemoryAdditionalText(path, sql),
+                new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson)))
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
+        return driver.GetRunResult();
+    }
+
+    private static string QuerySource(GeneratorDriverRunResult result) =>
+        result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Products.TestQuery.g.cs")
+            .SourceText.ToString();
+
+    private static bool HasQuerySource(GeneratorDriverRunResult result) =>
+        result.Results[0].GeneratedSources.Any(s => s.HintName == "Products.TestQuery.g.cs");
+
+    // ── JNT5001: string literals vs max length ─────────────────────────
+
+    [Fact]
+    public void StringLiteralTooLong_Insert_JNT5001_NoSource()
+    {
+        string tooLong = new string('A', 41);
+        var result = Run($"insert into products (product_name) values ('{tooLong}')");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT5001");
+        Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
+        Assert.Contains("41 chars", diag.GetMessage());
+        Assert.Contains("products.product_name", diag.GetMessage());
+        Assert.Contains("max length of 40", diag.GetMessage());
+        Assert.False(HasQuerySource(result));
+    }
+
+    [Fact]
+    public void StringLiteralTooLong_Where_JNT5001()
+    {
+        string tooLong = new string('B', 41);
+        var result = Run($"select product_id\nfrom products\nwhere products.product_name = '{tooLong}'");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5001");
+        Assert.False(HasQuerySource(result));
+    }
+
+    [Fact]
+    public void StringLiteral_EscapedQuotesCountAsOneChar()
+    {
+        // 39 chars + one escaped quote = 40 decoded chars: fits exactly.
+        string value = new string('C', 39) + "''";
+        var result = Run($"select product_id\nfrom products\nwhere products.product_name = '{value}'");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5001");
+        Assert.True(HasQuerySource(result));
+    }
+
+    // ── JNT5002: numeric literals vs precision/scale and integer ranges ─
+
+    [Fact]
+    public void DecimalLiteralOverflow_JNT5002()
+    {
+        // decimal(10,2) holds at most 8 digits before the point.
+        var result = Run("update products\nset unit_price = 123456789.99\nwhere product_id = @product_id");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+        Assert.Contains("products.unit_price", diag.GetMessage());
+        Assert.False(HasQuerySource(result));
+    }
+
+    [Fact]
+    public void IntLiteralOutOfRange_JNT5002()
+    {
+        var result = Run("select product_id\nfrom products\nwhere products.product_id = 9999999999");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void SmallintLiteralOutOfRange_JNT5002()
+    {
+        var result = Run("select product_id\nfrom products\nwhere products.quantity = 40000");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void FittingLiterals_NoValueSafetyDiagnostics()
+    {
+        var result = Run("select product_id\nfrom products\nwhere products.product_name = 'ok' and products.unit_price >= 99999999.99 and products.quantity = 32000");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id.StartsWith("JNT5"));
+        Assert.True(HasQuerySource(result));
+    }
+
+    // ── Guards and DbParameter sizing ───────────────────────────────────
+
+    [Fact]
+    public void WriteParams_GetGuardAndFixedSize_MaxColumnsGetMinusOne()
+    {
+        var result = Run("insert into products (product_name, unit_price, notes)\nvalues (@product_name, @unit_price, @notes)");
+        string source = QuerySource(result);
+
+        // guard: fail fast client-side, naming the column and limit
+        Assert.Contains("if (product_name.Length > 40)", source);
+        Assert.Contains("exceeds products.product_name max length (40)", source);
+        Assert.Contains("nameof(product_name)", source);
+
+        // fixed size is safe because the guard proved the value fits
+        Assert.Contains(".Size = 40;", source);
+
+        // decimal precision/scale from the snapshot
+        Assert.Contains(".Precision = 10;", source);
+        Assert.Contains(".Scale = 2;", source);
+
+        // nvarchar(max): unbounded, no guard
+        Assert.Contains(".Size = -1;", source);
+        Assert.DoesNotContain("notes.Length >", source);
+    }
+
+    [Fact]
+    public void NullableWriteParam_GuardIsNullSafe()
+    {
+        var result = Run("update products\nset notes = @notes, product_name = @product_name\nwhere product_id = @product_id");
+        string source = QuerySource(result);
+
+        // notes is nvarchar(max): no guard at all; product_name gets the
+        // non-null guard because the schema says NOT NULL.
+        Assert.Contains("if (product_name.Length > 40)", source);
+    }
+
+    [Fact]
+    public void ComparisonParam_SizesDynamically_NeverTruncates()
+    {
+        var result = Run("select product_id\nfrom products\nwhere products.product_name = @product_name");
+        string source = QuerySource(result);
+
+        // read path: no guard, dynamic size (oversize values keep their
+        // length and match nothing; fixed size could truncate into a WRONG match)
+        Assert.DoesNotContain("throw new System.ArgumentException", source);
+        Assert.Contains(".Size = product_name.Length > 40 ? product_name.Length : 40;", source);
+    }
+
+    [Fact]
+    public void CrudWhereParam_AlsoSizesDynamically()
+    {
+        var result = Run("delete from products\nwhere product_name = @product_name");
+        string source = QuerySource(result);
+
+        Assert.DoesNotContain("throw new System.ArgumentException", source);
+        Assert.Contains(".Size = product_name.Length > 40 ? product_name.Length : 40;", source);
+    }
+}

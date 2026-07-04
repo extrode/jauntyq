@@ -100,10 +100,16 @@ public static class AutoCrud
             result.Add(new SyntheticQuery(entityName, "GetById",
                 $"-- @first\nselect {colList}\nfrom {table.Name}\nwhere {pkWhere}", table.Name));
 
+            // Optimistic concurrency: rowversion columns are database-assigned
+            // tokens — never inserted or updated, but required in the WHERE of
+            // Update/Delete so a stale read can't overwrite a newer write
+            // (0 rows affected = conflict).
+            var versionCols = columns.Where(c => c.IsRowVersion).ToList();
+
             // Insert — identity columns are database-assigned, never bound.
             // When the table has a single identity key and the snapshot knows
             // the dialect, the synthetic Insert returns the new id (-- @identity).
-            var insertCols = columns.Where(c => !c.IsIdentity).ToList();
+            var insertCols = columns.Where(c => !c.IsIdentity && !c.IsRowVersion).ToList();
             if (insertCols.Count > 0)
             {
                 string insertColList = string.Join(", ", insertCols.Select(c => c.Name));
@@ -116,25 +122,29 @@ public static class AutoCrud
             }
 
             // Update — SET every non-PK column, WHERE the full primary key
-            var setCols = columns.Where(c => !c.IsPrimaryKey).ToList();
+            // plus the rowversion token when the table has one.
+            var setCols = columns.Where(c => !c.IsPrimaryKey && !c.IsRowVersion).ToList();
+            var whereCols = pkCols.Concat(versionCols).ToList();
             if (setCols.Count > 0)
             {
                 string setList = string.Join(", ", setCols.Select(c => $"{c.Name} = @{c.Name}"));
-                string updateWhere = string.Join(" and ", pkCols.Select(c => $"{c.Name} = @{c.Name}"));
+                string updateWhere = string.Join(" and ", whereCols.Select(c => $"{c.Name} = @{c.Name}"));
                 result.Add(new SyntheticQuery(entityName, "Update",
                     $"update {table.Name}\nset {setList}\nwhere {updateWhere}", table.Name));
             }
 
-            // Delete — WHERE the full primary key
-            string deleteWhere = string.Join(" and ", pkCols.Select(c => $"{c.Name} = @{c.Name}"));
+            // Delete — WHERE the full primary key (plus rowversion token)
+            string deleteWhere = string.Join(" and ", whereCols.Select(c => $"{c.Name} = @{c.Name}"));
             result.Add(new SyntheticQuery(entityName, "Delete",
                 $"delete from {table.Name}\nwhere {deleteWhere}", table.Name));
 
             // Upsert — dialect-native, keyed on the PK. Skipped when the key
             // is database-assigned (identity: nothing to match on before
             // insert) or when there are no non-key columns to update.
+            // Rowversion columns are excluded inside EmitUpsert; upsert is
+            // deliberately last-writer-wins (documented).
             bool allPkIdentity = pkCols.All(c => c.IsIdentity);
-            bool hasNonKeyColumns = columns.Any(c => !c.IsPrimaryKey);
+            bool hasNonKeyColumns = columns.Any(c => !c.IsPrimaryKey && !c.IsRowVersion);
             if (!allPkIdentity && hasNonKeyColumns && !string.IsNullOrEmpty(schema.Dialect))
             {
                 result.Add(new SyntheticQuery(entityName, "Upsert", "", table.Name, isUpsert: true));

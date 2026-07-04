@@ -100,7 +100,7 @@ public static class SqlTokenizer
                 int start = pos;
                 while (pos < len && (char.IsDigit(sql[pos]) || sql[pos] == '.'))
                     pos++;
-                tokens.Add(new Token(TokenType.Literal, sql.Substring(start, pos - start)));
+                tokens.Add(new Token(TokenType.Number, sql.Substring(start, pos - start)));
                 continue;
             }
 
