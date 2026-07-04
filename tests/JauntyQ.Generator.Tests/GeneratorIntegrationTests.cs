@@ -780,6 +780,31 @@ where p.product_id = @product_id";
         // Mid-SQL comment preserved
         Assert.Contains("-- filter", source);
     }
+
+    // ── JNT3002: SELECT * forbidden ────────────────────────
+
+    [Fact]
+    public void SelectStar_IsRejected_WithPasteReadyColumnList()
+    {
+        var sql = "select * from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT3002");
+        Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
+        Assert.Contains("Replace * with: product_id, product_name, category_id", diag.GetMessage());
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains("Products.GetProducts"));
+    }
+
+    [Fact]
+    public void SelectStar_JoinQuery_FixListIsAliasQualified()
+    {
+        var sql = "select * from products p join categories c on p.category_id = c.category_id";
+        var (result, _) = RunGenerator(sql);
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT3002");
+        Assert.Contains("p.product_id", diag.GetMessage());
+        Assert.Contains("c.category_name", diag.GetMessage());
+    }
 }
 
 /// <summary>

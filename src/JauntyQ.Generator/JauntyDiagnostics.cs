@@ -64,6 +64,14 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    public static readonly DiagnosticDescriptor JNT3002 = new(
+        "JNT3002",
+        "SELECT * Forbidden",
+        "{0}",
+        "JauntyQ.Projection",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 4xxx: Parameter Binding ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT4003 = new(

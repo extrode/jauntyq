@@ -257,7 +257,19 @@ namespace JauntyQ.Generated
             {
                 sb.AppendLine($"                {varName}.DbType = System.Data.DbType.{adoDbType};");
             }
-            sb.AppendLine($"                {varName}.Value = (object?){param.Name} ?? System.DBNull.Value;");
+            // DbParameter.Value is object, so value types box exactly once per
+            // call here - an ADO.NET boundary cost every library pays. For
+            // non-nullable value types the DBNull coalesce is dead code, so
+            // emit a plain assignment; the (object?) dance is only needed
+            // where null is actually possible.
+            if (IsNonNullableValueType(param.CSharpType))
+            {
+                sb.AppendLine($"                {varName}.Value = {param.Name};");
+            }
+            else
+            {
+                sb.AppendLine($"                {varName}.Value = (object?){param.Name} ?? System.DBNull.Value;");
+            }
             sb.AppendLine($"                cmd.Parameters.Add({varName});");
         }
     }
@@ -272,6 +284,13 @@ namespace JauntyQ.Generated
             : $"                if (weOpened) {connVar}.Close();");
         sb.AppendLine("            }");
     }
+
+    private static bool IsNonNullableValueType(string csharpType) => csharpType switch
+    {
+        "int" or "long" or "short" or "bool" or "decimal" or "double" or "float"
+            or "System.DateTime" or "System.TimeSpan" or "System.Guid" => true,
+        _ => false
+    };
 
     /// <summary>
     /// Maps an emitted C# parameter type to System.Data.DbType so providers skip
