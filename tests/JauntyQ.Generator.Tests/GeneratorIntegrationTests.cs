@@ -763,6 +763,23 @@ where p.product_name = @name";
         Assert.DoesNotContain("old_table", source);
         Assert.Contains("select p.product_id from products p", source);
     }
+
+    [Fact]
+    public void MidSqlComments_ArePreservedInCommandText()
+    {
+        // Leading comment stripped; mid-SQL comment on the WHERE line must survive
+        var sql = @"-- @first
+-- old leading comment
+select p.product_id from products p -- filter
+where p.product_id = @product_id";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        // Leading directive/comment lines stripped
+        Assert.DoesNotContain("old leading comment", source);
+        // Mid-SQL comment preserved
+        Assert.Contains("-- filter", source);
+    }
 }
 
 /// <summary>
