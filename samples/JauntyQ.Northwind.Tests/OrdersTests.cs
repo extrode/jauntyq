@@ -18,9 +18,9 @@ public class OrdersTests : IClassFixture<NorthwindFixture>
     [Fact]
     public void GetById_Returns10248()
     {
-        var results = _fixture.Db.Orders.GetById(10248);
-        Assert.Single(results);
-        Assert.Equal(10248, results[0].OrderId);
+        var order = _fixture.Db.Orders.GetById(10248);
+        Assert.NotNull(order);
+        Assert.Equal(10248, order.OrderId);
     }
 
     [Fact]

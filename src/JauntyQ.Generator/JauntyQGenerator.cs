@@ -81,6 +81,9 @@ public class JauntyQGenerator : IIncrementalGenerator
         // overrides the auto-CRUD synthetic of the same name
         var claimedMethods = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // tables whose canonical row POCO (e.g. Shipper) is actually used
+        var neededRowTables = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         // Process each SQL file
         foreach (var sqlFile in sqlFiles)
         {
@@ -196,7 +199,13 @@ public class JauntyQGenerator : IIncrementalGenerator
                 if (hasUnresolvedParam)
                     continue;
 
-                source = CodeEmitter.Emit(queryModel, projection, cleanedSql, entityName, schema, directives);
+                // Full-row single-table projections return the canonical
+                // per-table POCO instead of a query-specific Result type.
+                string? canonicalRowType = ResolveCanonicalRowType(queryModel, projection, schema, directives);
+                if (canonicalRowType != null)
+                    neededRowTables.Add(queryModel.Tables[0].TableName);
+
+                source = CodeEmitter.Emit(queryModel, projection, cleanedSql, entityName, schema, directives, canonicalRowType);
             }
 
             // Emit per-query source file
@@ -215,6 +224,16 @@ public class JauntyQGenerator : IIncrementalGenerator
                 if (!claimedMethods.Add($"{synth.EntityName}.{synth.MethodName}"))
                     continue; // user SQL file wins
 
+                if (synth.IsUpsert)
+                {
+                    // Dialect-native upsert bypasses the minimal SQL parser;
+                    // correctness comes from the schema snapshot itself.
+                    string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, schema.Tables[synth.TableName], schema.Dialect);
+                    context.AddSource($"{synth.EntityName}.Upsert.auto.g.cs", SourceText.From(upsertSource, Encoding.UTF8));
+                    entityNames.Add(synth.EntityName);
+                    continue;
+                }
+
                 var (directives, cleanedSql) = Directives.DirectiveParser.Parse(synth.Sql);
                 var tokens = SqlTokenizer.Tokenize(cleanedSql);
                 var queryModel = SqlParser.SqlParser.Parse(tokens, synth.MethodName);
@@ -225,12 +244,36 @@ public class JauntyQGenerator : IIncrementalGenerator
                 if (errors.Exists(e => e.Severity == ValidationSeverity.Error))
                     continue;
 
-                string source = queryModel.StatementType != StatementType.Select
-                    ? CodeEmitter.EmitCrud(queryModel, cleanedSql, synth.EntityName, schema, directives)
-                    : CodeEmitter.Emit(queryModel, ProjectionBuilder.Build(queryModel, schema), cleanedSql, synth.EntityName, schema, directives);
+                string source;
+                if (queryModel.StatementType != StatementType.Select)
+                {
+                    source = CodeEmitter.EmitCrud(queryModel, cleanedSql, synth.EntityName, schema, directives);
+                }
+                else
+                {
+                    var projection = ProjectionBuilder.Build(queryModel, schema);
+                    string? canonicalRowType = ResolveCanonicalRowType(queryModel, projection, schema, directives);
+                    if (canonicalRowType != null)
+                        neededRowTables.Add(queryModel.Tables[0].TableName);
+                    source = CodeEmitter.Emit(queryModel, projection, cleanedSql, synth.EntityName, schema, directives, canonicalRowType);
+                }
 
                 context.AddSource($"{synth.EntityName}.{synth.MethodName}.auto.g.cs", SourceText.From(source, Encoding.UTF8));
                 entityNames.Add(synth.EntityName);
+            }
+        }
+
+        // Emit canonical row POCOs (one per table actually used full-row)
+        if (schema != null)
+        {
+            foreach (var tableName in neededRowTables)
+            {
+                if (!schema.Tables.TryGetValue(tableName, out var tableSchema))
+                    continue;
+                string entityPascal = DialectMapper.ToPascalCase(tableSchema.Name);
+                string rowType = Inflector.RowTypeName(entityPascal);
+                context.AddSource($"{entityPascal}.Row.g.cs",
+                    SourceText.From(CodeEmitter.EmitRowPoco(rowType, tableSchema), Encoding.UTF8));
             }
         }
 
@@ -249,6 +292,38 @@ public class JauntyQGenerator : IIncrementalGenerator
             var dbSource = CodeEmitter.EmitJauntyDb(sortedEntities);
             context.AddSource("JauntyDb.g.cs", SourceText.From(dbSource, Encoding.UTF8));
         }
+    }
+
+    /// <summary>
+    /// A query returns the canonical per-table POCO when it selects exactly
+    /// the table's full column set, in table order, from a single table,
+    /// with no custom result shaping directives.
+    /// </summary>
+    private static string? ResolveCanonicalRowType(
+        QueryModel queryModel,
+        ProjectionModel projection,
+        DatabaseSchema schema,
+        Directives.DirectiveModel directives)
+    {
+        if (directives.ResultTypeName != null || directives.InlineColumns != null || directives.ResultIsVoid)
+            return null;
+        if (queryModel.Tables.Count != 1)
+            return null;
+        if (!schema.Tables.TryGetValue(queryModel.Tables[0].TableName, out var tableSchema))
+            return null;
+        if (projection.Columns.Count != tableSchema.Columns.Count)
+            return null;
+
+        int i = 0;
+        foreach (var col in tableSchema.Columns.Values)
+        {
+            var proj = projection.Columns[i++];
+            string sourceName = string.IsNullOrEmpty(proj.SourceName) ? proj.Name : proj.SourceName;
+            if (!string.Equals(sourceName, col.Name, StringComparison.OrdinalIgnoreCase))
+                return null;
+        }
+
+        return Inflector.RowTypeName(DialectMapper.ToPascalCase(tableSchema.Name));
     }
 
     /// <summary>
