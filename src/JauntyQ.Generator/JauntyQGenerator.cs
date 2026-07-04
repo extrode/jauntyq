@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.Text;
 using JauntyQ.Schema;
 using JauntyQ.SqlParser;
 using JauntyQ.SqlParser.IR;
+using JauntyQ.SqlParser.Tokens;
 
 namespace JauntyQ.Generator;
 
@@ -73,6 +74,37 @@ public class JauntyQGenerator : IIncrementalGenerator
                 ctx.ReportDiagnostic(diag.ToDiagnostic());
             if (result.HintName != null && result.Source != null)
                 ctx.AddSource(result.HintName, SourceText.From(result.Source, Encoding.UTF8));
+        });
+
+        // Duplicate-query detection (JNT8005): plain string comparison in its
+        // own node, so body edits never invalidate the expensive aggregate.
+        var fingerprints = perFile
+            .Select(static (r, _) => (Entity: r.Summary.EntityName, Method: r.Summary.MethodName, Fingerprint: r.Fingerprint))
+            .Collect()
+            .WithTrackingName("JauntyQ_Fingerprints");
+
+        context.RegisterSourceOutput(fingerprints, static (ctx, entries) =>
+        {
+            var groups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>(StringComparer.Ordinal);
+            foreach (var entry in entries)
+            {
+                if (string.IsNullOrEmpty(entry.Fingerprint))
+                    continue;
+                if (!groups.TryGetValue(entry.Fingerprint!, out var members))
+                {
+                    members = new System.Collections.Generic.List<string>();
+                    groups[entry.Fingerprint!] = members;
+                }
+                members.Add($"{entry.Entity}.{entry.Method}");
+            }
+            foreach (var group in groups)
+            {
+                if (group.Value.Count < 2)
+                    continue;
+                group.Value.Sort(StringComparer.Ordinal);
+                ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT8005, Location.None,
+                    $"Queries {string.Join(", ", group.Value)} compile to identical SQL; consolidate them to keep one plan and one maintenance point."));
+            }
         });
 
         // Aggregated outputs (synthetics, POCO overloads, row POCOs, entity
@@ -224,7 +256,44 @@ public class JauntyQGenerator : IIncrementalGenerator
             $"{entityName}.{methodName}.g.cs",
             source,
             diagnostics.ToImmutable(),
-            new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable));
+            new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable),
+            ComputeFingerprint(tokens));
+    }
+
+    /// <summary>
+    /// Normalized token stream: keywords/identifiers case-folded, whitespace
+    /// and comments gone. Two queries with equal fingerprints do identical
+    /// work regardless of formatting (JNT8005).
+    /// </summary>
+    private static string ComputeFingerprint(System.Collections.Generic.List<Token> tokens)
+    {
+        var sb = new StringBuilder();
+        foreach (var token in tokens)
+        {
+            if (token.Type == TokenType.End)
+                break;
+            if (sb.Length > 0)
+                sb.Append(' ');
+            switch (token.Type)
+            {
+                case TokenType.Keyword:
+                    sb.Append(token.Value.ToUpperInvariant());
+                    break;
+                case TokenType.Identifier:
+                    sb.Append(token.Value.ToLowerInvariant());
+                    break;
+                case TokenType.Parameter:
+                    sb.Append('@').Append(token.Value.ToLowerInvariant());
+                    break;
+                case TokenType.Literal:
+                    sb.Append('\'').Append(token.Value).Append('\'');
+                    break;
+                default:
+                    sb.Append(token.Value);
+                    break;
+            }
+        }
+        return sb.ToString();
     }
 
     /// <summary>
@@ -695,12 +764,16 @@ internal sealed class FileResult
     public ImmutableArray<DiagnosticInfo> Diagnostics { get; }
     public FileSummary Summary { get; }
 
-    public FileResult(string? hintName, string? source, ImmutableArray<DiagnosticInfo> diagnostics, FileSummary summary)
+    /// <summary>Normalized-SQL fingerprint; null when the file emitted nothing.</summary>
+    public string? Fingerprint { get; }
+
+    public FileResult(string? hintName, string? source, ImmutableArray<DiagnosticInfo> diagnostics, FileSummary summary, string? fingerprint = null)
     {
         HintName = hintName;
         Source = source;
         Diagnostics = diagnostics;
         Summary = summary;
+        Fingerprint = fingerprint;
     }
 
     public static FileResult None(string entityName, string methodName, bool claims) =>

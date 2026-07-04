@@ -126,10 +126,110 @@ public static class QueryValidator
         // JNT5001/JNT5002: literals must fit their target columns
         ValidateLiterals(query, aliasToTable, schema, errors);
 
+        // JNT8xxx: performance analysis (warnings only, never block)
+        ValidatePerformance(query, aliasToTable, schema, errors);
+
         // JNT1001: Unsupported SQL constructs
         DetectUnsupportedConstructs(query, errors);
 
         return errors;
+    }
+
+    /// <summary>
+    /// Static performance analysis from the query shape, parser-captured
+    /// WHERE-clause patterns, and snapshot index metadata. All warnings:
+    /// the query is correct, it just will not be fast.
+    /// </summary>
+    private static void ValidatePerformance(
+        QueryModel query,
+        Dictionary<string, string> aliasToTable,
+        DatabaseSchema schema,
+        List<ValidationError> errors)
+    {
+        // JNT8001: more tables than join conditions linking them
+        if (query.StatementType == StatementType.Select &&
+            query.Tables.Count > 1 &&
+            query.Joins.Count < query.Tables.Count - 1)
+        {
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT8001,
+                $"{query.Tables.Count} tables but only {query.Joins.Count} join condition(s) found: " +
+                "every unlinked table multiplies the result set (cartesian product)."));
+        }
+
+        // JNT8002 / JNT8003 from parser-captured WHERE patterns
+        foreach (var hint in query.PerfHints)
+        {
+            var column = ResolveColumn(query, hint.BoundTableAlias, hint.BoundColumnName, aliasToTable, schema, out string? hintTable);
+            if (column == null)
+                continue; // unresolvable: do not guess
+
+            if (hint.Kind == PerfHintKind.FunctionOnColumn)
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT8002,
+                    $"{hint.FunctionName}({hintTable}.{column.Name}) in WHERE prevents index use: " +
+                    "the function runs on every row. Compute on the parameter side instead."));
+            }
+            else if (hint.Kind == PerfHintKind.LeadingWildcardLike)
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT8003,
+                    $"LIKE '{hint.Detail}' on {hintTable}.{column.Name} cannot seek an index " +
+                    "(leading wildcard forces a scan)."));
+            }
+        }
+
+        // JNT8004: filter/join columns no index covers. Only when the
+        // snapshot carries index metadata at all (older snapshots do not).
+        bool hasIndexMetadata = false;
+        foreach (var table in schema.Tables.Values)
+        {
+            if (table.Indexes.Count > 0)
+            {
+                hasIndexMetadata = true;
+                break;
+            }
+        }
+        if (!hasIndexMetadata)
+            return;
+
+        foreach (var param in query.Parameters)
+        {
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
+                continue;
+            CheckIndexed(query, param.BoundTableAlias, param.BoundColumnName, aliasToTable, schema, errors);
+        }
+        foreach (var join in query.Joins)
+        {
+            CheckIndexed(query, join.LeftTable, join.LeftColumn, aliasToTable, schema, errors);
+            CheckIndexed(query, join.RightTable, join.RightColumn, aliasToTable, schema, errors);
+        }
+    }
+
+    private static void CheckIndexed(
+        QueryModel query, string tableAlias, string columnName,
+        Dictionary<string, string> aliasToTable, DatabaseSchema schema,
+        List<ValidationError> errors)
+    {
+        var column = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
+        if (column == null || tableName == null)
+            return;
+        if (column.IsPrimaryKey)
+            return;
+        if (!schema.Tables.TryGetValue(tableName, out var tableSchema))
+            return;
+
+        foreach (var index in tableSchema.Indexes)
+        {
+            // only the leading key column makes a filter seekable
+            if (index.Columns.Count > 0 &&
+                string.Equals(index.Columns[0], column.Name, StringComparison.OrdinalIgnoreCase))
+                return;
+        }
+
+        string message = $"No index covers {tableName}.{column.Name} used as a filter/join key: " +
+                         "this query scans. Add an index or filter on an indexed column.";
+        // one warning per column per query
+        if (!errors.Exists(e => e.Code == "JNT8004" && e.Message == message))
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT8004, message));
     }
 
     /// <summary>

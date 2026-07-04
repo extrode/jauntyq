@@ -128,6 +128,48 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    // ── 8xxx: Performance ─────────────────────────────────
+
+    public static readonly DiagnosticDescriptor JNT8001 = new(
+        "JNT8001",
+        "Possible Cartesian Product",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT8002 = new(
+        "JNT8002",
+        "Non-Sargable Predicate",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT8003 = new(
+        "JNT8003",
+        "Leading-Wildcard LIKE",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT8004 = new(
+        "JNT8004",
+        "Unindexed Filter Column",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT8005 = new(
+        "JNT8005",
+        "Duplicate Query",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 9xxx: Migrations ──────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT9001 = new(

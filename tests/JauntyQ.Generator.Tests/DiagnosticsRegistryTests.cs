@@ -64,6 +64,11 @@ public class DiagnosticsRegistryTests
     [InlineData("JNT5001", DiagnosticSeverity.Error, "JauntyQ.ValueSafety")]
     [InlineData("JNT5002", DiagnosticSeverity.Error, "JauntyQ.ValueSafety")]
     [InlineData("JNT6001", DiagnosticSeverity.Error, "JauntyQ.Configuration")]
+    [InlineData("JNT8001", DiagnosticSeverity.Warning, "JauntyQ.Performance")]
+    [InlineData("JNT8002", DiagnosticSeverity.Warning, "JauntyQ.Performance")]
+    [InlineData("JNT8003", DiagnosticSeverity.Warning, "JauntyQ.Performance")]
+    [InlineData("JNT8004", DiagnosticSeverity.Warning, "JauntyQ.Performance")]
+    [InlineData("JNT8005", DiagnosticSeverity.Warning, "JauntyQ.Performance")]
     [InlineData("JNT9001", DiagnosticSeverity.Warning, "JauntyQ.Migrations")]
     [InlineData("JNT9002", DiagnosticSeverity.Error, "JauntyQ.Migrations")]
     public void Descriptor_HasCorrectSeverityAndCategory(string id, DiagnosticSeverity severity, string category)
@@ -79,6 +84,6 @@ public class DiagnosticsRegistryTests
     [Fact]
     public void Registry_ContainsExpectedCount()
     {
-        Assert.Equal(14, DiagnosticFields.Length); // +JNT9001/JNT9002 migrations (2026-07-05)
+        Assert.Equal(19, DiagnosticFields.Length); // +JNT8001..8005 performance (2026-07-05)
     }
 }

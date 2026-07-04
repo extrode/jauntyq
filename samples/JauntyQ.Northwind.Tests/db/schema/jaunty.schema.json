@@ -100,7 +100,8 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "bulk_test": {
       "name": "bulk_test",
@@ -131,7 +132,16 @@
           "isIdentity": false,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "PK__bulk_tes__3213E83FD56CC810",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "Categories": {
       "name": "Categories",
@@ -173,7 +183,23 @@
           "maxLength": 2147483647,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "IX_Categories_CategoryName",
+          "columns": [
+            "CategoryName"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "PK_Categories",
+          "columns": [
+            "CategoryId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "CategorySalesFor1997": {
       "name": "CategorySalesFor1997",
@@ -198,7 +224,8 @@
           "scale": 4,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "csv_import_test": {
       "name": "csv_import_test",
@@ -241,7 +268,8 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "CurrentProductList": {
       "name": "CurrentProductList",
@@ -264,7 +292,8 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "CustomerAndSuppliersByCity": {
       "name": "CustomerAndSuppliersByCity",
@@ -309,7 +338,8 @@
           "isUnicode": false,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "CustomerCustomerDemo": {
       "name": "CustomerCustomerDemo",
@@ -334,7 +364,17 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "PK_CustomerCustomerDemo",
+          "columns": [
+            "CustomerId",
+            "CustomerTypeId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "CustomerDemographics": {
       "name": "CustomerDemographics",
@@ -359,7 +399,16 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "PK_CustomerDemographics",
+          "columns": [
+            "CustomerTypeId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "Customers": {
       "name": "Customers",
@@ -474,7 +523,44 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "IX_Customers_City",
+          "columns": [
+            "City"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Customers_CompanyName",
+          "columns": [
+            "CompanyName"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Customers_PostalCode",
+          "columns": [
+            "PostalCode"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Customers_Region",
+          "columns": [
+            "Region"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "PK_Customers",
+          "columns": [
+            "CustomerId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "Employees": {
       "name": "Employees",
@@ -650,7 +736,30 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "IX_Employees_LastName",
+          "columns": [
+            "LastName"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Employees_PostalCode",
+          "columns": [
+            "PostalCode"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "PK_Employees",
+          "columns": [
+            "EmployeeId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "EmployeeTerritories": {
       "name": "EmployeeTerritories",
@@ -673,7 +782,17 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "PK_EmployeeTerritories",
+          "columns": [
+            "EmployeeId",
+            "TerritoryId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "Invoices": {
       "name": "Invoices",
@@ -924,7 +1043,8 @@
           "scale": 4,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "Order Details": {
       "name": "Order Details",
@@ -971,7 +1091,31 @@
           "isIdentity": false,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "IX_OrderDetails_OrderId",
+          "columns": [
+            "OrderId"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_OrderDetails_ProductId",
+          "columns": [
+            "ProductId"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "PK_Order_Details",
+          "columns": [
+            "OrderId",
+            "ProductId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "OrderDetailsExtended": {
       "name": "OrderDetailsExtended",
@@ -1038,7 +1182,8 @@
           "scale": 4,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "Orders": {
       "name": "Orders",
@@ -1171,7 +1316,58 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "IX_Orders_CustomerId",
+          "columns": [
+            "CustomerId"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Orders_EmployeeId",
+          "columns": [
+            "EmployeeId"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Orders_OrderDate",
+          "columns": [
+            "OrderDate"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Orders_ShippedDate",
+          "columns": [
+            "ShippedDate"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Orders_ShippedVia",
+          "columns": [
+            "ShipVia"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Orders_ShipPostalCode",
+          "columns": [
+            "ShipPostalCode"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "PK_Orders",
+          "columns": [
+            "OrderId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "OrdersQry": {
       "name": "OrdersQry",
@@ -1364,7 +1560,8 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "OrderSubtotals": {
       "name": "OrderSubtotals",
@@ -1387,7 +1584,8 @@
           "scale": 4,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "Products": {
       "name": "Products",
@@ -1478,7 +1676,37 @@
           "isIdentity": false,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "IX_Products_CategoriesProducts",
+          "columns": [
+            "CategoryId"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Products_ProductName",
+          "columns": [
+            "ProductName"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Products_SupplierId",
+          "columns": [
+            "SupplierId"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "PK_Products",
+          "columns": [
+            "ProductId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "ProductsAboveAveragePrice": {
       "name": "ProductsAboveAveragePrice",
@@ -1503,7 +1731,8 @@
           "scale": 4,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "ProductSalesFor1997": {
       "name": "ProductSalesFor1997",
@@ -1538,7 +1767,8 @@
           "scale": 4,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "ProductsByCategory": {
       "name": "ProductsByCategory",
@@ -1589,7 +1819,8 @@
           "isIdentity": false,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "QuarterlyOrders": {
       "name": "QuarterlyOrders",
@@ -1634,7 +1865,8 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "Region": {
       "name": "Region",
@@ -1657,7 +1889,16 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "PK_Region",
+          "columns": [
+            "RegionId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "SalesByCategory": {
       "name": "SalesByCategory",
@@ -1700,7 +1941,8 @@
           "scale": 4,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "SalesTotalsByAmount": {
       "name": "SalesTotalsByAmount",
@@ -1741,7 +1983,8 @@
           "isIdentity": false,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "Shippers": {
       "name": "Shippers",
@@ -1774,7 +2017,16 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "PK_Shippers",
+          "columns": [
+            "ShipperId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "SummaryOfSalesByQuarter": {
       "name": "SummaryOfSalesByQuarter",
@@ -1805,7 +2057,8 @@
           "scale": 4,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "SummaryOfSalesByYear": {
       "name": "SummaryOfSalesByYear",
@@ -1836,7 +2089,8 @@
           "scale": 4,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": []
     },
     "Suppliers": {
       "name": "Suppliers",
@@ -1959,7 +2213,30 @@
           "isUnicode": true,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "IX_Suppliers_CompanyName",
+          "columns": [
+            "CompanyName"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "IX_Suppliers_PostalCode",
+          "columns": [
+            "PostalCode"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "PK_Suppliers",
+          "columns": [
+            "SupplierId"
+          ],
+          "isUnique": true
+        }
+      ]
     },
     "Territories": {
       "name": "Territories",
@@ -1992,7 +2269,16 @@
           "isIdentity": false,
           "isRowVersion": false
         }
-      }
+      },
+      "indexes": [
+        {
+          "name": "PK_Territories",
+          "columns": [
+            "TerritoryId"
+          ],
+          "isUnique": true
+        }
+      ]
     }
   },
   "foreignKeys": [
