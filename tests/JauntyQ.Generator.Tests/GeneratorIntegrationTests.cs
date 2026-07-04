@@ -62,7 +62,8 @@ public class GeneratorIntegrationTests
             .AddAdditionalTexts(ImmutableArray.Create<AdditionalText>(
                 new InMemoryAdditionalText(sqlFilePath, sql),
                 new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson)
-            ));
+            ))
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
 
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out _);
         var result = driver.GetRunResult();
@@ -101,7 +102,8 @@ public class GeneratorIntegrationTests
         additionalTexts.Add(new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson));
 
         var driver = CSharpGeneratorDriver.Create(generator)
-            .AddAdditionalTexts(ImmutableArray.CreateRange(additionalTexts));
+            .AddAdditionalTexts(ImmutableArray.CreateRange(additionalTexts))
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
 
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out _);
         var result = driver.GetRunResult();
@@ -781,5 +783,37 @@ internal class InMemoryAdditionalText : AdditionalText
     public override SourceText? GetText(CancellationToken cancellationToken = default)
     {
         return SourceText.From(_text);
+    }
+}
+
+/// <summary>
+/// Analyzer config stub controlling build_property.JauntyQAutoCrud for tests.
+/// </summary>
+internal sealed class TestAnalyzerConfigOptionsProvider : Microsoft.CodeAnalysis.Diagnostics.AnalyzerConfigOptionsProvider
+{
+    private readonly TestAnalyzerConfigOptions _global;
+
+    public TestAnalyzerConfigOptionsProvider(bool autoCrud)
+        => _global = new TestAnalyzerConfigOptions(autoCrud);
+
+    public override Microsoft.CodeAnalysis.Diagnostics.AnalyzerConfigOptions GlobalOptions => _global;
+    public override Microsoft.CodeAnalysis.Diagnostics.AnalyzerConfigOptions GetOptions(SyntaxTree tree) => _global;
+    public override Microsoft.CodeAnalysis.Diagnostics.AnalyzerConfigOptions GetOptions(AdditionalText textFile) => _global;
+
+    private sealed class TestAnalyzerConfigOptions : Microsoft.CodeAnalysis.Diagnostics.AnalyzerConfigOptions
+    {
+        private readonly bool _autoCrud;
+        public TestAnalyzerConfigOptions(bool autoCrud) => _autoCrud = autoCrud;
+
+        public override bool TryGetValue(string key, out string value)
+        {
+            if (key == "build_property.JauntyQAutoCrud")
+            {
+                value = _autoCrud ? "true" : "false";
+                return true;
+            }
+            value = string.Empty;
+            return false;
+        }
     }
 }

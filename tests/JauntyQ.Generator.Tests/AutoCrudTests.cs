@@ -1,0 +1,189 @@
+using System.Collections.Immutable;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using JauntyQ.Generator;
+using JauntyQ.Schema;
+using Xunit;
+
+namespace JauntyQ.Generator.Tests;
+
+public class AutoCrudTests
+{
+    private const string PkSchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""products"": {
+      ""name"": ""products"",
+      ""columns"": {
+        ""product_id"": { ""name"": ""product_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""product_name"": { ""name"": ""product_name"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""category_id"": { ""name"": ""category_id"", ""dbType"": ""int"", ""isNullable"": true }
+      }
+    },
+    ""audit_view"": {
+      ""name"": ""audit_view"",
+      ""columns"": {
+        ""event_id"": { ""name"": ""event_id"", ""dbType"": ""int"", ""isNullable"": false },
+        ""detail"": { ""name"": ""detail"", ""dbType"": ""varchar"", ""isNullable"": true }
+      }
+    }
+  },
+  ""foreignKeys"": []
+}";
+
+    private static (GeneratorDriverRunResult result, Compilation compilation) RunAutoCrud(
+        bool autoCrud = true, params (string path, string sql)[] sqlFiles)
+    {
+        var syntaxTree = CSharpSyntaxTree.ParseText("");
+        var runtimeDir = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+        var references = new[]
+        {
+            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(System.Data.Common.DbConnection).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Runtime.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Data.Common.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.ComponentModel.Primitives.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Threading.Tasks.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Collections.dll")),
+        };
+
+        var compilation = CSharpCompilation.Create("AutoCrudTestAssembly",
+            new[] { syntaxTree },
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var texts = new List<AdditionalText>();
+        foreach (var (path, sql) in sqlFiles)
+            texts.Add(new InMemoryAdditionalText(path, sql));
+        texts.Add(new InMemoryAdditionalText("schema/jaunty.schema.json", PkSchemaJson));
+
+        var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
+            .AddAdditionalTexts(ImmutableArray.CreateRange(texts))
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud));
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out _);
+        return (driver.GetRunResult(), outputCompilation);
+    }
+
+    private static string? TryGetSource(GeneratorDriverRunResult result, string hintSuffix)
+    {
+        foreach (var tree in result.GeneratedTrees)
+        {
+            if (tree.FilePath.EndsWith(hintSuffix, StringComparison.OrdinalIgnoreCase))
+                return tree.ToString();
+        }
+        return null;
+    }
+
+    // ── driver-level ───────────────────────────────────────
+
+    [Fact]
+    public void SchemaOnly_NoSqlFiles_GeneratesFullCrud()
+    {
+        var (result, compilation) = RunAutoCrud();
+
+        Assert.NotNull(TryGetSource(result, "Products.GetAll.auto.g.cs"));
+        Assert.NotNull(TryGetSource(result, "Products.GetById.auto.g.cs"));
+        Assert.NotNull(TryGetSource(result, "Products.Insert.auto.g.cs"));
+        Assert.NotNull(TryGetSource(result, "Products.Update.auto.g.cs"));
+        Assert.NotNull(TryGetSource(result, "Products.Delete.auto.g.cs"));
+        Assert.NotNull(TryGetSource(result, "JauntyDb.g.cs"));
+
+        // Everything must actually compile
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void GetById_IsSingleRowAndTyped()
+    {
+        var (result, _) = RunAutoCrud();
+
+        var source = TryGetSource(result, "Products.GetById.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("public Result.GetById? GetById(int product_id)", source);
+        Assert.Contains("System.Threading.Tasks.Task<Result.GetById?> GetByIdAsync(", source);
+        Assert.Contains("p0.DbType = System.Data.DbType.Int32;", source);
+    }
+
+    [Fact]
+    public void Insert_ExcludesIdentityColumn()
+    {
+        var (result, _) = RunAutoCrud();
+
+        var source = TryGetSource(result, "Products.Insert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("insert into products (product_name, category_id)", source);
+        Assert.DoesNotContain("@product_id", source);
+    }
+
+    [Fact]
+    public void UserSqlFile_OverridesSynthetic()
+    {
+        var (result, _) = RunAutoCrud(autoCrud: true,
+            ("db/Products/GetAll.sql", "select p.product_id from products p"));
+
+        // User's projection (one column), not the synthetic full projection
+        Assert.Null(TryGetSource(result, "Products.GetAll.auto.g.cs"));
+        var userSource = TryGetSource(result, "Products.GetAll.g.cs");
+        Assert.NotNull(userSource);
+        Assert.DoesNotContain("ProductName", userSource);
+    }
+
+    [Fact]
+    public void PkLessTable_GetsGetAllOnly()
+    {
+        var (result, _) = RunAutoCrud();
+
+        Assert.NotNull(TryGetSource(result, "AuditView.GetAll.auto.g.cs"));
+        Assert.Null(TryGetSource(result, "AuditView.GetById.auto.g.cs"));
+        Assert.Null(TryGetSource(result, "AuditView.Insert.auto.g.cs"));
+        Assert.Null(TryGetSource(result, "AuditView.Update.auto.g.cs"));
+        Assert.Null(TryGetSource(result, "AuditView.Delete.auto.g.cs"));
+    }
+
+    [Fact]
+    public void Disabled_ByMsBuildProperty_GeneratesNoSynthetics()
+    {
+        var (result, _) = RunAutoCrud(autoCrud: false);
+
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains(".auto.g.cs"));
+    }
+
+    // ── pure synthesis ─────────────────────────────────────
+
+    [Fact]
+    public void Synthesize_SkipsTablesNeedingQuotedIdentifiers()
+    {
+        var schema = new DatabaseSchema();
+        schema.Tables["Order Details"] = new TableSchema
+        {
+            Name = "Order Details",
+            Columns = new Dictionary<string, ColumnSchema>
+            {
+                ["OrderId"] = new ColumnSchema { Name = "OrderId", DbType = "int", IsPrimaryKey = true }
+            }
+        };
+
+        Assert.Empty(AutoCrud.Synthesize(schema));
+    }
+
+    [Fact]
+    public void Synthesize_CompositePk_UsesAllKeyColumnsInWhere()
+    {
+        var schema = new DatabaseSchema();
+        schema.Tables["order_items"] = new TableSchema
+        {
+            Name = "order_items",
+            Columns = new Dictionary<string, ColumnSchema>
+            {
+                ["order_id"] = new ColumnSchema { Name = "order_id", DbType = "int", IsPrimaryKey = true },
+                ["line_no"] = new ColumnSchema { Name = "line_no", DbType = "int", IsPrimaryKey = true },
+                ["qty"] = new ColumnSchema { Name = "qty", DbType = "int" }
+            }
+        };
+
+        var delete = AutoCrud.Synthesize(schema).Single(q => q.MethodName == "Delete");
+        Assert.Contains("order_id = @order_id and line_no = @line_no", delete.Sql);
+    }
+}

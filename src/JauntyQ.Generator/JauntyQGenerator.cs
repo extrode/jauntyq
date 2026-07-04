@@ -29,23 +29,30 @@ public class JauntyQGenerator : IIncrementalGenerator
         var schemaText = schemaFiles.Collect().Select(static (files, _) =>
             files.IsEmpty ? null : files[0].GetText()?.ToString());
 
+        // Auto-CRUD is on unless the consumer sets <JauntyQAutoCrud>false</JauntyQAutoCrud>
+        var autoCrudEnabled = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) =>
+            !(provider.GlobalOptions.TryGetValue("build_property.JauntyQAutoCrud", out var value)
+              && string.Equals(value, "false", StringComparison.OrdinalIgnoreCase)));
+
         // Collect ALL SQL files so we can compute entity names and emit aggregated files
         var allSqlFiles = sqlFiles.Collect();
-        var allSqlWithSchema = allSqlFiles.Combine(schemaText);
+        var allSqlWithSchema = allSqlFiles.Combine(schemaText).Combine(autoCrudEnabled);
 
         context.RegisterSourceOutput(allSqlWithSchema, static (ctx, pair) =>
         {
-            var (sqlFileArray, schemaJson) = pair;
-            ExecuteAll(ctx, sqlFileArray, schemaJson);
+            var ((sqlFileArray, schemaJson), autoCrud) = pair;
+            ExecuteAll(ctx, sqlFileArray, schemaJson, autoCrud);
         });
     }
 
     private static void ExecuteAll(
         SourceProductionContext context,
         ImmutableArray<AdditionalText> sqlFiles,
-        string? schemaJson)
+        string? schemaJson,
+        bool autoCrud)
     {
-        if (sqlFiles.IsEmpty)
+        // A schema snapshot alone is enough: auto-CRUD generates without any .sql files
+        if (sqlFiles.IsEmpty && string.IsNullOrWhiteSpace(schemaJson))
             return;
 
         // Load schema once
@@ -70,6 +77,10 @@ public class JauntyQGenerator : IIncrementalGenerator
         // Track unique entity names for JauntyDb generation
         var entityNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
 
+        // entity.method slots claimed by user SQL files: a user file always
+        // overrides the auto-CRUD synthetic of the same name
+        var claimedMethods = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         // Process each SQL file
         foreach (var sqlFile in sqlFiles)
         {
@@ -82,6 +93,8 @@ public class JauntyQGenerator : IIncrementalGenerator
             // Extract entity and method names from path
             string entityName = ExtractEntityName(sqlFile.Path, commonPrefix);
             string methodName = System.IO.Path.GetFileNameWithoutExtension(sqlFile.Path);
+
+            claimedMethods.Add($"{entityName}.{methodName}");
 
             // Parse directives (before tokenization, since tokenizer strips comments)
             var (directives, cleanedSql) = Directives.DirectiveParser.Parse(sqlText!);
@@ -145,6 +158,35 @@ public class JauntyQGenerator : IIncrementalGenerator
             context.AddSource($"{entityName}.{methodName}.g.cs", SourceText.From(source, Encoding.UTF8));
 
             entityNames.Add(entityName);
+        }
+
+        // Auto-CRUD: synthesize per-table CRUD for everything the user didn't write
+        if (autoCrud && schema != null)
+        {
+            foreach (var synth in AutoCrud.Synthesize(schema))
+            {
+                context.CancellationToken.ThrowIfCancellationRequested();
+
+                if (!claimedMethods.Add($"{synth.EntityName}.{synth.MethodName}"))
+                    continue; // user SQL file wins
+
+                var (directives, cleanedSql) = Directives.DirectiveParser.Parse(synth.Sql);
+                var tokens = SqlTokenizer.Tokenize(cleanedSql);
+                var queryModel = SqlParser.SqlParser.Parse(tokens, synth.MethodName);
+
+                // Synthesized SQL is derived from the schema itself; validation
+                // failures here indicate a synthesis bug, not a user error.
+                var errors = QueryValidator.Validate(queryModel, schema);
+                if (errors.Exists(e => e.Severity == ValidationSeverity.Error))
+                    continue;
+
+                string source = queryModel.StatementType != StatementType.Select
+                    ? CodeEmitter.EmitCrud(queryModel, cleanedSql, synth.EntityName, schema, directives)
+                    : CodeEmitter.Emit(queryModel, ProjectionBuilder.Build(queryModel, schema), cleanedSql, synth.EntityName, schema, directives);
+
+                context.AddSource($"{synth.EntityName}.{synth.MethodName}.auto.g.cs", SourceText.From(source, Encoding.UTF8));
+                entityNames.Add(synth.EntityName);
+            }
         }
 
         // Emit entity core files (constructor + _conn field per entity)
