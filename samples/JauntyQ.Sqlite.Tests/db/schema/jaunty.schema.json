@@ -1,0 +1,51 @@
+{
+  "dialect": "sqlite",
+  "tables": {
+    "Categories": {
+      "name": "Categories",
+      "columns": {
+        "CategoryId": { "name": "CategoryId", "dbType": "integer", "isNullable": false, "isPrimaryKey": true, "isIdentity": true, "isRowVersion": false },
+        "CategoryName": { "name": "CategoryName", "dbType": "text", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "maxLength": 30, "isRowVersion": false },
+        "Description": { "name": "Description", "dbType": "text", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "isRowVersion": false }
+      }
+    },
+    "Suppliers": {
+      "name": "Suppliers",
+      "columns": {
+        "SupplierId": { "name": "SupplierId", "dbType": "integer", "isNullable": false, "isPrimaryKey": true, "isIdentity": true, "isRowVersion": false },
+        "CompanyName": { "name": "CompanyName", "dbType": "text", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "maxLength": 40, "isRowVersion": false },
+        "City": { "name": "City", "dbType": "text", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "maxLength": 15, "isRowVersion": false }
+      }
+    },
+    "Products": {
+      "name": "Products",
+      "columns": {
+        "ProductId": { "name": "ProductId", "dbType": "integer", "isNullable": false, "isPrimaryKey": true, "isIdentity": true, "isRowVersion": false },
+        "ProductName": { "name": "ProductName", "dbType": "text", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "maxLength": 40, "isRowVersion": false },
+        "SupplierId": { "name": "SupplierId", "dbType": "integer", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "isRowVersion": false },
+        "CategoryId": { "name": "CategoryId", "dbType": "integer", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "isRowVersion": false },
+        "UnitPrice": { "name": "UnitPrice", "dbType": "decimal", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "precision": 10, "scale": 2, "isRowVersion": false },
+        "Discontinued": { "name": "Discontinued", "dbType": "bool", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "isRowVersion": false }
+      }
+    },
+    "Shippers": {
+      "name": "Shippers",
+      "columns": {
+        "ShipperId": { "name": "ShipperId", "dbType": "integer", "isNullable": false, "isPrimaryKey": true, "isIdentity": true, "isRowVersion": false },
+        "CompanyName": { "name": "CompanyName", "dbType": "text", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "maxLength": 40, "isRowVersion": false },
+        "Phone": { "name": "Phone", "dbType": "text", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "maxLength": 24, "isRowVersion": false }
+      }
+    },
+    "Region": {
+      "name": "Region",
+      "columns": {
+        "RegionId": { "name": "RegionId", "dbType": "integer", "isNullable": false, "isPrimaryKey": true, "isIdentity": false, "isRowVersion": false },
+        "RegionDescription": { "name": "RegionDescription", "dbType": "text", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "maxLength": 50, "isRowVersion": false }
+      }
+    }
+  },
+  "foreignKeys": [
+    { "fromTable": "Products", "fromColumn": "CategoryId", "toTable": "Categories", "toColumn": "CategoryId" },
+    { "fromTable": "Products", "fromColumn": "SupplierId", "toTable": "Suppliers", "toColumn": "SupplierId" }
+  ]
+}
