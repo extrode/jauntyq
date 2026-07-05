@@ -5,7 +5,17 @@
     <IsRoslynComponent>true</IsRoslynComponent>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <NoWarn>$(NoWarn);RS2008</NoWarn>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IsPackable>true</IsPackable>
+    <PackageId>JauntyQ.Generator</PackageId>
+    <Description>The JauntyQ source generator: validates .sql files against a committed schema snapshot at build time and emits typed, zero-reflection ADO.NET data access. Reference with OutputItemType="Analyzer".</Description>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <!-- Pack the build output directly into the Roslyn analyzer path (instead
+         of lib/), so consumers pick it up as an analyzer. This also satisfies
+         NuGet's "package must have content" check (avoids NU5017) without a
+         custom pack target. -->
+    <IncludeBuildOutput>true</IncludeBuildOutput>
+    <BuildOutputTargetFolder>analyzers/dotnet/cs</BuildOutputTargetFolder>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
