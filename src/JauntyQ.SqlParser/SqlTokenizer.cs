@@ -104,12 +104,19 @@ public static class SqlTokenizer
                 continue;
             }
 
-            // Multi-character symbols
+            // Multi-character symbols. Direct char comparison with interned
+            // literals — the tokenizer runs per-keystroke in the IDE, so this
+            // path must not allocate a throwaway substring on every token.
+            char c0 = sql[pos];
             if (pos + 1 < len)
             {
-                string two = sql.Substring(pos, 2);
-
-                if (two is "!=" or "<>" or "<=" or ">=")
+                char c1 = sql[pos + 1];
+                string? two =
+                    (c0 == '!' && c1 == '=') ? "!=" :
+                    (c0 == '<' && c1 == '>') ? "<>" :
+                    (c0 == '<' && c1 == '=') ? "<=" :
+                    (c0 == '>' && c1 == '=') ? ">=" : null;
+                if (two != null)
                 {
                     tokens.Add(new Token(TokenType.Symbol, two));
                     pos += 2;
@@ -117,10 +124,11 @@ public static class SqlTokenizer
                 }
             }
 
-            // Single-character symbols
-            if (IsSymbolChar(sql[pos]))
+            // Single-character symbols (interned; no per-token ToString alloc)
+            string? sym = SymbolLiteral(c0);
+            if (sym != null)
             {
-                tokens.Add(new Token(TokenType.Symbol, sql[pos].ToString()));
+                tokens.Add(new Token(TokenType.Symbol, sym));
                 pos++;
                 continue;
             }
@@ -159,8 +167,23 @@ public static class SqlTokenizer
     private static bool IsIdentifierChar(char c) =>
         char.IsLetterOrDigit(c) || c == '_';
 
-    private static bool IsSymbolChar(char c) =>
-        c is ',' or '=' or '(' or ')' or '*' or
-        '<' or '>' or '+' or '-' or '/' or
-        ';' or '.' or '!';
+    // Returns the interned single-char symbol string, or null when c is not a
+    // symbol. Interned literals avoid a per-token ToString() allocation.
+    private static string? SymbolLiteral(char c) => c switch
+    {
+        ',' => ",",
+        '=' => "=",
+        '(' => "(",
+        ')' => ")",
+        '*' => "*",
+        '<' => "<",
+        '>' => ">",
+        '+' => "+",
+        '-' => "-",
+        '/' => "/",
+        ';' => ";",
+        '.' => ".",
+        '!' => "!",
+        _ => null
+    };
 }

@@ -2,20 +2,49 @@ namespace JauntyQ.Generator;
 
 public static class DialectMapper
 {
+    /// <summary>
+    /// Maps a SQL identifier to a PascalCase C# identifier. Splits on any run of
+    /// non-alphanumeric characters (underscore, space, and anything else), so a
+    /// real table name like "Order Details" becomes "OrderDetails". Because the
+    /// output keeps only letters and digits, this is also the trust boundary for
+    /// schema/alias names: a hostile value such as "X { get; } static ... //"
+    /// collapses to a harmless identifier ("XGetStatic") instead of injecting
+    /// C#. A leading digit (illegal to start an identifier) is prefixed with '_'.
+    /// Returns "_" when the input has no usable characters.
+    /// </summary>
     public static string ToPascalCase(string snakeCaseName)
     {
         if (string.IsNullOrEmpty(snakeCaseName))
             return snakeCaseName;
 
-        var parts = snakeCaseName.Split('_');
-        for (int i = 0; i < parts.Length; i++)
+        var sb = new System.Text.StringBuilder(snakeCaseName.Length);
+        bool startOfWord = true;
+        foreach (char c in snakeCaseName)
         {
-            if (parts[i].Length > 0)
+            bool isLetter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+            bool isDigit = c >= '0' && c <= '9';
+            if (isLetter)
             {
-                parts[i] = char.ToUpperInvariant(parts[i][0]) + parts[i].Substring(1);
+                sb.Append(startOfWord ? char.ToUpperInvariant(c) : c);
+                startOfWord = false;
+            }
+            else if (isDigit)
+            {
+                sb.Append(c);
+                startOfWord = false;
+            }
+            else
+            {
+                // separator (underscore, space, punctuation): next letter starts a word
+                startOfWord = true;
             }
         }
-        return string.Join("", parts);
+
+        if (sb.Length == 0)
+            return "_";
+        if (sb[0] >= '0' && sb[0] <= '9')
+            sb.Insert(0, '_');
+        return sb.ToString();
     }
 
     /// <summary>

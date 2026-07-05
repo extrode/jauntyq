@@ -146,6 +146,17 @@ public class JauntyQGenerator : IIncrementalGenerator
         if (string.IsNullOrWhiteSpace(sqlText))
             return FileResult.None(entityName, methodName, claims: false);
 
+        // JNT2004 (H1): the folder/file name becomes a C# class/method name.
+        // Reject anything that is not a bare identifier so a hostile path can't
+        // inject code into the generated entity or method signature. "Queries"
+        // is the safe catch-all entity and is always valid.
+        if (!IdentifierGuard.IsValidIdentifier(entityName) || !IdentifierGuard.IsValidIdentifier(methodName))
+        {
+            var badNameDiag = ImmutableArray.Create(DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                $"SQL file path yields an illegal C# name (entity '{entityName}', method '{methodName}'). Rename the file/folder to a valid identifier (letters, digits, underscore; not starting with a digit)."));
+            return FileResult.WithDiagnostics(entityName, methodName, badNameDiag);
+        }
+
         // From here on the file claims its entity.method slot: a user file
         // always overrides the auto-CRUD synthetic of the same name, even
         // when it currently fails validation.
@@ -206,6 +217,15 @@ public class JauntyQGenerator : IIncrementalGenerator
         {
             // CRUD (INSERT, UPDATE, DELETE) — no projection, returns int
 
+            // JNT2004 (H2): parameter names are emitted as C# parameter
+            // identifiers; reject illegal ones before they reach emission.
+            var crudParamDiag = ValidateParameterNames(queryModel, entityName, methodName);
+            if (crudParamDiag != null)
+            {
+                diagnostics.Add(crudParamDiag);
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+            }
+
             // JNT4003: Check for unresolved parameter types
             bool hasUnresolvedCrudParam = false;
             foreach (var param in queryModel.Parameters)
@@ -227,6 +247,27 @@ public class JauntyQGenerator : IIncrementalGenerator
         {
             // SELECT — build projection and emit reader code
             var projection = ProjectionBuilder.Build(queryModel, schema);
+
+            // JNT2004 (C1): every projected name is emitted as a C# member;
+            // reject any that is not a bare identifier so a hostile column
+            // alias cannot inject code into the generated projection type.
+            foreach (var pcol in projection.Columns)
+            {
+                if (!IdentifierGuard.IsValidIdentifier(pcol.Name))
+                {
+                    diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                        $"Column or alias maps to an illegal C# identifier '{pcol.Name}'. Use a SQL alias that is a valid identifier (letters, digits, underscore; not starting with a digit)."));
+                    return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+                }
+            }
+
+            // JNT2004 (H2): parameter names are emitted as C# parameter identifiers.
+            var selectParamDiag = ValidateParameterNames(queryModel, entityName, methodName);
+            if (selectParamDiag != null)
+            {
+                diagnostics.Add(selectParamDiag);
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+            }
 
             // JNT4003: Check for unresolved parameter types
             bool hasUnresolvedParam = false;
@@ -258,6 +299,27 @@ public class JauntyQGenerator : IIncrementalGenerator
             diagnostics.ToImmutable(),
             new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable),
             ComputeFingerprint(tokens));
+    }
+
+    /// <summary>
+    /// JNT2004 (H2): SQL @parameter names are emitted verbatim as C# parameter
+    /// identifiers. The tokenizer already restricts them to [A-Za-z0-9_], but a
+    /// leading digit (e.g. @1x) or a C# keyword still produces broken/ambiguous
+    /// code. Returns a diagnostic for the first illegal name, else null.
+    /// (Keywords are safe because emission '@'-escapes them, so only the
+    /// bare-identifier shape is enforced here.)
+    /// </summary>
+    private static DiagnosticInfo? ValidateParameterNames(QueryModel queryModel, string entityName, string methodName)
+    {
+        foreach (var param in queryModel.Parameters)
+        {
+            if (!IdentifierGuard.IsValidIdentifier(param.Name))
+            {
+                return DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                    $"Parameter '@{param.Name}' in {entityName}.{methodName} is not a valid C# identifier. Rename it to letters, digits, and underscores, not starting with a digit.");
+            }
+        }
+        return null;
     }
 
     /// <summary>
@@ -698,7 +760,8 @@ internal sealed class SchemaState
         foreach (var error in errors)
             diagnostics.Add(DiagnosticInfo.From(error.Descriptor!, error.Message));
 
-        return new SchemaState(effective, parseFailed: false, hasJson: true, diagnostics.MoveToImmutable());
+        return new SchemaState(effective, parseFailed: false, hasJson: true,
+            diagnostics.MoveToImmutable());
     }
 }
 
