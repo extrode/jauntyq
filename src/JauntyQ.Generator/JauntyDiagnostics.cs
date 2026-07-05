@@ -80,6 +80,14 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    public static readonly DiagnosticDescriptor JNT3003 = new(
+        "JNT3003",
+        "Invalid Directive Combination",
+        "{0}",
+        "JauntyQ.Projection",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 4xxx: Parameter Binding ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT4003 = new(

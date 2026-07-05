@@ -49,11 +49,20 @@ public class DirectiveModel
     public bool ReturnsIdentity { get; set; }
 
     /// <summary>
+    /// True when: -- @stream
+    /// SELECT yields rows lazily as IAsyncEnumerable&lt;Row&gt; (async) and
+    /// IEnumerable&lt;Row&gt; (sync) directly off the reader, instead of
+    /// buffering the whole result set into a List&lt;Row&gt;. For large result
+    /// sets this keeps memory constant. Mutually exclusive with @first.
+    /// </summary>
+    public bool IsStream { get; set; }
+
+    /// <summary>
     /// True if any directives were specified.
     /// </summary>
     public bool HasDirectives =>
         ResultTypeName != null || ResultIsVoid || InlineColumns != null
-        || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity;
+        || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity || IsStream;
 }
 
 public class InlineColumn
