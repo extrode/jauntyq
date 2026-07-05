@@ -1,0 +1,51 @@
+{
+  "dialect": "mysql",
+  "tables": {
+    "categories": {
+      "name": "categories",
+      "columns": {
+        "category_id": { "name": "category_id", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true, "isRowVersion": false },
+        "category_name": { "name": "category_name", "dbType": "varchar", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "maxLength": 30, "isRowVersion": false },
+        "description": { "name": "description", "dbType": "text", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "isRowVersion": false }
+      }
+    },
+    "suppliers": {
+      "name": "suppliers",
+      "columns": {
+        "supplier_id": { "name": "supplier_id", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true, "isRowVersion": false },
+        "company_name": { "name": "company_name", "dbType": "varchar", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "maxLength": 40, "isRowVersion": false },
+        "city": { "name": "city", "dbType": "varchar", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "maxLength": 15, "isRowVersion": false }
+      }
+    },
+    "products": {
+      "name": "products",
+      "columns": {
+        "product_id": { "name": "product_id", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true, "isRowVersion": false },
+        "product_name": { "name": "product_name", "dbType": "varchar", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "maxLength": 40, "isRowVersion": false },
+        "supplier_id": { "name": "supplier_id", "dbType": "int", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "isRowVersion": false },
+        "category_id": { "name": "category_id", "dbType": "int", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "isRowVersion": false },
+        "unit_price": { "name": "unit_price", "dbType": "decimal", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "precision": 10, "scale": 2, "isRowVersion": false },
+        "discontinued": { "name": "discontinued", "dbType": "tinyint", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "isRowVersion": false }
+      }
+    },
+    "shippers": {
+      "name": "shippers",
+      "columns": {
+        "shipper_id": { "name": "shipper_id", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true, "isRowVersion": false },
+        "company_name": { "name": "company_name", "dbType": "varchar", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "maxLength": 40, "isRowVersion": false },
+        "phone": { "name": "phone", "dbType": "varchar", "isNullable": true, "isPrimaryKey": false, "isIdentity": false, "maxLength": 24, "isRowVersion": false }
+      }
+    },
+    "region": {
+      "name": "region",
+      "columns": {
+        "region_id": { "name": "region_id", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": false, "isRowVersion": false },
+        "region_description": { "name": "region_description", "dbType": "varchar", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "maxLength": 50, "isRowVersion": false }
+      }
+    }
+  },
+  "foreignKeys": [
+    { "fromTable": "products", "fromColumn": "category_id", "toTable": "categories", "toColumn": "category_id" },
+    { "fromTable": "products", "fromColumn": "supplier_id", "toTable": "suppliers", "toColumn": "supplier_id" }
+  ]
+}
