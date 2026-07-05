@@ -269,6 +269,21 @@ public class JauntyQGenerator : IIncrementalGenerator
             }
         }
 
+        // JNT2004: an explicit -- @proc <name> becomes the CommandText string
+        // literal emitted for the StoredProcedure call. Reject anything that is
+        // not a bare identifier so a hostile name cannot break out of the C#
+        // literal and inject build-time code. A synthesized name (entity_method)
+        // is already identifier-validated upstream, so only the explicit form
+        // needs guarding here.
+        if (directives.IsProc
+            && directives.ProcName != null
+            && !IdentifierGuard.IsValidIdentifier(directives.ProcName))
+        {
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                $"-- @proc name '{directives.ProcName}' is not a valid C# identifier. Use letters, digits, and underscores, not starting with a digit."));
+            return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+        }
+
         string source;
         string? canonicalTable = null;
 
