@@ -58,6 +58,15 @@ public static class DirectiveParser
                     continue; // strip this line from cleaned SQL
                 }
 
+                if (commentBody.StartsWith("@call", StringComparison.OrdinalIgnoreCase))
+                {
+                    // "@call" is 5 chars — the rest is the procedure name.
+                    var rest = commentBody.Substring(5).Trim();
+                    if (rest.Length > 0)
+                        directives.CallProcName = rest;
+                    continue; // strip this line from cleaned SQL
+                }
+
                 if (commentBody.StartsWith("@proc", StringComparison.OrdinalIgnoreCase))
                 {
                     directives.IsProc = true;

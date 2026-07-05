@@ -168,6 +168,45 @@ public class JauntyQGenerator : IIncrementalGenerator
         // Parse directives (before tokenization, since tokenizer strips comments)
         var (directives, cleanedSql) = Directives.DirectiveParser.Parse(sqlText!);
 
+        // -- @call binds to an existing stored procedure. The file has no SQL
+        // body of its own; the callable contract (params + result columns)
+        // comes from the schema snapshot, so this short-circuits the SQL
+        // parse/validate pipeline entirely.
+        if (directives.CallProcName != null)
+        {
+            var callDiagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+
+            if (schema == null)
+                return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
+
+            if (!TryResolveProcedure(schema, directives.CallProcName, out var procedure))
+            {
+                callDiagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2005,
+                    $"Stored procedure '{directives.CallProcName}' was not found in the schema snapshot. Re-run 'jaunty schema pull' after the procedure exists, or check the name."));
+                return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
+            }
+
+            // Reject illegal C# identifiers among the emitted result columns
+            // (JNT2004), consistent with the SELECT projection guard.
+            foreach (var rc in procedure!.Results)
+            {
+                if (!IdentifierGuard.IsValidIdentifier(DialectMapper.ToPascalCase(rc.Name)))
+                {
+                    callDiagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                        $"Stored procedure '{procedure.Name}' returns a column '{rc.Name}' that maps to an illegal C# identifier."));
+                    return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
+                }
+            }
+
+            string callSource = CodeEmitter.EmitProcCall(entityName, methodName, procedure, schema.Dialect);
+            return new FileResult(
+                $"{entityName}.{methodName}.g.cs",
+                callSource,
+                callDiagnostics.ToImmutable(),
+                new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable: null),
+                fingerprint: $"@call:{procedure.Name}");
+        }
+
         // Tokenize (use cleaned SQL with directive lines removed)
         var tokens = SqlTokenizer.Tokenize(cleanedSql);
 
@@ -340,6 +379,26 @@ public class JauntyQGenerator : IIncrementalGenerator
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// Case-insensitive lookup of a stored procedure in the snapshot (the
+    /// dictionary key casing may differ from the -- @call name as written).
+    /// </summary>
+    private static bool TryResolveProcedure(DatabaseSchema schema, string name, out ProcedureSchema? procedure)
+    {
+        if (schema.Procedures.TryGetValue(name, out procedure))
+            return true;
+        foreach (var kvp in schema.Procedures)
+        {
+            if (string.Equals(kvp.Key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                procedure = kvp.Value;
+                return true;
+            }
+        }
+        procedure = null;
+        return false;
     }
 
     /// <summary>

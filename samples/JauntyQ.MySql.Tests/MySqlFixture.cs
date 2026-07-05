@@ -30,12 +30,28 @@ public sealed class MySqlFixture : IAsyncLifetime
             string ddl = await File.ReadAllTextAsync(
                 Path.Combine(AppContext.BaseDirectory, "schema.mysql.sql"));
 
+            // The CREATE PROCEDURE body contains internal ';' that would confuse
+            // the ;-batch splitter, so it lives after a marker and runs as one
+            // statement.
+            const string marker = "-- @@PROC@@";
+            int mi = ddl.IndexOf(marker, StringComparison.Ordinal);
+            string tablesDdl = mi >= 0 ? ddl.Substring(0, mi) : ddl;
+            string procDdl = mi >= 0 ? ddl.Substring(mi + marker.Length) : "";
+
             await using (var seed = new MySqlConnection(_container.GetConnectionString()))
             {
                 await seed.OpenAsync();
-                await using var cmd = seed.CreateCommand();
-                cmd.CommandText = ddl; // MySqlConnector runs ;-separated batches
-                await cmd.ExecuteNonQueryAsync();
+                await using (var cmd = seed.CreateCommand())
+                {
+                    cmd.CommandText = tablesDdl; // MySqlConnector runs ;-separated batches
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                if (!string.IsNullOrWhiteSpace(procDdl))
+                {
+                    await using var procCmd = seed.CreateCommand();
+                    procCmd.CommandText = procDdl.Trim().TrimEnd(';');
+                    await procCmd.ExecuteNonQueryAsync();
+                }
             }
 
             _conn = new MySqlConnection(_container.GetConnectionString());

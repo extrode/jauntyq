@@ -49,6 +49,15 @@ public class DirectiveModel
     public bool ReturnsIdentity { get; set; }
 
     /// <summary>
+    /// Procedure name from: -- @call ProcName
+    /// Binds this query file to a stored procedure that already exists in the
+    /// database (captured in the schema snapshot). The file has no SQL body;
+    /// the generator emits a CommandType.StoredProcedure call with typed
+    /// parameters and result columns from the snapshot. Null when not a call.
+    /// </summary>
+    public string? CallProcName { get; set; }
+
+    /// <summary>
     /// True when: -- @stream
     /// SELECT yields rows lazily as IAsyncEnumerable&lt;Row&gt; (async) and
     /// IEnumerable&lt;Row&gt; (sync) directly off the reader, instead of
@@ -62,7 +71,8 @@ public class DirectiveModel
     /// </summary>
     public bool HasDirectives =>
         ResultTypeName != null || ResultIsVoid || InlineColumns != null
-        || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity || IsStream;
+        || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity || IsStream
+        || CallProcName != null;
 }
 
 public class InlineColumn
