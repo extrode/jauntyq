@@ -1101,7 +1101,7 @@ namespace JauntyQ.Generated
         // One materializer shared by all four variants. A direct static call
         // (not a delegate): the JIT inlines small static methods, while
         // delegate invocations are indirect calls it will not reliably
-        // inline - see docs/design-decisions.md (row materialization).
+        // inline - see docs/02-design/design-decisions.md (row materialization).
         // Canonical full-row queries go one step further and share the
         // single Read() materializer on the row POCO itself.
         string mapperCall;
@@ -1668,7 +1668,7 @@ namespace JauntyQ.Generated
     /// reassigned per row. Dialect-portable, allocation-light, and far faster
     /// than N autocommitted round-trips. (Provider-native fast paths —
     /// SqlBulkCopy / Npgsql binary COPY — are a future optimization; see
-    /// docs/ROADMAP.md.) Identity and rowversion columns are database-assigned
+    /// docs/01-roadmap/ROADMAP.md.) Identity and rowversion columns are database-assigned
     /// and excluded. Returns the number of rows inserted.
     /// </summary>
     public static string EmitBulkInsert(string entityName, string rowType, TableSchema tableSchema, string dialect)
