@@ -4,6 +4,15 @@
     <RootNamespace>JauntyQ.Runtime</RootNamespace>
     <IsPackable>true</IsPackable>
     <PackageId>JauntyQ.Runtime</PackageId>
-    <Description>Runtime support for JauntyQ, the compile-time SQL-to-C# source-generator ORM. Intentionally near-empty: generated code carries its own logic.</Description>
+    <Description>Runtime support for JauntyQ, the compile-time SQL-to-C# source-generator ORM. Intentionally near-empty: generated code carries its own logic. Trim- and Native-AOT-compatible.</Description>
+  </PropertyGroup>
+
+  <!-- Turn on trim + Native AOT analyzers on net8.0 so any reflection or
+       trim-unsafe pattern is a build warning. JauntyQ emits plain ordinal
+       ADO.NET with no reflection, so this stays clean and lets consumers
+       reference it from PublishAot / PublishTrimmed apps. netstandard2.0 does
+       not support these switches, so they are net8.0-only. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 </Project>
