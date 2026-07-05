@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>JauntyQ.Aot.Smoke</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+
+    <!-- Native AOT + full trim analysis. Even without invoking the native
+         linker, the analyzers flag any reflection / trim-unsafe pattern in the
+         generated code as a build warning, and TreatWarningsAsErrors (inherited)
+         turns that into a hard failure. Proves JauntyQ's emitted code is
+         AOT/trim-clean. -->
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\JauntyQ.Generator\JauntyQ.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\JauntyQ.Runtime\JauntyQ.Runtime.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Use the core provider + the e_sqlite3 bundle so the native SQLite
+         library is packaged into the AOT output (the default managed provider
+         cannot load it under Native AOT). This is a SQLite-provider packaging
+         detail, not a JauntyQ requirement. -->
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="8.0.11" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.10" />
+  </ItemGroup>
+  <ItemGroup>
+    <AdditionalFiles Include="db\**\*.sql" />
+    <AdditionalFiles Include="db\schema\*.schema.json" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+{
+  "dialect": "sqlite",
+  "tables": {
+    "Widgets": {
+      "name": "Widgets",
+      "columns": {
+        "WidgetId": { "name": "WidgetId", "dbType": "integer", "isNullable": false, "isPrimaryKey": true, "isIdentity": true, "isRowVersion": false },
+        "Name": { "name": "Name", "dbType": "text", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "maxLength": 40, "isRowVersion": false },
+        "Price": { "name": "Price", "dbType": "decimal", "isNullable": false, "isPrimaryKey": false, "isIdentity": false, "precision": 10, "scale": 2, "isRowVersion": false }
+      }
+    }
+  }
+}
