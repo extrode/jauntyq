@@ -58,3 +58,9 @@ INSERT INTO shippers (company_name, phone) VALUES
 INSERT INTO region (region_id, region_description) VALUES
     (1, 'Eastern'),
     (2, 'Western');
+
+-- @@PROC@@
+CREATE PROCEDURE GetProductsByCategory(IN cat_id INT)
+BEGIN
+    SELECT product_id, product_name FROM products WHERE category_id = cat_id;
+END;

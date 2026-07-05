@@ -47,5 +47,15 @@
   "foreignKeys": [
     { "fromTable": "products", "fromColumn": "category_id", "toTable": "categories", "toColumn": "category_id" },
     { "fromTable": "products", "fromColumn": "supplier_id", "toTable": "suppliers", "toColumn": "supplier_id" }
-  ]
+  ],
+  "procedures": {
+    "GetProductsByCategory": {
+      "name": "GetProductsByCategory",
+      "params": [ { "name": "cat_id", "dbType": "int", "direction": "In", "isNullable": false } ],
+      "results": [
+        { "name": "product_id", "dbType": "int", "isNullable": false },
+        { "name": "product_name", "dbType": "varchar", "isNullable": false, "maxLength": 40 }
+      ]
+    }
+  }
 }

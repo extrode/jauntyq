@@ -16,4 +16,13 @@ public class DatabaseSchema
 
     [JsonPropertyName("foreignKeys")]
     public List<ForeignKeySchema> ForeignKeys { get; set; } = new();
+
+    /// <summary>
+    /// Stored procedures that live in the database, keyed by name. Captured by
+    /// 'jaunty schema pull' so a -- @call query can bind to an existing proc
+    /// with typed parameters and result columns. Empty for providers/databases
+    /// without stored procedures (e.g. SQLite).
+    /// </summary>
+    [JsonPropertyName("procedures")]
+    public Dictionary<string, ProcedureSchema> Procedures { get; set; } = new();
 }
