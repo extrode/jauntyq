@@ -210,6 +210,26 @@ public class JauntyQGenerator : IIncrementalGenerator
             }
         }
 
+        // -- @stream preconditions (JNT3003). Streaming yields rows lazily off
+        // the reader, so it is only meaningful for multi-row SELECTs and cannot
+        // combine with @first (single row) or @proc.
+        if (directives.IsStream)
+        {
+            string? problem = null;
+            if (queryModel.StatementType != StatementType.Select)
+                problem = "-- @stream is only valid on SELECT queries";
+            else if (directives.IsFirst)
+                problem = "-- @stream cannot be combined with -- @first (streaming is for multi-row results)";
+            else if (directives.IsProc)
+                problem = "-- @stream cannot be combined with -- @proc";
+
+            if (problem != null)
+            {
+                diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3003, problem));
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+            }
+        }
+
         string source;
         string? canonicalTable = null;
 

@@ -40,9 +40,10 @@ public static class CodeEmitter
         string? procName = ResolveProcName(directives, entityName, query.Name);
 
         bool isFirst = directives?.IsFirst == true;
+        bool isStream = directives?.IsStream == true;
 
         // Query methods (use Result.X as the type)
-        EmitQueryMethods(sb, query, projection, originalSql, entityName, schema, directives, procName, isFirst, canonicalRowType);
+        EmitQueryMethods(sb, query, projection, originalSql, entityName, schema, directives, procName, isFirst, canonicalRowType, isStream);
 
         // Emit Proc nested class with CREATE PROCEDURE script
         if (procName != null)
@@ -407,7 +408,7 @@ namespace JauntyQ.Generated
         sb.AppendLine("        }");
     }
 
-    private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync, bool trailingNullableDefaults = false)
+    private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync, bool trailingNullableDefaults = false, bool enumeratorCancellation = false)
     {
         // C# optional parameters must be trailing: give `= default` to the
         // longest suffix of nullable-column parameters so callers pass only
@@ -434,6 +435,10 @@ namespace JauntyQ.Generated
         if (isAsync)
         {
             if (sb.Length > 0) sb.Append(", ");
+            // Async streaming iterators annotate the token so the framework can
+            // flow a token supplied via await foreach (...).WithCancellation(ct).
+            if (enumeratorCancellation)
+                sb.Append("[System.Runtime.CompilerServices.EnumeratorCancellation] ");
             sb.Append("System.Threading.CancellationToken cancellationToken = default");
         }
 
@@ -1078,7 +1083,8 @@ namespace JauntyQ.Generated
         Directives.DirectiveModel? directives = null,
         string? procName = null,
         bool isFirst = false,
-        string? canonicalRowType = null)
+        string? canonicalRowType = null,
+        bool isStream = false)
     {
         string returnType = canonicalRowType ?? $"Result.{projection.Name}";
 
@@ -1114,16 +1120,16 @@ namespace JauntyQ.Generated
         }
 
         // Instance sync
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, isFirst, queryId, mapperCall, procName, schema?.Dialect);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, isFirst, queryId, mapperCall, procName, schema?.Dialect, isStream);
         sb.AppendLine();
         // Static sync
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, isFirst, queryId, mapperCall, procName, schema?.Dialect);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, isFirst, queryId, mapperCall, procName, schema?.Dialect, isStream);
         sb.AppendLine();
         // Instance async
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, isFirst, queryId, mapperCall, procName, schema?.Dialect);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, isFirst, queryId, mapperCall, procName, schema?.Dialect, isStream);
         sb.AppendLine();
         // Static async
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, isFirst, queryId, mapperCall, procName, schema?.Dialect);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, isFirst, queryId, mapperCall, procName, schema?.Dialect, isStream);
     }
 
     private static void EmitMethodBody(
@@ -1140,14 +1146,33 @@ namespace JauntyQ.Generated
         string queryId,
         string mapperCall,
         string? procName = null,
-        string? dialect = null)
+        string? dialect = null,
+        bool isStream = false)
     {
         string modifier = isStatic ? "public static" : "public";
-        string asyncModifier = isAsync ? " async" : "";
-        string syncReturn = isFirst ? $"{returnType}?" : $"System.Collections.Generic.List<{returnType}>";
-        string declaredReturn = isAsync ? $"System.Threading.Tasks.Task<{syncReturn}>" : syncReturn;
+        // A streaming method is an iterator: sync -> IEnumerable<T> (no `async`),
+        // async -> IAsyncEnumerable<T> with `async`. yield return inside the
+        // existing try/finally is legal (no catch), and disposing the enumerator
+        // early runs the finally, closing the reader/connection deterministically.
+        string asyncModifier = (isAsync && !isStream) ? " async"
+            : (isAsync && isStream) ? " async" : "";
+        string syncReturn;
+        if (isStream)
+            syncReturn = isAsync
+                ? $"System.Collections.Generic.IAsyncEnumerable<{returnType}>"
+                : $"System.Collections.Generic.IEnumerable<{returnType}>";
+        else
+            syncReturn = isFirst ? $"{returnType}?" : $"System.Collections.Generic.List<{returnType}>";
+        // Non-stream async wraps the sync return in Task<>; stream async returns
+        // IAsyncEnumerable<T> directly (it is itself awaitable-by-iteration).
+        string declaredReturn = (isAsync && !isStream)
+            ? $"System.Threading.Tasks.Task<{syncReturn}>"
+            : syncReturn;
         string methodName = isAsync ? $"{query.Name}Async" : query.Name;
-        string paramList = BuildParamList(paramInfos, isStatic, isAsync);
+        // Async streaming iterators need [EnumeratorCancellation] on the token so
+        // `await foreach (... .WithCancellation(ct))` flows the token through.
+        bool cancelAttr = isAsync && isStream;
+        string paramList = BuildParamList(paramInfos, isStatic, isAsync, enumeratorCancellation: cancelAttr);
 
         sb.AppendLine($"        {modifier}{asyncModifier} {declaredReturn} {methodName}({paramList})");
         sb.AppendLine("        {");
@@ -1200,7 +1225,18 @@ namespace JauntyQ.Generated
             ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)"
             : "reader.Read()";
 
-        if (isFirst)
+        if (isStream)
+        {
+            // Iterator: yield each row straight off the reader. Nothing is
+            // buffered, so memory stays constant regardless of result-set size.
+            // The reader/command/connection are held open by the enclosing
+            // try/finally until the consumer finishes (or disposes) enumeration.
+            sb.AppendLine($"                while ({readCall})");
+            sb.AppendLine("                {");
+            sb.AppendLine($"                    yield return {mapperCall};");
+            sb.AppendLine("                }");
+        }
+        else if (isFirst)
         {
             sb.AppendLine($"                if (!({readCall}))");
             sb.AppendLine("                    return null;");
