@@ -588,6 +588,27 @@ public class JauntyQGenerator : IIncrementalGenerator
             {
                 if (!schema.Tables.TryGetValue(tableName, out var tableSchema))
                     continue;
+
+                // JNT2004 (C2): row-POCO member names come from schema-JSON
+                // column names via ToPascalCase. That transform sanitizes
+                // hostile characters today, but the trust boundary must not
+                // rely on it: gate every emitted member on IsValidIdentifier so
+                // a malicious snapshot cannot inject code if the transform ever
+                // changes. Skip the table and report rather than emit.
+                bool rowNameOk = true;
+                foreach (var rcol in tableSchema.Columns.Values)
+                {
+                    if (!IdentifierGuard.IsValidIdentifier(DialectMapper.ToPascalCase(rcol.Name)))
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2004, Location.None,
+                            $"Table '{tableSchema.Name}' has a column '{rcol.Name}' that maps to an illegal C# identifier; fix the schema snapshot."));
+                        rowNameOk = false;
+                        break;
+                    }
+                }
+                if (!rowNameOk)
+                    continue;
+
                 string entityPascal = DialectMapper.ToPascalCase(tableSchema.Name);
                 string rowType = Inflector.RowTypeName(entityPascal);
                 context.AddSource($"{entityPascal}.Row.g.cs",
