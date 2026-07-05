@@ -366,7 +366,7 @@ namespace JauntyQ.Generated
         }
         if (procName != null)
         {
-            sb.AppendLine($"                cmd.CommandText = \"{procName}\";");
+            sb.AppendLine($"                cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procName)}\";");
             sb.AppendLine("                cmd.CommandType = System.Data.CommandType.StoredProcedure;");
         }
         else if (identity != null)
@@ -1195,7 +1195,7 @@ namespace JauntyQ.Generated
         }
         if (procName != null)
         {
-            sb.AppendLine($"                cmd.CommandText = \"{procName}\";");
+            sb.AppendLine($"                cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procName)}\";");
             sb.AppendLine("                cmd.CommandType = System.Data.CommandType.StoredProcedure;");
         }
         else
@@ -1589,7 +1589,7 @@ namespace JauntyQ.Generated
             string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable);
             string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
             sb.AppendLine($"                var {varName} = cmd.CreateParameter();");
-            sb.AppendLine($"                {varName}.ParameterName = \"@{p.Name}\";");
+            sb.AppendLine($"                {varName}.ParameterName = \"@{IdentifierGuard.ToStringLiteral(p.Name)}\";");
             string? adoDbType = MapCSharpTypeToAdoDbType(ct);
             if (adoDbType != null)
                 sb.AppendLine($"                {varName}.DbType = System.Data.DbType.{adoDbType};");

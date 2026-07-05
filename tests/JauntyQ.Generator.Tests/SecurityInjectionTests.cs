@@ -104,6 +104,44 @@ public class SecurityInjectionTests
         }
     }
 
+    // ── @proc name injection: hostile proc name must not reach C# ──────
+
+    [Fact]
+    public void HostileProcName_IsRejected_WithJnt2004()
+    {
+        // -- @proc <name> is emitted as the CommandText string literal for a
+        // StoredProcedure call. A name carrying a quote + C# would break out of
+        // the literal at build time, so an illegal name must raise JNT2004 and
+        // emit no source rather than the injected code.
+        string sql = "-- @proc x\"; System.Environment.Exit(1); var _=\"\n" +
+                     "select product_id, product_name from products";
+        var result = Run(sql);
+
+        var diags = result.Results[0].Diagnostics;
+        Assert.Contains(diags, d => d.Id == "JNT2004");
+
+        // Every emitted source (if any) must still parse as valid C#: the
+        // payload must never appear as executable code.
+        foreach (var gen in result.Results[0].GeneratedSources)
+        {
+            var tree = CSharpSyntaxTree.ParseText(gen.SourceText.ToString());
+            Assert.Empty(tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        }
+    }
+
+    [Fact]
+    public void LegitimateProcName_Generates_StoredProcedureCall()
+    {
+        string sql = "-- @proc GetProducts\n" +
+                     "select product_id, product_name from products";
+        var result = Run(sql);
+
+        Assert.DoesNotContain(result.Results[0].Diagnostics, d => d.Id == "JNT2004");
+        string sources = AllSources(result);
+        Assert.Contains("CommandText = \"GetProducts\"", sources);
+        Assert.Contains("CommandType = System.Data.CommandType.StoredProcedure", sources);
+    }
+
     // ── PERF-1: shape guard latches once per query ─────────────────────
 
     [Fact]

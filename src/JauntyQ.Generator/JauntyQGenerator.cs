@@ -269,6 +269,21 @@ public class JauntyQGenerator : IIncrementalGenerator
             }
         }
 
+        // JNT2004: an explicit -- @proc <name> becomes the CommandText string
+        // literal emitted for the StoredProcedure call. Reject anything that is
+        // not a bare identifier so a hostile name cannot break out of the C#
+        // literal and inject build-time code. A synthesized name (entity_method)
+        // is already identifier-validated upstream, so only the explicit form
+        // needs guarding here.
+        if (directives.IsProc
+            && directives.ProcName != null
+            && !IdentifierGuard.IsValidIdentifier(directives.ProcName))
+        {
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                $"-- @proc name '{directives.ProcName}' is not a valid C# identifier. Use letters, digits, and underscores, not starting with a digit."));
+            return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+        }
+
         string source;
         string? canonicalTable = null;
 
@@ -573,6 +588,27 @@ public class JauntyQGenerator : IIncrementalGenerator
             {
                 if (!schema.Tables.TryGetValue(tableName, out var tableSchema))
                     continue;
+
+                // JNT2004 (C2): row-POCO member names come from schema-JSON
+                // column names via ToPascalCase. That transform sanitizes
+                // hostile characters today, but the trust boundary must not
+                // rely on it: gate every emitted member on IsValidIdentifier so
+                // a malicious snapshot cannot inject code if the transform ever
+                // changes. Skip the table and report rather than emit.
+                bool rowNameOk = true;
+                foreach (var rcol in tableSchema.Columns.Values)
+                {
+                    if (!IdentifierGuard.IsValidIdentifier(DialectMapper.ToPascalCase(rcol.Name)))
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2004, Location.None,
+                            $"Table '{tableSchema.Name}' has a column '{rcol.Name}' that maps to an illegal C# identifier; fix the schema snapshot."));
+                        rowNameOk = false;
+                        break;
+                    }
+                }
+                if (!rowNameOk)
+                    continue;
+
                 string entityPascal = DialectMapper.ToPascalCase(tableSchema.Name);
                 string rowType = Inflector.RowTypeName(entityPascal);
                 context.AddSource($"{entityPascal}.Row.g.cs",
