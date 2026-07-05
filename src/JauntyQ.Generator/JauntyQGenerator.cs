@@ -555,6 +555,14 @@ public class JauntyQGenerator : IIncrementalGenerator
                     info.Insert, info.Update, info.Delete, info.Upsert);
                 context.AddSource($"{info.Entity}.Poco.auto.g.cs", SourceText.From(overloadSource, Encoding.UTF8));
                 neededRowTables.Add(tableSchema.Name);
+
+                // BulkInsert(IEnumerable<Row>): a dialect-native set-based insert
+                // for tables that have a synthetic Insert (and thus a row POCO).
+                if (info.Insert && !string.IsNullOrEmpty(schema.Dialect))
+                {
+                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, tableSchema, schema.Dialect);
+                    context.AddSource($"{info.Entity}.BulkInsert.auto.g.cs", SourceText.From(bulkSource, Encoding.UTF8));
+                }
             }
         }
 
