@@ -58,6 +58,7 @@ public class DiagnosticsRegistryTests
     [InlineData("JNT2001", DiagnosticSeverity.Error, "JauntyQ.Schema")]
     [InlineData("JNT2002", DiagnosticSeverity.Error, "JauntyQ.Schema")]
     [InlineData("JNT2003", DiagnosticSeverity.Error, "JauntyQ.Schema")]
+    [InlineData("JNT2004", DiagnosticSeverity.Error, "JauntyQ.Schema")]
     [InlineData("JNT3001", DiagnosticSeverity.Warning, "JauntyQ.Projection")]
     [InlineData("JNT4003", DiagnosticSeverity.Error, "JauntyQ.Parameters")]
     [InlineData("JNT4004", DiagnosticSeverity.Error, "JauntyQ.Parameters")]
@@ -84,6 +85,6 @@ public class DiagnosticsRegistryTests
     [Fact]
     public void Registry_ContainsExpectedCount()
     {
-        Assert.Equal(19, DiagnosticFields.Length); // +JNT8001..8005 performance (2026-07-05)
+        Assert.Equal(20, DiagnosticFields.Length); // +JNT8001..8005 performance (2026-07-05); +JNT2004 illegal identifier (2026-07-05)
     }
 }
