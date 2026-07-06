@@ -126,6 +126,8 @@ join categories c on p.category_id = c.category_id", "GetProductsByCategory");
         Assert.Equal("int?", DialectMapper.MapDbTypeToCSharp("int", true));
         Assert.Equal("string", DialectMapper.MapDbTypeToCSharp("varchar", false));
         Assert.Equal("string?", DialectMapper.MapDbTypeToCSharp("varchar", true)); // nullable column -> nullable reference type
+        Assert.Equal("string", DialectMapper.MapDbTypeToCSharp("citext", false));
+        Assert.Equal("string?", DialectMapper.MapDbTypeToCSharp("citext", true)); // case-insensitive text -> string
         Assert.Equal("bool", DialectMapper.MapDbTypeToCSharp("bool", false));
         Assert.Equal("decimal", DialectMapper.MapDbTypeToCSharp("decimal", false));
         Assert.Equal("double", DialectMapper.MapDbTypeToCSharp("float", false));
