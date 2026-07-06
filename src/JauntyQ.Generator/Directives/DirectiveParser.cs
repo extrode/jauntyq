@@ -40,6 +40,13 @@ public static class DirectiveParser
                     continue; // strip this line from cleaned SQL
                 }
 
+                if (commentBody.StartsWith("@type ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var value = commentBody.Substring(6).Trim();
+                    ParseTypeDirective(directives, value);
+                    continue; // strip this line from cleaned SQL
+                }
+
                 if (string.Equals(commentBody, "@first", StringComparison.OrdinalIgnoreCase))
                 {
                     directives.IsFirst = true;
@@ -123,6 +130,25 @@ public static class DirectiveParser
         }
 
         return columns;
+    }
+
+    /// <summary>
+    /// Parses one "-- @type &lt;alias&gt; &lt;dbtype&gt;" directive: the first
+    /// whitespace-delimited token is the expression alias, the remainder is the
+    /// db type (which may itself contain spaces, e.g. "double precision").
+    /// </summary>
+    private static void ParseTypeDirective(DirectiveModel directives, string value)
+    {
+        int space = value.IndexOf(' ');
+        if (space <= 0)
+            return;
+        var alias = value.Substring(0, space).Trim();
+        var dbType = value.Substring(space + 1).Trim();
+        if (alias.Length == 0 || dbType.Length == 0)
+            return;
+
+        directives.TypeDirectives ??= new List<TypeDirective>();
+        directives.TypeDirectives.Add(new TypeDirective(alias, dbType));
     }
 
     private static void ParseParamsDirective(DirectiveModel directives, string value)

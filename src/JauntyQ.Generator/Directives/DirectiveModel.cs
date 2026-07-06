@@ -25,6 +25,14 @@ public class DirectiveModel
     public List<ExplicitParam>? ExplicitParams { get; set; }
 
     /// <summary>
+    /// Explicit db-type declarations for expression projection items, from a
+    /// repeatable directive: -- @type &lt;alias&gt; &lt;dbtype&gt;
+    /// (e.g. -- @type has_passphrase boolean). The dbtype is resolved through
+    /// DialectMapper. Null when no @type directive appears.
+    /// </summary>
+    public List<TypeDirective>? TypeDirectives { get; set; }
+
+    /// <summary>
     /// True when: -- @proc or -- @proc Name
     /// </summary>
     public bool IsProc { get; set; }
@@ -72,7 +80,19 @@ public class DirectiveModel
     public bool HasDirectives =>
         ResultTypeName != null || ResultIsVoid || InlineColumns != null
         || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity || IsStream
-        || CallProcName != null;
+        || CallProcName != null || TypeDirectives != null;
+}
+
+public class TypeDirective
+{
+    public string Alias { get; }
+    public string DbType { get; }
+
+    public TypeDirective(string alias, string dbType)
+    {
+        Alias = alias;
+        DbType = dbType;
+    }
 }
 
 public class InlineColumn

@@ -96,6 +96,30 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    public static readonly DiagnosticDescriptor JNT3004 = new(
+        "JNT3004",
+        "Expression Projection Missing Alias",
+        "{0}",
+        "JauntyQ.Projection",
+        DiagnosticSeverity.Error,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT3005 = new(
+        "JNT3005",
+        "Expression Type Unresolved",
+        "{0}",
+        "JauntyQ.Projection",
+        DiagnosticSeverity.Error,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT3006 = new(
+        "JNT3006",
+        "Unknown Type Directive Alias",
+        "{0}",
+        "JauntyQ.Projection",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 4xxx: Parameter Binding ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT4003 = new(
