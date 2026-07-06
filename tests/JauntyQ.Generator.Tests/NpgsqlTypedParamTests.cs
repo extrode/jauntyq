@@ -57,14 +57,36 @@ public class NpgsqlTypedParamTests
             "select product_id, product_name\nfrom products\nwhere products.product_id = @product_id and products.unit_price > @unit_price");
         string source = QuerySource(result);
 
+        // non-nullable value types keep the fast generic TypedValue path (no boxing)
         Assert.Contains("new global::Npgsql.NpgsqlParameter<int> { ParameterName = \"@product_id\", TypedValue = product_id }", source);
-        Assert.Contains("new global::Npgsql.NpgsqlParameter<decimal?> { ParameterName = \"@unit_price\", TypedValue = unit_price }", source);
 
-        // the boxing/untyped path is gone entirely
+        // nullable params use a plain NpgsqlParameter with a pinned DbType so a
+        // null value still resolves a wire type; the value coalesces to DBNull
+        // (NpgsqlParameter<T> cannot carry a null typed value - Npgsql throws
+        // "must have either its DbType ... or its Value set")
+        Assert.Contains(".Value = (object?)unit_price ?? System.DBNull.Value;", source);
+        Assert.Contains(".DbType = System.Data.DbType.Decimal;", source);
+        Assert.DoesNotContain("NpgsqlParameter<decimal?>", source);
+
+        // the classic ADO CreateParameter/Size path stays out of the postgres output
         Assert.DoesNotContain("cmd.CreateParameter()", source);
-        Assert.DoesNotContain(".Value = (object?)", source);
-        Assert.DoesNotContain(".DbType =", source);
         Assert.DoesNotContain(".Size =", source); // OID-typed protocol: no plan-cache-by-length concern
+    }
+
+    [Fact]
+    public void PostgresNullableStringParam_CoalescesToDBNull()
+    {
+        // Repro of the live epass bug: a nullable string param bound null threw
+        // "Parameter '@...' must have either its DbType ... or its Value set".
+        var result = Run(PostgresSchemaJson,
+            "insert into products (product_name, unit_price)\nvalues (@product_name, @unit_price)");
+        string source = QuerySource(result);
+
+        // product_name (nullable-capable reference type) must not use the generic
+        // typed path and must coalesce null to DBNull with a resolved DbType
+        Assert.DoesNotContain("NpgsqlParameter<string>", source);
+        Assert.Contains(".Value = (object?)product_name ?? System.DBNull.Value;", source);
+        Assert.Contains(".DbType = System.Data.DbType.String;", source);
     }
 
     [Fact]
@@ -74,7 +96,11 @@ public class NpgsqlTypedParamTests
             "insert into products (product_name, unit_price)\nvalues (@product_name, @unit_price)");
         string source = QuerySource(result);
 
-        Assert.Contains("new global::Npgsql.NpgsqlParameter<string>", source);
+        // string params take the null-safe plain-parameter path (a null typed
+        // value on NpgsqlParameter<T> has no resolved wire type), but a resolved
+        // DbType is still pinned so non-null and null values both bind
+        Assert.Contains(".DbType = System.Data.DbType.String;", source);
+        Assert.DoesNotContain("NpgsqlParameter<string>", source);
         // value safety is dialect-independent
         Assert.Contains("if (product_name.Length > 40)", source);
     }

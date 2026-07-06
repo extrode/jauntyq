@@ -39,7 +39,10 @@ public static partial class CodeEmitter
 
         if (isNullable)
         {
-            return $"reader.IsDBNull({ordinal}) ? default : {getMethod}";
+            // Bare `default` here infers the conditional's natural type from the getMethod arm
+            // (a non-nullable value type), yielding e.g. DateTime.MinValue instead of null for
+            // NULL columns. Carry the full nullable type explicitly so the null arm is truly null.
+            return $"reader.IsDBNull({ordinal}) ? default({csharpType}) : {getMethod}";
         }
 
         // String is a reference type — always needs null check

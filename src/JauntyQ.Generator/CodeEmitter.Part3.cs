@@ -131,15 +131,31 @@ public static partial class CodeEmitter
             string varName = $"p{i}";
             sb.AppendLine();
 
-            // PostgreSQL: NpgsqlParameter<T>.TypedValue keeps the value
-            // strongly typed end to end - no object boxing at the ADO.NET
-            // boundary, and Npgsql infers the exact wire type from T (no
-            // DbType). PostgreSQL parameter typing is OID-based, so the
-            // per-length plan-cache concern does not apply and Size is not
-            // emitted; the client-side write guards still run.
+            // PostgreSQL parameter typing is OID-based, so the per-length
+            // plan-cache concern does not apply and Size is not emitted; the
+            // client-side write guards still run.
             if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
             {
-                sb.AppendLine($"                var {varName} = new global::Npgsql.NpgsqlParameter<{param.CSharpType}> {{ ParameterName = \"@{param.Name}\", TypedValue = {param.Name} }};");
+                // NpgsqlParameter<T>.TypedValue keeps non-null values strongly
+                // typed end to end with no boxing. A null TypedValue, however,
+                // leaves the parameter with no resolved wire type and Npgsql
+                // throws "must have either its DbType ... or its Value set".
+                // For nullable params emit a plain NpgsqlParameter that coalesces
+                // null to DBNull and pins a DbType so the null case still has a
+                // resolved type (provider-neutral System.Data.DbType, no mapping
+                // layer). Non-nullable value types keep the fast generic path.
+                if (IsNonNullableValueType(param.CSharpType))
+                {
+                    sb.AppendLine($"                var {varName} = new global::Npgsql.NpgsqlParameter<{param.CSharpType}> {{ ParameterName = \"@{param.Name}\", TypedValue = {param.Name} }};");
+                }
+                else
+                {
+                    sb.AppendLine($"                var {varName} = new global::Npgsql.NpgsqlParameter {{ ParameterName = \"@{param.Name}\" }};");
+                    string? pgAdoDbType = MapCSharpTypeToAdoDbType(param.CSharpType);
+                    if (pgAdoDbType != null)
+                        sb.AppendLine($"                {varName}.DbType = System.Data.DbType.{pgAdoDbType};");
+                    sb.AppendLine($"                {varName}.Value = (object?){param.Name} ?? System.DBNull.Value;");
+                }
                 sb.AppendLine($"                cmd.Parameters.Add({varName});");
                 continue;
             }
