@@ -48,4 +48,13 @@ public class QueryModel
     /// construct rather than attempting to parse the body.
     /// </summary>
     public bool WithRecursive { get; set; }
+
+    /// <summary>
+    /// WHERE-clause predicate subqueries — <c>[NOT] IN (SELECT ...)</c> and
+    /// <c>[NOT] EXISTS (SELECT ...)</c> — lifted out of this statement's token
+    /// stream during parsing. Each carries its own parsed SELECT body validated
+    /// as an independent statement scope; the body contributes nothing to this
+    /// statement's result shape.
+    /// </summary>
+    public List<SubqueryRef> Subqueries { get; } = new();
 }

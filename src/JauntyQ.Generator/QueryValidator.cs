@@ -54,12 +54,16 @@ public static partial class QueryValidator
     /// whose columns are the mapped list. Errors are appended to <paramref name="errors"/>.
     /// </summary>
     private static void ValidateStatement(QueryModel query, DatabaseSchema schema,
-        Dictionary<string, List<string>>? virtualTables, List<ValidationError> errors)
+        Dictionary<string, List<string>>? virtualTables, List<ValidationError> errors,
+        bool isSubquery = false)
     {
         virtualTables ??= EmptyScope;
 
-        // JNT3001: Empty query (SELECT only — CRUD has no columns)
-        if (query.StatementType == StatementType.Select && query.Columns.Count == 0)
+        // JNT3001: Empty query (SELECT only — CRUD has no columns). A predicate
+        // subquery produces no generated result type, so its projection shape is
+        // never surfaced to the caller — skip the projection-shape diagnostics
+        // (empty/star/missing-alias) for it; tables/columns/params still check.
+        if (!isSubquery && query.StatementType == StatementType.Select && query.Columns.Count == 0)
         {
             errors.Add(new ValidationError(JauntyDiagnostics.JNT3001,
                 "SQL file is empty or contains no SELECT columns"));
@@ -67,10 +71,13 @@ public static partial class QueryValidator
         }
 
         // JNT3004: every expression projection item requires an explicit AS alias.
-        foreach (var missing in query.ExpressionsMissingAlias)
+        if (!isSubquery)
         {
-            errors.Add(new ValidationError(JauntyDiagnostics.JNT3004,
-                $"Expression projection '{missing}' requires an explicit alias: add 'AS <name>' so the generated result property has a stable name."));
+            foreach (var missing in query.ExpressionsMissingAlias)
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT3004,
+                    $"Expression projection '{missing}' requires an explicit alias: add 'AS <name>' so the generated result property has a stable name."));
+            }
         }
 
         // JNT4004: Duplicate parameter names
@@ -125,8 +132,12 @@ public static partial class QueryValidator
                 // live table definition order, and schema drift (a later ADD
                 // COLUMN) surfaces at RUNTIME instead of failing this build.
                 // The message hands the caller the explicit list to paste.
-                errors.Add(new ValidationError(JauntyDiagnostics.JNT3002,
-                    BuildSelectStarMessage(query, schema)));
+                // A predicate subquery has no generated result type; EXISTS
+                // (SELECT * ...) is idiomatic, so the star check is skipped there
+                // (the IN single-column rule runs separately on the caller side).
+                if (!isSubquery)
+                    errors.Add(new ValidationError(JauntyDiagnostics.JNT3002,
+                        BuildSelectStarMessage(query, schema)));
                 continue;
             }
 
@@ -201,6 +212,26 @@ public static partial class QueryValidator
 
         // JNT8xxx: performance analysis (warnings only, never block)
         ValidatePerformance(query, aliasToTable, schema, errors);
+
+        // WHERE-clause predicate subqueries: validate each inner SELECT as its
+        // own statement scope (same CTE virtual tables in scope), then enforce
+        // the IN single-column rule. The subquery contributes nothing to this
+        // statement's result shape, so this runs after the outer checks.
+        foreach (var sub in query.Subqueries)
+        {
+            ValidateStatement(sub.Body, schema, virtualTables, errors, isSubquery: true);
+
+            if (sub.Kind == SubqueryKind.In)
+            {
+                int projected = sub.Body.Columns.Count(c => c.ColumnName != "*");
+                bool hasStar = sub.Body.Columns.Any(c => c.ColumnName == "*");
+                if (!hasStar && projected != 1)
+                {
+                    errors.Add(new ValidationError(JauntyDiagnostics.JNT3007,
+                        $"An IN-subquery must project exactly one column, but it projects {projected}. Reduce the subquery's SELECT list to a single column."));
+                }
+            }
+        }
 
         // JNT1001: Unsupported SQL constructs
         DetectUnsupportedConstructs(query, errors);

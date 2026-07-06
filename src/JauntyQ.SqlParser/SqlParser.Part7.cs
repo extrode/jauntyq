@@ -104,9 +104,16 @@ public static partial class SqlParser
         }
 
         // Parse the final statement from `pos` to end as a standalone statement.
+        // A trailing top-level ';' is a statement terminator, not part of the
+        // final statement, so drop it before the End sentinel is (re)added —
+        // otherwise it would be carried into the final statement's last clause.
         var finalTokens = new List<Token>();
         for (int i = pos; i < tokens.Count; i++)
+        {
+            if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ";")
+                continue;
             finalTokens.Add(tokens[i]);
+        }
         if (finalTokens.Count == 0 || finalTokens[finalTokens.Count - 1].Type != TokenType.End)
             finalTokens.Add(new Token(TokenType.End, string.Empty));
 
@@ -153,6 +160,7 @@ public static partial class SqlParser
         to.Returning.AddRange(from.Returning);
         to.HasReturning = from.HasReturning;
         to.ExpressionsMissingAlias.AddRange(from.ExpressionsMissingAlias);
+        to.Subqueries.AddRange(from.Subqueries);
 
         // Merge parameters (bindings resolved by the final statement's parse).
         foreach (var p in from.Parameters)
