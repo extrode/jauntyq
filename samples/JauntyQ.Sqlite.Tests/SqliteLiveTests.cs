@@ -75,6 +75,20 @@ public class SqliteLiveTests : IClassFixture<SqliteFixture>
     }
 
     [Fact]
+    public void Insert_NullNullableParam_BindsAsDbNull()
+    {
+        // Regression: a null argument for a nullable parameter must coalesce to
+        // DBNull.Value. A bare C# null leaves the parameter value unset, which
+        // the provider rejects ("must have either its DbType ... or its Value
+        // set"). City is TEXT NULL, so null must round-trip as SQL NULL.
+        int id = _fx.Db.Suppliers.Insert("NullCity Supplier", null);
+        var s = _fx.Db.Suppliers.GetById(id);
+        Assert.NotNull(s);
+        Assert.Equal("NullCity Supplier", s!.CompanyName);
+        Assert.Null(s.City);
+    }
+
+    [Fact]
     public void Delete_RemovesRow()
     {
         int id = _fx.Db.Suppliers.Insert("Disposable Supplier", "Nowhere");
@@ -120,5 +134,23 @@ public class SqliteLiveTests : IClassFixture<SqliteFixture>
         Assert.NotNull(chai);
         Assert.Equal(18.00m, chai!.UnitPrice);
         Assert.False(chai.Discontinued);
+    }
+
+    [Fact]
+    public void NullNullableValueTypeColumns_ReadBackAsNull_NotDefault()
+    {
+        // Regression: generated readers emitted `IsDBNull(n) ? default : Get...`
+        // for nullable VALUE-type columns. C# infers the conditional's natural
+        // type from the non-null arm (decimal/int), so `default` was 0m / 0 —
+        // never null. Insert a row whose nullable value-type columns are all
+        // NULL and prove they round-trip as null, not zero.
+        int newId = _fx.Db.Products.Insert("NullFields Product", null, null, null, false);
+
+        var fetched = _fx.Db.Products.GetById(newId);
+        Assert.NotNull(fetched);
+        Assert.Equal("NullFields Product", fetched!.ProductName);
+        Assert.Null(fetched.UnitPrice);   // decimal?  — would be 0m under the bug
+        Assert.Null(fetched.SupplierId);  // int?      — would be 0 under the bug
+        Assert.Null(fetched.CategoryId);  // int?      — would be 0 under the bug
     }
 }

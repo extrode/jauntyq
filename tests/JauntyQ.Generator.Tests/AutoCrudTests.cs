@@ -140,6 +140,12 @@ public class AutoCrudTests
         Assert.Contains("public required string ProductName { get; set; }", poco);
         Assert.Contains("public static Product Read(System.Data.Common.DbDataReader reader)", poco);
 
+        // category_id is int NULL -> int?. The null arm must carry the nullable
+        // type explicitly; a bare `default` infers int (from GetInt32) and
+        // yields 0 instead of null for NULL columns.
+        Assert.Contains("default(int?)", poco);
+        Assert.DoesNotContain("? default :", poco);
+
         var getAll = TryGetSource(result, "Products.GetAll.auto.g.cs");
         Assert.NotNull(getAll);
         Assert.Contains("System.Collections.Generic.List<Product> GetAll(", getAll);

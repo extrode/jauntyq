@@ -24,6 +24,7 @@ public class ValueSafetyTests
         ""product_name"": { ""name"": ""product_name"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 40, ""isUnicode"": false },
         ""unit_price"": { ""name"": ""unit_price"", ""dbType"": ""decimal"", ""isNullable"": false, ""precision"": 10, ""scale"": 2 },
         ""quantity"": { ""name"": ""quantity"", ""dbType"": ""smallint"", ""isNullable"": false },
+        ""reorder_level"": { ""name"": ""reorder_level"", ""dbType"": ""smallint"", ""isNullable"": true },
         ""notes"": { ""name"": ""notes"", ""dbType"": ""nvarchar"", ""isNullable"": true, ""maxLength"": -1, ""isUnicode"": true }
       }
     }
@@ -186,5 +187,19 @@ public class ValueSafetyTests
 
         Assert.DoesNotContain("throw new System.ArgumentException", source);
         Assert.Contains(".Size = product_name.Length > 40 ? product_name.Length : 40;", source);
+    }
+
+    // ── nullable value-type reader default ──────────────────────────────
+
+    [Fact]
+    public void CustomQueryReader_NullableValueTypeColumn_UsesTypedDefaultNotBareDefault()
+    {
+        // reorder_level is smallint NULL -> short?. A bare `default` in the null
+        // arm would infer short (from GetInt16) and yield 0 instead of null.
+        var result = Run("select reorder_level\nfrom products\nwhere products.product_id = @product_id");
+        string source = QuerySource(result);
+
+        Assert.Contains("default(short?)", source);
+        Assert.DoesNotContain("? default :", source);
     }
 }
