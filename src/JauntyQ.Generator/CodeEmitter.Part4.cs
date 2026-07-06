@@ -5,6 +5,17 @@ namespace JauntyQ.Generator;
 public static partial class CodeEmitter
 {
     /// <summary>
+    /// Emits a row-returning INSERT/UPDATE/DELETE (a statement carrying a
+    /// user-written RETURNING clause). The RETURNING list is projected exactly
+    /// like a SELECT, so this reuses the SELECT reader emission: the CRUD SQL is
+    /// emitted verbatim and the RETURNING columns are read by ordinal.
+    /// <c>-- @first</c> yields a single-row result; otherwise a list.
+    /// </summary>
+    internal static string EmitCrudReturning(QueryModel query, ProjectionModel projection, string originalSql,
+        string entityName, DatabaseSchema? schema, Directives.DirectiveModel? directives)
+        => Emit(query, projection, originalSql, entityName, schema, directives, canonicalRowType: null);
+
+    /// <summary>
     /// Resolves the single identity key column for an -- @identity INSERT.
     /// Returns null when preconditions are not met (the generator reports
     /// JNT7001 for user files before emission; synthetics only carry the
@@ -168,9 +179,45 @@ public static partial class CodeEmitter
             var resolved = ResolveColumnType(param.BoundTableAlias, param.BoundColumnName, query, schema);
             if (resolved != null)
                 return resolved;
+
+            // Feature B fallback: for INSERT...SELECT the source tables are on
+            // the model, and for a WITH chain the binding may resolve inside a
+            // CTE body. Search every referenced table, then every CTE body's
+            // tables, for a column of the bound name.
+            var wide = ResolveBoundColumnWide(param.BoundColumnName, query, schema);
+            if (wide != null)
+                return wide;
         }
 
         return "object";
+    }
+
+    /// <summary>
+    /// Resolves a bound-column name to a CLR type by scanning all tables the
+    /// statement references and, failing that, the tables of every CTE body.
+    /// Used for INSERT...SELECT and WITH chains where the target table is not
+    /// where the parameter's column lives.
+    /// </summary>
+    private static string? ResolveBoundColumnWide(string columnName, QueryModel query, DatabaseSchema schema)
+    {
+        foreach (var table in query.Tables)
+        {
+            if (schema.Tables.TryGetValue(table.TableName, out var ts) &&
+                ts.Columns.TryGetValue(columnName, out var col))
+                return DialectMapper.MapColumnToCSharp(col);
+        }
+
+        foreach (var cte in query.Ctes)
+        {
+            foreach (var table in cte.Body.Tables)
+            {
+                if (schema.Tables.TryGetValue(table.TableName, out var ts) &&
+                    ts.Columns.TryGetValue(columnName, out var col))
+                    return DialectMapper.MapColumnToCSharp(col);
+            }
+        }
+
+        return null;
     }
 
 }

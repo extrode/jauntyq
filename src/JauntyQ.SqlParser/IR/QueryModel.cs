@@ -12,4 +12,40 @@ public class QueryModel
     public List<LiteralBinding> Literals { get; } = new();
     public List<PerfHint> PerfHints { get; } = new();
     public List<string> UnsupportedConstructs { get; } = new();
+
+    /// <summary>
+    /// Aliases of expression projection items that were captured without a
+    /// required <c>AS alias</c>. Each becomes a JNT3004 error. (The value is
+    /// the offending expression's raw SQL, used to build the message.)
+    /// </summary>
+    public List<string> ExpressionsMissingAlias { get; } = new();
+
+    /// <summary>
+    /// RETURNING projection on an INSERT/UPDATE/DELETE statement. Non-empty
+    /// makes the statement row-returning (works with <c>-- @first</c>).
+    /// Populated only for CRUD statements that carry a user-written RETURNING.
+    /// </summary>
+    public List<ColumnRef> Returning { get; } = new();
+
+    /// <summary>
+    /// True when the parsed statement carried a user-written RETURNING clause
+    /// (even if the projection list resolved to zero items). Distinguishes a
+    /// row-returning CRUD statement from a plain rows-affected one, and is the
+    /// signal that <c>-- @identity</c> must not also be present.
+    /// </summary>
+    public bool HasReturning { get; set; }
+
+    /// <summary>
+    /// Common table expressions declared with a leading WITH, in declaration
+    /// order. Each contributes an in-scope virtual table for validation and,
+    /// for the final statement, may be referenced in FROM/JOIN.
+    /// </summary>
+    public List<CteRef> Ctes { get; } = new();
+
+    /// <summary>
+    /// True when the statement opened with <c>WITH RECURSIVE</c>. Recursive
+    /// CTEs are out of scope; the generator reports this as an unsupported
+    /// construct rather than attempting to parse the body.
+    /// </summary>
+    public bool WithRecursive { get; set; }
 }

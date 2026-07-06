@@ -35,6 +35,21 @@ public static partial class SqlParser
             if (pos < tokens.Count) pos++; // skip )
         }
 
+        // INSERT ... SELECT: the source rows come from a SELECT rather than a
+        // VALUES tuple. Parse the SELECT with the existing machinery so its
+        // tables/joins/where validate, then bind lone-@param select items
+        // positionally to the INSERT column list (mirroring VALUES slots).
+        if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "SELECT")
+        {
+            ParseInsertSelect(tokens, pos, insertColumns, model);
+            // WHERE-clause bindings in the SELECT source (e.g. id = @userId) so
+            // those parameters get a type. Slot-bound write params already set
+            // their column; first-binding-wins leaves them intact.
+            ExtractParameterBindings(tokens, model);
+            ExtractReturning(tokens, model);
+            return;
+        }
+
         // Skip VALUES keyword
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "VALUES")
             pos++;
@@ -79,6 +94,110 @@ public static partial class SqlParser
                 pos++;
             }
         }
+
+        // RETURNING on a VALUES insert.
+        ExtractReturning(tokens, model);
+    }
+
+    /// <summary>
+    /// INSERT INTO t (cols) SELECT ... FROM &lt;table-or-cte&gt; [JOIN] [WHERE].
+    /// The SELECT projection is captured into a scratch model so its FROM/JOIN
+    /// tables land in the INSERT model for validation. Each SELECT-list item
+    /// binds positionally to the INSERT column list: a lone @param binds like a
+    /// VALUES slot; a multi-token expression or plain column consumes its
+    /// position without binding.
+    /// </summary>
+    private static void ParseInsertSelect(List<Token> tokens, int selectPos, List<string> insertColumns, QueryModel model)
+    {
+        var selectModel = new QueryModel { Name = model.Name };
+        int pos = ParseSelect(tokens, selectPos + 1, selectModel);
+
+        // Continue with FROM / JOIN so the source tables are validated. These
+        // tables belong to the SELECT source, distinct from the INSERT target,
+        // so they go on the INSERT model's table list too (CTEs are virtual).
+        while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
+        {
+            var token = tokens[pos];
+            if (token.Type == TokenType.Keyword && token.Value == "RETURNING")
+                break;
+            if (token.Type == TokenType.Keyword)
+            {
+                switch (token.Value)
+                {
+                    case "FROM":
+                        pos = ParseFrom(tokens, pos + 1, selectModel);
+                        break;
+                    case "JOIN":
+                    case "INNER":
+                    case "LEFT":
+                    case "RIGHT":
+                    case "CROSS":
+                    case "FULL":
+                        pos = ParseJoin(tokens, pos, selectModel);
+                        break;
+                    default:
+                        pos++;
+                        break;
+                }
+            }
+            else
+            {
+                pos++;
+            }
+        }
+
+        // Bind lone-@param select items positionally to the INSERT columns by
+        // walking the SELECT-list slots directly from the token stream.
+        BindInsertSelectParams(tokens, selectPos + 1, insertColumns, model);
+
+        // Merge the SELECT source tables/joins into the INSERT model for
+        // validation (per-statement validators run on this single model).
+        foreach (var t in selectModel.Tables)
+            model.Tables.Add(t);
+        foreach (var j in selectModel.Joins)
+            model.Joins.Add(j);
+    }
+
+    /// <summary>
+    /// Walks the SELECT-list slots of an INSERT...SELECT at paren-depth 0 and
+    /// binds any lone-@param slot to the INSERT column at the same position.
+    /// Multi-token slots consume their position without binding.
+    /// </summary>
+    private static void BindInsertSelectParams(List<Token> tokens, int pos, List<string> insertColumns, QueryModel model)
+    {
+        int colIndex = 0;
+        int depth = 0;
+        var slot = new List<Token>();
+        void Flush()
+        {
+            if (slot.Count == 1 && slot[0].Type == TokenType.Parameter && colIndex < insertColumns.Count)
+            {
+                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == slot[0].Value);
+                if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
+                {
+                    paramRef.BoundColumnName = insertColumns[colIndex];
+                    paramRef.IsWriteTarget = true;
+                }
+            }
+            slot.Clear();
+        }
+
+        for (; pos < tokens.Count && tokens[pos].Type != TokenType.End; pos++)
+        {
+            var t = tokens[pos];
+            if (depth == 0 && t.Type == TokenType.Keyword && IsClauseKeyword(t.Value))
+                break; // reached FROM/etc — end of select list
+            if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; slot.Add(t); continue; }
+            if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; slot.Add(t); continue; }
+            if (depth == 0 && t.Type == TokenType.Symbol && t.Value == ",")
+            {
+                Flush();
+                colIndex++;
+                continue;
+            }
+            slot.Add(t);
+        }
+        Flush();
     }
 
     /// <summary>
@@ -169,6 +288,8 @@ public static partial class SqlParser
                     paramRef.IsWriteTarget = true;
             }
         }
+
+        ExtractReturning(tokens, model);
     }
 
 }

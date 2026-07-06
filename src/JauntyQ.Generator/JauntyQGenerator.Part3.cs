@@ -33,6 +33,54 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     }
 
     /// <summary>
+    /// Validates the type resolution of expression projection items (Feature A):
+    ///   JNT3005 — an expression whose type could not be inferred and has no
+    ///             matching -- @type directive.
+    ///   JNT3006 — a -- @type directive whose alias names no expression item in
+    ///             this projection list.
+    /// <paramref name="sourceColumns"/> is the parsed SELECT/RETURNING list;
+    /// <paramref name="projection"/> is the built projection carrying resolution
+    /// state. Returns a (possibly empty) list of diagnostics.
+    /// </summary>
+    private static System.Collections.Generic.List<DiagnosticInfo> ValidateExpressionTypes(
+        System.Collections.Generic.List<ColumnRef> sourceColumns,
+        ProjectionModel projection,
+        Directives.DirectiveModel? directives)
+    {
+        var result = new System.Collections.Generic.List<DiagnosticInfo>();
+
+        // JNT3005: unresolved expression types.
+        foreach (var pcol in projection.Columns)
+        {
+            if (!string.IsNullOrEmpty(pcol.UnresolvedExpressionAlias))
+            {
+                result.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3005,
+                    $"Expression '{pcol.UnresolvedExpressionAlias}' has no inferable type. Declare it with: -- @type {pcol.UnresolvedExpressionAlias} <dbtype>."));
+            }
+        }
+
+        // JNT3006: a -- @type alias that matches no expression item here.
+        if (directives?.TypeDirectives != null)
+        {
+            var exprAliases = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var col in sourceColumns)
+                if (col.IsExpression && !string.IsNullOrEmpty(col.OutputAlias))
+                    exprAliases.Add(col.OutputAlias);
+
+            foreach (var td in directives.TypeDirectives)
+            {
+                if (!exprAliases.Contains(td.Alias))
+                {
+                    result.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3006,
+                        $"-- @type names alias '{td.Alias}', but no expression projection item uses 'AS {td.Alias}'. Check the alias spelling."));
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Case-insensitive lookup of a stored procedure in the snapshot (the
     /// dictionary key casing may differ from the -- @call name as written).
     /// </summary>

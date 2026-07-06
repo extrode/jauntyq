@@ -196,14 +196,29 @@ where p.category_id in (select c.category_id from categories c)");
     }
 
     [Fact]
-    public void CteDetected_JNT1001()
+    public void Cte_ResolvesVirtualColumns_NoErrors()
     {
+        // Feature B: a CTE is an in-scope virtual table; its declared/projected
+        // columns resolve for the final statement instead of raising JNT1001.
         var query = ParseSql(@"
 with cte as (select product_id from products)
 select product_id from cte");
 
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JNT1001" && e.Message.Contains("CTE"));
+        Assert.DoesNotContain(errors, e => e.Code == "JNT1001");
+        Assert.DoesNotContain(errors, e => e.Severity == ValidationSeverity.Error);
+    }
+
+    [Fact]
+    public void Cte_UnknownVirtualColumn_JNT2002()
+    {
+        var query = ParseSql(@"
+with cte as (select product_id from products)
+select missing_col from cte");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT2002" && e.Message.Contains("missing_col"));
     }
 }

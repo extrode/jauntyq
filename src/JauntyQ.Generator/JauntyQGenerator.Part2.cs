@@ -115,7 +115,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         if (directives.ReturnsIdentity)
         {
             string? problem = null;
-            if (directives.IsProc)
+            if (queryModel.HasReturning)
+                problem = "-- @identity cannot be combined with a user-written RETURNING clause; use one or the other";
+            else if (directives.IsProc)
                 problem = "-- @identity cannot be combined with -- @proc";
             else if (queryModel.StatementType != StatementType.Insert)
                 problem = "-- @identity is only valid on INSERT statements";
@@ -197,12 +199,52 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             if (hasUnresolvedCrudParam)
                 return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
 
-            source = CodeEmitter.EmitCrud(queryModel, cleanedSql, entityName, schema, directives);
+            if (queryModel.HasReturning)
+            {
+                // RETURNING makes a CRUD statement row-returning: build a
+                // projection from the RETURNING list (plain columns resolve
+                // against the target table; expressions follow Feature A) and
+                // emit reader code instead of a rows-affected int.
+                var returningProjection = ProjectionBuilder.Build(queryModel, queryModel.Returning, schema, directives);
+
+                var retExprDiag = ValidateExpressionTypes(queryModel.Returning, returningProjection, directives);
+                if (retExprDiag.Count > 0)
+                {
+                    foreach (var d in retExprDiag)
+                        diagnostics.Add(d);
+                    return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+                }
+
+                foreach (var pcol in returningProjection.Columns)
+                {
+                    if (!IdentifierGuard.IsValidIdentifier(pcol.Name))
+                    {
+                        diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                            $"RETURNING column or alias maps to an illegal C# identifier '{pcol.Name}'. Use a valid identifier."));
+                        return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+                    }
+                }
+
+                source = CodeEmitter.EmitCrudReturning(queryModel, returningProjection, cleanedSql, entityName, schema, directives);
+            }
+            else
+            {
+                source = CodeEmitter.EmitCrud(queryModel, cleanedSql, entityName, schema, directives);
+            }
         }
         else
         {
             // SELECT — build projection and emit reader code
-            var projection = ProjectionBuilder.Build(queryModel, schema);
+            var projection = ProjectionBuilder.Build(queryModel, schema, directives);
+
+            // JNT3005/JNT3006: expression projection type resolution.
+            var exprDiag = ValidateExpressionTypes(queryModel.Columns, projection, directives);
+            if (exprDiag.Count > 0)
+            {
+                foreach (var d in exprDiag)
+                    diagnostics.Add(d);
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+            }
 
             // JNT2004 (C1): every projected name is emitted as a C# member;
             // reject any that is not a bare identifier so a hostile column

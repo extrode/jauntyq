@@ -14,7 +14,7 @@ public static class SqlTokenizer
         "HAVING", "DISTINCT", "TOP", "UNION", "ALL", "EXISTS",
         "CASE", "WHEN", "THEN", "ELSE", "END",
         "ASC", "DESC", "COUNT", "SUM", "AVG", "MIN", "MAX",
-        "CAST", "COALESCE", "NULLIF", "WITH"
+        "CAST", "COALESCE", "NULLIF", "WITH", "RECURSIVE", "RETURNING"
     };
 
     public static List<Token> Tokenize(string sql)

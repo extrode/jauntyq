@@ -52,13 +52,18 @@ public static partial class QueryValidator
         string tableAlias, string columnName,
         Dictionary<string, string> aliasToTable,
         DatabaseSchema schema,
-        List<ValidationError> errors)
+        List<ValidationError> errors,
+        Dictionary<string, List<string>>? virtualTables = null)
     {
         if (string.IsNullOrEmpty(tableAlias))
             return;
 
         if (aliasToTable.TryGetValue(tableAlias, out string? tableName))
         {
+            // CTE-qualified join sides are opaque — the virtual columns are
+            // already scoped for projection resolution; skip existence here.
+            if (virtualTables != null && virtualTables.ContainsKey(tableName))
+                return;
             if (schema.Tables.TryGetValue(tableName, out var tableSchema))
             {
                 if (!tableSchema.Columns.ContainsKey(columnName))
@@ -68,6 +73,25 @@ public static partial class QueryValidator
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// JNT7002: verbatim SQL emission has no OUTPUT rewrite, so a RETURNING
+    /// clause or a data-modifying CTE cannot run under the SQL Server dialect.
+    /// Other dialects (postgres/sqlite/mysql) execute the SQL as written.
+    /// </summary>
+    private static void ValidateDialectConstructs(QueryModel query, DatabaseSchema schema, List<ValidationError> errors)
+    {
+        if (!string.Equals(schema.Dialect, "sqlserver", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (query.Ctes.Count > 0)
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT7002,
+                "Data-modifying CTEs (WITH ... INSERT/UPDATE/DELETE) are not supported under the sqlserver dialect; the SQL is emitted verbatim with no OUTPUT rewrite."));
+
+        if (query.HasReturning || query.Returning.Count > 0)
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT7002,
+                "RETURNING is not supported under the sqlserver dialect (use OUTPUT); the SQL is emitted verbatim so it cannot be rewritten."));
     }
 
     /// <summary>

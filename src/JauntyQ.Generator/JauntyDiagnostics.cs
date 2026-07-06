@@ -176,6 +176,14 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    public static readonly DiagnosticDescriptor JNT7002 = new(
+        "JNT7002",
+        "Construct Unavailable On Dialect",
+        "{0}",
+        "JauntyQ.Dialect",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 8xxx: Performance ─────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT8001 = new(

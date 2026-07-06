@@ -144,7 +144,7 @@ public static partial class SqlParser
         "LEFT" or "RIGHT" or "INNER" or
         "OUTER" or "CROSS" or "FULL" or
         "GROUP" or "ORDER" or "LIMIT" or
-        "HAVING" or "UNION";
+        "HAVING" or "UNION" or "RETURNING";
 
     private static readonly HashSet<string> ComparisonOperators = new()
     {

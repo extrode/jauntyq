@@ -22,6 +22,15 @@ public static partial class SqlParser
             }
         }
 
+        // Leading WITH: parse the CTE chain and the final statement. The final
+        // statement's type becomes the model's statement type. WITH RECURSIVE
+        // is out of scope and short-circuits to an unsupported construct.
+        if (tokens.Count > 0 && tokens[0].Type == TokenType.Keyword && tokens[0].Value == "WITH")
+        {
+            ParseWith(tokens, model);
+            return model;
+        }
+
         // Detect unsupported constructs
         DetectUnsupportedConstructs(tokens, model);
 
