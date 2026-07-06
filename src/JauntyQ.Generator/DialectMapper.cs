@@ -64,7 +64,7 @@ public static class DialectMapper
             "bigint" or "int8" or "bigserial" => isNullable ? "long?" : "long",
             "smallint" or "int2" or "tinyint" => isNullable ? "short?" : "short",
             "varchar" or "text" or "nvarchar" or "ntext" or "character varying"
-                or "char" or "nchar" or "character" => isNullable ? "string?" : "string",
+                or "char" or "nchar" or "character" or "citext" => isNullable ? "string?" : "string",
             "bool" or "boolean" or "bit" => isNullable ? "bool?" : "bool",
             "decimal" or "numeric" or "money" or "smallmoney" => isNullable ? "decimal?" : "decimal",
             "float" or "double precision" or "float8" => isNullable ? "double?" : "double",
