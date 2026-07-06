@@ -1,0 +1,259 @@
+using System.Collections.Immutable;
+using System.Text;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Text;
+using JauntyQ.Schema;
+using JauntyQ.SqlParser;
+using JauntyQ.SqlParser.IR;
+using JauntyQ.SqlParser.Tokens;
+
+namespace JauntyQ.Generator;
+public partial class JauntyQGenerator : IIncrementalGenerator
+{
+    /// <summary>
+    /// Parses, validates and emits a single user .sql file. Pure function of
+    /// (file, common prefix, schema state) so the incremental pipeline can
+    /// cache it per file.
+    /// </summary>
+    private static FileResult ProcessFile(
+        AdditionalText sqlFile,
+        string commonPrefix,
+        SchemaState schemaState,
+        CancellationToken cancellationToken)
+    {
+        string entityName = ExtractEntityName(sqlFile.Path, commonPrefix);
+        string methodName = System.IO.Path.GetFileNameWithoutExtension(sqlFile.Path);
+
+        var sqlText = sqlFile.GetText(cancellationToken)?.ToString();
+        if (string.IsNullOrWhiteSpace(sqlText))
+            return FileResult.None(entityName, methodName, claims: false);
+
+        // JNT2004 (H1): the folder/file name becomes a C# class/method name.
+        // Reject anything that is not a bare identifier so a hostile path can't
+        // inject code into the generated entity or method signature. "Queries"
+        // is the safe catch-all entity and is always valid.
+        if (!IdentifierGuard.IsValidIdentifier(entityName) || !IdentifierGuard.IsValidIdentifier(methodName))
+        {
+            var badNameDiag = ImmutableArray.Create(DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                $"SQL file path yields an illegal C# name (entity '{entityName}', method '{methodName}'). Rename the file/folder to a valid identifier (letters, digits, underscore; not starting with a digit)."));
+            return FileResult.WithDiagnostics(entityName, methodName, badNameDiag);
+        }
+
+        // From here on the file claims its entity.method slot: a user file
+        // always overrides the auto-CRUD synthetic of the same name, even
+        // when it currently fails validation.
+        if (schemaState.ParseFailed)
+            return FileResult.None(entityName, methodName, claims: true); // JNT6001 comes from the aggregate step
+
+        var schema = schemaState.Schema;
+
+        // Parse directives (before tokenization, since tokenizer strips comments)
+        var (directives, cleanedSql) = Directives.DirectiveParser.Parse(sqlText!);
+
+        // -- @call binds to an existing stored procedure. The file has no SQL
+        // body of its own; the callable contract (params + result columns)
+        // comes from the schema snapshot, so this short-circuits the SQL
+        // parse/validate pipeline entirely.
+        if (directives.CallProcName != null)
+        {
+            var callDiagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+
+            if (schema == null)
+                return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
+
+            if (!TryResolveProcedure(schema, directives.CallProcName, out var procedure))
+            {
+                callDiagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2005,
+                    $"Stored procedure '{directives.CallProcName}' was not found in the schema snapshot. Re-run 'jaunty schema pull' after the procedure exists, or check the name."));
+                return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
+            }
+
+            // Reject illegal C# identifiers among the emitted result columns
+            // (JNT2004), consistent with the SELECT projection guard.
+            foreach (var rc in procedure!.Results)
+            {
+                if (!IdentifierGuard.IsValidIdentifier(DialectMapper.ToPascalCase(rc.Name)))
+                {
+                    callDiagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                        $"Stored procedure '{procedure.Name}' returns a column '{rc.Name}' that maps to an illegal C# identifier."));
+                    return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
+                }
+            }
+
+            string callSource = CodeEmitter.EmitProcCall(entityName, methodName, procedure, schema.Dialect);
+            return new FileResult(
+                $"{entityName}.{methodName}.g.cs",
+                callSource,
+                callDiagnostics.ToImmutable(),
+                new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable: null),
+                fingerprint: $"@call:{procedure.Name}");
+        }
+
+        // Tokenize (use cleaned SQL with directive lines removed)
+        var tokens = SqlTokenizer.Tokenize(cleanedSql);
+
+        // Parse
+        var queryModel = SqlParser.SqlParser.Parse(tokens, methodName);
+
+        // Validate
+        var diagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+        var errors = QueryValidator.Validate(queryModel, schema);
+        bool hasErrors = false;
+        foreach (var error in errors)
+        {
+            diagnostics.Add(DiagnosticInfo.ForValidation(error));
+            if (error.Severity == ValidationSeverity.Error)
+                hasErrors = true;
+        }
+
+        if (hasErrors || schema == null)
+            return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+
+        // -- @identity preconditions (JNT7001). Synthetic auto-CRUD SQL
+        // only carries the directive when resolvable; this gate catches
+        // user files.
+        if (directives.ReturnsIdentity)
+        {
+            string? problem = null;
+            if (directives.IsProc)
+                problem = "-- @identity cannot be combined with -- @proc";
+            else if (queryModel.StatementType != StatementType.Insert)
+                problem = "-- @identity is only valid on INSERT statements";
+            else if (string.IsNullOrEmpty(schema.Dialect))
+                problem = "-- @identity requires a dialect in the schema snapshot; re-run 'jaunty schema pull' with the current CLI";
+            else if (CodeEmitter.ResolveIdentityInfo(queryModel, schema, directives) == null)
+                problem = $"-- @identity requires exactly one identity column on the target table '{queryModel.TargetTable}'";
+
+            if (problem != null)
+            {
+                diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT7001, problem));
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+            }
+        }
+
+        // -- @stream preconditions (JNT3003). Streaming yields rows lazily off
+        // the reader, so it is only meaningful for multi-row SELECTs and cannot
+        // combine with @first (single row) or @proc.
+        if (directives.IsStream)
+        {
+            string? problem = null;
+            if (queryModel.StatementType != StatementType.Select)
+                problem = "-- @stream is only valid on SELECT queries";
+            else if (directives.IsFirst)
+                problem = "-- @stream cannot be combined with -- @first (streaming is for multi-row results)";
+            else if (directives.IsProc)
+                problem = "-- @stream cannot be combined with -- @proc";
+
+            if (problem != null)
+            {
+                diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3003, problem));
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+            }
+        }
+
+        // JNT2004: an explicit -- @proc <name> becomes the CommandText string
+        // literal emitted for the StoredProcedure call. Reject anything that is
+        // not a bare identifier so a hostile name cannot break out of the C#
+        // literal and inject build-time code. A synthesized name (entity_method)
+        // is already identifier-validated upstream, so only the explicit form
+        // needs guarding here.
+        if (directives.IsProc
+            && directives.ProcName != null
+            && !IdentifierGuard.IsValidIdentifier(directives.ProcName))
+        {
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                $"-- @proc name '{directives.ProcName}' is not a valid C# identifier. Use letters, digits, and underscores, not starting with a digit."));
+            return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+        }
+
+        string source;
+        string? canonicalTable = null;
+
+        if (queryModel.StatementType != StatementType.Select)
+        {
+            // CRUD (INSERT, UPDATE, DELETE) — no projection, returns int
+
+            // JNT2004 (H2): parameter names are emitted as C# parameter
+            // identifiers; reject illegal ones before they reach emission.
+            var crudParamDiag = ValidateParameterNames(queryModel, entityName, methodName);
+            if (crudParamDiag != null)
+            {
+                diagnostics.Add(crudParamDiag);
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+            }
+
+            // JNT4003: Check for unresolved parameter types
+            bool hasUnresolvedCrudParam = false;
+            foreach (var param in queryModel.Parameters)
+            {
+                string inferredType = CodeEmitter.InferCrudParameterType(param, queryModel, schema, directives);
+                if (inferredType == "object")
+                {
+                    diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT4003, param.Name));
+                    hasUnresolvedCrudParam = true;
+                }
+            }
+
+            if (hasUnresolvedCrudParam)
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+
+            source = CodeEmitter.EmitCrud(queryModel, cleanedSql, entityName, schema, directives);
+        }
+        else
+        {
+            // SELECT — build projection and emit reader code
+            var projection = ProjectionBuilder.Build(queryModel, schema);
+
+            // JNT2004 (C1): every projected name is emitted as a C# member;
+            // reject any that is not a bare identifier so a hostile column
+            // alias cannot inject code into the generated projection type.
+            foreach (var pcol in projection.Columns)
+            {
+                if (!IdentifierGuard.IsValidIdentifier(pcol.Name))
+                {
+                    diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                        $"Column or alias maps to an illegal C# identifier '{pcol.Name}'. Use a SQL alias that is a valid identifier (letters, digits, underscore; not starting with a digit)."));
+                    return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+                }
+            }
+
+            // JNT2004 (H2): parameter names are emitted as C# parameter identifiers.
+            var selectParamDiag = ValidateParameterNames(queryModel, entityName, methodName);
+            if (selectParamDiag != null)
+            {
+                diagnostics.Add(selectParamDiag);
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+            }
+
+            // JNT4003: Check for unresolved parameter types
+            bool hasUnresolvedParam = false;
+            foreach (var param in queryModel.Parameters)
+            {
+                string inferredType = CodeEmitter.InferParameterType(param.Name, queryModel, projection, schema, directives);
+                if (inferredType == "object")
+                {
+                    diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT4003, param.Name));
+                    hasUnresolvedParam = true;
+                }
+            }
+
+            if (hasUnresolvedParam)
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+
+            // Full-row single-table projections return the canonical
+            // per-table POCO instead of a query-specific Result type.
+            string? canonicalRowType = ResolveCanonicalRowType(queryModel, projection, schema, directives);
+            if (canonicalRowType != null)
+                canonicalTable = queryModel.Tables[0].TableName;
+
+            source = CodeEmitter.Emit(queryModel, projection, cleanedSql, entityName, schema, directives, canonicalRowType);
+        }
+
+        return new FileResult(
+            $"{entityName}.{methodName}.g.cs",
+            source,
+            diagnostics.ToImmutable(),
+            new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable),
+            ComputeFingerprint(tokens));
+    }
+}

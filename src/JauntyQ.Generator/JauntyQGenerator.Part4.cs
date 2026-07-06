@@ -1,0 +1,193 @@
+using System.Collections.Immutable;
+using System.Text;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Text;
+using JauntyQ.Schema;
+using JauntyQ.SqlParser;
+using JauntyQ.SqlParser.IR;
+using JauntyQ.SqlParser.Tokens;
+
+namespace JauntyQ.Generator;
+public partial class JauntyQGenerator : IIncrementalGenerator
+{
+    /// <summary>
+    /// Emits everything that spans files: auto-CRUD synthetics, POCO write
+    /// overloads, canonical row POCOs, entity cores and the JauntyDb facade.
+    /// Driven by the file summaries only, so it re-runs when a file is
+    /// added/removed/renamed or changes shape — not on every body edit.
+    /// </summary>
+    private static void EmitAggregates(
+        SourceProductionContext context,
+        ImmutableArray<FileSummary> files,
+        SchemaState schemaState,
+        bool autoCrud)
+    {
+        // A schema snapshot alone is enough: auto-CRUD generates without any .sql files
+        if (files.IsEmpty && !schemaState.HasJson)
+            return;
+
+        foreach (var diag in schemaState.MigrationDiagnostics)
+            context.ReportDiagnostic(diag.ToDiagnostic());
+
+        if (schemaState.ParseFailed)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                JauntyDiagnostics.JNT6001, Location.None));
+            return;
+        }
+
+        var schema = schemaState.Schema;
+
+        // Track unique entity names for JauntyDb generation
+        var entityNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+
+        // entity.method slots claimed by user SQL files: a user file always
+        // overrides the auto-CRUD synthetic of the same name
+        var claimedMethods = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // tables whose canonical row POCO (e.g. Shipper) is actually used
+        var neededRowTables = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // per-table synthetic write methods (POCO overloads forward to these;
+        // user-overridden methods own their signature and get no overload)
+        var syntheticWrites = new System.Collections.Generic.Dictionary<string, (string Entity, bool Insert, bool Update, bool Delete, bool Upsert)>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var file in files)
+        {
+            if (file.Claims)
+                claimedMethods.Add($"{file.EntityName}.{file.MethodName}");
+            if (file.Emitted)
+                entityNames.Add(file.EntityName);
+            if (file.CanonicalTable != null)
+                neededRowTables.Add(file.CanonicalTable);
+        }
+
+        // Auto-CRUD: synthesize per-table CRUD for everything the user didn't write
+        if (autoCrud && schema != null)
+        {
+            foreach (var synth in AutoCrud.Synthesize(schema))
+            {
+                context.CancellationToken.ThrowIfCancellationRequested();
+
+                if (!claimedMethods.Add($"{synth.EntityName}.{synth.MethodName}"))
+                    continue; // user SQL file wins
+
+                if (synth.IsUpsert)
+                {
+                    // Dialect-native upsert bypasses the minimal SQL parser;
+                    // correctness comes from the schema snapshot itself.
+                    string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, schema.Tables[synth.TableName], schema.Dialect);
+                    context.AddSource($"{synth.EntityName}.Upsert.auto.g.cs", SourceText.From(upsertSource, Encoding.UTF8));
+                    entityNames.Add(synth.EntityName);
+                    RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, "Upsert");
+                    continue;
+                }
+
+                var (directives, cleanedSql) = Directives.DirectiveParser.Parse(synth.Sql);
+                var tokens = SqlTokenizer.Tokenize(cleanedSql);
+                var queryModel = SqlParser.SqlParser.Parse(tokens, synth.MethodName);
+
+                // Synthesized SQL is derived from the schema itself; validation
+                // failures here indicate a synthesis bug, not a user error.
+                var errors = QueryValidator.Validate(queryModel, schema);
+                if (errors.Exists(e => e.Severity == ValidationSeverity.Error))
+                    continue;
+
+                string source;
+                if (queryModel.StatementType != StatementType.Select)
+                {
+                    source = CodeEmitter.EmitCrud(queryModel, cleanedSql, synth.EntityName, schema, directives);
+                }
+                else
+                {
+                    var projection = ProjectionBuilder.Build(queryModel, schema);
+                    string? canonicalRowType = ResolveCanonicalRowType(queryModel, projection, schema, directives);
+                    if (canonicalRowType != null)
+                        neededRowTables.Add(queryModel.Tables[0].TableName);
+                    source = CodeEmitter.Emit(queryModel, projection, cleanedSql, synth.EntityName, schema, directives, canonicalRowType);
+                }
+
+                context.AddSource($"{synth.EntityName}.{synth.MethodName}.auto.g.cs", SourceText.From(source, Encoding.UTF8));
+                entityNames.Add(synth.EntityName);
+                if (synth.MethodName is "Insert" or "Update" or "Delete")
+                    RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, synth.MethodName);
+            }
+        }
+
+        // POCO-taking overloads for synthetic write methods
+        if (schema != null)
+        {
+            foreach (var kvp in syntheticWrites)
+            {
+                if (!schema.Tables.TryGetValue(kvp.Key, out var tableSchema))
+                    continue;
+                var info = kvp.Value;
+                string rowType = Inflector.RowTypeName(DialectMapper.ToPascalCase(tableSchema.Name));
+                string overloadSource = CodeEmitter.EmitPocoOverloads(
+                    info.Entity, rowType, tableSchema, schema.Dialect,
+                    info.Insert, info.Update, info.Delete, info.Upsert);
+                context.AddSource($"{info.Entity}.Poco.auto.g.cs", SourceText.From(overloadSource, Encoding.UTF8));
+                neededRowTables.Add(tableSchema.Name);
+
+                // BulkInsert(IEnumerable<Row>): a dialect-native set-based insert
+                // for tables that have a synthetic Insert (and thus a row POCO).
+                if (info.Insert && !string.IsNullOrEmpty(schema.Dialect))
+                {
+                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, tableSchema, schema.Dialect);
+                    context.AddSource($"{info.Entity}.BulkInsert.auto.g.cs", SourceText.From(bulkSource, Encoding.UTF8));
+                }
+            }
+        }
+
+        // Emit canonical row POCOs (one per table actually used full-row)
+        if (schema != null)
+        {
+            foreach (var tableName in neededRowTables)
+            {
+                if (!schema.Tables.TryGetValue(tableName, out var tableSchema))
+                    continue;
+
+                // JNT2004 (C2): row-POCO member names come from schema-JSON
+                // column names via ToPascalCase. That transform sanitizes
+                // hostile characters today, but the trust boundary must not
+                // rely on it: gate every emitted member on IsValidIdentifier so
+                // a malicious snapshot cannot inject code if the transform ever
+                // changes. Skip the table and report rather than emit.
+                bool rowNameOk = true;
+                foreach (var rcol in tableSchema.Columns.Values)
+                {
+                    if (!IdentifierGuard.IsValidIdentifier(DialectMapper.ToPascalCase(rcol.Name)))
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2004, Location.None,
+                            $"Table '{tableSchema.Name}' has a column '{rcol.Name}' that maps to an illegal C# identifier; fix the schema snapshot."));
+                        rowNameOk = false;
+                        break;
+                    }
+                }
+                if (!rowNameOk)
+                    continue;
+
+                string entityPascal = DialectMapper.ToPascalCase(tableSchema.Name);
+                string rowType = Inflector.RowTypeName(entityPascal);
+                context.AddSource($"{entityPascal}.Row.g.cs",
+                    SourceText.From(CodeEmitter.EmitRowPoco(rowType, tableSchema), Encoding.UTF8));
+            }
+        }
+
+        // Emit entity core files (constructor + _conn field per entity)
+        foreach (var entity in entityNames)
+        {
+            var coreSource = CodeEmitter.EmitEntityCore(entity);
+            context.AddSource($"{entity}.Core.g.cs", SourceText.From(coreSource, Encoding.UTF8));
+        }
+
+        // Emit JauntyDb class
+        if (entityNames.Count > 0)
+        {
+            var sortedEntities = new System.Collections.Generic.List<string>(entityNames);
+            sortedEntities.Sort(StringComparer.Ordinal);
+            var dbSource = CodeEmitter.EmitJauntyDb(sortedEntities);
+            context.AddSource("JauntyDb.g.cs", SourceText.From(dbSource, Encoding.UTF8));
+        }
+    }
+}
