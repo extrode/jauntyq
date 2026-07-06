@@ -184,26 +184,136 @@ select c.category_id from categories c");
     }
 
     [Fact]
-    public void SubqueryDetected_JNT1001()
+    public void InSubquery_SingleColumn_NoErrors()
     {
+        // A WHERE-clause IN (SELECT ...) predicate with a single-column inner
+        // SELECT is supported; it must not raise JNT1001 SUBQUERY.
         var query = ParseSql(@"
 select p.product_id from products p
 where p.category_id in (select c.category_id from categories c)");
 
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JNT1001" && e.Message.Contains("SUBQUERY"));
+        Assert.DoesNotContain(errors, e => e.Code == "JNT1001");
+        Assert.Empty(errors);
     }
 
     [Fact]
-    public void CteDetected_JNT1001()
+    public void InSubquery_TwoColumns_JNT3007()
     {
+        var query = ParseSql(@"
+select p.product_id from products p
+where p.category_id in (select c.category_id, c.category_name from categories c)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT3007");
+        Assert.DoesNotContain(errors, e => e.Code == "JNT1001");
+    }
+
+    [Fact]
+    public void NotInSubquery_SingleColumn_NoErrors()
+    {
+        var query = ParseSql(@"
+select p.product_id from products p
+where p.category_id not in (select c.category_id from categories c)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ExistsSubquery_NoErrors()
+    {
+        var query = ParseSql(@"
+select p.product_id from products p
+where exists (select c.category_id from categories c where c.category_id = @cat)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void NotExistsSubquery_NoErrors()
+    {
+        var query = ParseSql(@"
+select p.product_id from products p
+where not exists (select c.category_id from categories c)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Subquery_UnknownColumn_JNT2002()
+    {
+        // A column that does not exist inside the subquery's own table is a
+        // normal JNT2002 against the subquery scope.
+        var query = ParseSql(@"
+select p.product_id from products p
+where p.category_id in (select c.nonexistent from categories c)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT2002" && e.Message.Contains("nonexistent"));
+    }
+
+    [Fact]
+    public void Subquery_UnionInside_StillRejected_JNT1001()
+    {
+        var query = ParseSql(@"
+select p.product_id from products p
+where p.category_id in (
+    select c.category_id from categories c
+    union
+    select c2.category_id from categories c2)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT1001" && e.Message.Contains("UNION"));
+    }
+
+    [Fact]
+    public void Subquery_ParamBindsInsideSubquery()
+    {
+        var query = ParseSql(@"
+select p.product_id from products p
+where p.product_id in (select c.category_id from categories c where c.category_id = @cat)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Empty(errors);
+        var cat = query.Parameters.Single(p => p.Name == "cat");
+        Assert.Equal("category_id", cat.BoundColumnName);
+    }
+
+    [Fact]
+    public void Cte_ResolvesVirtualColumns_NoErrors()
+    {
+        // Feature B: a CTE is an in-scope virtual table; its declared/projected
+        // columns resolve for the final statement instead of raising JNT1001.
         var query = ParseSql(@"
 with cte as (select product_id from products)
 select product_id from cte");
 
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JNT1001" && e.Message.Contains("CTE"));
+        Assert.DoesNotContain(errors, e => e.Code == "JNT1001");
+        Assert.DoesNotContain(errors, e => e.Severity == ValidationSeverity.Error);
+    }
+
+    [Fact]
+    public void Cte_UnknownVirtualColumn_JNT2002()
+    {
+        var query = ParseSql(@"
+with cte as (select product_id from products)
+select missing_col from cte");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT2002" && e.Message.Contains("missing_col"));
     }
 }

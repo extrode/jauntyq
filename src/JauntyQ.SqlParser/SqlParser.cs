@@ -3,7 +3,7 @@ using JauntyQ.SqlParser.Tokens;
 
 namespace JauntyQ.SqlParser;
 
-public static class SqlParser
+public static partial class SqlParser
 {
     public static QueryModel Parse(List<Token> tokens, string queryName)
     {
@@ -20,6 +20,15 @@ public static class SqlParser
                     model.Parameters.Add(new ParameterRef { Name = token.Value });
                 }
             }
+        }
+
+        // Leading WITH: parse the CTE chain and the final statement. The final
+        // statement's type becomes the model's statement type. WITH RECURSIVE
+        // is out of scope and short-circuits to an unsupported construct.
+        if (tokens.Count > 0 && tokens[0].Type == TokenType.Keyword && tokens[0].Value == "WITH")
+        {
+            ParseWith(tokens, model);
+            return model;
         }
 
         // Detect unsupported constructs
@@ -97,6 +106,19 @@ public static class SqlParser
     }
 
     private static int ParseSelect(List<Token> tokens, int pos, QueryModel model)
+        => ParseProjectionList(tokens, pos, model, model.Columns);
+
+    /// <summary>
+    /// Parses a comma-separated projection list (used for SELECT lists and for
+    /// RETURNING lists) into <paramref name="target"/>. A plain (optionally
+    /// dot-qualified) column reference is captured as today; anything else is an
+    /// expression item that runs to the next top-level comma or clause keyword,
+    /// requires an explicit <c>AS alias</c> (missing alias -> ExpressionsMissingAlias),
+    /// and carries its verbatim SQL plus a shape-based type inference. A '*'
+    /// inside function-call parens is part of an expression and never registers
+    /// as a star-select.
+    /// </summary>
+    private static int ParseProjectionList(List<Token> tokens, int pos, QueryModel model, List<ColumnRef> target)
     {
         while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
         {
@@ -106,33 +128,30 @@ public static class SqlParser
             if (token.Type == TokenType.Keyword && IsClauseKeyword(token.Value))
                 break;
 
-            // Star select
-            if (token.Type == TokenType.Symbol && token.Value == "*")
-            {
-                model.Columns.Add(new ColumnRef
-                {
-                    TableAlias = string.Empty,
-                    ColumnName = "*",
-                    OutputAlias = string.Empty
-                });
-                pos++;
-                continue;
-            }
-
-            // Skip commas
+            // Skip commas between items
             if (token.Type == TokenType.Symbol && token.Value == ",")
             {
                 pos++;
                 continue;
             }
 
-            // Column reference (possibly qualified)
-            if (token.Type == TokenType.Identifier)
+            // Top-level star-select: a bare '*' (not inside a function call).
+            if (token.Type == TokenType.Symbol && token.Value == "*")
+            {
+                target.Add(new ColumnRef { ColumnName = "*" });
+                pos++;
+                continue;
+            }
+
+            // A plain column reference is a lone identifier whose next token
+            // ends the item (comma / clause keyword / End) or begins an alias
+            // (AS or an implicit-alias identifier). Anything else — a function
+            // call, a parenthesised expression, an operator — is an expression.
+            if (token.Type == TokenType.Identifier && IsPlainColumnItem(tokens, pos))
             {
                 var (tableAlias, columnName) = SplitQualifiedName(token.Value);
                 string outputAlias = string.Empty;
 
-                // Check for AS alias
                 if (pos + 1 < tokens.Count)
                 {
                     if (tokens[pos + 1].Type == TokenType.Keyword && tokens[pos + 1].Value == "AS")
@@ -146,10 +165,6 @@ public static class SqlParser
                     else if (tokens[pos + 1].Type == TokenType.Identifier &&
                              !IsClauseKeyword(tokens[pos + 1].Value))
                     {
-                        // Implicit alias (no AS keyword): SELECT col alias, ...
-                        // But be careful not to eat the FROM keyword or table name
-                        // Only treat as alias if it's not followed by a dot-qualified name
-                        // For safety, we only do implicit alias if the next-next token is a comma or clause keyword
                         if (pos + 2 < tokens.Count)
                         {
                             var afterAlias = tokens[pos + 2];
@@ -164,7 +179,7 @@ public static class SqlParser
                     }
                 }
 
-                model.Columns.Add(new ColumnRef
+                target.Add(new ColumnRef
                 {
                     TableAlias = tableAlias,
                     ColumnName = columnName,
@@ -174,670 +189,197 @@ public static class SqlParser
                 continue;
             }
 
-            pos++;
+            // Expression item: consume tokens at paren-depth 0 until a top-level
+            // comma or a clause keyword. The trailing "AS alias" is required and
+            // is peeled off the captured run.
+            pos = ParseExpressionItem(tokens, pos, model, target);
         }
 
         return pos;
-    }
-
-    private static int ParseFrom(List<Token> tokens, int pos, QueryModel model)
-    {
-        // Expect table name, optionally followed by alias
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
-        {
-            string tableName = tokens[pos].Value;
-            string alias = string.Empty;
-            pos++;
-
-            // Check for alias
-            if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
-            {
-                alias = tokens[pos].Value;
-                pos++;
-            }
-            else if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "AS")
-            {
-                pos++; // skip AS
-                if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
-                {
-                    alias = tokens[pos].Value;
-                    pos++;
-                }
-            }
-
-            model.Tables.Add(new TableRef { TableName = tableName, Alias = alias });
-        }
-
-        return pos;
-    }
-
-    private static int ParseJoin(List<Token> tokens, int pos, QueryModel model)
-    {
-        // Skip join type keywords (LEFT, RIGHT, INNER, OUTER, CROSS, FULL)
-        while (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword &&
-               (tokens[pos].Value == "LEFT" || tokens[pos].Value == "RIGHT" ||
-                tokens[pos].Value == "INNER" || tokens[pos].Value == "OUTER" ||
-                tokens[pos].Value == "CROSS" || tokens[pos].Value == "FULL" ||
-                tokens[pos].Value == "JOIN"))
-        {
-            pos++;
-        }
-
-        // Table name
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
-        {
-            string tableName = tokens[pos].Value;
-            string alias = string.Empty;
-            pos++;
-
-            // Check for alias
-            if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
-            {
-                alias = tokens[pos].Value;
-                pos++;
-            }
-            else if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "AS")
-            {
-                pos++; // skip AS
-                if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
-                {
-                    alias = tokens[pos].Value;
-                    pos++;
-                }
-            }
-
-            model.Tables.Add(new TableRef { TableName = tableName, Alias = alias });
-
-            // Parse ON condition
-            if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "ON")
-            {
-                pos++; // skip ON
-                pos = ParseJoinCondition(tokens, pos, model);
-            }
-        }
-
-        return pos;
-    }
-
-    private static int ParseJoinCondition(List<Token> tokens, int pos, QueryModel model)
-    {
-        // Expect: left_col = right_col
-        if (pos + 2 < tokens.Count &&
-            tokens[pos].Type == TokenType.Identifier &&
-            tokens[pos + 1].Type == TokenType.Symbol && tokens[pos + 1].Value == "=" &&
-            tokens[pos + 2].Type == TokenType.Identifier)
-        {
-            var (leftTable, leftColumn) = SplitQualifiedName(tokens[pos].Value);
-            var (rightTable, rightColumn) = SplitQualifiedName(tokens[pos + 2].Value);
-
-            model.Joins.Add(new JoinRef
-            {
-                LeftTable = leftTable,
-                LeftColumn = leftColumn,
-                RightTable = rightTable,
-                RightColumn = rightColumn
-            });
-
-            pos += 3;
-
-            // Handle additional AND conditions in the ON clause
-            while (pos + 3 < tokens.Count &&
-                   tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "AND" &&
-                   tokens[pos + 1].Type == TokenType.Identifier &&
-                   tokens[pos + 2].Type == TokenType.Symbol && tokens[pos + 2].Value == "=" &&
-                   tokens[pos + 3].Type == TokenType.Identifier)
-            {
-                var (lt, lc) = SplitQualifiedName(tokens[pos + 1].Value);
-                var (rt, rc) = SplitQualifiedName(tokens[pos + 3].Value);
-
-                model.Joins.Add(new JoinRef
-                {
-                    LeftTable = lt,
-                    LeftColumn = lc,
-                    RightTable = rt,
-                    RightColumn = rc
-                });
-
-                pos += 4;
-            }
-        }
-
-        return pos;
-    }
-
-    private static (string tableAlias, string columnName) SplitQualifiedName(string name)
-    {
-        int dotIndex = name.IndexOf('.');
-        if (dotIndex >= 0)
-        {
-            return (name.Substring(0, dotIndex), name.Substring(dotIndex + 1));
-        }
-        return (string.Empty, name);
-    }
-
-    private static bool IsClauseKeyword(string value) =>
-        value is "FROM" or "WHERE" or "JOIN" or
-        "LEFT" or "RIGHT" or "INNER" or
-        "OUTER" or "CROSS" or "FULL" or
-        "GROUP" or "ORDER" or "LIMIT" or
-        "HAVING" or "UNION";
-
-    private static readonly HashSet<string> ComparisonOperators = new()
-    {
-        "=", "!=", "<>", "<", ">", "<=", ">="
-    };
-
-    private static void ExtractParameterBindings(List<Token> tokens, QueryModel model)
-    {
-        // Scan for: identifier <op> @param  or  @param <op> identifier
-        for (int i = 1; i < tokens.Count - 1; i++)
-        {
-            if (tokens[i].Type != TokenType.Symbol || !ComparisonOperators.Contains(tokens[i].Value))
-                continue;
-
-            var left = tokens[i - 1];
-            var right = tokens[i + 1];
-
-            string? paramName = null;
-            string tableAlias = string.Empty;
-            string columnName = string.Empty;
-
-            if (left.Type == TokenType.Identifier && right.Type == TokenType.Parameter)
-            {
-                paramName = right.Value;
-                (tableAlias, columnName) = SplitQualifiedName(left.Value);
-            }
-            else if (left.Type == TokenType.Parameter && right.Type == TokenType.Identifier)
-            {
-                paramName = left.Value;
-                (tableAlias, columnName) = SplitQualifiedName(right.Value);
-            }
-
-            if (paramName == null)
-                continue;
-
-            // Find the ParameterRef and bind it (first binding wins)
-            var paramRef = model.Parameters.FirstOrDefault(p => p.Name == paramName);
-            if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
-            {
-                paramRef.BoundTableAlias = tableAlias;
-                paramRef.BoundColumnName = columnName;
-            }
-        }
-
-        // Also scan for: identifier IN (@param) — common pattern
-        for (int i = 0; i < tokens.Count - 4; i++)
-        {
-            if (tokens[i].Type == TokenType.Identifier &&
-                tokens[i + 1].Type == TokenType.Keyword && tokens[i + 1].Value == "IN" &&
-                tokens[i + 2].Type == TokenType.Symbol && tokens[i + 2].Value == "(" &&
-                tokens[i + 3].Type == TokenType.Parameter)
-            {
-                var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
-                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 3].Value);
-                if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
-                {
-                    paramRef.BoundTableAlias = tableAlias;
-                    paramRef.BoundColumnName = columnName;
-                }
-            }
-        }
-
-        // Also scan for: identifier LIKE @param
-        for (int i = 0; i < tokens.Count - 2; i++)
-        {
-            if (tokens[i].Type == TokenType.Identifier &&
-                tokens[i + 1].Type == TokenType.Keyword && tokens[i + 1].Value == "LIKE" &&
-                tokens[i + 2].Type == TokenType.Parameter)
-            {
-                var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
-                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 2].Value);
-                if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
-                {
-                    paramRef.BoundTableAlias = tableAlias;
-                    paramRef.BoundColumnName = columnName;
-                }
-            }
-        }
-
-        // Also scan for: identifier BETWEEN @param AND ...
-        for (int i = 0; i < tokens.Count - 2; i++)
-        {
-            if (tokens[i].Type == TokenType.Identifier &&
-                tokens[i + 1].Type == TokenType.Keyword && tokens[i + 1].Value == "BETWEEN" &&
-                tokens[i + 2].Type == TokenType.Parameter)
-            {
-                var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
-                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 2].Value);
-                if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
-                {
-                    paramRef.BoundTableAlias = tableAlias;
-                    paramRef.BoundColumnName = columnName;
-                }
-            }
-        }
     }
 
     /// <summary>
-    /// Captures literals compared to or assigned into columns:
-    /// col = 'x', col >= 19.99, SET col = 'x', col IN (1, 2, 3).
-    /// LIKE patterns are deliberately skipped (wildcards make length
-    /// reasoning unsound). Best-effort: unresolvable bindings are simply
-    /// not validated.
+    /// A projection item starting at <paramref name="pos"/> is a plain column
+    /// when it is a single (optionally dot-qualified) identifier immediately
+    /// followed by a comma, a clause keyword, End, an AS, or an implicit alias
+    /// identifier. If the identifier is instead followed by '(' (function call)
+    /// or an operator, the item is an expression.
     /// </summary>
-    private static void ExtractLiteralBindings(List<Token> tokens, QueryModel model)
+    private static bool IsPlainColumnItem(List<Token> tokens, int pos)
     {
-        // identifier <op> literal  or  literal <op> identifier
-        for (int i = 1; i < tokens.Count - 1; i++)
-        {
-            if (tokens[i].Type != TokenType.Symbol || !ComparisonOperators.Contains(tokens[i].Value))
-                continue;
+        if (pos + 1 >= tokens.Count)
+            return true; // lone identifier at end of list
 
-            var left = tokens[i - 1];
-            var right = tokens[i + 1];
-
-            bool found = false;
-            TokenType literalType = TokenType.Literal;
-            string literalValue = string.Empty;
-            string tableAlias = string.Empty;
-            string columnName = string.Empty;
-
-            if (left.Type == TokenType.Identifier &&
-                (right.Type == TokenType.Literal || right.Type == TokenType.Number))
-            {
-                found = true;
-                literalType = right.Type;
-                literalValue = right.Value;
-                (tableAlias, columnName) = SplitQualifiedName(left.Value);
-            }
-            else if ((left.Type == TokenType.Literal || left.Type == TokenType.Number) &&
-                     right.Type == TokenType.Identifier)
-            {
-                found = true;
-                literalType = left.Type;
-                literalValue = left.Value;
-                (tableAlias, columnName) = SplitQualifiedName(right.Value);
-            }
-
-            if (!found)
-                continue;
-
-            model.Literals.Add(new LiteralBinding
-            {
-                Kind = literalType == TokenType.Literal ? LiteralKind.String : LiteralKind.Number,
-                Value = literalValue,
-                BoundTableAlias = tableAlias,
-                BoundColumnName = columnName
-            });
-        }
-
-        // identifier IN ( literal, literal, ... ) — every literal in the list is checked
-        for (int i = 0; i < tokens.Count - 3; i++)
-        {
-            if (tokens[i].Type == TokenType.Identifier &&
-                tokens[i + 1].Type == TokenType.Keyword && tokens[i + 1].Value == "IN" &&
-                tokens[i + 2].Type == TokenType.Symbol && tokens[i + 2].Value == "(")
-            {
-                var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
-                int j = i + 3;
-                while (j < tokens.Count && !(tokens[j].Type == TokenType.Symbol && tokens[j].Value == ")"))
-                {
-                    if (tokens[j].Type == TokenType.Literal || tokens[j].Type == TokenType.Number)
-                    {
-                        model.Literals.Add(new LiteralBinding
-                        {
-                            Kind = tokens[j].Type == TokenType.Literal ? LiteralKind.String : LiteralKind.Number,
-                            Value = tokens[j].Value,
-                            BoundTableAlias = tableAlias,
-                            BoundColumnName = columnName
-                        });
-                    }
-                    j++;
-                }
-            }
-        }
+        var next = tokens[pos + 1];
+        if (next.Type == TokenType.End)
+            return true;
+        if (next.Type == TokenType.Symbol && next.Value == ",")
+            return true;
+        if (next.Type == TokenType.Keyword && (next.Value == "AS" || IsClauseKeyword(next.Value)))
+            return true;
+        // implicit alias: identifier followed by a non-clause identifier
+        if (next.Type == TokenType.Identifier && !IsClauseKeyword(next.Value))
+            return true;
+        // '(' -> function call, any operator/symbol -> expression
+        return false;
     }
 
-    // Function-call heads that the tokenizer classifies as keywords.
-    private static readonly HashSet<string> FunctionKeywords = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "CAST", "COALESCE", "NULLIF", "COUNT", "SUM", "AVG", "MIN", "MAX"
-    };
-
-    /// <summary>
-    /// Captures WHERE-clause patterns that defeat indexes: a function call
-    /// wrapping a column that is compared to something (non-sargable), and
-    /// LIKE with a leading wildcard. Token-level analysis, WHERE region only:
-    /// a function in the SELECT list is fine.
-    /// </summary>
-    private static void ExtractPerfHints(List<Token> tokens, QueryModel model)
-    {
-        // Bound the WHERE region: from WHERE to GROUP/ORDER/HAVING or end.
-        int start = -1;
-        int end = tokens.Count;
-        for (int i = 0; i < tokens.Count; i++)
-        {
-            if (tokens[i].Type != TokenType.Keyword)
-                continue;
-            if (start < 0 && tokens[i].Value == "WHERE")
-            {
-                start = i + 1;
-                continue;
-            }
-            if (start >= 0 && tokens[i].Value is "GROUP" or "ORDER" or "HAVING")
-            {
-                end = i;
-                break;
-            }
-        }
-        if (start < 0)
-            return;
-
-        for (int i = start; i < end; i++)
-        {
-            // fn( ... column ... ) <op> ...   or   ... <op> fn( ... column ... )
-            bool isFunctionHead =
-                (tokens[i].Type == TokenType.Identifier ||
-                 (tokens[i].Type == TokenType.Keyword && FunctionKeywords.Contains(tokens[i].Value))) &&
-                i + 1 < end && tokens[i + 1].Type == TokenType.Symbol && tokens[i + 1].Value == "(";
-
-            if (isFunctionHead)
-            {
-                int close = FindMatchingParen(tokens, i + 1, end);
-                if (close < 0)
-                    continue;
-
-                bool comparedAfter = close + 1 < end && tokens[close + 1].Type == TokenType.Symbol &&
-                                     ComparisonOperators.Contains(tokens[close + 1].Value);
-                bool comparedBefore = i - 1 >= start && tokens[i - 1].Type == TokenType.Symbol &&
-                                      ComparisonOperators.Contains(tokens[i - 1].Value);
-                if (!comparedAfter && !comparedBefore)
-                {
-                    i = close;
-                    continue;
-                }
-
-                // first identifier inside the call is the wrapped column;
-                // no identifier means the function is on the value side
-                for (int j = i + 2; j < close; j++)
-                {
-                    if (tokens[j].Type == TokenType.Identifier)
-                    {
-                        var (tableAlias, columnName) = SplitQualifiedName(tokens[j].Value);
-                        model.PerfHints.Add(new PerfHint
-                        {
-                            Kind = PerfHintKind.FunctionOnColumn,
-                            FunctionName = tokens[i].Value,
-                            BoundTableAlias = tableAlias,
-                            BoundColumnName = columnName
-                        });
-                        break;
-                    }
-                }
-                i = close;
-                continue;
-            }
-
-            // column [NOT] LIKE '<pattern starting with % or _>'
-            if (tokens[i].Type == TokenType.Identifier)
-            {
-                int k = i + 1;
-                if (k < end && tokens[k].Type == TokenType.Keyword && tokens[k].Value == "NOT")
-                    k++;
-                if (k < end && tokens[k].Type == TokenType.Keyword && tokens[k].Value == "LIKE" &&
-                    k + 1 < end && tokens[k + 1].Type == TokenType.Literal &&
-                    tokens[k + 1].Value.Length > 0 &&
-                    (tokens[k + 1].Value[0] == '%' || tokens[k + 1].Value[0] == '_'))
-                {
-                    var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
-                    model.PerfHints.Add(new PerfHint
-                    {
-                        Kind = PerfHintKind.LeadingWildcardLike,
-                        BoundTableAlias = tableAlias,
-                        BoundColumnName = columnName,
-                        Detail = tokens[k + 1].Value
-                    });
-                }
-            }
-        }
-    }
-
-    private static int FindMatchingParen(List<Token> tokens, int openIndex, int end)
+    private static int ParseExpressionItem(List<Token> tokens, int pos, QueryModel model, List<ColumnRef> target)
     {
         int depth = 0;
-        for (int i = openIndex; i < end; i++)
+        var run = new List<Token>();
+        while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
         {
-            if (tokens[i].Type != TokenType.Symbol)
-                continue;
-            if (tokens[i].Value == "(")
+            var t = tokens[pos];
+            if (t.Type == TokenType.Symbol && t.Value == "(")
                 depth++;
-            else if (tokens[i].Value == ")" && --depth == 0)
-                return i;
+            else if (t.Type == TokenType.Symbol && t.Value == ")")
+                depth--;
+            else if (depth == 0 && t.Type == TokenType.Symbol && t.Value == ",")
+                break;
+            else if (depth == 0 && t.Type == TokenType.Keyword && IsClauseKeyword(t.Value))
+                break;
+
+            run.Add(t);
+            pos++;
         }
-        return -1;
+
+        // Peel a trailing "AS alias" off the captured run.
+        string alias = string.Empty;
+        int exprEnd = run.Count;
+        if (run.Count >= 2 &&
+            run[run.Count - 2].Type == TokenType.Keyword && run[run.Count - 2].Value == "AS" &&
+            run[run.Count - 1].Type == TokenType.Identifier)
+        {
+            alias = run[run.Count - 1].Value;
+            exprEnd = run.Count - 2;
+        }
+
+        string exprSql = RenderExpressionSql(run, exprEnd);
+
+        if (string.IsNullOrEmpty(alias))
+        {
+            // Missing required AS alias — record for JNT3004; still capture the
+            // item so downstream ordinal counts stay consistent.
+            model.ExpressionsMissingAlias.Add(exprSql);
+        }
+
+        var col = new ColumnRef
+        {
+            IsExpression = true,
+            ExpressionSql = exprSql,
+            OutputAlias = alias
+        };
+        InferExpressionType(run, exprEnd, col);
+        target.Add(col);
+        return pos;
+    }
+
+    /// <summary>Space-joins the expression tokens (excluding a trailing AS alias) into verbatim-ish SQL for messages.</summary>
+    private static string RenderExpressionSql(List<Token> run, int count)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < count; i++)
+        {
+            if (sb.Length > 0)
+                sb.Append(' ');
+            sb.Append(run[i].Value);
+        }
+        return sb.ToString();
     }
 
     /// <summary>
-    /// INSERT INTO Table (col1, col2) VALUES (@p1, @p2)
+    /// Built-in type inference from an expression's shape:
+    ///   count(...)                -> bigint  NOT NULL
+    ///   EXISTS(...)               -> boolean NOT NULL
+    ///   top-level IS [NOT] NULL   -> boolean NOT NULL
+    ///   top-level comparison op   -> boolean NOT NULL
+    /// No match leaves InferredDbType empty; the generator then requires -- @type.
     /// </summary>
-    private static void ParseInsert(List<Token> tokens, int pos, QueryModel model)
+    private static void InferExpressionType(List<Token> run, int count, ColumnRef col)
     {
-        // Skip optional INTO
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "INTO")
-            pos++;
-
-        // Table name
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
+        // Strip a single fully-enclosing paren pair so a wrapped predicate like
+        // "( x IS NOT NULL )" exposes its top-level operator. Repeats while the
+        // outermost parens enclose the whole run.
+        int lo = 0, hi = count;
+        while (hi - lo >= 2 &&
+               run[lo].Type == TokenType.Symbol && run[lo].Value == "(" &&
+               run[hi - 1].Type == TokenType.Symbol && run[hi - 1].Value == ")" &&
+               EnclosesWholeRun(run, lo, hi))
         {
-            model.TargetTable = tokens[pos].Value;
-            model.Tables.Add(new TableRef { TableName = tokens[pos].Value, Alias = string.Empty });
-            pos++;
+            lo++;
+            hi--;
         }
 
-        // Column list: ( col1, col2, ... )
-        var insertColumns = new List<string>();
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "(")
+        // A top-level comparison or IS [NOT] NULL yields boolean — checked
+        // before count/exists heads so "count(*) > 0" infers boolean, not bigint.
+        int depth = 0;
+        for (int i = lo; i < hi; i++)
         {
-            pos++; // skip (
-            while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")"))
+            var t = run[i];
+            if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; continue; }
+            if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; continue; }
+            if (depth != 0)
+                continue;
+
+            if (t.Type == TokenType.Keyword && t.Value == "IS")
             {
-                if (tokens[pos].Type == TokenType.Identifier)
-                    insertColumns.Add(tokens[pos].Value);
-                pos++;
+                col.InferredDbType = "boolean";
+                col.InferredNotNull = true;
+                return;
             }
-            if (pos < tokens.Count) pos++; // skip )
-        }
-
-        // Skip VALUES keyword
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "VALUES")
-            pos++;
-
-        // Values list: ( @p1, 'literal', ... ) — split into top-level
-        // comma-separated slots so parameters AND literals advance the
-        // column index together; each slot binds positionally to its column.
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "(")
-        {
-            pos++; // skip (
-            int colIndex = 0;
-            int depth = 0;
-            var slot = new List<Token>();
-            while (pos < tokens.Count)
+            if (t.Type == TokenType.Symbol && ComparisonOperators.Contains(t.Value))
             {
-                var t = tokens[pos];
-                if (t.Type == TokenType.Symbol && t.Value == "(")
-                {
-                    depth++;
-                    slot.Add(t);
-                }
-                else if (t.Type == TokenType.Symbol && t.Value == ")")
-                {
-                    if (depth == 0)
-                    {
-                        BindInsertSlot(slot, insertColumns, colIndex, model);
-                        break;
-                    }
-                    depth--;
-                    slot.Add(t);
-                }
-                else if (t.Type == TokenType.Symbol && t.Value == "," && depth == 0)
-                {
-                    BindInsertSlot(slot, insertColumns, colIndex, model);
-                    colIndex++;
-                    slot.Clear();
-                }
-                else
-                {
-                    slot.Add(t);
-                }
-                pos++;
+                col.InferredDbType = "boolean";
+                col.InferredNotNull = true;
+                return;
             }
         }
-    }
 
-    /// <summary>
-    /// Binds one INSERT VALUES slot to its column: a lone @param binds the
-    /// parameter, a lone literal (or -number) records a LiteralBinding for
-    /// value-safety validation. Multi-token expressions are skipped but
-    /// still consume their column position.
-    /// </summary>
-    private static void BindInsertSlot(List<Token> slot, List<string> insertColumns, int colIndex, QueryModel model)
-    {
-        if (colIndex >= insertColumns.Count)
-            return;
-
-        if (slot.Count == 1 && slot[0].Type == TokenType.Parameter)
+        // count(...) as the (unwrapped) head -> bigint NOT NULL.
+        if (hi - lo >= 2 &&
+            IsCountHead(run[lo]) &&
+            run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(")
         {
-            var paramRef = model.Parameters.FirstOrDefault(p => p.Name == slot[0].Value);
-            if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
-            {
-                paramRef.BoundColumnName = insertColumns[colIndex];
-                paramRef.IsWriteTarget = true;
-            }
-            return;
-        }
-
-        if (slot.Count == 1 && (slot[0].Type == TokenType.Literal || slot[0].Type == TokenType.Number))
-        {
-            model.Literals.Add(new LiteralBinding
-            {
-                Kind = slot[0].Type == TokenType.Literal ? LiteralKind.String : LiteralKind.Number,
-                Value = slot[0].Value,
-                BoundColumnName = insertColumns[colIndex]
-            });
+            col.InferredDbType = "bigint";
+            col.InferredNotNull = true;
             return;
         }
 
-        // Negative numeric literal: '-' Number
-        if (slot.Count == 2 &&
-            slot[0].Type == TokenType.Symbol && slot[0].Value == "-" &&
-            slot[1].Type == TokenType.Number)
+        // EXISTS(...) as the head -> boolean NOT NULL.
+        if (hi - lo >= 2 &&
+            run[lo].Type == TokenType.Keyword && run[lo].Value == "EXISTS" &&
+            run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(")
         {
-            model.Literals.Add(new LiteralBinding
-            {
-                Kind = LiteralKind.Number,
-                Value = "-" + slot[1].Value,
-                BoundColumnName = insertColumns[colIndex]
-            });
+            col.InferredDbType = "boolean";
+            col.InferredNotNull = true;
+            return;
         }
     }
 
     /// <summary>
-    /// UPDATE Table SET col1 = @p1, col2 = @p2 WHERE ...
+    /// True when the paren at <paramref name="lo"/> matches the paren at
+    /// <paramref name="hi"/>-1 and encloses the entire [lo, hi) range — i.e. the
+    /// pair is a redundant outer wrap, not two separate groups like "(a)+(b)".
     /// </summary>
-    private static void ParseUpdate(List<Token> tokens, int pos, QueryModel model)
+    private static bool EnclosesWholeRun(List<Token> run, int lo, int hi)
     {
-        // Table name
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
+        int depth = 0;
+        for (int i = lo; i < hi; i++)
         {
-            model.TargetTable = tokens[pos].Value;
-            model.Tables.Add(new TableRef { TableName = tokens[pos].Value, Alias = string.Empty });
-            pos++;
-        }
-
-        // Parameter bindings handled by ExtractParameterBindings (col = @param pattern)
-        ExtractParameterBindings(tokens, model);
-
-        // Parameters assigned in the SET clause (before WHERE) are write
-        // targets; everything after WHERE is a comparison.
-        bool inSet = false;
-        for (int i = 0; i < tokens.Count; i++)
-        {
-            if (tokens[i].Type == TokenType.Keyword)
+            if (run[i].Type == TokenType.Symbol && run[i].Value == "(") depth++;
+            else if (run[i].Type == TokenType.Symbol && run[i].Value == ")")
             {
-                if (tokens[i].Value == "SET")
-                {
-                    inSet = true;
-                    continue;
-                }
-                if (tokens[i].Value == "WHERE")
-                    break;
-            }
-            if (inSet && i >= 2 &&
-                tokens[i].Type == TokenType.Parameter &&
-                tokens[i - 1].Type == TokenType.Symbol && tokens[i - 1].Value == "=" &&
-                tokens[i - 2].Type == TokenType.Identifier)
-            {
-                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i].Value);
-                if (paramRef != null)
-                    paramRef.IsWriteTarget = true;
+                depth--;
+                if (depth == 0)
+                    return i == hi - 1; // closes only at the very end
             }
         }
+        return false;
     }
 
-    /// <summary>
-    /// DELETE FROM Table WHERE ... or DELETE Table WHERE ...
-    /// </summary>
-    private static void ParseDelete(List<Token> tokens, int pos, QueryModel model)
-    {
-        // Skip optional FROM
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "FROM")
-            pos++;
+    private static bool IsCountHead(Token t) =>
+        (t.Type == TokenType.Keyword && t.Value == "COUNT") ||
+        (t.Type == TokenType.Identifier && string.Equals(t.Value, "count", StringComparison.OrdinalIgnoreCase));
 
-        // Table name
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
-        {
-            model.TargetTable = tokens[pos].Value;
-            model.Tables.Add(new TableRef { TableName = tokens[pos].Value, Alias = string.Empty });
-        }
-
-        // Parameter bindings handled by ExtractParameterBindings (col = @param in WHERE)
-        ExtractParameterBindings(tokens, model);
-    }
-
-    private static void DetectUnsupportedConstructs(List<Token> tokens, QueryModel model)
-    {
-        bool seenSelect = false;
-
-        for (int i = 0; i < tokens.Count; i++)
-        {
-            var token = tokens[i];
-
-            if (token.Type == TokenType.Keyword)
-            {
-                switch (token.Value)
-                {
-                    case "SELECT":
-                        if (seenSelect)
-                        {
-                            // Subquery (SELECT inside SELECT)
-                            if (!model.UnsupportedConstructs.Contains("SUBQUERY"))
-                                model.UnsupportedConstructs.Add("SUBQUERY");
-                        }
-                        seenSelect = true;
-                        break;
-                    case "UNION":
-                        if (!model.UnsupportedConstructs.Contains("UNION"))
-                            model.UnsupportedConstructs.Add("UNION");
-                        break;
-                }
-            }
-        }
-
-        // CTE detection: WITH keyword at position 0 (before SELECT)
-        if (tokens.Count > 0 && tokens[0].Type == TokenType.Keyword && tokens[0].Value == "WITH")
-        {
-            if (!model.UnsupportedConstructs.Contains("CTE"))
-                model.UnsupportedConstructs.Add("CTE");
-        }
-    }
 }

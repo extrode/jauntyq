@@ -234,12 +234,28 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
     }
 
     [Fact]
-    public void UnsupportedConstructs_CteDetected()
+    public void Cte_NoLongerUnsupported()
     {
+        // Feature B: data-modifying / data-selecting CTEs now parse instead of
+        // being flagged as an unsupported construct.
         var sql = "with cte as (select product_id from products) select product_id from cte";
         var model = ParseSql(sql);
 
-        Assert.Contains("CTE", model.UnsupportedConstructs);
+        Assert.DoesNotContain("CTE", model.UnsupportedConstructs);
+        Assert.Single(model.Ctes);
+        Assert.Equal("cte", model.Ctes[0].Name);
+        Assert.Contains("product_id", model.Ctes[0].VirtualColumns);
+        Assert.Equal(StatementType.Select, model.StatementType);
+    }
+
+    [Fact]
+    public void WithRecursive_Rejected()
+    {
+        var sql = "with recursive t as (select product_id from products) select product_id from t";
+        var model = ParseSql(sql);
+
+        Assert.True(model.WithRecursive);
+        Assert.Contains("WITH RECURSIVE", model.UnsupportedConstructs);
     }
 
     // ── Statement type detection ──────────────────────────
@@ -389,5 +405,173 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
         var model = ParseSql("SELECT * FROM Products WHERE CategoryID = @CategoryID");
         Assert.Single(model.Parameters);
         Assert.Equal("CategoryID", model.Parameters[0].Name);
+    }
+    // ── Feature A: expression projections ─────────────────
+
+    [Fact]
+    public void ExpressionProjection_CapturedWithAliasAndInference()
+    {
+        var model = ParseSql("select id, (hashed_passphrase is not null) as has_passphrase from users");
+
+        Assert.Equal(2, model.Columns.Count);
+        Assert.False(model.Columns[0].IsExpression);
+        var expr = model.Columns[1];
+        Assert.True(expr.IsExpression);
+        Assert.Equal("has_passphrase", expr.OutputAlias);
+        Assert.Equal("boolean", expr.InferredDbType);
+        Assert.True(expr.InferredNotNull);
+        Assert.Empty(model.ExpressionsMissingAlias);
+    }
+
+    [Fact]
+    public void CountStar_InferredBigint_NotStarSelect()
+    {
+        var model = ParseSql("select count(*) as n from users");
+
+        Assert.Single(model.Columns);
+        var expr = model.Columns[0];
+        Assert.True(expr.IsExpression);
+        Assert.Equal("bigint", expr.InferredDbType);
+        Assert.True(expr.InferredNotNull);
+        // count(*) must NOT register a star-select column.
+        Assert.DoesNotContain(model.Columns, c => c.ColumnName == "*");
+    }
+
+    [Fact]
+    public void ComparisonExpression_InferredBoolean()
+    {
+        var model = ParseSql("select count(*) > 0 as is_in_use from users");
+
+        Assert.Single(model.Columns);
+        Assert.True(model.Columns[0].IsExpression);
+        Assert.Equal("boolean", model.Columns[0].InferredDbType);
+        Assert.True(model.Columns[0].InferredNotNull);
+    }
+
+    [Fact]
+    public void ExistsExpression_InferredBoolean()
+    {
+        var model = ParseSql("select exists(select 1 from orders) as has_orders from users");
+
+        Assert.True(model.Columns[0].IsExpression);
+        Assert.Equal("boolean", model.Columns[0].InferredDbType);
+    }
+
+    [Fact]
+    public void ExpressionMissingAlias_RecordedForDiagnostic()
+    {
+        var model = ParseSql("select (hashed_passphrase is not null) from users");
+
+        Assert.Single(model.Columns);
+        Assert.True(model.Columns[0].IsExpression);
+        Assert.Single(model.ExpressionsMissingAlias);
+    }
+
+    [Fact]
+    public void UnknownShapeExpression_NoInference()
+    {
+        var model = ParseSql("select (first_name || last_name) as full_name from users");
+
+        Assert.True(model.Columns[0].IsExpression);
+        Assert.Equal("full_name", model.Columns[0].OutputAlias);
+        Assert.Empty(model.Columns[0].InferredDbType);
+    }
+
+    // ── Feature B: CTEs, RETURNING, INSERT...SELECT ───────
+
+    [Fact]
+    public void SingleCte_ParsesBodyAndVirtualColumns()
+    {
+        var model = ParseSql("with c as (select product_id, product_name from products) select product_id from c");
+
+        Assert.Single(model.Ctes);
+        Assert.Equal("c", model.Ctes[0].Name);
+        Assert.Equal(StatementType.Select, model.Ctes[0].Body.StatementType);
+        Assert.Contains("product_id", model.Ctes[0].VirtualColumns);
+        Assert.Contains("product_name", model.Ctes[0].VirtualColumns);
+        Assert.Equal(StatementType.Select, model.StatementType);
+    }
+
+    [Fact]
+    public void CteDeclaredColumns_OverrideBodyNames()
+    {
+        var model = ParseSql("with c (a, b) as (select product_id, product_name from products) select a from c");
+
+        Assert.Single(model.Ctes);
+        Assert.Equal(new[] { "a", "b" }, model.Ctes[0].VirtualColumns);
+    }
+
+    [Fact]
+    public void ChainedCtes_LaterMayReferenceEarlier()
+    {
+        var model = ParseSql(
+            "with a as (select product_id from products), " +
+            "b as (select product_id from a) " +
+            "select product_id from b");
+
+        Assert.Equal(2, model.Ctes.Count);
+        Assert.Equal("a", model.Ctes[0].Name);
+        Assert.Equal("b", model.Ctes[1].Name);
+    }
+
+    [Fact]
+    public void CteInsertReturning_ExposesReturningColumnsAsVirtual()
+    {
+        var model = ParseSql(
+            "with new_row as (insert into products (product_name) values (@n) returning product_id) " +
+            "select product_id from new_row");
+
+        Assert.Single(model.Ctes);
+        Assert.Equal(StatementType.Insert, model.Ctes[0].Body.StatementType);
+        Assert.True(model.Ctes[0].Body.HasReturning);
+        Assert.Contains("product_id", model.Ctes[0].VirtualColumns);
+    }
+
+    [Fact]
+    public void DeleteCte_WithoutReturning_HasNoVirtualColumns()
+    {
+        var model = ParseSql(
+            "with gone as (delete from products where product_id = @id) " +
+            "delete from categories where category_id = @cid");
+
+        Assert.Single(model.Ctes);
+        Assert.Equal(StatementType.Delete, model.Ctes[0].Body.StatementType);
+        Assert.Empty(model.Ctes[0].VirtualColumns);
+        Assert.Equal(StatementType.Delete, model.StatementType);
+    }
+
+    [Fact]
+    public void ReturningOnInsert_ParsedAsProjection()
+    {
+        var model = ParseSql("insert into products (product_name) values (@n) returning product_id, product_name");
+
+        Assert.Equal(StatementType.Insert, model.StatementType);
+        Assert.True(model.HasReturning);
+        Assert.Equal(2, model.Returning.Count);
+        Assert.Equal("product_id", model.Returning[0].ColumnName);
+        Assert.Equal("product_name", model.Returning[1].ColumnName);
+    }
+
+    [Fact]
+    public void ReturningExpression_TypedByInference()
+    {
+        var model = ParseSql("update products set product_name = @n where product_id = @id returning (product_name is not null) as ok");
+
+        Assert.True(model.HasReturning);
+        Assert.Single(model.Returning);
+        Assert.True(model.Returning[0].IsExpression);
+        Assert.Equal("boolean", model.Returning[0].InferredDbType);
+    }
+
+    [Fact]
+    public void InsertSelect_BindsLoneParamsPositionally()
+    {
+        var model = ParseSql(
+            "insert into products (product_id, product_name) select category_id, @name from categories");
+
+        Assert.Equal(StatementType.Insert, model.StatementType);
+        var pName = model.Parameters.Single(p => p.Name == "name");
+        Assert.Equal("product_name", pName.BoundColumnName);
+        Assert.True(pName.IsWriteTarget);
     }
 }

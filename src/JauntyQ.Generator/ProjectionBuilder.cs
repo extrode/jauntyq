@@ -5,7 +5,17 @@ namespace JauntyQ.Generator;
 
 public static class ProjectionBuilder
 {
-    public static ProjectionModel Build(QueryModel query, DatabaseSchema schema)
+    public static ProjectionModel Build(QueryModel query, DatabaseSchema schema,
+        Directives.DirectiveModel? directives = null)
+        => Build(query, query.Columns, schema, directives);
+
+    /// <summary>
+    /// Builds a projection from an explicit source column list (SELECT list or a
+    /// RETURNING list). Plain columns resolve against the query's tables; expression
+    /// items type from built-in inference or a -- @type directive.
+    /// </summary>
+    public static ProjectionModel Build(QueryModel query, List<ColumnRef> sourceColumns,
+        DatabaseSchema schema, Directives.DirectiveModel? directives = null)
     {
         var projection = new ProjectionModel
         {
@@ -22,8 +32,14 @@ public static class ProjectionBuilder
 
         int ordinal = 0;
 
-        foreach (var col in query.Columns)
+        foreach (var col in sourceColumns)
         {
+            if (col.IsExpression)
+            {
+                projection.Columns.Add(BuildExpressionColumn(col, ordinal++, schema, directives));
+                continue;
+            }
+
             if (col.ColumnName == "*")
             {
                 // Expand star to all columns from referenced tables
@@ -99,5 +115,64 @@ public static class ProjectionBuilder
         }
 
         return projection;
+    }
+
+    /// <summary>
+    /// Types an expression projection item: a matching -- @type directive wins
+    /// (its dbtype mapped through DialectMapper, nullable unless the parser also
+    /// inferred NOT NULL), else the parser's built-in inference. When neither
+    /// resolves, the column carries UnresolvedExpressionAlias so the generator
+    /// raises JNT3005.
+    /// </summary>
+    private static ProjectionColumn BuildExpressionColumn(ColumnRef col, int ordinal,
+        DatabaseSchema schema, Directives.DirectiveModel? directives)
+    {
+        string propName = DialectMapper.ToPascalCase(col.OutputAlias);
+
+        string? dbType = null;
+        bool notNull = col.InferredNotNull;
+
+        if (directives?.TypeDirectives != null)
+        {
+            foreach (var td in directives.TypeDirectives)
+            {
+                if (string.Equals(td.Alias, col.OutputAlias, StringComparison.OrdinalIgnoreCase))
+                {
+                    dbType = td.DbType;
+                    // A declared type is nullable unless a NOT NULL shape inference also matched.
+                    break;
+                }
+            }
+        }
+
+        if (dbType == null && !string.IsNullOrEmpty(col.InferredDbType))
+            dbType = col.InferredDbType;
+
+        if (dbType == null)
+        {
+            // Unresolved: emit an object placeholder and flag for JNT3005.
+            return new ProjectionColumn
+            {
+                Name = propName,
+                Type = "object",
+                Ordinal = ordinal,
+                SourceName = col.OutputAlias,
+                IsExpression = true,
+                UnresolvedExpressionAlias = col.OutputAlias
+            };
+        }
+
+        // NOT NULL only when the parser's shape inference proved it; an
+        // @type-only expression stays nullable.
+        string csharpType = DialectMapper.MapDbTypeToCSharp(dbType, isNullable: !notNull);
+
+        return new ProjectionColumn
+        {
+            Name = propName,
+            Type = csharpType,
+            Ordinal = ordinal,
+            SourceName = col.OutputAlias,
+            IsExpression = true
+        };
     }
 }
