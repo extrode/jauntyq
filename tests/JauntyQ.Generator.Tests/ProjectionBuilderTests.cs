@@ -162,4 +162,47 @@ join categories c on p.category_id = c.category_id", "GetProductsByCategory");
         Assert.Single(projection.Columns);
         Assert.Equal("bool", projection.Columns[0].Type);
     }
+
+    [Fact]
+    public void Build_CountExpression_DefaultsToLongOnNonSqlServerDialects()
+    {
+        var query = ParseSql("select count(*) as total from products", "GetCount");
+        var schema = CreateTestSchema();
+        schema.Dialect = "postgres";
+        var projection = ProjectionBuilder.Build(query, schema);
+
+        Assert.Single(projection.Columns);
+        Assert.Equal("long", projection.Columns[0].Type);
+    }
+
+    [Fact]
+    public void Build_CountExpression_MapsToIntOnSqlServer()
+    {
+        var query = ParseSql("select count(*) as total from products", "GetCount");
+        var schema = CreateTestSchema();
+        schema.Dialect = "sqlserver";
+        var projection = ProjectionBuilder.Build(query, schema);
+
+        Assert.Single(projection.Columns);
+        Assert.Equal("int", projection.Columns[0].Type);
+    }
+
+    [Fact]
+    public void Build_CountExpression_ExplicitTypeDirectiveOverridesSqlServerDefault()
+    {
+        var query = ParseSql("select count(*) as total from products", "GetCount");
+        var schema = CreateTestSchema();
+        schema.Dialect = "sqlserver";
+        var directives = new Directives.DirectiveModel
+        {
+            TypeDirectives = new List<Directives.TypeDirective>
+            {
+                new("total", "bigint")
+            }
+        };
+        var projection = ProjectionBuilder.Build(query, schema, directives);
+
+        Assert.Single(projection.Columns);
+        Assert.Equal("long", projection.Columns[0].Type);
+    }
 }
