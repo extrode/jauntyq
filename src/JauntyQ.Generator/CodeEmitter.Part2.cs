@@ -48,13 +48,13 @@ public static partial class CodeEmitter
     }
 
     private static EmittedParam CreateEmittedParam(string name, string csharpType, bool isNullable,
-        ColumnSchema? column, string? tableName, bool isWriteTarget)
+        ColumnSchema? column, string? tableName, bool isWriteTarget, bool isEach = false)
     {
         if (column == null)
-            return new EmittedParam(name, csharpType, isNullable);
+            return new EmittedParam(name, csharpType, isNullable, isEach: isEach);
         return new EmittedParam(name, csharpType, isNullable,
             column.MaxLength, column.Precision, column.Scale, isWriteTarget,
-            tableName != null ? $"{tableName}.{column.Name}" : column.Name);
+            tableName != null ? $"{tableName}.{column.Name}" : column.Name, isEach);
     }
 
     /// <summary>

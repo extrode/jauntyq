@@ -47,6 +47,13 @@ public static class DirectiveParser
                     continue; // strip this line from cleaned SQL
                 }
 
+                if (commentBody.StartsWith("@each ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var value = commentBody.Substring(6).Trim();
+                    ParseEachDirective(directives, value);
+                    continue; // strip this line from cleaned SQL
+                }
+
                 if (string.Equals(commentBody, "@first", StringComparison.OrdinalIgnoreCase))
                 {
                     directives.IsFirst = true;
@@ -149,6 +156,19 @@ public static class DirectiveParser
 
         directives.TypeDirectives ??= new List<TypeDirective>();
         directives.TypeDirectives.Add(new TypeDirective(alias, dbType));
+    }
+
+    /// <summary>
+    /// Parses one "-- @each &lt;ParamName&gt;" directive. Repeatable: each line
+    /// names one parameter to expand as an IN-list at runtime.
+    /// </summary>
+    private static void ParseEachDirective(DirectiveModel directives, string value)
+    {
+        if (value.Length == 0)
+            return;
+
+        directives.EachParams ??= new List<string>();
+        directives.EachParams.Add(value);
     }
 
     private static void ParseParamsDirective(DirectiveModel directives, string value)

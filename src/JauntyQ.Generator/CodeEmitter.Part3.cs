@@ -131,6 +131,12 @@ public static partial class CodeEmitter
             string varName = $"p{i}";
             sb.AppendLine();
 
+            if (param.IsEach)
+            {
+                EmitEachParameterBinding(sb, param, varName, dialect);
+                continue;
+            }
+
             // PostgreSQL parameter typing is OID-based, so the per-length
             // plan-cache concern does not apply and Size is not emitted; the
             // client-side write guards still run.
@@ -183,6 +189,51 @@ public static partial class CodeEmitter
             }
             sb.AppendLine($"                cmd.Parameters.Add({varName});");
         }
+    }
+
+    /// <summary>
+    /// Binds one -- @each param: loops the caller's list and adds one
+    /// DbParameter per element, named "@ParamName0", "@ParamName1", ... to
+    /// match the CommandText expansion built alongside it in
+    /// CodeEmitter.Part8.cs's EmitCommandText.
+    /// </summary>
+    private static void EmitEachParameterBinding(System.Text.StringBuilder sb, EmittedParam param, string varName, string? dialect)
+    {
+        string elementType = GetEachElementType(param.CSharpType);
+        string loopVar = $"__ib_{param.Name}";
+        string? adoDbType = MapCSharpTypeToAdoDbType(elementType);
+
+        if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
+        {
+            sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.Name}.Count; {loopVar}++)");
+            sb.AppendLine("                {");
+            if (IsNonNullableValueType(elementType))
+            {
+                sb.AppendLine($"                    cmd.Parameters.Add(new global::Npgsql.NpgsqlParameter<{elementType}> {{ ParameterName = \"@{param.Name}\" + {loopVar}, TypedValue = {param.Name}[{loopVar}] }});");
+            }
+            else
+            {
+                sb.AppendLine($"                    var {varName} = new global::Npgsql.NpgsqlParameter {{ ParameterName = \"@{param.Name}\" + {loopVar} }};");
+                if (adoDbType != null)
+                    sb.AppendLine($"                    {varName}.DbType = System.Data.DbType.{adoDbType};");
+                sb.AppendLine($"                    {varName}.Value = (object?){param.Name}[{loopVar}] ?? System.DBNull.Value;");
+                sb.AppendLine($"                    cmd.Parameters.Add({varName});");
+            }
+            sb.AppendLine("                }");
+            return;
+        }
+
+        sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.Name}.Count; {loopVar}++)");
+        sb.AppendLine("                {");
+        sb.AppendLine($"                    var {varName} = cmd.CreateParameter();");
+        sb.AppendLine($"                    {varName}.ParameterName = \"@{param.Name}\" + {loopVar};");
+        if (adoDbType != null)
+            sb.AppendLine($"                    {varName}.DbType = System.Data.DbType.{adoDbType};");
+        sb.AppendLine(IsNonNullableValueType(elementType)
+            ? $"                    {varName}.Value = {param.Name}[{loopVar}];"
+            : $"                    {varName}.Value = (object?){param.Name}[{loopVar}] ?? System.DBNull.Value;");
+        sb.AppendLine($"                    cmd.Parameters.Add({varName});");
+        sb.AppendLine("                }");
     }
 
     internal readonly struct IdentityInfo

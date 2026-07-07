@@ -24,7 +24,9 @@ public static partial class CodeEmitter
         {
             string paramType = InferParameterType(param.Name, query, projection, schema, directives);
             var column = ResolveBoundColumn(param, query, schema, out string? boundTable);
-            paramInfos.Add(CreateEmittedParam(param.Name, paramType, isNullable: false, column, boundTable, isWriteTarget: false));
+            bool isEach = directives?.EachParams != null &&
+                directives.EachParams.Exists(n => string.Equals(n, param.Name, StringComparison.OrdinalIgnoreCase));
+            paramInfos.Add(CreateEmittedParam(param.Name, paramType, isNullable: false, column, boundTable, isWriteTarget: false, isEach: isEach));
         }
 
         string queryId = $"{entityName}.{query.Name}";
@@ -109,6 +111,7 @@ public static partial class CodeEmitter
         sb.AppendLine("        {");
 
         EmitValueGuards(sb, paramInfos);
+        EmitEachEmptyGuards(sb, paramInfos, returnType, isFirst, isStream);
 
         // Connection lifecycle
         sb.AppendLine($"            bool weOpened = {connVar}.State != System.Data.ConnectionState.Open;");
@@ -131,7 +134,7 @@ public static partial class CodeEmitter
         }
         else
         {
-            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(StripLeadingSqlComments(originalSql))}\";");
+            EmitCommandText(sb, StripLeadingSqlComments(originalSql), paramInfos);
         }
 
         EmitParameterBinding(sb, paramInfos, dialect);
@@ -185,6 +188,112 @@ public static partial class CodeEmitter
 
         EmitFinallyClose(sb, connVar, isAsync);
         sb.AppendLine("        }");
+    }
+
+    /// <summary>
+    /// Short-circuits before the connection is opened when an -- @each list
+    /// argument is empty: `IN ()` is invalid SQL in every supported dialect,
+    /// and an empty list unambiguously means an empty result set. Mirrors the
+    /// hand-written IN-list workaround this directive replaces (see
+    /// the test log, bug #2).
+    /// </summary>
+    private static void EmitEachEmptyGuards(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos, string returnType, bool isFirst, bool isStream)
+    {
+        bool any = false;
+        foreach (var param in paramInfos)
+        {
+            if (!param.IsEach)
+                continue;
+            sb.AppendLine($"            if ({param.Name}.Count == 0)");
+            if (isStream)
+                sb.AppendLine("                yield break;");
+            else if (isFirst)
+                sb.AppendLine("                return null;");
+            else
+                sb.AppendLine($"                return new System.Collections.Generic.List<{returnType}>();");
+            any = true;
+        }
+        if (any)
+            sb.AppendLine();
+    }
+
+    /// <summary>
+    /// Emits CommandText. With no -- @each params this is the existing single
+    /// verbatim string; otherwise the compile-time-known SQL text is split
+    /// around every "@ParamName" occurrence for an @each param, and each
+    /// occurrence is replaced at runtime with a computed "@ParamName0,@ParamName1,..."
+    /// expansion sized to the caller's list -- no runtime regex/string-scanning.
+    /// </summary>
+    private static void EmitCommandText(System.Text.StringBuilder sb, string sql, System.Collections.Generic.List<EmittedParam> paramInfos)
+    {
+        var eachParams = paramInfos.Where(p => p.IsEach).ToList();
+        if (eachParams.Count == 0)
+        {
+            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(sql)}\";");
+            return;
+        }
+
+        foreach (var ep in eachParams)
+        {
+            string loopVar = $"__i_{ep.Name}";
+            sb.AppendLine($"                var __each_{ep.Name} = new System.Text.StringBuilder();");
+            sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {ep.Name}.Count; {loopVar}++)");
+            sb.AppendLine("                {");
+            sb.AppendLine($"                    if ({loopVar} > 0) __each_{ep.Name}.Append(',');");
+            sb.AppendLine($"                    __each_{ep.Name}.Append(\"@{ep.Name}\").Append({loopVar});");
+            sb.AppendLine("                }");
+        }
+
+        var segments = SplitSqlForEach(sql, eachParams);
+        sb.Append("                cmd.CommandText = ");
+        for (int i = 0; i < segments.Count; i++)
+        {
+            if (i > 0) sb.Append(" + ");
+            sb.Append(segments[i].IsEachRef
+                ? $"__each_{segments[i].Value}.ToString()"
+                : $"@\"{EscapeVerbatimString(segments[i].Value)}\"");
+        }
+        sb.AppendLine(";");
+    }
+
+    /// <summary>
+    /// Splits SQL text into literal segments and @each-param references. Scans
+    /// whole "@identifier" tokens (not a substring search) so "@IdsFoo" is
+    /// never mistaken for a reference to an @each param named "Ids".
+    /// </summary>
+    private static System.Collections.Generic.List<(bool IsEachRef, string Value)> SplitSqlForEach(string sql, System.Collections.Generic.List<EmittedParam> eachParams)
+    {
+        var segments = new System.Collections.Generic.List<(bool, string)>();
+        var literal = new System.Text.StringBuilder();
+        int i = 0;
+        while (i < sql.Length)
+        {
+            if (sql[i] == '@')
+            {
+                int start = i + 1;
+                int j = start;
+                while (j < sql.Length && (char.IsLetterOrDigit(sql[j]) || sql[j] == '_'))
+                    j++;
+                string token = sql.Substring(start, j - start);
+                var matched = eachParams.FirstOrDefault(p => string.Equals(p.Name, token, StringComparison.OrdinalIgnoreCase));
+                if (token.Length > 0 && matched.Name != null)
+                {
+                    if (literal.Length > 0)
+                    {
+                        segments.Add((false, literal.ToString()));
+                        literal.Clear();
+                    }
+                    segments.Add((true, matched.Name));
+                    i = j;
+                    continue;
+                }
+            }
+            literal.Append(sql[i]);
+            i++;
+        }
+        if (literal.Length > 0)
+            segments.Add((false, literal.ToString()));
+        return segments;
     }
 
 }
