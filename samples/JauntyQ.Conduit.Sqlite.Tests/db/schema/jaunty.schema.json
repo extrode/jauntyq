@@ -1,0 +1,401 @@
+{
+  "dialect": "sqlite",
+  "tables": {
+    "article_tags": {
+      "name": "article_tags",
+      "columns": {
+        "article_id": {
+          "name": "article_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "tag_id": {
+          "name": "tag_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_article_tags_1",
+          "columns": [
+            "article_id",
+            "tag_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "articles": {
+      "name": "articles",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "slug": {
+          "name": "slug",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "title": {
+          "name": "title",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "description": {
+          "name": "description",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "body": {
+          "name": "body",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "author_id": {
+          "name": "author_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_articles_1",
+          "columns": [
+            "slug"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "comments": {
+      "name": "comments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "article_id": {
+          "name": "article_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "author_id": {
+          "name": "author_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "body": {
+          "name": "body",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        }
+      },
+      "indexes": []
+    },
+    "favorites": {
+      "name": "favorites",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "article_id": {
+          "name": "article_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_favorites_1",
+          "columns": [
+            "user_id",
+            "article_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "follows": {
+      "name": "follows",
+      "columns": {
+        "follower_id": {
+          "name": "follower_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "followed_id": {
+          "name": "followed_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_follows_1",
+          "columns": [
+            "follower_id",
+            "followed_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "tags": {
+      "name": "tags",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_tags_1",
+          "columns": [
+            "name"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "username": {
+          "name": "username",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "email": {
+          "name": "email",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "bio": {
+          "name": "bio",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "image": {
+          "name": "image",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_users_2",
+          "columns": [
+            "email"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "sqlite_autoindex_users_1",
+          "columns": [
+            "username"
+          ],
+          "isUnique": true
+        }
+      ]
+    }
+  },
+  "foreignKeys": [
+    {
+      "fromTable": "article_tags",
+      "fromColumn": "tag_id",
+      "toTable": "tags",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "article_tags",
+      "fromColumn": "article_id",
+      "toTable": "articles",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "articles",
+      "fromColumn": "author_id",
+      "toTable": "users",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "comments",
+      "fromColumn": "author_id",
+      "toTable": "users",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "comments",
+      "fromColumn": "article_id",
+      "toTable": "articles",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "favorites",
+      "fromColumn": "article_id",
+      "toTable": "articles",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "favorites",
+      "fromColumn": "user_id",
+      "toTable": "users",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "follows",
+      "fromColumn": "followed_id",
+      "toTable": "users",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "follows",
+      "fromColumn": "follower_id",
+      "toTable": "users",
+      "toColumn": "id"
+    }
+  ],
+  "procedures": {}
+}
