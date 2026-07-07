@@ -1,0 +1,364 @@
+{
+  "dialect": "sqlite",
+  "tables": {
+    "basket": {
+      "name": "basket",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "buyer_id": {
+          "name": "buyer_id",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        }
+      },
+      "indexes": []
+    },
+    "basket_item": {
+      "name": "basket_item",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "basket_id": {
+          "name": "basket_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "catalog_item_id": {
+          "name": "catalog_item_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "unit_price": {
+          "name": "unit_price",
+          "dbType": "decimal",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 18,
+          "scale": 2,
+          "isRowVersion": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": []
+    },
+    "catalog_brand": {
+      "name": "catalog_brand",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "brand": {
+          "name": "brand",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        }
+      },
+      "indexes": []
+    },
+    "catalog_item": {
+      "name": "catalog_item",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "catalog_type_id": {
+          "name": "catalog_type_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "catalog_brand_id": {
+          "name": "catalog_brand_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "description": {
+          "name": "description",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "price": {
+          "name": "price",
+          "dbType": "decimal",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 18,
+          "scale": 2,
+          "isRowVersion": false
+        },
+        "picture_uri": {
+          "name": "picture_uri",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        }
+      },
+      "indexes": []
+    },
+    "catalog_type": {
+      "name": "catalog_type",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "type": {
+          "name": "type",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        }
+      },
+      "indexes": []
+    },
+    "order_item": {
+      "name": "order_item",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "order_id": {
+          "name": "order_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "unit_price": {
+          "name": "unit_price",
+          "dbType": "decimal",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 18,
+          "scale": 2,
+          "isRowVersion": false
+        },
+        "units": {
+          "name": "units",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "ordered_catalog_item_id": {
+          "name": "ordered_catalog_item_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "ordered_product_name": {
+          "name": "ordered_product_name",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "ordered_picture_uri": {
+          "name": "ordered_picture_uri",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        }
+      },
+      "indexes": []
+    },
+    "orders": {
+      "name": "orders",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "buyer_id": {
+          "name": "buyer_id",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "order_date": {
+          "name": "order_date",
+          "dbType": "datetime",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "ship_to_street": {
+          "name": "ship_to_street",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "ship_to_city": {
+          "name": "ship_to_city",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "ship_to_state": {
+          "name": "ship_to_state",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "ship_to_country": {
+          "name": "ship_to_country",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "ship_to_zipcode": {
+          "name": "ship_to_zipcode",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        }
+      },
+      "indexes": []
+    }
+  },
+  "foreignKeys": [
+    {
+      "fromTable": "basket_item",
+      "fromColumn": "catalog_item_id",
+      "toTable": "catalog_item",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "basket_item",
+      "fromColumn": "basket_id",
+      "toTable": "basket",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "catalog_item",
+      "fromColumn": "catalog_brand_id",
+      "toTable": "catalog_brand",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "catalog_item",
+      "fromColumn": "catalog_type_id",
+      "toTable": "catalog_type",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "order_item",
+      "fromColumn": "order_id",
+      "toTable": "orders",
+      "toColumn": "id"
+    }
+  ],
+  "procedures": {}
+}
