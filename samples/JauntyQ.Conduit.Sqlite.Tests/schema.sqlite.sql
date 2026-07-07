@@ -69,6 +69,10 @@ CREATE TABLE comments (
     updated_at   TEXT NOT NULL
 );
 
+-- Added in response to JauntyQ's JNT8004 index-advisor warning on
+-- Comments/GetByArticleId.sql's `where article_id = @ArticleId` filter.
+CREATE INDEX idx_comments_article_id ON comments (article_id);
+
 -- All seeded users share the same known test password ("Password123!") so
 -- UserTests can exercise a real hash-compare login path.
 INSERT INTO users (username, email, password_hash, bio, image) VALUES

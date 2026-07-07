@@ -171,7 +171,15 @@
           "isRowVersion": false
         }
       },
-      "indexes": []
+      "indexes": [
+        {
+          "name": "idx_comments_article_id",
+          "columns": [
+            "article_id"
+          ],
+          "isUnique": false
+        }
+      ]
     },
     "favorites": {
       "name": "favorites",

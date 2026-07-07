@@ -158,16 +158,23 @@ public class ArticleTests : IClassFixture<ConduitSqliteFixture>
     }
 
     [Fact]
-    public void Delete_RemovesArticleAndCascadesArticleTags()
+    public void Delete_RemovesArticleAndCascadesArticleTagsFavoritesAndComments()
     {
         string slug = _repo.Create(authorId: 3, title: "Delete Me", description: "d", body: "b",
             tagNames: new[] { "dotnet" }, nowIso: "2026-02-04T00:00:00Z");
         int articleId = _fx.Db.Articles.GetBySlug(slug)!.Id;
+        _fx.Db.Favorites.Insert(UserId: 1, ArticleId: articleId);
+        _fx.Db.Comments.Insert(ArticleId: articleId, AuthorId: 1, Body: "temp",
+            CreatedAt: "2026-02-04T00:00:00Z", UpdatedAt: "2026-02-04T00:00:00Z");
         Assert.NotEmpty(_fx.Db.ArticleTags.GetTagNamesByArticleId(articleId));
+        Assert.True(_fx.Db.Favorites.Exists(UserId: 1, ArticleId: articleId)?.Total > 0);
+        Assert.NotEmpty(_fx.Db.Comments.GetByArticleId(articleId));
 
         _repo.Delete(slug);
 
         Assert.Null(_repo.GetBySlug(slug, viewerId: null));
         Assert.Empty(_fx.Db.ArticleTags.GetTagNamesByArticleId(articleId));
+        Assert.False(_fx.Db.Favorites.Exists(UserId: 1, ArticleId: articleId)?.Total > 0);
+        Assert.Empty(_fx.Db.Comments.GetByArticleId(articleId));
     }
 }
