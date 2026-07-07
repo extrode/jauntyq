@@ -20,6 +20,7 @@ public sealed class EShopOnWebPostgresFixture : IAsyncLifetime
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
     public JauntyDb Db { get; private set; } = null!;
+    public string ConnectionString => _container.GetConnectionString();
     private NpgsqlConnection? _conn;
 
     public async Task InitializeAsync()
