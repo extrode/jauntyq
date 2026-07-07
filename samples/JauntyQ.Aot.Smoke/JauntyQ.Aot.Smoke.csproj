@@ -28,7 +28,8 @@
          cannot load it under Native AOT). This is a SQLite-provider packaging
          detail, not a JauntyQ requirement. -->
     <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="8.0.11" />
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.10" />
+    <!-- 3.0.3: fixes CVE-2025-6965 (bundles SQLite 3.50.4.2, was flagged at 2.1.10). -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
   </ItemGroup>
   <ItemGroup>
     <AdditionalFiles Include="db\**\*.sql" />
