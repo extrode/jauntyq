@@ -17,6 +17,7 @@ public static class ProjectionBuilder
     public static ProjectionModel Build(QueryModel query, List<ColumnRef> sourceColumns,
         DatabaseSchema schema, Directives.DirectiveModel? directives = null)
     {
+        string? dialect = schema.Dialect;
         var projection = new ProjectionModel
         {
             Name = query.Name
@@ -36,7 +37,7 @@ public static class ProjectionBuilder
         {
             if (col.IsExpression)
             {
-                projection.Columns.Add(BuildExpressionColumn(col, ordinal++, schema, directives));
+                projection.Columns.Add(BuildExpressionColumn(col, ordinal++, schema, directives, dialect));
                 continue;
             }
 
@@ -125,12 +126,13 @@ public static class ProjectionBuilder
     /// raises JNT3005.
     /// </summary>
     private static ProjectionColumn BuildExpressionColumn(ColumnRef col, int ordinal,
-        DatabaseSchema schema, Directives.DirectiveModel? directives)
+        DatabaseSchema schema, Directives.DirectiveModel? directives, string? dialect = null)
     {
         string propName = DialectMapper.ToPascalCase(col.OutputAlias);
 
         string? dbType = null;
         bool notNull = col.InferredNotNull;
+        bool fromTypeDirective = false;
 
         if (directives?.TypeDirectives != null)
         {
@@ -139,6 +141,7 @@ public static class ProjectionBuilder
                 if (string.Equals(td.Alias, col.OutputAlias, StringComparison.OrdinalIgnoreCase))
                 {
                     dbType = td.DbType;
+                    fromTypeDirective = true;
                     // A declared type is nullable unless a NOT NULL shape inference also matched.
                     break;
                 }
@@ -147,6 +150,16 @@ public static class ProjectionBuilder
 
         if (dbType == null && !string.IsNullOrEmpty(col.InferredDbType))
             dbType = col.InferredDbType;
+
+        // The parser's built-in COUNT(...) inference always yields "bigint",
+        // which is correct for Postgres/MySQL but wrong for SQL Server: a bare
+        // COUNT/COUNT(*) there returns a 32-bit int on the wire (64-bit counts
+        // need the separate COUNT_BIG), so the default int? cast throws
+        // InvalidCastException at read time. Only the built-in default is
+        // overridden — an explicit -- @type directive still wins as written.
+        if (!fromTypeDirective && dbType == "bigint" &&
+            string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase))
+            dbType = "int";
 
         if (dbType == null)
         {

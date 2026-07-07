@@ -1,0 +1,227 @@
+using System.Collections.Immutable;
+using System.Linq;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using JauntyQ.Generator;
+using Xunit;
+
+namespace JauntyQ.Generator.Tests;
+
+/// <summary>
+/// Generator-level coverage for the -- @each directive: it wraps the
+/// parameter as IReadOnlyList&lt;T&gt;, emits an empty-list guard before the
+/// connection opens, expands the SQL text into an IN-list at runtime, and
+/// binds one parameter per list element.
+/// </summary>
+public class EachDirectiveTests
+{
+    private const string SchemaJson = @"{
+  ""dialect"": ""sqlite"",
+  ""tables"": {
+    ""products"": {
+      ""name"": ""products"",
+      ""columns"": {
+        ""product_id"": { ""name"": ""product_id"", ""dbType"": ""integer"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""product_name"": { ""name"": ""product_name"", ""dbType"": ""text"", ""isNullable"": false, ""maxLength"": 40 }
+      }
+    }
+  }
+}";
+
+    private const string PostgresSchemaJson = @"{
+  ""dialect"": ""postgres"",
+  ""tables"": {
+    ""products"": {
+      ""name"": ""products"",
+      ""columns"": {
+        ""product_id"": { ""name"": ""product_id"", ""dbType"": ""integer"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""product_name"": { ""name"": ""product_name"", ""dbType"": ""character varying"", ""isNullable"": false, ""maxLength"": 40, ""isUnicode"": true }
+      }
+    }
+  }
+}";
+
+    private static GeneratorDriverRunResult Run(string sql, string schemaJson = SchemaJson, string path = "db/Products/EachQuery.sql")
+    {
+        var compilation = CSharpCompilation.Create("EachTestAssembly",
+            new[] { CSharpSyntaxTree.ParseText("") },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
+            .AddAdditionalTexts(ImmutableArray.Create<AdditionalText>(
+                new InMemoryAdditionalText(path, sql),
+                new InMemoryAdditionalText("schema/jaunty.schema.json", schemaJson)))
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
+        return driver.GetRunResult();
+    }
+
+    private static string AllSources(GeneratorDriverRunResult result) =>
+        string.Join("\n\n", result.Results[0].GeneratedSources.Select(s => s.SourceText.ToString()));
+
+    private static string QuerySource(GeneratorDriverRunResult result) =>
+        result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Products.EachQuery.g.cs")
+            .SourceText.ToString();
+
+    private const string EachSql = "-- @each Ids\nselect product_id, product_name from products where product_id in (@Ids)";
+
+    [Fact]
+    public void Each_WrapsParamAsIReadOnlyList()
+    {
+        var result = Run(EachSql);
+        string src = QuerySource(result);
+
+        Assert.Contains("System.Collections.Generic.IReadOnlyList<int> Ids", src);
+    }
+
+    [Fact]
+    public void Each_EmitsEmptyListGuard_PlainList()
+    {
+        var result = Run(EachSql);
+        string src = QuerySource(result);
+
+        Assert.Contains("if (Ids.Count == 0)", src);
+        // The query selects every schema column of products, so it resolves to
+        // the canonical full-row POCO (Product) instead of a query-specific
+        // Result type.
+        Assert.Contains("return new System.Collections.Generic.List<Product>();", src);
+    }
+
+    [Fact]
+    public void Each_EmptyListGuard_ComesBeforeConnectionOpen()
+    {
+        var result = Run(EachSql);
+        string src = QuerySource(result);
+
+        int guardIdx = src.IndexOf("if (Ids.Count == 0)");
+        int openIdx = src.IndexOf("weOpened");
+        Assert.True(guardIdx >= 0 && openIdx >= 0);
+        Assert.True(guardIdx < openIdx, "the empty-list guard must run before the connection is opened");
+    }
+
+    [Fact]
+    public void Each_WithFirst_EmptyGuardReturnsNull()
+    {
+        string sql = "-- @each Ids\n-- @first\nselect product_id, product_name from products where product_id in (@Ids)";
+        var result = Run(sql);
+        string src = QuerySource(result);
+
+        Assert.Contains("if (Ids.Count == 0)", src);
+        Assert.Contains("return null;", src);
+    }
+
+    [Fact]
+    public void Each_WithStream_EmptyGuardYieldBreaks()
+    {
+        string sql = "-- @each Ids\n-- @stream\nselect product_id, product_name from products where product_id in (@Ids)";
+        var result = Run(sql);
+        string src = QuerySource(result);
+
+        Assert.Contains("if (Ids.Count == 0)", src);
+        Assert.Contains("yield break;", src);
+    }
+
+    [Fact]
+    public void Each_ExpandsCommandTextAtRuntime()
+    {
+        var result = Run(EachSql);
+        string src = QuerySource(result);
+
+        Assert.Contains("var __each_Ids = new System.Text.StringBuilder();", src);
+        Assert.Contains("for (int __i_Ids = 0; __i_Ids < Ids.Count; __i_Ids++)", src);
+        Assert.Contains("__each_Ids.Append(\"@Ids\").Append(__i_Ids);", src);
+        Assert.Contains("cmd.CommandText = ", src);
+        Assert.Contains("__each_Ids.ToString()", src);
+        // the fast-path single-verbatim-string form (no concatenation) must
+        // not be used when an @each param is present
+        Assert.DoesNotContain("cmd.CommandText = @\"select product_id, product_name from products where product_id in (@Ids)\";", src);
+    }
+
+    [Fact]
+    public void Each_MultipleOccurrencesOfSameParam_BothExpanded()
+    {
+        string sql = "-- @each Ids\nselect product_id, product_name from products where product_id in (@Ids) or product_id in (@Ids)";
+        var result = Run(sql);
+        string src = QuerySource(result);
+
+        // 4 method variants (instance/static x sync/async) each emit their own
+        // CommandText, so both occurrences of "@Ids" show up in each of the 4.
+        int occurrences = src.Split("__each_Ids.ToString()").Length - 1;
+        Assert.Equal(8, occurrences);
+        // only one expansion StringBuilder/loop should be built per method body
+        // even though the token appears twice in the SQL text
+        Assert.Equal(4, src.Split("var __each_Ids = new System.Text.StringBuilder();").Length - 1);
+    }
+
+    [Fact]
+    public void Each_DoesNotMatchLongerParamNameSharingPrefix()
+    {
+        // @IdsFoo must never be treated as a reference to the @each param "Ids".
+        string sql = "-- @each Ids\n-- @params IdsFoo:int\nselect product_id from products where product_id in (@Ids) and product_id = @IdsFoo";
+        var result = Run(sql);
+        string src = QuerySource(result);
+
+        Assert.Contains("@IdsFoo", src); // literal SQL segment preserved verbatim
+        Assert.Contains("__each_Ids.ToString()", src);
+    }
+
+    [Fact]
+    public void NonEach_StillUsesSingleVerbatimCommandText()
+    {
+        string sql = "select product_id, product_name from products where product_id = @ProductId";
+        var result = Run(sql, path: "db/Products/PlainQuery.sql");
+        string src = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Products.PlainQuery.g.cs").SourceText.ToString();
+
+        Assert.Contains("cmd.CommandText = @\"", src);
+        Assert.DoesNotContain("StringBuilder", src);
+    }
+
+    [Fact]
+    public void Each_Sqlite_BindsOneParameterPerElement_GenericAdoPath()
+    {
+        var result = Run(EachSql);
+        string src = QuerySource(result);
+
+        Assert.Contains("for (int __ib_Ids = 0; __ib_Ids < Ids.Count; __ib_Ids++)", src);
+        Assert.Contains("var p0 = cmd.CreateParameter();", src);
+        Assert.Contains("p0.ParameterName = \"@Ids\" + __ib_Ids;", src);
+        Assert.Contains("p0.Value = Ids[__ib_Ids];", src);
+        Assert.Contains("cmd.Parameters.Add(p0);", src);
+    }
+
+    [Fact]
+    public void Each_Postgres_BindsTypedParameterPerElement()
+    {
+        var result = Run(EachSql, PostgresSchemaJson);
+        string src = QuerySource(result);
+
+        Assert.Contains("for (int __ib_Ids = 0; __ib_Ids < Ids.Count; __ib_Ids++)", src);
+        Assert.Contains("new global::Npgsql.NpgsqlParameter<int> { ParameterName = \"@Ids\" + __ib_Ids, TypedValue = Ids[__ib_Ids] }", src);
+    }
+
+    [Fact]
+    public void GeneratedEachCode_ParsesClean()
+    {
+        var result = Run(EachSql);
+        foreach (var gen in result.Results[0].GeneratedSources)
+        {
+            var tree = CSharpSyntaxTree.ParseText(gen.SourceText.ToString());
+            Assert.Empty(tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        }
+    }
+
+    [Fact]
+    public void GeneratedEachCode_Postgres_ParsesClean()
+    {
+        var result = Run(EachSql, PostgresSchemaJson);
+        foreach (var gen in result.Results[0].GeneratedSources)
+        {
+            var tree = CSharpSyntaxTree.ParseText(gen.SourceText.ToString());
+            Assert.Empty(tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        }
+    }
+}

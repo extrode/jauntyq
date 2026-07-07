@@ -171,10 +171,11 @@ namespace JauntyQ.Generated
         public readonly int? Scale;
         public readonly bool IsWriteTarget;   // INSERT value / UPDATE SET / upsert column
         public readonly string? ColumnDisplay; // "table.column" for guard messages
+        public readonly bool IsEach;          // -- @each: CSharpType is IReadOnlyList<T>, expanded as an IN-list at runtime
 
         public EmittedParam(string name, string csharpType, bool isNullable = false,
             int? maxLength = null, int? precision = null, int? scale = null,
-            bool isWriteTarget = false, string? columnDisplay = null)
+            bool isWriteTarget = false, string? columnDisplay = null, bool isEach = false)
         {
             Name = name;
             CSharpType = csharpType;
@@ -184,6 +185,7 @@ namespace JauntyQ.Generated
             Scale = scale;
             IsWriteTarget = isWriteTarget;
             ColumnDisplay = columnDisplay;
+            IsEach = isEach;
         }
     }
 

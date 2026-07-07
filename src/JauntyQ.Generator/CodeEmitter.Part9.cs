@@ -56,7 +56,7 @@ public static partial class CodeEmitter
 
     public static string InferParameterType(string paramName, QueryModel query, ProjectionModel projection, DatabaseSchema? schema = null, Directives.DirectiveModel? directives = null)
     {
-        // 0. Check @params directive first
+        // 0. Check @params directive first (a full, unwrapped override)
         if (directives?.ExplicitParams != null)
         {
             foreach (var ep in directives.ExplicitParams)
@@ -66,6 +66,16 @@ public static partial class CodeEmitter
             }
         }
 
+        string elementType = InferScalarParameterType(paramName, query, projection, schema);
+
+        bool isEach = directives?.EachParams != null &&
+            directives.EachParams.Exists(n => string.Equals(n, paramName, StringComparison.OrdinalIgnoreCase));
+
+        return isEach ? $"System.Collections.Generic.IReadOnlyList<{elementType}>" : elementType;
+    }
+
+    private static string InferScalarParameterType(string paramName, QueryModel query, ProjectionModel projection, DatabaseSchema? schema)
+    {
         // 1. Try binding-based inference (col = @param parsed by ExtractParameterBindings)
         var paramRef = query.Parameters.FirstOrDefault(p => p.Name == paramName);
         if (paramRef != null && !string.IsNullOrEmpty(paramRef.BoundColumnName) && schema != null)
@@ -85,6 +95,17 @@ public static partial class CodeEmitter
         }
 
         return "object";
+    }
+
+    /// <summary>
+    /// Extracts T back out of the "System.Collections.Generic.IReadOnlyList&lt;T&gt;"
+    /// shape InferParameterType wraps -- @each params in. Safe only because that
+    /// wrapping is the sole producer of this exact string shape.
+    /// </summary>
+    private static string GetEachElementType(string csharpType)
+    {
+        const string prefix = "System.Collections.Generic.IReadOnlyList<";
+        return csharpType.Substring(prefix.Length, csharpType.Length - prefix.Length - 1);
     }
 
     private static string? ResolveColumnType(string tableAlias, string columnName, QueryModel query, DatabaseSchema schema)

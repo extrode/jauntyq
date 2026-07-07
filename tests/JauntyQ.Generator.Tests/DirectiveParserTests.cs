@@ -253,6 +253,55 @@ WHERE p.CategoryId = @CategoryId";
         Assert.Contains("SELECT", cleaned);
     }
 
+    // ── @each ─────────────────────────────────────────────
+
+    [Fact]
+    public void Each_ParsesSingleParam()
+    {
+        var sql = "-- @each Ids\nSELECT * FROM Products WHERE ProductId IN (@Ids)";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.NotNull(directives.EachParams);
+        Assert.Single(directives.EachParams!);
+        Assert.Equal("Ids", directives.EachParams![0]);
+        Assert.True(directives.HasDirectives);
+        Assert.DoesNotContain("@each", cleaned);
+        Assert.Contains("SELECT", cleaned);
+    }
+
+    [Fact]
+    public void Each_Repeatable_ParsesMultipleParams()
+    {
+        var sql = "-- @each Ids\n-- @each CategoryIds\nSELECT * FROM Products WHERE ProductId IN (@Ids) OR CategoryId IN (@CategoryIds)";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.NotNull(directives.EachParams);
+        Assert.Equal(2, directives.EachParams!.Count);
+        Assert.Equal("Ids", directives.EachParams[0]);
+        Assert.Equal("CategoryIds", directives.EachParams[1]);
+        Assert.DoesNotContain("@each", cleaned);
+    }
+
+    [Fact]
+    public void Each_CaseInsensitive()
+    {
+        var sql = "-- @EACH Ids\nSELECT * FROM Products WHERE ProductId IN (@Ids)";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.NotNull(directives.EachParams);
+        Assert.Equal("Ids", directives.EachParams![0]);
+    }
+
+    [Fact]
+    public void Each_NoDirective_EachParamsNull()
+    {
+        var sql = "SELECT * FROM Products WHERE ProductId IN (@Ids)";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.Null(directives.EachParams);
+        Assert.False(directives.HasDirectives);
+    }
+
     // ── Directive lines stripped from cleaned SQL ─────────
 
     [Fact]

@@ -33,6 +33,15 @@ public class DirectiveModel
     public List<TypeDirective>? TypeDirectives { get; set; }
 
     /// <summary>
+    /// Parameter names expanded as a SQL IN-list at runtime, from a repeatable
+    /// directive: -- @each &lt;ParamName&gt; (e.g. -- @each Ids). The emitted
+    /// C# parameter becomes IReadOnlyList&lt;T&gt; (T inferred the same way as
+    /// a scalar bound parameter), and every "@ParamName" occurrence in the SQL
+    /// text is expanded at runtime into "@ParamName0,@ParamName1,...".
+    /// </summary>
+    public List<string>? EachParams { get; set; }
+
+    /// <summary>
     /// True when: -- @proc or -- @proc Name
     /// </summary>
     public bool IsProc { get; set; }
@@ -80,7 +89,7 @@ public class DirectiveModel
     public bool HasDirectives =>
         ResultTypeName != null || ResultIsVoid || InlineColumns != null
         || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity || IsStream
-        || CallProcName != null || TypeDirectives != null;
+        || CallProcName != null || TypeDirectives != null || EachParams != null;
 }
 
 public class TypeDirective

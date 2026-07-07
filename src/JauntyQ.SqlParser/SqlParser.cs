@@ -106,7 +106,38 @@ public static partial class SqlParser
     }
 
     private static int ParseSelect(List<Token> tokens, int pos, QueryModel model)
-        => ParseProjectionList(tokens, pos, model, model.Columns);
+        => ParseProjectionList(tokens, SkipTopModifier(tokens, pos), model, model.Columns);
+
+    /// <summary>
+    /// Consumes a T-SQL <c>TOP n</c> or <c>TOP (n)</c> modifier immediately
+    /// after SELECT so it never reaches <see cref="ParseProjectionList"/>,
+    /// which would otherwise glue it onto the first column as one opaque,
+    /// unaliased expression and fail with JNT3004. The row-limit value itself
+    /// is not needed downstream: the generator emits the original SQL text
+    /// verbatim as the runtime CommandText, not a reconstruction from the
+    /// parse tree.
+    /// </summary>
+    private static int SkipTopModifier(List<Token> tokens, int pos)
+    {
+        if (pos >= tokens.Count || tokens[pos].Type != TokenType.Keyword || tokens[pos].Value != "TOP")
+            return pos;
+
+        pos++;
+        if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "(")
+        {
+            pos++;
+            if (pos < tokens.Count && tokens[pos].Type == TokenType.Number)
+                pos++;
+            if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")")
+                pos++;
+        }
+        else if (pos < tokens.Count && tokens[pos].Type == TokenType.Number)
+        {
+            pos++;
+        }
+
+        return pos;
+    }
 
     /// <summary>
     /// Parses a comma-separated projection list (used for SELECT lists and for

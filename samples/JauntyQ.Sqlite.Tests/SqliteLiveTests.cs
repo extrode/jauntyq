@@ -137,6 +137,34 @@ public class SqliteLiveTests : IClassFixture<SqliteFixture>
     }
 
     [Fact]
+    public void GetByIds_Each_ReturnsMatchingRows()
+    {
+        // -- @each Ids: IN-list expansion against a real SQLite connection.
+        var products = _fx.Db.Products.GetByIds(new[] { 1, 3 });
+        Assert.Equal(2, products.Count);
+        Assert.Contains(products, p => p.ProductName == "Chai");
+        Assert.Contains(products, p => p.ProductName == "Aniseed Syrup");
+    }
+
+    [Fact]
+    public void GetByIds_Each_EmptyList_ShortCircuitsWithoutQuery()
+    {
+        // Empty IN-list is invalid SQL in every dialect; the generated guard
+        // must return an empty result before ever opening a command.
+        var products = _fx.Db.Products.GetByIds(System.Array.Empty<int>());
+        Assert.Empty(products);
+    }
+
+    [Fact]
+    public async Task GetByIdsAsync_Each_ReturnsMatchingRows()
+    {
+        var products = await _fx.Db.Products.GetByIdsAsync(new[] { 2, 4 });
+        Assert.Equal(2, products.Count);
+        Assert.Contains(products, p => p.ProductName == "Chang");
+        Assert.Contains(products, p => p.ProductName == "Cajun Seasoning");
+    }
+
+    [Fact]
     public void NullNullableValueTypeColumns_ReadBackAsNull_NotDefault()
     {
         // Regression: generated readers emitted `IsDBNull(n) ? default : Get...`
