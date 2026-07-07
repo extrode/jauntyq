@@ -1,0 +1,1055 @@
+{
+  "dialect": "postgres",
+  "tables": {
+    "actor": {
+      "name": "actor",
+      "columns": {
+        "actor_id": {
+          "name": "actor_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "first_name": {
+          "name": "first_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "last_name": {
+          "name": "last_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "actor_pkey",
+          "columns": [
+            "actor_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "address": {
+      "name": "address",
+      "columns": {
+        "address_id": {
+          "name": "address_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "address": {
+          "name": "address",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "address2": {
+          "name": "address2",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "district": {
+          "name": "district",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "city_id": {
+          "name": "city_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "postal_code": {
+          "name": "postal_code",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "phone": {
+          "name": "phone",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "address_pkey",
+          "columns": [
+            "address_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "category": {
+      "name": "category",
+      "columns": {
+        "category_id": {
+          "name": "category_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "category_pkey",
+          "columns": [
+            "category_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "city": {
+      "name": "city",
+      "columns": {
+        "city_id": {
+          "name": "city_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "city": {
+          "name": "city",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "country_id": {
+          "name": "country_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "city_pkey",
+          "columns": [
+            "city_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "country": {
+      "name": "country",
+      "columns": {
+        "country_id": {
+          "name": "country_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "country": {
+          "name": "country",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "country_pkey",
+          "columns": [
+            "country_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "customer": {
+      "name": "customer",
+      "columns": {
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "store_id": {
+          "name": "store_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "first_name": {
+          "name": "first_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "last_name": {
+          "name": "last_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "email": {
+          "name": "email",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "address_id": {
+          "name": "address_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "activebool": {
+          "name": "activebool",
+          "dbType": "boolean",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "create_date": {
+          "name": "create_date",
+          "dbType": "date",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "active": {
+          "name": "active",
+          "dbType": "integer",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "customer_pkey",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "film": {
+      "name": "film",
+      "columns": {
+        "film_id": {
+          "name": "film_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "title": {
+          "name": "title",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "description": {
+          "name": "description",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "release_year": {
+          "name": "release_year",
+          "dbType": "integer",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "language_id": {
+          "name": "language_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "original_language_id": {
+          "name": "original_language_id",
+          "dbType": "integer",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "rental_duration": {
+          "name": "rental_duration",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "rental_rate": {
+          "name": "rental_rate",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 4,
+          "scale": 2,
+          "isRowVersion": false
+        },
+        "length": {
+          "name": "length",
+          "dbType": "integer",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "replacement_cost": {
+          "name": "replacement_cost",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false
+        },
+        "rating": {
+          "name": "rating",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "special_features": {
+          "name": "special_features",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "film_pkey",
+          "columns": [
+            "film_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "film_actor": {
+      "name": "film_actor",
+      "columns": {
+        "actor_id": {
+          "name": "actor_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "film_id": {
+          "name": "film_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "film_actor_pkey",
+          "columns": [
+            "actor_id",
+            "film_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "film_category": {
+      "name": "film_category",
+      "columns": {
+        "film_id": {
+          "name": "film_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "film_category_pkey",
+          "columns": [
+            "film_id",
+            "category_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "inventory": {
+      "name": "inventory",
+      "columns": {
+        "inventory_id": {
+          "name": "inventory_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "film_id": {
+          "name": "film_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "store_id": {
+          "name": "store_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "inventory_pkey",
+          "columns": [
+            "inventory_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "language": {
+      "name": "language",
+      "columns": {
+        "language_id": {
+          "name": "language_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "language_pkey",
+          "columns": [
+            "language_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "payment": {
+      "name": "payment",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_pkey",
+          "columns": [
+            "payment_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "rental": {
+      "name": "rental",
+      "columns": {
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "rental_date": {
+          "name": "rental_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "inventory_id": {
+          "name": "inventory_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "return_date": {
+          "name": "return_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "rental_pkey",
+          "columns": [
+            "rental_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "staff": {
+      "name": "staff",
+      "columns": {
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "first_name": {
+          "name": "first_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "last_name": {
+          "name": "last_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "address_id": {
+          "name": "address_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "email": {
+          "name": "email",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "store_id": {
+          "name": "store_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "active": {
+          "name": "active",
+          "dbType": "boolean",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "username": {
+          "name": "username",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "password": {
+          "name": "password",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "staff_pkey",
+          "columns": [
+            "staff_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "store": {
+      "name": "store",
+      "columns": {
+        "store_id": {
+          "name": "store_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "manager_staff_id": {
+          "name": "manager_staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "address_id": {
+          "name": "address_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "store_pkey",
+          "columns": [
+            "store_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    }
+  },
+  "foreignKeys": [
+    {
+      "fromTable": "city",
+      "fromColumn": "country_id",
+      "toTable": "country",
+      "toColumn": "country_id"
+    },
+    {
+      "fromTable": "film",
+      "fromColumn": "language_id",
+      "toTable": "language",
+      "toColumn": "language_id"
+    },
+    {
+      "fromTable": "film",
+      "fromColumn": "original_language_id",
+      "toTable": "language",
+      "toColumn": "language_id"
+    },
+    {
+      "fromTable": "film_actor",
+      "fromColumn": "actor_id",
+      "toTable": "actor",
+      "toColumn": "actor_id"
+    },
+    {
+      "fromTable": "film_actor",
+      "fromColumn": "film_id",
+      "toTable": "film",
+      "toColumn": "film_id"
+    },
+    {
+      "fromTable": "film_category",
+      "fromColumn": "film_id",
+      "toTable": "film",
+      "toColumn": "film_id"
+    },
+    {
+      "fromTable": "film_category",
+      "fromColumn": "category_id",
+      "toTable": "category",
+      "toColumn": "category_id"
+    },
+    {
+      "fromTable": "address",
+      "fromColumn": "city_id",
+      "toTable": "city",
+      "toColumn": "city_id"
+    },
+    {
+      "fromTable": "store",
+      "fromColumn": "address_id",
+      "toTable": "address",
+      "toColumn": "address_id"
+    },
+    {
+      "fromTable": "staff",
+      "fromColumn": "address_id",
+      "toTable": "address",
+      "toColumn": "address_id"
+    },
+    {
+      "fromTable": "staff",
+      "fromColumn": "store_id",
+      "toTable": "store",
+      "toColumn": "store_id"
+    },
+    {
+      "fromTable": "customer",
+      "fromColumn": "store_id",
+      "toTable": "store",
+      "toColumn": "store_id"
+    },
+    {
+      "fromTable": "customer",
+      "fromColumn": "address_id",
+      "toTable": "address",
+      "toColumn": "address_id"
+    },
+    {
+      "fromTable": "inventory",
+      "fromColumn": "film_id",
+      "toTable": "film",
+      "toColumn": "film_id"
+    },
+    {
+      "fromTable": "inventory",
+      "fromColumn": "store_id",
+      "toTable": "store",
+      "toColumn": "store_id"
+    },
+    {
+      "fromTable": "rental",
+      "fromColumn": "inventory_id",
+      "toTable": "inventory",
+      "toColumn": "inventory_id"
+    },
+    {
+      "fromTable": "rental",
+      "fromColumn": "customer_id",
+      "toTable": "customer",
+      "toColumn": "customer_id"
+    },
+    {
+      "fromTable": "rental",
+      "fromColumn": "staff_id",
+      "toTable": "staff",
+      "toColumn": "staff_id"
+    },
+    {
+      "fromTable": "payment",
+      "fromColumn": "customer_id",
+      "toTable": "customer",
+      "toColumn": "customer_id"
+    },
+    {
+      "fromTable": "payment",
+      "fromColumn": "staff_id",
+      "toTable": "staff",
+      "toColumn": "staff_id"
+    },
+    {
+      "fromTable": "payment",
+      "fromColumn": "rental_id",
+      "toTable": "rental",
+      "toColumn": "rental_id"
+    }
+  ],
+  "procedures": {}
+}
