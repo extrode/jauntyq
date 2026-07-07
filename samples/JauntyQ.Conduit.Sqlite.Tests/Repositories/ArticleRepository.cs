@@ -65,6 +65,17 @@ public sealed class ArticleRepository
         return (views, total);
     }
 
+    // Articles authored by users `userId` follows - exercises the
+    // subquery-via-junction shape (IN over a SELECT against `follows`)
+    // that Part 3 exists to stress-test.
+    public (IReadOnlyList<Domain.ArticleView> Articles, int Total) Feed(int userId, int skip, int take)
+    {
+        var rows = _db.Articles.GetFeed(UserId: userId, Skip: skip, Take: take);
+        int total = (int)_db.Articles.GetFeedCount(UserId: userId)!.Total;
+        var views = rows.Select(r => ToView(r, userId)).ToList();
+        return (views, total);
+    }
+
     private Domain.ArticleView ToView(Article row, int? viewerId)
     {
         var tagNames = _db.ArticleTags.GetTagNamesByArticleId(row.Id).Select(t => t.Name).ToList();

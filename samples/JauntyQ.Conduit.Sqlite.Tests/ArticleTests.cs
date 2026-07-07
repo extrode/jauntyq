@@ -122,6 +122,26 @@ public class ArticleTests : IClassFixture<ConduitSqliteFixture>
     }
 
     [Fact]
+    public void Feed_ReturnsOnlyFollowedAuthorsArticles()
+    {
+        // jane(1) follows bob(2) and carol(3), not dave(4): feed excludes
+        // dave's unrelated-post despite it being the newest article.
+        var (articles, total) = _repo.Feed(userId: 1, skip: 0, take: 10);
+
+        Assert.Equal(3, total);
+        Assert.Equal(new[] { "composite-keys-101", "sqlite-tips", "intro-to-jauntyq" }, articles.Select(a => a.Slug));
+    }
+
+    [Fact]
+    public void Feed_NoFollows_ReturnsEmpty()
+    {
+        var (articles, total) = _repo.Feed(userId: 4, skip: 0, take: 10);
+
+        Assert.Equal(0, total);
+        Assert.Empty(articles);
+    }
+
+    [Fact]
     public void Update_ChangesFieldsAndUpdatedAt()
     {
         string slug = _repo.Create(authorId: 2, title: "Update Me", description: "d", body: "b",
