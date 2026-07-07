@@ -598,4 +598,42 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
         Assert.False(model.Columns[0].IsExpression);
         Assert.Equal("product_id", model.Columns[0].ColumnName);
     }
+
+    [Fact]
+    public void SelectDistinct_SkipsModifierAndResolvesPlainColumns()
+    {
+        var model = ParseSql("select distinct product_id, product_name from products");
+
+        Assert.Empty(model.ExpressionsMissingAlias);
+        Assert.Equal(2, model.Columns.Count);
+        Assert.False(model.Columns[0].IsExpression);
+        Assert.Equal("product_id", model.Columns[0].ColumnName);
+        Assert.False(model.Columns[1].IsExpression);
+        Assert.Equal("product_name", model.Columns[1].ColumnName);
+    }
+
+    [Fact]
+    public void SelectDistinct_QualifiedColumnWithAlias_ResolvesAsPlainColumn()
+    {
+        var model = ParseSql("select distinct a.actor_id as actor_id from actors a");
+
+        Assert.Empty(model.ExpressionsMissingAlias);
+        Assert.Single(model.Columns);
+        Assert.False(model.Columns[0].IsExpression);
+        Assert.Equal("a", model.Columns[0].TableAlias);
+        Assert.Equal("actor_id", model.Columns[0].ColumnName);
+        Assert.Equal("actor_id", model.Columns[0].OutputAlias);
+    }
+
+    [Fact]
+    public void SelectDistinctTopN_SkipsBothModifiersAndResolvesPlainColumns()
+    {
+        // T-SQL allows DISTINCT before TOP: SELECT DISTINCT TOP 10 col FROM ...
+        var model = ParseSql("select distinct top 10 product_id from products");
+
+        Assert.Empty(model.ExpressionsMissingAlias);
+        Assert.Single(model.Columns);
+        Assert.False(model.Columns[0].IsExpression);
+        Assert.Equal("product_id", model.Columns[0].ColumnName);
+    }
 }
