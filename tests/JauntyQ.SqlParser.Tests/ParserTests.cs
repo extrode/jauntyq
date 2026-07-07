@@ -574,4 +574,28 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
         Assert.Equal("product_name", pName.BoundColumnName);
         Assert.True(pName.IsWriteTarget);
     }
+
+    [Fact]
+    public void SelectTopN_SkipsModifierAndResolvesPlainColumns()
+    {
+        var model = ParseSql("select top 10 product_id, product_name from products");
+
+        Assert.Empty(model.ExpressionsMissingAlias);
+        Assert.Equal(2, model.Columns.Count);
+        Assert.False(model.Columns[0].IsExpression);
+        Assert.Equal("product_id", model.Columns[0].ColumnName);
+        Assert.False(model.Columns[1].IsExpression);
+        Assert.Equal("product_name", model.Columns[1].ColumnName);
+    }
+
+    [Fact]
+    public void SelectTopParenN_SkipsModifierAndResolvesPlainColumns()
+    {
+        var model = ParseSql("select top (5) product_id from products");
+
+        Assert.Empty(model.ExpressionsMissingAlias);
+        Assert.Single(model.Columns);
+        Assert.False(model.Columns[0].IsExpression);
+        Assert.Equal("product_id", model.Columns[0].ColumnName);
+    }
 }
