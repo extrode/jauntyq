@@ -129,4 +129,130 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Single(body!.Articles);
         Assert.Equal("rex", body.Articles[0].Author.Username);
     }
+
+    private static UpsertArticleRequestEnvelope UpsertBody(string title, string description = "desc", string body = "body", params string[] tags) =>
+        new(new UpsertArticleRequest(title, description, body, tags));
+
+    [Fact]
+    public async Task CreateArticle_Valid_Returns201WithArticle()
+    {
+        string token = await RegisterAndGetToken("sam", "sam@example.com");
+
+        var response = await _client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/articles")
+        {
+            Content = JsonContent.Create(UpsertBody("Sam Article", tags: "reactjs"))
+        }.Also(m => m.Headers.Authorization = new AuthenticationHeaderValue("Token", token)));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<ArticleResponseEnvelope>();
+        Assert.Equal("sam-article", created!.Article.Slug);
+        Assert.Equal("sam", created.Article.Author.Username);
+        Assert.Contains("reactjs", created.Article.TagList);
+    }
+
+    [Fact]
+    public async Task CreateArticle_MissingTitle_Returns422()
+    {
+        string token = await RegisterAndGetToken("tara", "tara@example.com");
+
+        var response = await _client.SendAsync(WithToken(HttpMethod.Post, "/api/articles", token).Also(m =>
+            m.Content = JsonContent.Create(UpsertBody(""))));
+
+        Assert.Equal((HttpStatusCode)422, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateArticle_DuplicateSlug_Returns422()
+    {
+        string token = await RegisterAndGetToken("uma", "uma@example.com");
+        await _client.SendAsync(WithToken(HttpMethod.Post, "/api/articles", token).Also(m =>
+            m.Content = JsonContent.Create(UpsertBody("Uma Article"))));
+
+        var response = await _client.SendAsync(WithToken(HttpMethod.Post, "/api/articles", token).Also(m =>
+            m.Content = JsonContent.Create(UpsertBody("Uma Article"))));
+
+        Assert.Equal((HttpStatusCode)422, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateArticle_WithoutToken_Returns401()
+    {
+        var response = await _client.PostAsJsonAsync("/api/articles", UpsertBody("No Token Article"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateArticle_ByAuthor_UpdatesFields()
+    {
+        string token = await RegisterAndGetToken("vince", "vince@example.com");
+        string slug = SeedArticle("vince", "Vince Original Title");
+
+        var response = await _client.SendAsync(WithToken(HttpMethod.Put, $"/api/articles/{slug}", token).Also(m =>
+            m.Content = JsonContent.Create(UpsertBody("Vince Updated Title", "new desc", "new body"))));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<ArticleResponseEnvelope>();
+        Assert.Equal("Vince Updated Title", updated!.Article.Title);
+        Assert.Equal("new desc", updated.Article.Description);
+        Assert.Equal(slug, updated.Article.Slug);
+    }
+
+    [Fact]
+    public async Task UpdateArticle_ByNonAuthor_Returns403()
+    {
+        await RegisterAndGetToken("walt", "walt@example.com");
+        string slug = SeedArticle("walt", "Walt Article");
+        string otherToken = await RegisterAndGetToken("xena", "xena@example.com");
+
+        var response = await _client.SendAsync(WithToken(HttpMethod.Put, $"/api/articles/{slug}", otherToken).Also(m =>
+            m.Content = JsonContent.Create(UpsertBody("Hijacked Title"))));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateArticle_UnknownSlug_Returns404()
+    {
+        string token = await RegisterAndGetToken("yara", "yara@example.com");
+
+        var response = await _client.SendAsync(WithToken(HttpMethod.Put, "/api/articles/no-such-slug", token).Also(m =>
+            m.Content = JsonContent.Create(UpsertBody("Doesn't Matter"))));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteArticle_ByAuthor_RemovesArticle()
+    {
+        string token = await RegisterAndGetToken("zane", "zane@example.com");
+        string slug = SeedArticle("zane", "Zane Article");
+
+        var response = await _client.SendAsync(WithToken(HttpMethod.Delete, $"/api/articles/{slug}", token));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var getResponse = await _client.GetAsync($"/api/articles/{slug}");
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteArticle_ByNonAuthor_Returns403()
+    {
+        await RegisterAndGetToken("aaron", "aaron@example.com");
+        string slug = SeedArticle("aaron", "Aaron Article");
+        string otherToken = await RegisterAndGetToken("beth", "beth@example.com");
+
+        var response = await _client.SendAsync(WithToken(HttpMethod.Delete, $"/api/articles/{slug}", otherToken));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+}
+
+internal static class HttpRequestMessageExtensions
+{
+    public static HttpRequestMessage Also(this HttpRequestMessage message, Action<HttpRequestMessage> configure)
+    {
+        configure(message);
+        return message;
+    }
 }

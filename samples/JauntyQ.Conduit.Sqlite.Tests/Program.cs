@@ -115,6 +115,59 @@ api.MapGet("/articles/{slug}", (string slug, ClaimsPrincipal principal, ArticleR
     return article is null ? Results.NotFound() : Results.Json(new ArticleResponseEnvelope(article));
 });
 
+api.MapPost("/articles", (UpsertArticleRequestEnvelope body, ClaimsPrincipal principal, ArticleRepository articles) =>
+{
+    var errors = new Dictionary<string, string[]>();
+    if (string.IsNullOrWhiteSpace(body.Article.Title)) errors["title"] = new[] { "can't be blank" };
+    if (string.IsNullOrWhiteSpace(body.Article.Description)) errors["description"] = new[] { "can't be blank" };
+    if (string.IsNullOrWhiteSpace(body.Article.Body)) errors["body"] = new[] { "can't be blank" };
+    if (errors.Count > 0) return Results422.ValidationError(errors);
+
+    int authorId = principal.GetUserId()!.Value;
+    string nowIso = DateTime.UtcNow.ToString("O");
+    string slug;
+    try
+    {
+        slug = articles.Create(authorId, body.Article.Title, body.Article.Description, body.Article.Body,
+            body.Article.TagList ?? Array.Empty<string>(), nowIso);
+    }
+    catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
+    {
+        return Results422.ValidationError("title", "must be unique");
+    }
+
+    var created = articles.GetBySlug(slug, authorId)!;
+    return Results.Json(new ArticleResponseEnvelope(created), statusCode: StatusCodes.Status201Created);
+}).RequireAuthorization();
+
+api.MapPut("/articles/{slug}", (string slug, UpsertArticleRequestEnvelope body, ClaimsPrincipal principal,
+    ArticleRepository articles, UserRepository users) =>
+{
+    int userId = principal.GetUserId()!.Value;
+    var existing = articles.GetBySlug(slug, userId);
+    if (existing is null) return Results.NotFound();
+
+    var caller = users.GetById(userId)!;
+    if (existing.Author.Username != caller.Username) return Results.Forbid();
+
+    articles.Update(slug, body.Article.Title, body.Article.Description, body.Article.Body, DateTime.UtcNow.ToString("O"));
+    var updated = articles.GetBySlug(slug, userId)!;
+    return Results.Json(new ArticleResponseEnvelope(updated));
+}).RequireAuthorization();
+
+api.MapDelete("/articles/{slug}", (string slug, ClaimsPrincipal principal, ArticleRepository articles, UserRepository users) =>
+{
+    int userId = principal.GetUserId()!.Value;
+    var existing = articles.GetBySlug(slug, userId);
+    if (existing is null) return Results.NotFound();
+
+    var caller = users.GetById(userId)!;
+    if (existing.Author.Username != caller.Username) return Results.Forbid();
+
+    articles.Delete(slug);
+    return Results.NoContent();
+}).RequireAuthorization();
+
 api.MapGet("/tags", (JauntyDb db) =>
 {
     var names = db.Tags.GetAll().Select(t => t.Name).ToList();
