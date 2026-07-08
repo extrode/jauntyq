@@ -168,6 +168,28 @@ api.MapDelete("/articles/{slug}", (string slug, ClaimsPrincipal principal, Artic
     return Results.NoContent();
 }).RequireAuthorization();
 
+api.MapPost("/articles/{slug}/favorite", (string slug, ClaimsPrincipal principal, ArticleRepository articles, FavoriteRepository favorites) =>
+{
+    int? articleId = articles.GetIdBySlug(slug);
+    if (articleId is null) return Results.NotFound();
+
+    int userId = principal.GetUserId()!.Value;
+    favorites.Favorite(userId, articleId.Value);
+    var updated = articles.GetBySlug(slug, userId)!;
+    return Results.Json(new ArticleResponseEnvelope(updated));
+}).RequireAuthorization();
+
+api.MapDelete("/articles/{slug}/favorite", (string slug, ClaimsPrincipal principal, ArticleRepository articles, FavoriteRepository favorites) =>
+{
+    int? articleId = articles.GetIdBySlug(slug);
+    if (articleId is null) return Results.NotFound();
+
+    int userId = principal.GetUserId()!.Value;
+    favorites.Unfavorite(userId, articleId.Value);
+    var updated = articles.GetBySlug(slug, userId)!;
+    return Results.Json(new ArticleResponseEnvelope(updated));
+}).RequireAuthorization();
+
 api.MapGet("/tags", (JauntyDb db) =>
 {
     var names = db.Tags.GetAll().Select(t => t.Name).ToList();
