@@ -96,6 +96,12 @@ api.MapPut("/user", (UpdateUserRequestEnvelope body, ClaimsPrincipal principal, 
     return Results.Json(new UserResponseEnvelope(UserResponse.From(updated, token)));
 }).RequireAuthorization();
 
+api.MapGet("/tags", (JauntyDb db) =>
+{
+    var names = db.Tags.GetAll().Select(t => t.Name).ToList();
+    return Results.Json(new TagsResponse(names));
+});
+
 api.MapGet("/profiles/{username}", (string username, ClaimsPrincipal principal, ProfileRepository profiles) =>
 {
     var profile = profiles.GetProfile(username, principal.GetUserId());
