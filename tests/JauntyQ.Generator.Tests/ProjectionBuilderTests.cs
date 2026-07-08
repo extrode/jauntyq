@@ -205,4 +205,67 @@ join categories c on p.category_id = c.category_id", "GetProductsByCategory");
         Assert.Single(projection.Columns);
         Assert.Equal("long", projection.Columns[0].Type);
     }
+
+    [Fact]
+    public void Build_SumExpression_DecimalArgument_MapsToNullableDecimal()
+    {
+        var query = ParseSql("select sum(unit_price) as total from products", "GetTotal");
+        var projection = ProjectionBuilder.Build(query, CreateTestSchema());
+
+        Assert.Single(projection.Columns);
+        Assert.Equal("decimal?", projection.Columns[0].Type);
+    }
+
+    [Fact]
+    public void Build_AvgExpression_DecimalArgument_MapsToNullableDecimal()
+    {
+        var query = ParseSql("select avg(unit_price) as avg_price from products", "GetAvg");
+        var projection = ProjectionBuilder.Build(query, CreateTestSchema());
+
+        Assert.Single(projection.Columns);
+        Assert.Equal("decimal?", projection.Columns[0].Type);
+    }
+
+    [Fact]
+    public void Build_SumExpression_IntArgument_StaysUnresolved()
+    {
+        // Integer/float promotion rules vary by dialect and aren't guessed here —
+        // still requires an explicit -- @type directive.
+        var query = ParseSql("select sum(product_id) as total from products", "GetTotal");
+        var projection = ProjectionBuilder.Build(query, CreateTestSchema());
+
+        Assert.Single(projection.Columns);
+        Assert.Equal("object", projection.Columns[0].Type);
+        Assert.Equal("total", projection.Columns[0].UnresolvedExpressionAlias);
+    }
+
+    [Fact]
+    public void Build_SumExpression_WrappedInOuterCall_StaysUnresolved()
+    {
+        // round(sum(...), 2) is not a bare sum(<col>) shape, so it isn't inferred.
+        var query = ParseSql("select round(sum(unit_price), 2) as total from products", "GetTotal");
+        var projection = ProjectionBuilder.Build(query, CreateTestSchema());
+
+        Assert.Single(projection.Columns);
+        Assert.Equal("object", projection.Columns[0].Type);
+        Assert.Equal("total", projection.Columns[0].UnresolvedExpressionAlias);
+    }
+
+    [Fact]
+    public void Build_SumExpression_ExplicitTypeDirectiveOverridesInference()
+    {
+        var query = ParseSql("select sum(unit_price) as total from products", "GetTotal");
+        var schema = CreateTestSchema();
+        var directives = new Directives.DirectiveModel
+        {
+            TypeDirectives = new List<Directives.TypeDirective>
+            {
+                new("total", "float")
+            }
+        };
+        var projection = ProjectionBuilder.Build(query, schema, directives);
+
+        Assert.Single(projection.Columns);
+        Assert.Equal("double?", projection.Columns[0].Type);
+    }
 }

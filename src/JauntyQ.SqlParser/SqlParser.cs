@@ -402,6 +402,27 @@ public static partial class SqlParser
             col.InferredNotNull = true;
             return;
         }
+
+        // sum(<col>) / avg(<col>) as the *entire* expression body, with a
+        // single bare (optionally qualified) column-reference argument — not
+        // sum(a + b), sum(DISTINCT col), or a wrapping call like
+        // round(sum(col), 2), which stay unresolved and still need -- @type.
+        // Unlike count(...), the result type depends on the argument
+        // column's own DB type, which the parser can't see (no schema
+        // access), so only the shape is captured here; ProjectionBuilder
+        // resolves the argument against the schema to type the result.
+        if (hi - lo == 4 &&
+            IsAggregateHead(run[lo], "SUM", "AVG") &&
+            run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(" &&
+            run[lo + 2].Type == TokenType.Identifier &&
+            run[lo + 3].Type == TokenType.Symbol && run[lo + 3].Value == ")")
+        {
+            var (argAlias, argColumn) = SplitQualifiedName(run[lo + 2].Value);
+            col.AggregateFunction = run[lo].Value.ToUpperInvariant();
+            col.AggregateArgTableAlias = argAlias;
+            col.AggregateArgColumnName = argColumn;
+            return;
+        }
     }
 
     /// <summary>
@@ -428,5 +449,11 @@ public static partial class SqlParser
     private static bool IsCountHead(Token t) =>
         (t.Type == TokenType.Keyword && t.Value == "COUNT") ||
         (t.Type == TokenType.Identifier && string.Equals(t.Value, "count", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsAggregateHead(Token t, string a, string b) =>
+        (t.Type == TokenType.Keyword && (t.Value == a || t.Value == b)) ||
+        (t.Type == TokenType.Identifier &&
+            (string.Equals(t.Value, a, StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(t.Value, b, StringComparison.OrdinalIgnoreCase)));
 
 }
