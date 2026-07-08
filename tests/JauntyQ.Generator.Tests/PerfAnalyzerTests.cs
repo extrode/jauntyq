@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using JauntyQ.Generator;
@@ -190,6 +191,58 @@ public class PerfAnalyzerTests
 
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
         Assert.DoesNotContain(driver.GetRunResult().Diagnostics, d => d.Id == "JNT8004");
+    }
+
+    // ── JNT8004 inside predicate subqueries (EXISTS/IN correlations) ────
+
+    [Fact]
+    public void CorrelatedExistsSubquery_UnindexedOuterColumn_JNT8004()
+    {
+        // The subquery's own WHERE compares its local alias `c.category_id`
+        // against the outer statement's alias `p` — a correlation, not a
+        // JOIN...ON or a @param binding. category_id IS indexed (leading
+        // column of ix_products_category), so only the outer, unindexed side
+        // (categories.category_id is the PK — indexed; use category_name,
+        // which has no index, to force a genuine miss on the correlation).
+        var result = RunOne(
+            "select p.product_id\nfrom products p\n" +
+            "where exists (\n" +
+            "  select 1 from categories c\n" +
+            "  where c.category_name = p.product_name\n" +
+            ")");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("categories.category_name"));
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("products.product_name"));
+    }
+
+    [Fact]
+    public void CorrelatedExistsSubquery_IndexedOuterColumn_NoWarning()
+    {
+        // Same correlation shape, but both sides are covered (category_id is
+        // indexed on products, primary key on categories) — no false positive.
+        var result = RunOne(
+            "select p.product_id\nfrom products p\n" +
+            "where exists (\n" +
+            "  select 1 from categories c\n" +
+            "  where c.category_id = p.category_id\n" +
+            ")");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8004");
+    }
+
+    [Fact]
+    public void ExplicitJoinOnColumn_StillWarnsOnlyOnce_NoDuplicateFromCorrelationScan()
+    {
+        // ON-clause columns sit before WHERE and are already checked via
+        // query.Joins; the new WHERE-scoped correlation scan must not also
+        // re-flag them as a duplicate warning.
+        var result = RunOne(
+            "select p.product_id\nfrom products p\n" +
+            "join categories c on c.category_name = p.product_name\n" +
+            "where p.product_id = @product_id");
+
+        var matches = result.Diagnostics.Where(d => d.Id == "JNT8004" && d.GetMessage().Contains("categories.category_name")).ToList();
+        Assert.Single(matches);
     }
 
     // ── JNT8005: duplicate queries ──────────────────────────────────────

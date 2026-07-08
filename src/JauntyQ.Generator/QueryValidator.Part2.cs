@@ -66,6 +66,12 @@ public static partial class QueryValidator
                 continue;
             CheckIndexed(query, param.BoundTableAlias, param.BoundColumnName, aliasToTable, schema, errors);
         }
+        foreach (var hint in query.PerfHints)
+        {
+            if (hint.Kind != PerfHintKind.ColumnComparedToColumn)
+                continue;
+            CheckIndexed(query, hint.BoundTableAlias, hint.BoundColumnName, aliasToTable, schema, errors);
+        }
         foreach (var join in query.Joins)
         {
             CheckIndexed(query, join.LeftTable, join.LeftColumn, aliasToTable, schema, errors);

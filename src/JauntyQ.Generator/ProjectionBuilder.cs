@@ -37,7 +37,7 @@ public static class ProjectionBuilder
         {
             if (col.IsExpression)
             {
-                projection.Columns.Add(BuildExpressionColumn(col, ordinal++, schema, directives, dialect));
+                projection.Columns.Add(BuildExpressionColumn(col, ordinal++, schema, directives, dialect, query, aliasToTable));
                 continue;
             }
 
@@ -64,37 +64,7 @@ public static class ProjectionBuilder
             }
 
             // Resolve column to schema
-            string? resolvedTable = null;
-            ColumnSchema? schemaColumn = null;
-
-            if (!string.IsNullOrEmpty(col.TableAlias))
-            {
-                if (aliasToTable.TryGetValue(col.TableAlias, out var tableName))
-                {
-                    if (schema.Tables.TryGetValue(tableName, out var tableSchema))
-                    {
-                        if (tableSchema.Columns.TryGetValue(col.ColumnName, out schemaColumn))
-                        {
-                            resolvedTable = tableName;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // Unqualified — search all referenced tables
-                foreach (var table in query.Tables)
-                {
-                    if (schema.Tables.TryGetValue(table.TableName, out var tableSchema))
-                    {
-                        if (tableSchema.Columns.TryGetValue(col.ColumnName, out schemaColumn))
-                        {
-                            resolvedTable = table.TableName;
-                            break;
-                        }
-                    }
-                }
-            }
+            ColumnSchema? schemaColumn = ResolveColumn(col.TableAlias, col.ColumnName, query, schema, aliasToTable);
 
             // Determine property name
             string propName = !string.IsNullOrEmpty(col.OutputAlias)
@@ -119,14 +89,70 @@ public static class ProjectionBuilder
     }
 
     /// <summary>
+    /// Resolves a (optionally alias-qualified) column reference against the
+    /// query's tables, exactly as a plain SELECT-list column would be.
+    /// </summary>
+    private static ColumnSchema? ResolveColumn(string tableAlias, string columnName,
+        QueryModel query, DatabaseSchema schema, Dictionary<string, string> aliasToTable)
+    {
+        if (!string.IsNullOrEmpty(tableAlias))
+        {
+            if (aliasToTable.TryGetValue(tableAlias, out var tableName) &&
+                schema.Tables.TryGetValue(tableName, out var tableSchema) &&
+                tableSchema.Columns.TryGetValue(columnName, out var schemaColumn))
+            {
+                return schemaColumn;
+            }
+            return null;
+        }
+
+        // Unqualified — search all referenced tables
+        foreach (var table in query.Tables)
+        {
+            if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
+                tableSchema.Columns.TryGetValue(columnName, out var schemaColumn))
+            {
+                return schemaColumn;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// SUM/AVG over an exact numeric column (decimal/numeric/money) stays an
+    /// exact decimal in Postgres, MySQL/MariaDB, and SQL Server alike — only
+    /// approximate (float/real) or integer arguments have dialect-varying
+    /// promotion rules, which are out of scope here (still require -- @type).
+    /// Always nullable regardless of the source column's own nullability:
+    /// unlike COUNT, SUM/AVG return SQL NULL when zero rows match, even over
+    /// a NOT NULL column.
+    /// </summary>
+    private static readonly HashSet<string> ExactNumericDbTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "decimal", "numeric", "money", "smallmoney"
+    };
+
+    private static string? InferAggregateDbType(ColumnSchema argColumn)
+    {
+        string normalized = argColumn.DbType.IndexOf('(') is var paren && paren >= 0
+            ? argColumn.DbType.Substring(0, paren).Trim()
+            : argColumn.DbType.Trim();
+
+        return ExactNumericDbTypes.Contains(normalized) ? "decimal" : null;
+    }
+
+    /// <summary>
     /// Types an expression projection item: a matching -- @type directive wins
     /// (its dbtype mapped through DialectMapper, nullable unless the parser also
-    /// inferred NOT NULL), else the parser's built-in inference. When neither
-    /// resolves, the column carries UnresolvedExpressionAlias so the generator
-    /// raises JNT3005.
+    /// inferred NOT NULL), else the parser's built-in inference, else — for a
+    /// bare sum(col)/avg(col) — the resolved argument column's own DB type.
+    /// When nothing resolves, the column carries UnresolvedExpressionAlias so
+    /// the generator raises JNT3005.
     /// </summary>
     private static ProjectionColumn BuildExpressionColumn(ColumnRef col, int ordinal,
-        DatabaseSchema schema, Directives.DirectiveModel? directives, string? dialect = null)
+        DatabaseSchema schema, Directives.DirectiveModel? directives, string? dialect,
+        QueryModel query, Dictionary<string, string> aliasToTable)
     {
         string propName = DialectMapper.ToPascalCase(col.OutputAlias);
 
@@ -150,6 +176,13 @@ public static class ProjectionBuilder
 
         if (dbType == null && !string.IsNullOrEmpty(col.InferredDbType))
             dbType = col.InferredDbType;
+
+        if (dbType == null && !fromTypeDirective && !string.IsNullOrEmpty(col.AggregateFunction))
+        {
+            var argColumn = ResolveColumn(col.AggregateArgTableAlias, col.AggregateArgColumnName, query, schema, aliasToTable);
+            if (argColumn != null)
+                dbType = InferAggregateDbType(argColumn);
+        }
 
         // The parser's built-in COUNT(...) inference always yields "bigint",
         // which is correct for Postgres/MySQL but wrong for SQL Server: a bare

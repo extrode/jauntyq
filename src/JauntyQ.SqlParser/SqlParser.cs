@@ -106,37 +106,53 @@ public static partial class SqlParser
     }
 
     private static int ParseSelect(List<Token> tokens, int pos, QueryModel model)
-        => ParseProjectionList(tokens, SkipTopModifier(tokens, pos), model, model.Columns);
+        => ParseProjectionList(tokens, SkipProjectionModifiers(tokens, pos), model, model.Columns);
 
     /// <summary>
-    /// Consumes a T-SQL <c>TOP n</c> or <c>TOP (n)</c> modifier immediately
-    /// after SELECT so it never reaches <see cref="ParseProjectionList"/>,
-    /// which would otherwise glue it onto the first column as one opaque,
-    /// unaliased expression and fail with JNT3004. The row-limit value itself
-    /// is not needed downstream: the generator emits the original SQL text
-    /// verbatim as the runtime CommandText, not a reconstruction from the
-    /// parse tree.
+    /// Consumes SELECT-list modifiers — <c>DISTINCT</c> and T-SQL's <c>TOP n</c>
+    /// / <c>TOP (n)</c> — immediately after SELECT, in either order, so they
+    /// never reach <see cref="ParseProjectionList"/>. Left unhandled, a leading
+    /// modifier is a Keyword token that doesn't match the plain-column check
+    /// (which only matches Identifier tokens), so it falls through to
+    /// <see cref="ParseExpressionItem"/> and gets glued onto the first real
+    /// column as one opaque expression: for DISTINCT this silently loses the
+    /// column's schema-based type inference (falls back to expression-shape
+    /// inference), and for TOP it fails JNT3004 unconditionally (no directive
+    /// workaround possible, since the diagnostic fires on the empty-alias
+    /// condition before type inference runs). Neither modifier is needed
+    /// downstream: the generator emits the original SQL text verbatim as the
+    /// runtime CommandText, not a reconstruction from the parse tree.
     /// </summary>
-    private static int SkipTopModifier(List<Token> tokens, int pos)
+    private static int SkipProjectionModifiers(List<Token> tokens, int pos)
     {
-        if (pos >= tokens.Count || tokens[pos].Type != TokenType.Keyword || tokens[pos].Value != "TOP")
+        while (true)
+        {
+            if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "DISTINCT")
+            {
+                pos++;
+                continue;
+            }
+
+            if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "TOP")
+            {
+                pos++;
+                if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "(")
+                {
+                    pos++;
+                    if (pos < tokens.Count && tokens[pos].Type == TokenType.Number)
+                        pos++;
+                    if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")")
+                        pos++;
+                }
+                else if (pos < tokens.Count && tokens[pos].Type == TokenType.Number)
+                {
+                    pos++;
+                }
+                continue;
+            }
+
             return pos;
-
-        pos++;
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "(")
-        {
-            pos++;
-            if (pos < tokens.Count && tokens[pos].Type == TokenType.Number)
-                pos++;
-            if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")")
-                pos++;
         }
-        else if (pos < tokens.Count && tokens[pos].Type == TokenType.Number)
-        {
-            pos++;
-        }
-
-        return pos;
     }
 
     /// <summary>
@@ -386,6 +402,27 @@ public static partial class SqlParser
             col.InferredNotNull = true;
             return;
         }
+
+        // sum(<col>) / avg(<col>) as the *entire* expression body, with a
+        // single bare (optionally qualified) column-reference argument — not
+        // sum(a + b), sum(DISTINCT col), or a wrapping call like
+        // round(sum(col), 2), which stay unresolved and still need -- @type.
+        // Unlike count(...), the result type depends on the argument
+        // column's own DB type, which the parser can't see (no schema
+        // access), so only the shape is captured here; ProjectionBuilder
+        // resolves the argument against the schema to type the result.
+        if (hi - lo == 4 &&
+            IsAggregateHead(run[lo], "SUM", "AVG") &&
+            run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(" &&
+            run[lo + 2].Type == TokenType.Identifier &&
+            run[lo + 3].Type == TokenType.Symbol && run[lo + 3].Value == ")")
+        {
+            var (argAlias, argColumn) = SplitQualifiedName(run[lo + 2].Value);
+            col.AggregateFunction = run[lo].Value.ToUpperInvariant();
+            col.AggregateArgTableAlias = argAlias;
+            col.AggregateArgColumnName = argColumn;
+            return;
+        }
     }
 
     /// <summary>
@@ -412,5 +449,11 @@ public static partial class SqlParser
     private static bool IsCountHead(Token t) =>
         (t.Type == TokenType.Keyword && t.Value == "COUNT") ||
         (t.Type == TokenType.Identifier && string.Equals(t.Value, "count", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsAggregateHead(Token t, string a, string b) =>
+        (t.Type == TokenType.Keyword && (t.Value == a || t.Value == b)) ||
+        (t.Type == TokenType.Identifier &&
+            (string.Equals(t.Value, a, StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(t.Value, b, StringComparison.OrdinalIgnoreCase)));
 
 }

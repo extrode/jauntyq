@@ -37,4 +37,22 @@ public class ColumnRef
     /// form. Ignored for plain columns.
     /// </summary>
     public bool InferredNotNull { get; set; }
+
+    /// <summary>
+    /// "SUM" or "AVG" when this expression's entire body is that aggregate
+    /// applied to a single bare (optionally qualified) column reference —
+    /// e.g. <c>sum(p.amount)</c>, not <c>sum(p.amount * 2)</c> or
+    /// <c>round(sum(p.amount), 2)</c>. Empty otherwise. Unlike COUNT (always
+    /// bigint), SUM/AVG's result type depends on the argument column's own
+    /// DB type, so the parser only captures the shape here; the generator
+    /// (which has schema access) resolves <see cref="AggregateArgColumnName"/>
+    /// against the schema to type the result.
+    /// </summary>
+    public string AggregateFunction { get; set; } = string.Empty;
+
+    /// <summary>Table alias qualifying <see cref="AggregateArgColumnName"/>, if any.</summary>
+    public string AggregateArgTableAlias { get; set; } = string.Empty;
+
+    /// <summary>The single column argument of <see cref="AggregateFunction"/>.</summary>
+    public string AggregateArgColumnName { get; set; } = string.Empty;
 }
