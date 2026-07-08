@@ -167,6 +167,27 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 if (!rowNameOk)
                     continue;
 
+                // JNT2007: a column whose db type has no case in
+                // DialectMapper.MapDbTypeToCSharp silently degrades to
+                // `object`, which is unusable without a manual cast at every
+                // call site. Surface it here — the one place every table's
+                // columns are visited regardless of which query touches
+                // them — instead of leaving it to be discovered only by
+                // noticing the generated property type.
+                foreach (var ucol in tableSchema.Columns.Values)
+                {
+                    // Rowversion concurrency tokens bypass the normal dbType
+                    // switch entirely (MapColumnToCSharp special-cases them to
+                    // byte[]?); checking the raw dbType here would otherwise
+                    // false-positive on a column that's already handled.
+                    if (!ucol.IsRowVersion && DialectMapper.IsUnmappedDbType(ucol.DbType, ucol.IsNullable))
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2007, Location.None,
+                            $"Column '{tableSchema.Name}.{ucol.Name}' has db type '{ucol.DbType}', which has no mapping in DialectMapper and degrades to 'object'. " +
+                            $"Add a case for it or accept the untyped column and cast at the call site."));
+                    }
+                }
+
                 string entityPascal = DialectMapper.ToPascalCase(tableSchema.Name);
                 string rowType = Inflector.RowTypeName(entityPascal);
 

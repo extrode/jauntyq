@@ -78,6 +78,14 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    public static readonly DiagnosticDescriptor JNT2007 = new(
+        "JNT2007",
+        "Unmapped Column Type",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(

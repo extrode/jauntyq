@@ -58,7 +58,18 @@ public static class DialectMapper
 
     public static string MapDbTypeToCSharp(string dbType, bool isNullable)
     {
-        string csharpType = NormalizeDbType(dbType.ToLowerInvariant()) switch
+        string normalized = NormalizeDbType(dbType.ToLowerInvariant());
+
+        // Postgres array types (e.g. "text[]", "integer[]"): recurse on the
+        // element type (as non-nullable — nullability describes the array
+        // reference itself, not each element) and wrap in "[]".
+        if (normalized.EndsWith("[]"))
+        {
+            string elementType = MapDbTypeToCSharp(normalized.Substring(0, normalized.Length - 2), isNullable: false);
+            return isNullable ? $"{elementType}[]?" : $"{elementType}[]";
+        }
+
+        string csharpType = normalized switch
         {
             "int" or "int4" or "integer" or "serial" => isNullable ? "int?" : "int",
             "bigint" or "int8" or "bigserial" => isNullable ? "long?" : "long",
@@ -75,10 +86,26 @@ public static class DialectMapper
             "time" or "time without time zone" => isNullable ? "System.TimeSpan?" : "System.TimeSpan",
             "uniqueidentifier" or "uuid" => isNullable ? "System.Guid?" : "System.Guid",
             "bytea" or "varbinary" or "binary" or "image" => isNullable ? "byte[]?" : "byte[]",
+            "json" or "jsonb" => isNullable ? "string?" : "string",
+            "inet" or "cidr" => isNullable ? "System.Net.IPAddress?" : "System.Net.IPAddress",
             _ => "object"
         };
 
         return csharpType;
+    }
+
+    /// <summary>
+    /// True when <see cref="MapDbTypeToCSharp"/> would fall through to the
+    /// degraded "object" mapping for this db type — used to surface JNT2007
+    /// instead of leaving the type-loss silent.
+    /// </summary>
+    public static bool IsUnmappedDbType(string dbType, bool isNullable)
+    {
+        string normalized = NormalizeDbType(dbType.ToLowerInvariant());
+        if (normalized.EndsWith("[]"))
+            return IsUnmappedDbType(normalized.Substring(0, normalized.Length - 2), isNullable: false);
+
+        return MapDbTypeToCSharp(dbType, isNullable) == "object";
     }
 
     private static string NormalizeDbType(string dbType)
