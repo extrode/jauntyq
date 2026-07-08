@@ -169,6 +169,23 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
                 string entityPascal = DialectMapper.ToPascalCase(tableSchema.Name);
                 string rowType = Inflector.RowTypeName(entityPascal);
+
+                // JNT2006: the row POCO is always a plain (non-partial) class.
+                // Inflector's own "Row" suffix fallback only guards against the
+                // table's own accessor name; it cannot see a differently-named
+                // accessor elsewhere (almost always a db/tables/<Folder> whose
+                // name doesn't match this table's own PascalCase form) that
+                // happens to already claim this exact name. One partial + one
+                // non-partial declaration of the same type is CS0260 at compile
+                // time — report it here with the fix, instead of leaving the
+                // user to decode the raw compiler error from generated code.
+                if (entityNames.Contains(rowType))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                        $"Generated row type '{rowType}' for table '{tableSchema.Name}' has the same name as an entity accessor ('db.{rowType}'). " +
+                        $"Rename the db/tables/{rowType}/ folder to the table's own PascalCase form ('{entityPascal}') so the two names no longer collide."));
+                }
+
                 context.AddSource($"{entityPascal}.Row.g.cs",
                     SourceText.From(CodeEmitter.EmitRowPoco(rowType, tableSchema), Encoding.UTF8));
             }
