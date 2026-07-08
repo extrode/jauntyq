@@ -20,7 +20,7 @@ public static partial class CodeEmitter
         string returnType = canonicalRowType ?? $"Result.{projection.Name}";
 
         var paramInfos = new System.Collections.Generic.List<EmittedParam>();
-        foreach (var param in query.Parameters)
+        foreach (var param in OrderedParameters(query, directives))
         {
             string paramType = InferParameterType(param.Name, query, projection, schema, directives);
             var column = ResolveBoundColumn(param, query, schema, out string? boundTable);

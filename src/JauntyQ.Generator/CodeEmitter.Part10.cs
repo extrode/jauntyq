@@ -17,7 +17,7 @@ public static partial class CodeEmitter
     {
         // Build parameter list for CREATE PROCEDURE
         var procParams = new System.Collections.Generic.List<string>();
-        foreach (var param in query.Parameters)
+        foreach (var param in OrderedParameters(query, directives))
         {
             string csharpType;
             if (isCrud)

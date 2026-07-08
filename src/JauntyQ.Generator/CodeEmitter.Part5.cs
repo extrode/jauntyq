@@ -156,6 +156,20 @@ public static partial class CodeEmitter
         sb.AppendLine();
         sb.AppendLine("namespace JauntyQ.Generated");
         sb.AppendLine("{");
+
+        // The "<Entity>Row" name only ever appears when Inflector.RowTypeName
+        // fell back because singularizing the entity name was a no-op
+        // (already-singular tables like MailQueue, or views). That's the one
+        // case a reader can be looking at this data-carrying POCO right next
+        // to the same-named-minus-"Row" query accessor class and not know
+        // which is which — so call it out right here, not just in the design
+        // docs, since this is the point a consumer actually looks.
+        string entityPascalForComment = DialectMapper.ToPascalCase(tableSchema.Name);
+        if (rowTypeName == entityPascalForComment + "Row")
+        {
+            sb.AppendLine($"    // Row type; see JauntyDb.{entityPascalForComment} for the query accessor.");
+        }
+
         sb.AppendLine($"    public class {rowTypeName}");
         sb.AppendLine("    {");
         foreach (var col in tableSchema.Columns.Values)
