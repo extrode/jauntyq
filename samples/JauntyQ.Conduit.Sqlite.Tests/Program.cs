@@ -1,3 +1,4 @@
+using JauntyQ.Conduit.Sqlite.Tests.Auth;
 using JauntyQ.Conduit.Sqlite.Tests.Repositories;
 using JauntyQ.Generated;
 using Microsoft.Data.Sqlite;
@@ -25,7 +26,16 @@ builder.Services.AddScoped<ArticleRepository>();
 builder.Services.AddScoped<CommentRepository>();
 builder.Services.AddScoped<FavoriteRepository>();
 
+builder.Services.AddSingleton<TokenService>();
+builder.Services
+    .AddAuthentication(TokenAuthenticationHandler.SchemeName)
+    .AddScheme<TokenAuthenticationSchemeOptions, TokenAuthenticationHandler>(TokenAuthenticationHandler.SchemeName, _ => { });
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.Run();
 
