@@ -27,5 +27,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="schema.sqlite.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="schema.sqlite.ddl.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

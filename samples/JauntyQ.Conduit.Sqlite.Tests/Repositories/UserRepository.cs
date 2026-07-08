@@ -28,8 +28,13 @@ public sealed class UserRepository
 
     public User? GetByUsername(string username) => _db.Users.GetByUsername(username);
 
-    public void UpdateProfile(int id, string username, string email, string bio, string? image)
-        => _db.Users.Update(Id: id, Username: username, Email: email, Bio: bio, Image: image);
+    public User? GetByEmail(string email) => _db.Users.GetByEmail(email);
+
+    public void UpdateProfile(int id, string username, string email, string bio, string? image, string? passwordHash = null)
+    {
+        string finalHash = passwordHash ?? _db.Users.GetById(id)!.PasswordHash;
+        _db.Users.Update(Id: id, Username: username, Email: email, Bio: bio, Image: image, PasswordHash: finalHash);
+    }
 
     public static string HashPassword(string password)
     {
