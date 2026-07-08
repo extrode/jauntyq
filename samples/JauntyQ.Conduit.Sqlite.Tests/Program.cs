@@ -174,6 +174,44 @@ api.MapGet("/tags", (JauntyDb db) =>
     return Results.Json(new TagsResponse(names));
 });
 
+api.MapGet("/articles/{slug}/comments", (string slug, ClaimsPrincipal principal, ArticleRepository articles, CommentRepository comments) =>
+{
+    int? articleId = articles.GetIdBySlug(slug);
+    if (articleId is null) return Results.NotFound();
+
+    var views = comments.GetByArticleId(articleId.Value, principal.GetUserId());
+    return Results.Json(new CommentsResponse(views));
+});
+
+api.MapPost("/articles/{slug}/comments", (string slug, AddCommentRequestEnvelope body, ClaimsPrincipal principal,
+    ArticleRepository articles, CommentRepository comments) =>
+{
+    int? articleId = articles.GetIdBySlug(slug);
+    if (articleId is null) return Results.NotFound();
+
+    int authorId = principal.GetUserId()!.Value;
+    int commentId = comments.Add(articleId.Value, authorId, body.Comment.Body, DateTime.UtcNow.ToString("O"));
+    var created = comments.GetByArticleId(articleId.Value, authorId).First(c => c.Id == commentId);
+    return Results.Json(new CommentResponseEnvelope(created), statusCode: StatusCodes.Status201Created);
+}).RequireAuthorization();
+
+api.MapDelete("/articles/{slug}/comments/{commentId:int}", (string slug, int commentId, ClaimsPrincipal principal,
+    ArticleRepository articles, CommentRepository comments, UserRepository users) =>
+{
+    int? articleId = articles.GetIdBySlug(slug);
+    if (articleId is null) return Results.NotFound();
+
+    int userId = principal.GetUserId()!.Value;
+    var existing = comments.GetByArticleId(articleId.Value, userId).FirstOrDefault(c => c.Id == commentId);
+    if (existing is null) return Results.NotFound();
+
+    var caller = users.GetById(userId)!;
+    if (existing.Author.Username != caller.Username) return Results.Forbid();
+
+    comments.Delete(commentId);
+    return Results.NoContent();
+}).RequireAuthorization();
+
 api.MapGet("/profiles/{username}", (string username, ClaimsPrincipal principal, ProfileRepository profiles) =>
 {
     var profile = profiles.GetProfile(username, principal.GetUserId());

@@ -42,6 +42,8 @@ public sealed class ArticleRepository
         return row is null ? null : ToView(row, viewerId);
     }
 
+    public int? GetIdBySlug(string slug) => _db.Articles.GetBySlug(slug)?.Id;
+
     public void Update(string slug, string title, string description, string body, string nowIso)
     {
         var row = _db.Articles.GetBySlug(slug);
