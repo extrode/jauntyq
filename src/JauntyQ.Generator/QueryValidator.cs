@@ -55,7 +55,7 @@ public static partial class QueryValidator
     /// </summary>
     private static void ValidateStatement(QueryModel query, DatabaseSchema schema,
         Dictionary<string, List<string>>? virtualTables, List<ValidationError> errors,
-        bool isSubquery = false)
+        bool isSubquery = false, Dictionary<string, string>? parentAliasToTable = null)
     {
         virtualTables ??= EmptyScope;
 
@@ -91,8 +91,18 @@ public static partial class QueryValidator
             }
         }
 
-        // Build alias-to-table map
+        // Build alias-to-table map. A predicate subquery (EXISTS/IN) can
+        // correlate back to the enclosing statement's own aliases in its WHERE
+        // clause (e.g. `exists (select 1 from t where t.x = outer.y)`), so it
+        // starts from the parent's map; its own tables take precedence on a
+        // name collision. Top-level statements and CTE bodies (never
+        // correlated) pass no parent map, so this is a no-op for them.
         var aliasToTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (parentAliasToTable != null)
+        {
+            foreach (var kv in parentAliasToTable)
+                aliasToTable[kv.Key] = kv.Value;
+        }
         foreach (var table in query.Tables)
         {
             string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
@@ -219,7 +229,7 @@ public static partial class QueryValidator
         // statement's result shape, so this runs after the outer checks.
         foreach (var sub in query.Subqueries)
         {
-            ValidateStatement(sub.Body, schema, virtualTables, errors, isSubquery: true);
+            ValidateStatement(sub.Body, schema, virtualTables, errors, isSubquery: true, parentAliasToTable: aliasToTable);
 
             if (sub.Kind == SubqueryKind.In)
             {

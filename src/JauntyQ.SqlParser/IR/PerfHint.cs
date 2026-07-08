@@ -6,7 +6,16 @@ public enum PerfHintKind
     FunctionOnColumn,
 
     /// <summary>WHERE column LIKE '%...' : a leading wildcard cannot seek an index.</summary>
-    LeadingWildcardLike
+    LeadingWildcardLike,
+
+    /// <summary>
+    /// WHERE column = column : an equality between two plain column references
+    /// (an implicit join or a correlated subquery's back-reference to an outer
+    /// alias, e.g. inside EXISTS/IN). Each side is captured as its own hint
+    /// carrying just that side's alias/column; unlike an explicit JOIN...ON,
+    /// this shape is only visible as a WHERE-clause token pattern.
+    /// </summary>
+    ColumnComparedToColumn
 }
 
 /// <summary>

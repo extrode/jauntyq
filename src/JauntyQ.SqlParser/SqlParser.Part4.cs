@@ -97,6 +97,35 @@ public static partial class SqlParser
                         BoundColumnName = columnName,
                         Detail = tokens[k + 1].Value
                     });
+                    continue;
+                }
+
+                // column = column : an implicit join / correlated back-reference
+                // (e.g. a predicate subquery's `atg.article_id = a.id`, where `a`
+                // is the enclosing statement's alias). Explicit JOIN...ON columns
+                // never reach here — that clause sits before WHERE, outside this
+                // bounded region — so this only catches WHERE-clause shapes an
+                // explicit join can't already surface.
+                if (i + 2 < end &&
+                    tokens[i + 1].Type == TokenType.Symbol && tokens[i + 1].Value == "=" &&
+                    tokens[i + 2].Type == TokenType.Identifier)
+                {
+                    var (leftAlias, leftColumn) = SplitQualifiedName(tokens[i].Value);
+                    var (rightAlias, rightColumn) = SplitQualifiedName(tokens[i + 2].Value);
+                    model.PerfHints.Add(new PerfHint
+                    {
+                        Kind = PerfHintKind.ColumnComparedToColumn,
+                        BoundTableAlias = leftAlias,
+                        BoundColumnName = leftColumn
+                    });
+                    model.PerfHints.Add(new PerfHint
+                    {
+                        Kind = PerfHintKind.ColumnComparedToColumn,
+                        BoundTableAlias = rightAlias,
+                        BoundColumnName = rightColumn
+                    });
+                    i += 2;
+                    continue;
                 }
             }
         }
