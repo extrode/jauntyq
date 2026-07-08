@@ -96,6 +96,25 @@ api.MapPut("/user", (UpdateUserRequestEnvelope body, ClaimsPrincipal principal, 
     return Results.Json(new UserResponseEnvelope(UserResponse.From(updated, token)));
 }).RequireAuthorization();
 
+api.MapGet("/articles", (string? tag, string? author, string? favorited, int? limit, int? offset,
+    ClaimsPrincipal principal, ArticleRepository articles) =>
+{
+    var (views, total) = articles.List(tag, author, favorited, offset ?? 0, limit ?? 20, principal.GetUserId());
+    return Results.Json(new ArticlesResponse(views, total));
+});
+
+api.MapGet("/articles/feed", (int? limit, int? offset, ClaimsPrincipal principal, ArticleRepository articles) =>
+{
+    var (views, total) = articles.Feed(principal.GetUserId()!.Value, offset ?? 0, limit ?? 20);
+    return Results.Json(new ArticlesResponse(views, total));
+}).RequireAuthorization();
+
+api.MapGet("/articles/{slug}", (string slug, ClaimsPrincipal principal, ArticleRepository articles) =>
+{
+    var article = articles.GetBySlug(slug, principal.GetUserId());
+    return article is null ? Results.NotFound() : Results.Json(new ArticleResponseEnvelope(article));
+});
+
 api.MapGet("/tags", (JauntyDb db) =>
 {
     var names = db.Tags.GetAll().Select(t => t.Name).ToList();
