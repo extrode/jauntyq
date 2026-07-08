@@ -5,6 +5,39 @@ namespace JauntyQ.Generator;
 
 public static partial class CodeEmitter
 {
+    /// <summary>
+    /// query.Parameters is ordered by each @name token's first appearance in
+    /// the SQL text, not by any author-declared order. When a `-- @params`
+    /// directive is present, its list is the one place a query author
+    /// explicitly states the intended parameter order — honor it, so the
+    /// generated method signature matches what a caller reading that
+    /// directive expects instead of silently differing (surprising for
+    /// positional calls, a CS1503 or silently-swapped argument otherwise).
+    /// Parameters the directive didn't mention (auto-inferred bound-column
+    /// params) keep their original first-appearance order, appended after.
+    /// </summary>
+    private static System.Collections.Generic.List<ParameterRef> OrderedParameters(QueryModel query, Directives.DirectiveModel? directives)
+    {
+        if (directives?.ExplicitParams == null || directives.ExplicitParams.Count == 0)
+            return query.Parameters;
+
+        var ordered = new System.Collections.Generic.List<ParameterRef>(query.Parameters.Count);
+        var used = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var ep in directives.ExplicitParams)
+        {
+            var match = query.Parameters.Find(p => string.Equals(p.Name, ep.Name, StringComparison.OrdinalIgnoreCase));
+            if (match != null && used.Add(match.Name))
+                ordered.Add(match);
+        }
+        foreach (var p in query.Parameters)
+        {
+            if (used.Add(p.Name))
+                ordered.Add(p);
+        }
+        return ordered;
+    }
+
     public static string Emit(QueryModel query, ProjectionModel projection, string originalSql, string entityName, DatabaseSchema? schema = null, Directives.DirectiveModel? directives = null, string? canonicalRowType = null)
     {
         var sb = new System.Text.StringBuilder();
@@ -74,7 +107,7 @@ public static partial class CodeEmitter
 
         // Build parameter lists
         var paramInfos = new System.Collections.Generic.List<EmittedParam>();
-        foreach (var param in query.Parameters)
+        foreach (var param in OrderedParameters(query, directives))
         {
             string paramType = InferCrudParameterType(param, query, schema, directives);
             bool isNullable = IsBoundColumnNullable(param, query, schema);
