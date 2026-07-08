@@ -96,6 +96,34 @@ api.MapPut("/user", (UpdateUserRequestEnvelope body, ClaimsPrincipal principal, 
     return Results.Json(new UserResponseEnvelope(UserResponse.From(updated, token)));
 }).RequireAuthorization();
 
+api.MapGet("/profiles/{username}", (string username, ClaimsPrincipal principal, ProfileRepository profiles) =>
+{
+    var profile = profiles.GetProfile(username, principal.GetUserId());
+    return profile is null ? Results.NotFound() : Results.Json(new ProfileResponseEnvelope(profile));
+});
+
+api.MapPost("/profiles/{username}/follow", (string username, ClaimsPrincipal principal, UserRepository users, ProfileRepository profiles) =>
+{
+    var target = users.GetByUsername(username);
+    if (target is null) return Results.NotFound();
+
+    int followerId = principal.GetUserId()!.Value;
+    profiles.Follow(followerId, target.Id);
+    var profile = profiles.GetProfile(username, followerId);
+    return Results.Json(new ProfileResponseEnvelope(profile!));
+}).RequireAuthorization();
+
+api.MapDelete("/profiles/{username}/follow", (string username, ClaimsPrincipal principal, UserRepository users, ProfileRepository profiles) =>
+{
+    var target = users.GetByUsername(username);
+    if (target is null) return Results.NotFound();
+
+    int followerId = principal.GetUserId()!.Value;
+    profiles.Unfollow(followerId, target.Id);
+    var profile = profiles.GetProfile(username, followerId);
+    return Results.Json(new ProfileResponseEnvelope(profile!));
+}).RequireAuthorization();
+
 app.Run();
 
 // Marker type WebApplicationFactory<Program> keys off; top-level-statement
