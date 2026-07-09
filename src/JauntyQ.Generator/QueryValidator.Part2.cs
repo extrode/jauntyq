@@ -25,6 +25,33 @@ public static partial class QueryValidator
                 "every unlinked table multiplies the result set (cartesian product)."));
         }
 
+        // JNT8006: an explicit join whose column pair matches no declared
+        // foreign key between the two tables. A real FK join is expected; a
+        // mismatch is either a wrong-column join (a bug returning wrong/slow
+        // results) or an unmodeled relationship. Skipped entirely when the
+        // snapshot carries no FK metadata, and per-join when either side does
+        // not resolve to a snapshot table (CTE/subquery/view) -- never guessed.
+        // Composite FKs are stored as one row per column pair, so pair-by-pair
+        // joins each match their own row and do not warn.
+        if (schema.ForeignKeys.Count > 0)
+        {
+            foreach (var join in query.Joins)
+            {
+                var leftCol = ResolveColumn(query, join.LeftTable, join.LeftColumn, aliasToTable, schema, out string? leftTable);
+                var rightCol = ResolveColumn(query, join.RightTable, join.RightColumn, aliasToTable, schema, out string? rightTable);
+                if (leftCol == null || rightCol == null || leftTable == null || rightTable == null)
+                    continue;
+
+                if (JoinMatchesForeignKey(schema, leftTable, leftCol.Name, rightTable, rightCol.Name))
+                    continue;
+
+                string message = $"Join {leftTable}.{leftCol.Name} = {rightTable}.{rightCol.Name} matches no declared foreign key: " +
+                                 "verify the join columns (a wrong-column join returns wrong or slow results).";
+                if (!errors.Exists(e => e.Code == "JNT8006" && e.Message == message))
+                    errors.Add(new ValidationError(JauntyDiagnostics.JNT8006, message));
+            }
+        }
+
         // JNT8002 / JNT8003 from parser-captured WHERE patterns
         foreach (var hint in query.PerfHints)
         {
@@ -151,6 +178,33 @@ public static partial class QueryValidator
         // one warning per column per query
         if (!errors.Exists(e => e.Code == "JNT8004" && e.Message == message))
             errors.Add(new ValidationError(JauntyDiagnostics.JNT8004, message));
+    }
+
+    /// <summary>
+    /// True when the joined column pair (already resolved to canonical table +
+    /// column names) matches a declared foreign key in either direction.
+    /// Composite FKs are stored one row per column pair, so a multi-column join
+    /// matches pair by pair. Comparison is case-insensitive.
+    /// </summary>
+    private static bool JoinMatchesForeignKey(
+        DatabaseSchema schema, string leftTable, string leftColumn, string rightTable, string rightColumn)
+    {
+        foreach (var fk in schema.ForeignKeys)
+        {
+            bool forward =
+                string.Equals(fk.FromTable, leftTable, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(fk.FromColumn, leftColumn, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(fk.ToTable, rightTable, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(fk.ToColumn, rightColumn, StringComparison.OrdinalIgnoreCase);
+            bool reverse =
+                string.Equals(fk.FromTable, rightTable, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(fk.FromColumn, rightColumn, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(fk.ToTable, leftTable, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(fk.ToColumn, leftColumn, StringComparison.OrdinalIgnoreCase);
+            if (forward || reverse)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>

@@ -296,4 +296,109 @@ public class PerfAnalyzerTests
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8005");
     }
+
+    // ── JNT8006: join columns form no declared foreign key ──────────────
+
+    // Same products/categories shape as SchemaJson, plus a declared FK
+    // products.category_id -> categories.category_id.
+    private const string SchemaWithFkJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""products"": {
+      ""name"": ""products"",
+      ""columns"": {
+        ""product_id"": { ""name"": ""product_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""product_name"": { ""name"": ""product_name"", ""dbType"": ""nvarchar"", ""isNullable"": false, ""maxLength"": 40 },
+        ""category_id"": { ""name"": ""category_id"", ""dbType"": ""int"", ""isNullable"": true }
+      },
+      ""indexes"": [
+        { ""name"": ""ix_products_category"", ""columns"": [""category_id""], ""isUnique"": false }
+      ]
+    },
+    ""categories"": {
+      ""name"": ""categories"",
+      ""columns"": {
+        ""category_id"": { ""name"": ""category_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""category_name"": { ""name"": ""category_name"", ""dbType"": ""nvarchar"", ""isNullable"": false, ""maxLength"": 30 }
+      },
+      ""indexes"": []
+    }
+  },
+  ""foreignKeys"": [
+    { ""fromTable"": ""products"", ""fromColumn"": ""category_id"", ""toTable"": ""categories"", ""toColumn"": ""category_id"" }
+  ]
+}";
+
+    private static GeneratorDriverRunResult RunFk(string sql)
+    {
+        var compilation = CSharpCompilation.Create("PerfFkTestAssembly",
+            new[] { CSharpSyntaxTree.ParseText("") },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
+            .AddAdditionalTexts(ImmutableArray.Create<AdditionalText>(
+                new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaWithFkJson),
+                new InMemoryAdditionalText("db/Products/TestQuery.sql", sql)))
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
+        return driver.GetRunResult();
+    }
+
+    [Fact]
+    public void JoinOnNonForeignKeyColumns_JNT8006()
+    {
+        // product_name = category_name: both columns exist, but the declared FK
+        // is category_id -> category_id, so this join is not a real FK.
+        var result = RunFk("select p.product_id, c.category_name\nfrom products p\njoin categories c on p.product_name = c.category_name");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT8006");
+        Assert.Equal(DiagnosticSeverity.Warning, diag.Severity);
+        Assert.Contains("products.product_name", diag.GetMessage());
+        Assert.Contains("categories.category_name", diag.GetMessage());
+        // warnings never block: the query still compiled
+        Assert.Contains(result.Results[0].GeneratedSources, s => s.HintName == "Products.TestQuery.g.cs");
+    }
+
+    [Fact]
+    public void JoinOnDeclaredForeignKey_NoWarning()
+    {
+        var result = RunFk("select p.product_id, c.category_name\nfrom products p\njoin categories c on p.category_id = c.category_id");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8006");
+    }
+
+    [Fact]
+    public void JoinOnForeignKeyReversedDirection_NoWarning()
+    {
+        // ON written with the FK's target table first; the match is direction-agnostic.
+        var result = RunFk("select p.product_id, c.category_name\nfrom products p\njoin categories c on c.category_id = p.category_id");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8006");
+    }
+
+    [Fact]
+    public void JoinToCteSide_Unresolvable_NoWarning()
+    {
+        // The join's right side resolves to a CTE (`cat`), not a snapshot table,
+        // so the FK graph cannot judge it — never guessed, never warned.
+        var result = RunFk(
+            "with cat as (select category_id, category_name from categories)\n" +
+            "select p.product_id, cat.category_name\n" +
+            "from products p\n" +
+            "join cat on p.category_id = cat.category_id");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8006");
+    }
+
+    [Fact]
+    public void SnapshotWithoutForeignKeyMetadata_JNT8006Suppressed()
+    {
+        // SchemaJson carries no foreignKeys: the check cannot fire even on a
+        // clearly-non-FK join.
+        var result = RunOne("select p.product_id, c.category_name\nfrom products p\njoin categories c on p.product_name = c.category_name");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8006");
+    }
 }
