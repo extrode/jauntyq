@@ -26,6 +26,14 @@ public readonly struct AnalysisDiagnostic
         Severity = severity;
     }
 
+    /// <summary>Creates an error-severity diagnostic.</summary>
+    public static AnalysisDiagnostic Error(string code, string message) =>
+        new(code, message, AnalysisSeverity.Error);
+
+    /// <summary>Creates a warning-severity diagnostic.</summary>
+    public static AnalysisDiagnostic Warning(string code, string message) =>
+        new(code, message, AnalysisSeverity.Warning);
+
     public override string ToString() => $"{Code}: {Message}";
 }
 

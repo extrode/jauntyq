@@ -1,4 +1,4 @@
-namespace JauntyQ.Generator;
+namespace JauntyQ.Analysis;
 
 public static class DialectMapper
 {

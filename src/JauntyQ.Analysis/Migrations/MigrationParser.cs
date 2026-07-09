@@ -2,7 +2,7 @@ using JauntyQ.Schema;
 using JauntyQ.SqlParser;
 using JauntyQ.SqlParser.Tokens;
 
-namespace JauntyQ.Generator.Migrations;
+namespace JauntyQ.Analysis.Migrations;
 
 /// <summary>
 /// Minimal DDL parser for migration files. Understands the statements that

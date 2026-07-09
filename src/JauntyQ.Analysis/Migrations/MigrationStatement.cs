@@ -1,6 +1,6 @@
 using JauntyQ.Schema;
 
-namespace JauntyQ.Generator.Migrations;
+namespace JauntyQ.Analysis.Migrations;
 
 public enum MigrationStatementKind
 {

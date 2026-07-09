@@ -1,3 +1,4 @@
+using JauntyQ.Analysis;
 using JauntyQ.Generator;
 using JauntyQ.Schema;
 using JauntyQ.SqlParser;

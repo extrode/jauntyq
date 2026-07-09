@@ -29,7 +29,16 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
-  <!-- Compile-include SqlParser and Schema sources for generator embedding -->
+  <!-- Global usings for the compile-included JauntyQ.Analysis kernel (the
+       generator consumes these primitives; DialectMapper/AutoCrud/UpsertKeyResolver
+       live in JauntyQ.Analysis, the migration types in JauntyQ.Analysis.Migrations). -->
+  <ItemGroup>
+    <Using Include="JauntyQ.Analysis" />
+    <Using Include="JauntyQ.Analysis.Migrations" />
+  </ItemGroup>
+  <!-- Compile-include SqlParser, Schema and the shared Analysis kernel for
+       generator embedding. The Generator is a Roslyn analyzer, so it embeds the
+       source rather than referencing the assemblies. -->
   <ItemGroup>
     <Compile Include="..\JauntyQ.SqlParser\**\*.cs"
              Exclude="..\JauntyQ.SqlParser\obj\**;..\JauntyQ.SqlParser\bin\**"
@@ -37,5 +46,8 @@
     <Compile Include="..\JauntyQ.Schema\**\*.cs"
              Exclude="..\JauntyQ.Schema\obj\**;..\JauntyQ.Schema\bin\**"
              Link="Embedded\Schema\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\JauntyQ.Analysis\**\*.cs"
+             Exclude="..\JauntyQ.Analysis\obj\**;..\JauntyQ.Analysis\bin\**"
+             Link="Embedded\Analysis\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

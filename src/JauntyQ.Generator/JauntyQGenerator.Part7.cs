@@ -126,16 +126,30 @@ internal sealed class SchemaState
         var ordered = new System.Collections.Generic.List<(string Name, string Text)>(files);
         ordered.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
 
-        var parsed = new System.Collections.Generic.List<(string FileName, System.Collections.Generic.List<Migrations.MigrationStatement> Statements)>();
+        var parsed = new System.Collections.Generic.List<(string FileName, System.Collections.Generic.List<MigrationStatement> Statements)>();
         foreach (var file in ordered)
-            parsed.Add((file.Name, Migrations.MigrationParser.Parse(file.Text)));
+            parsed.Add((file.Name, MigrationParser.Parse(file.Text)));
 
-        var errors = new System.Collections.Generic.List<ValidationError>();
-        var effective = Migrations.SchemaSimulator.Apply(baseSchema, parsed, errors);
+        var diags = new System.Collections.Generic.List<AnalysisDiagnostic>();
+        var effective = SchemaSimulator.Apply(baseSchema, parsed, diags);
 
-        foreach (var error in errors)
-            diagnostics.Add(DiagnosticInfo.From(error.Descriptor!, error.Message));
+        foreach (var d in diags)
+            diagnostics.Add(DiagnosticInfo.From(MigrationDescriptor(d.Code), d.Message));
 
         return effective;
     }
+
+    /// <summary>
+    /// Maps a Roslyn-free <see cref="AnalysisDiagnostic"/> code from the shared
+    /// migration simulator back to its Roslyn <c>DiagnosticDescriptor</c>. The
+    /// simulator only emits JNT9001 (unmodeled statement) and JNT9002 (invalid
+    /// operation); anything else falls back to JNT9002.
+    /// </summary>
+    private static DiagnosticDescriptor MigrationDescriptor(string code) => code switch
+    {
+        "JNT9001" => JauntyDiagnostics.JNT9001,
+        "JNT9002" => JauntyDiagnostics.JNT9002,
+        "JNT9003" => JauntyDiagnostics.JNT9003,
+        _ => JauntyDiagnostics.JNT9002,
+    };
 }

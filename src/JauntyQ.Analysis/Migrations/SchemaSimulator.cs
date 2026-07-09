@@ -1,6 +1,6 @@
 using JauntyQ.Schema;
 
-namespace JauntyQ.Generator.Migrations;
+namespace JauntyQ.Analysis.Migrations;
 
 /// <summary>
 /// Applies parsed migration statements to a clone of the schema snapshot,
@@ -14,7 +14,7 @@ public static class SchemaSimulator
     public static DatabaseSchema Apply(
         DatabaseSchema snapshot,
         IEnumerable<(string FileName, List<MigrationStatement> Statements)> migrations,
-        List<ValidationError> errors)
+        List<AnalysisDiagnostic> errors)
     {
         var schema = Clone(snapshot);
 
@@ -28,7 +28,7 @@ public static class SchemaSimulator
                         break;
 
                     case MigrationStatementKind.Unsupported:
-                        errors.Add(new ValidationError(JauntyDiagnostics.JNT9001,
+                        errors.Add(AnalysisDiagnostic.Warning("JNT9001",
                             $"{fileName}: statement not simulated (effective schema may be incomplete): {Truncate(stmt.RawText)}"));
                         break;
 
@@ -58,11 +58,11 @@ public static class SchemaSimulator
         return schema;
     }
 
-    private static void ApplyCreateTable(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<ValidationError> errors)
+    private static void ApplyCreateTable(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
         if (schema.Tables.ContainsKey(stmt.TableName))
         {
-            errors.Add(new ValidationError(JauntyDiagnostics.JNT9002,
+            errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: table '{stmt.TableName}' already exists. If this migration was already deployed, archive it and re-run 'jaunty schema pull'."));
             return;
         }
@@ -72,7 +72,7 @@ public static class SchemaSimulator
         {
             if (table.Columns.ContainsKey(col.Name))
             {
-                errors.Add(new ValidationError(JauntyDiagnostics.JNT9002,
+                errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: duplicate column '{col.Name}' in create table '{stmt.TableName}'."));
                 continue;
             }
@@ -81,11 +81,11 @@ public static class SchemaSimulator
         schema.Tables[stmt.TableName] = table;
     }
 
-    private static void ApplyDropTable(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<ValidationError> errors)
+    private static void ApplyDropTable(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
         if (!schema.Tables.Remove(stmt.TableName) && !stmt.IfExists)
         {
-            errors.Add(new ValidationError(JauntyDiagnostics.JNT9002,
+            errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot drop table '{stmt.TableName}': it does not exist in the effective schema."));
         }
         schema.ForeignKeys.RemoveAll(fk =>
@@ -93,11 +93,11 @@ public static class SchemaSimulator
             string.Equals(fk.ToTable, stmt.TableName, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static void ApplyAddColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<ValidationError> errors)
+    private static void ApplyAddColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
         if (!schema.Tables.TryGetValue(stmt.TableName, out var table))
         {
-            errors.Add(new ValidationError(JauntyDiagnostics.JNT9002,
+            errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot add column to '{stmt.TableName}': table does not exist in the effective schema."));
             return;
         }
@@ -105,7 +105,7 @@ public static class SchemaSimulator
         {
             if (table.Columns.ContainsKey(col.Name))
             {
-                errors.Add(new ValidationError(JauntyDiagnostics.JNT9002,
+                errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: column '{stmt.TableName}.{col.Name}' already exists. If this migration was already deployed, archive it and re-run 'jaunty schema pull'."));
                 continue;
             }
@@ -113,11 +113,11 @@ public static class SchemaSimulator
         }
     }
 
-    private static void ApplyDropColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<ValidationError> errors)
+    private static void ApplyDropColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
         if (!schema.Tables.TryGetValue(stmt.TableName, out var table))
         {
-            errors.Add(new ValidationError(JauntyDiagnostics.JNT9002,
+            errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot drop column from '{stmt.TableName}': table does not exist in the effective schema."));
             return;
         }
@@ -126,7 +126,7 @@ public static class SchemaSimulator
         {
             if (!table.Columns.ContainsKey(name))
             {
-                errors.Add(new ValidationError(JauntyDiagnostics.JNT9002,
+                errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: cannot drop column '{stmt.TableName}.{name}': it does not exist in the effective schema."));
                 continue;
             }
@@ -148,11 +148,11 @@ public static class SchemaSimulator
             stmt.ColumnNames.Any(n => string.Equals(fk.FromColumn, n, StringComparison.OrdinalIgnoreCase)));
     }
 
-    private static void ApplyAlterColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<ValidationError> errors)
+    private static void ApplyAlterColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
         if (!schema.Tables.TryGetValue(stmt.TableName, out var table))
         {
-            errors.Add(new ValidationError(JauntyDiagnostics.JNT9002,
+            errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot alter column on '{stmt.TableName}': table does not exist in the effective schema."));
             return;
         }
@@ -161,7 +161,7 @@ public static class SchemaSimulator
         {
             if (!table.Columns.TryGetValue(col.Name, out var existing))
             {
-                errors.Add(new ValidationError(JauntyDiagnostics.JNT9002,
+                errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: cannot alter column '{stmt.TableName}.{col.Name}': it does not exist in the effective schema."));
                 continue;
             }
