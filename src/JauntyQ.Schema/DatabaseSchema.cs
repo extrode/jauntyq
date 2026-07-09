@@ -25,4 +25,13 @@ public class DatabaseSchema
     /// </summary>
     [JsonPropertyName("procedures")]
     public Dictionary<string, ProcedureSchema> Procedures { get; set; } = new();
+
+    /// <summary>
+    /// Sequence objects that live in the database, keyed by name. Captured by
+    /// 'jaunty schema pull' so the generator can emit a typed
+    /// <c>db.Sequences.Next{Name}()</c> accessor. Only SQL Server and
+    /// PostgreSQL have a true sequence object; empty for MySQL and SQLite.
+    /// </summary>
+    [JsonPropertyName("sequences")]
+    public Dictionary<string, SequenceSchema> Sequences { get; set; } = new();
 }

@@ -31,7 +31,9 @@ public static partial class CodeEmitter
         return sb.ToString();
     }
 
-    public static string EmitJauntyDb(System.Collections.Generic.IEnumerable<string> entityNames)
+    public static string EmitJauntyDb(
+        System.Collections.Generic.IEnumerable<string> entityNames,
+        DatabaseSchema? schema = null)
     {
         var sb = new System.Text.StringBuilder();
 
@@ -136,10 +138,110 @@ public static partial class CodeEmitter
             sb.AppendLine($"        public {entity} {entity} => {fieldName} ??= new {entity}(this);");
         }
 
+        EmitSequenceAccessor(sb, schema);
+
         sb.AppendLine("    }");
         sb.AppendLine("}");
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Emits the lazily-constructed <c>db.Sequences</c> accessor plus its nested
+    /// <c>SequenceAccessor</c> class, one <c>Next{Name}()</c>/<c>Next{Name}Async()</c>
+    /// method per database sequence. Only SQL Server and PostgreSQL populate
+    /// <see cref="DatabaseSchema.Sequences"/>, so this is a no-op for other
+    /// dialects (and when the snapshot has no sequences at all). Each sequence
+    /// name flows into both a C# method name and an embedded SQL literal, so it
+    /// crosses the same trust boundary as table/column names: invalid raw
+    /// identifiers are skipped and the SQL side is emitted through
+    /// <see cref="IdentifierGuard.ToStringLiteral"/>.
+    /// </summary>
+    private static void EmitSequenceAccessor(System.Text.StringBuilder sb, DatabaseSchema? schema)
+    {
+        if (schema == null || schema.Sequences.Count == 0)
+            return;
+
+        // "SELECT NEXT VALUE FOR {name}" (SQL Server) vs "SELECT nextval('{name}')"
+        // (PostgreSQL). Any other dialect never populates Sequences, but guard
+        // anyway so a mislabeled snapshot emits nothing rather than wrong SQL.
+        bool isSqlServer = string.Equals(schema.Dialect, "sqlserver", System.StringComparison.OrdinalIgnoreCase);
+        bool isPostgres = string.Equals(schema.Dialect, "postgres", System.StringComparison.OrdinalIgnoreCase);
+        if (!isSqlServer && !isPostgres)
+            return;
+
+        var emitted = new System.Collections.Generic.List<(string Method, string Sql)>();
+        foreach (var seq in schema.Sequences.Values)
+        {
+            if (!IdentifierGuard.IsValidIdentifier(seq.Name))
+                continue; // hostile/unusable name: refuse to embed it in SQL
+
+            string method = "Next" + DialectMapper.ToPascalCase(seq.Name);
+            string literal = isSqlServer
+                ? "SELECT NEXT VALUE FOR " + seq.Name
+                : "SELECT nextval('" + seq.Name + "')";
+            emitted.Add((method, IdentifierGuard.ToStringLiteral(literal)));
+        }
+
+        if (emitted.Count == 0)
+            return;
+
+        sb.AppendLine();
+        sb.AppendLine("        private SequenceAccessor? _sequences;");
+        sb.AppendLine("        public SequenceAccessor Sequences => _sequences ??= new SequenceAccessor(this);");
+        sb.AppendLine();
+        sb.AppendLine("""
+        /// <summary>Typed accessors for the database's sequence objects; each
+        /// method advances the underlying sequence and returns the new value.</summary>
+        public sealed class SequenceAccessor
+        {
+            private readonly JauntyDb _db;
+
+            internal SequenceAccessor(JauntyDb db) => _db = db;
+
+            private long Scalar(string sql)
+            {
+                bool opened = _db.Connection.State != System.Data.ConnectionState.Open;
+                if (opened) _db.Connection.Open();
+                try
+                {
+                    using var cmd = _db.Connection.CreateCommand();
+                    cmd.CommandText = sql;
+                    cmd.Transaction = _db.CurrentTransaction;
+                    return System.Convert.ToInt64(cmd.ExecuteScalar());
+                }
+                finally
+                {
+                    if (opened) _db.Connection.Close();
+                }
+            }
+
+            private async System.Threading.Tasks.Task<long> ScalarAsync(string sql, System.Threading.CancellationToken cancellationToken)
+            {
+                bool opened = _db.Connection.State != System.Data.ConnectionState.Open;
+                if (opened) await _db.Connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    using var cmd = _db.Connection.CreateCommand();
+                    cmd.CommandText = sql;
+                    cmd.Transaction = _db.CurrentTransaction;
+                    return System.Convert.ToInt64(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false));
+                }
+                finally
+                {
+                    if (opened) _db.Connection.Close();
+                }
+            }
+""");
+
+        foreach (var (method, sqlLiteral) in emitted)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"            public long {method}() => Scalar(\"{sqlLiteral}\");");
+            sb.AppendLine($"            public System.Threading.Tasks.Task<long> {method}Async(System.Threading.CancellationToken cancellationToken = default) => ScalarAsync(\"{sqlLiteral}\", cancellationToken);");
+        }
+
+        sb.AppendLine("        }");
     }
 
     /// <summary>
