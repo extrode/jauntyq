@@ -92,6 +92,18 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // Tokenize (use cleaned SQL with directive lines removed)
         var tokens = SqlTokenizer.Tokenize(cleanedSql);
 
+        // JNT1002: an unterminated block comment or bracket-quoted identifier
+        // ran to end-of-input. Bail before parsing rather than let the parser
+        // work off a truncated/corrupted token stream.
+        int unterminatedIndex = tokens.FindIndex(t => t.Type == JauntyQ.SqlParser.Tokens.TokenType.Unterminated);
+        if (unterminatedIndex >= 0)
+        {
+            var unterminatedDiag = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+            unterminatedDiag.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT1002,
+                $"Unterminated {tokens[unterminatedIndex].Value}: reached end of file before finding its closing delimiter."));
+            return FileResult.WithDiagnostics(entityName, methodName, unterminatedDiag.ToImmutable());
+        }
+
         // Parse
         var queryModel = SqlParser.SqlParser.Parse(tokens, methodName);
 

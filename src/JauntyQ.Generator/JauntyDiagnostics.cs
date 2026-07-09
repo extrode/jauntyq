@@ -28,6 +28,14 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    public static readonly DiagnosticDescriptor JNT1002 = new(
+        "JNT1002",
+        "Unterminated Token",
+        "{0}",
+        "JauntyQ.Parsing",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 2xxx: Schema Validation ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT2001 = new(
@@ -203,6 +211,14 @@ public static class JauntyDiagnostics
     public static readonly DiagnosticDescriptor JNT7002 = new(
         "JNT7002",
         "Construct Unavailable On Dialect",
+        "{0}",
+        "JauntyQ.Dialect",
+        DiagnosticSeverity.Error,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT7003 = new(
+        "JNT7003",
+        "Unknown Dialect",
         "{0}",
         "JauntyQ.Dialect",
         DiagnosticSeverity.Error,

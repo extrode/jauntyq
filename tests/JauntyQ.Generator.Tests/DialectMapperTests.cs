@@ -40,6 +40,26 @@ public class DialectMapperTests
         Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp(dbType, isNullable));
     }
 
+    /// <summary>
+    /// Torture-test finding: MariaDB is intentionally absent -- it declares
+    /// "dialect": "mysql" since it's wire/SQL-compatible with MySQL for
+    /// everything the generator emits. Any other unrecognized string (typo,
+    /// unsupported engine) is unknown.
+    /// </summary>
+    [Theory]
+    [InlineData("sqlserver", true)]
+    [InlineData("SqlServer", true)]
+    [InlineData("postgres", true)]
+    [InlineData("sqlite", true)]
+    [InlineData("mysql", true)]
+    [InlineData("mariadb", false)]
+    [InlineData("oracle", false)]
+    [InlineData("", false)]
+    public void IsKnownDialect_RecognizesExactlyTheFourSupportedStrings(string dialect, bool expected)
+    {
+        Assert.Equal(expected, DialectMapper.IsKnownDialect(dialect));
+    }
+
     [Fact]
     public void UnrecognizedArrayElementType_StillDegradesToObjectArray()
     {

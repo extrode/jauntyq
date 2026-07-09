@@ -95,6 +95,28 @@ public static class DialectMapper
     }
 
     /// <summary>
+    /// The dialect strings every dialect-specific switch in the generator
+    /// (identity-insert SQL, upsert synthesis, etc.) actually has a case
+    /// for. MariaDB is intentionally absent: it is wire/SQL-compatible with
+    /// MySQL for everything the generator emits, so a MariaDB schema
+    /// snapshot should declare <c>"dialect": "mysql"</c> rather than
+    /// getting its own case.
+    /// </summary>
+    private static readonly HashSet<string> KnownDialects = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "sqlserver", "postgres", "sqlite", "mysql"
+    };
+
+    /// <summary>
+    /// True when <paramref name="dialect"/> is one of the strings the
+    /// generator's dialect-specific switches actually recognize — used to
+    /// surface JNT7003 instead of silently no-oping (or emitting SQL for
+    /// the wrong dialect) on a snapshot with a typo'd or unsupported
+    /// dialect string.
+    /// </summary>
+    public static bool IsKnownDialect(string dialect) => KnownDialects.Contains(dialect);
+
+    /// <summary>
     /// True when <see cref="MapDbTypeToCSharp"/> would fall through to the
     /// degraded "object" mapping for this db type — used to surface JNT2007
     /// instead of leaving the type-loss silent.

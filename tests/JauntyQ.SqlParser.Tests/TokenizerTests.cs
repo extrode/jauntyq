@@ -240,4 +240,44 @@ select product_id /* inline comment */ from products");
         Assert.Single(tokens);
         Assert.Equal(TokenType.End, tokens[0].Type);
     }
+
+    // ── Unterminated constructs: must stop, not silently consume to EOF ──
+
+    [Fact]
+    public void UnterminatedBlockComment_EmitsUnterminatedToken()
+    {
+        var tokens = SqlTokenizer.Tokenize("select id from users /* where id = @id");
+
+        Assert.Contains(tokens, t => t.Type == TokenType.Unterminated);
+        // Tokenizing stops immediately: nothing after the unterminated marker
+        // except the End sentinel.
+        int idx = tokens.FindIndex(t => t.Type == TokenType.Unterminated);
+        Assert.Equal(TokenType.End, tokens[idx + 1].Type);
+        Assert.Equal(idx + 2, tokens.Count);
+    }
+
+    [Fact]
+    public void TerminatedBlockComment_NoUnterminatedToken()
+    {
+        var tokens = SqlTokenizer.Tokenize("select id /* a comment */ from users");
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unterminated);
+    }
+
+    [Fact]
+    public void UnterminatedBracketIdentifier_EmitsUnterminatedToken()
+    {
+        var tokens = SqlTokenizer.Tokenize("select [Name From Products");
+
+        Assert.Contains(tokens, t => t.Type == TokenType.Unterminated);
+        int idx = tokens.FindIndex(t => t.Type == TokenType.Unterminated);
+        Assert.Equal(TokenType.End, tokens[idx + 1].Type);
+        Assert.Equal(idx + 2, tokens.Count);
+    }
+
+    [Fact]
+    public void TerminatedBracketIdentifier_NoUnterminatedToken()
+    {
+        var tokens = SqlTokenizer.Tokenize("select [Product Name] from products");
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unterminated);
+    }
 }
