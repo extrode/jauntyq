@@ -18,14 +18,23 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         context.RegisterPostInitializationOutput(static ctx =>
             ctx.AddSource("JauntyQShapeGuard.g.cs", SourceText.From(CodeEmitter.EmitShapeGuardSource(), Encoding.UTF8)));
 
-        // Collect SQL query files (migrations are a separate pipeline)
+        // Collect SQL query files (migrations and ddl are separate pipelines)
         var sqlFiles = context.AdditionalTextsProvider
-            .Where(static f => f.Path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) && !IsMigrationPath(f.Path));
+            .Where(static f => f.Path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase)
+                && !IsMigrationPath(f.Path) && !IsDdlPath(f.Path));
 
         // Migration files: db/migrations/NNNN_name.sql, applied to the
         // snapshot in filename order to form the effective schema.
         var migrationFiles = context.AdditionalTextsProvider
             .Where(static f => f.Path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) && IsMigrationPath(f.Path))
+            .Select(static (f, ct) => (Name: System.IO.Path.GetFileName(f.Path), Text: f.GetText(ct)?.ToString() ?? ""))
+            .Collect();
+
+        // DDL files: db/ddl/*.sql, CREATE TABLE / ALTER TABLE statements that
+        // define the base schema when no JSON snapshot is pulled. Consulted
+        // only in that case; a JSON snapshot always wins when present.
+        var ddlFiles = context.AdditionalTextsProvider
+            .Where(static f => f.Path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) && IsDdlPath(f.Path))
             .Select(static (f, ct) => (Name: System.IO.Path.GetFileName(f.Path), Text: f.GetText(ct)?.ToString() ?? ""))
             .Collect();
 
@@ -37,12 +46,27 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         var schemaText = schemaFiles.Collect().Select(static (files, _) =>
             files.IsEmpty ? null : files[0].GetText()?.ToString());
 
+        // Dialect override for DDL-as-schema-source mode: with no JSON snapshot
+        // there is nothing to infer the dialect from, so the consumer declares
+        // it via <JauntyQDialect>sqlserver</JauntyQDialect> (or postgres/mysql/
+        // sqlite). Absent/empty when not set; only consulted in DDL mode.
+        var dialectOverride = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) =>
+            provider.GlobalOptions.TryGetValue("build_property.JauntyQDialect", out var value) ? value : "");
+
         // Parse the snapshot once and apply pending migrations to produce
         // the EFFECTIVE schema that validation and emission run against.
-        // Cached until the snapshot json or any migration text changes.
+        // Cached until the snapshot json or any migration/ddl text changes.
+        // When there is no JSON snapshot, db/ddl/*.sql builds the base schema
+        // (dialect from JauntyQDialect); JSON always wins when present.
         var schemaState = schemaText
             .Combine(migrationFiles)
-            .Select(static (pair, _) => SchemaState.Load(pair.Left, pair.Right));
+            .Combine(ddlFiles)
+            .Combine(dialectOverride)
+            .Select(static (pair, _) =>
+            {
+                var (((json, migrations), ddl), dialect) = pair;
+                return SchemaState.Load(json, migrations, ddl, dialect);
+            });
 
         // Auto-CRUD is on unless the consumer sets <JauntyQAutoCrud>false</JauntyQAutoCrud>
         var autoCrudEnabled = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) =>

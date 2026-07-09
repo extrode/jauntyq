@@ -75,6 +75,26 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     }
 
     /// <summary>
+    /// Files under a "ddl" directory segment are CREATE TABLE / ALTER TABLE
+    /// statements that DEFINE the base schema when no JSON snapshot has been
+    /// pulled. Convention: db/ddl/*.sql, applied in filename order to build an
+    /// initial schema from an empty database. This is deliberately a distinct
+    /// folder from "migrations": db/ddl/*.sql is the baseline schema source,
+    /// while db/migrations/*.sql is incremental change ON TOP of a baseline
+    /// (a JSON snapshot today, or a ddl-built schema now). Keep query entity
+    /// folders away from both names.
+    /// </summary>
+    internal static bool IsDdlPath(string path)
+    {
+        foreach (var segment in path.Replace('\\', '/').Split('/'))
+        {
+            if (string.Equals(segment, "ddl", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Extracts the entity name from a SQL file path by comparing to the common directory prefix.
     /// Files directly in the root SQL folder get entity name "Queries" (catch-all).
     /// Files in a subfolder get the subfolder name as entity name.
