@@ -5,22 +5,19 @@ namespace JauntyQ.Generator;
 public static partial class CodeEmitter
 {
     /// <summary>
-    /// Resolves the schema column a parameter is bound to (CRUD target table
-    /// first, then alias-qualified, then unique unqualified match).
+    /// Resolves the schema column a parameter is bound to (explicit
+    /// alias-qualification first, then the CRUD target table, then a unique
+    /// unqualified match). An explicit qualifier (e.g. <c>e.outcome</c> in an
+    /// INSERT...SELECT's source WHERE clause) must win over the CRUD target
+    /// table even when the target table happens to have a same-named column —
+    /// otherwise a write-target column silently shadows the column the SQL
+    /// actually references.
     /// </summary>
     private static ColumnSchema? ResolveBoundColumn(ParameterRef param, QueryModel query, DatabaseSchema? schema, out string? tableName)
     {
         tableName = null;
         if (schema == null || string.IsNullOrEmpty(param.BoundColumnName))
             return null;
-
-        if (query.TargetTable != null &&
-            schema.Tables.TryGetValue(query.TargetTable, out var target) &&
-            target.Columns.TryGetValue(param.BoundColumnName, out var targetCol))
-        {
-            tableName = query.TargetTable;
-            return targetCol;
-        }
 
         if (!string.IsNullOrEmpty(param.BoundTableAlias))
         {
@@ -33,6 +30,14 @@ public static partial class CodeEmitter
                 return aliasedCol;
             }
             return null;
+        }
+
+        if (query.TargetTable != null &&
+            schema.Tables.TryGetValue(query.TargetTable, out var target) &&
+            target.Columns.TryGetValue(param.BoundColumnName, out var targetCol))
+        {
+            tableName = query.TargetTable;
+            return targetCol;
         }
 
         foreach (var table in query.Tables)

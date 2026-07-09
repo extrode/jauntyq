@@ -143,13 +143,7 @@ public static partial class CodeEmitter
     }
 
     private static bool IsBoundColumnNullable(ParameterRef param, QueryModel query, DatabaseSchema? schema)
-    {
-        if (schema == null || string.IsNullOrEmpty(param.BoundColumnName) || query.TargetTable == null)
-            return false;
-        return schema.Tables.TryGetValue(query.TargetTable, out var tableSchema)
-            && tableSchema.Columns.TryGetValue(param.BoundColumnName, out var col)
-            && col.IsNullable;
-    }
+        => ResolveBoundColumn(param, query, schema, out _)?.IsNullable ?? false;
 
     internal static string InferCrudParameterType(ParameterRef param, QueryModel query, DatabaseSchema? schema, Directives.DirectiveModel? directives = null)
     {
@@ -165,20 +159,12 @@ public static partial class CodeEmitter
 
         if (!string.IsNullOrEmpty(param.BoundColumnName) && schema != null)
         {
-            // For CRUD, the target table is the primary table
-            string? targetTable = query.TargetTable;
-            if (targetTable != null && schema.Tables.TryGetValue(targetTable, out var tableSchema))
-            {
-                if (tableSchema.Columns.TryGetValue(param.BoundColumnName, out var colSchema))
-                {
-                    return DialectMapper.MapColumnToCSharp(colSchema);
-                }
-            }
-
-            // Fallback: try alias-based resolution
-            var resolved = ResolveColumnType(param.BoundTableAlias, param.BoundColumnName, query, schema);
-            if (resolved != null)
-                return resolved;
+            // Alias-qualified first, then the CRUD target table, then a
+            // unique unqualified match (see ResolveBoundColumn for why an
+            // explicit qualifier must not be shadowed by the target table).
+            var resolvedCol = ResolveBoundColumn(param, query, schema, out _);
+            if (resolvedCol != null)
+                return DialectMapper.MapColumnToCSharp(resolvedCol);
 
             // Feature B fallback: for INSERT...SELECT the source tables are on
             // the model, and for a WITH chain the binding may resolve inside a
