@@ -369,4 +369,17 @@ public class ExpressionAndCteTests
 
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT1002");
     }
+
+    // ── Oversized input (JNT1003) ──
+
+    [Fact]
+    public void OversizedInput_JNT1003_NoEmit()
+    {
+        var sql = "select id from users where id = @id\n" +
+            new string(' ', JauntyQ.SqlParser.SqlTokenizer.MaxInputLength);
+        var (result, _) = Run(sql, "db/Users/GetById.sql");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT1003");
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains("Users.GetById.g.cs"));
+    }
 }

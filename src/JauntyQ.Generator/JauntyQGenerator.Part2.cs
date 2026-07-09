@@ -92,6 +92,17 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // Tokenize (use cleaned SQL with directive lines removed)
         var tokens = SqlTokenizer.Tokenize(cleanedSql);
 
+        // JNT1003: input exceeded the tokenizer's size cap and was refused
+        // before any tokenizing happened. Bail before parsing.
+        int tooLargeIndex = tokens.FindIndex(t => t.Type == JauntyQ.SqlParser.Tokens.TokenType.TooLarge);
+        if (tooLargeIndex >= 0)
+        {
+            var tooLargeDiag = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+            tooLargeDiag.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT1003,
+                $"SQL text is {tokens[tooLargeIndex].Value} characters, exceeding the {SqlTokenizer.MaxInputLength}-character limit; refusing to tokenize."));
+            return FileResult.WithDiagnostics(entityName, methodName, tooLargeDiag.ToImmutable());
+        }
+
         // JNT1002: an unterminated block comment or bracket-quoted identifier
         // ran to end-of-input. Bail before parsing rather than let the parser
         // work off a truncated/corrupted token stream.

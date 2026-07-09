@@ -280,4 +280,26 @@ select product_id /* inline comment */ from products");
         var tokens = SqlTokenizer.Tokenize("select [Product Name] from products");
         Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unterminated);
     }
+
+    // ── Input size cap: refuse oversized input, don't crash or silently pass ──
+
+    [Fact]
+    public void OversizedInput_EmitsTooLargeToken()
+    {
+        var oversized = new string('a', SqlTokenizer.MaxInputLength + 1);
+        var tokens = SqlTokenizer.Tokenize(oversized);
+
+        Assert.Contains(tokens, t => t.Type == TokenType.TooLarge);
+        int idx = tokens.FindIndex(t => t.Type == TokenType.TooLarge);
+        Assert.Equal(TokenType.End, tokens[idx + 1].Type);
+        Assert.Equal(idx + 2, tokens.Count);
+    }
+
+    [Fact]
+    public void InputAtCap_NoTooLargeToken()
+    {
+        var atCap = new string('a', SqlTokenizer.MaxInputLength);
+        var tokens = SqlTokenizer.Tokenize(atCap);
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.TooLarge);
+    }
 }
