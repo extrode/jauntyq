@@ -40,6 +40,17 @@ public class AutoCrudTests
         ""customer_id"": { ""name"": ""customer_id"", ""dbType"": ""varchar"", ""isNullable"": false, ""isPrimaryKey"": true },
         ""company_name"": { ""name"": ""company_name"", ""dbType"": ""varchar"", ""isNullable"": false }
       }
+    },
+    ""mail_queue"": {
+      ""name"": ""mail_queue"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""idempotency_key"": { ""name"": ""idempotency_key"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""payload"": { ""name"": ""payload"", ""dbType"": ""varchar"", ""isNullable"": false }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_mail_queue_idempotency_key"", ""columns"": [""idempotency_key""], ""isUnique"": true }
+      ]
     }
   },
   ""foreignKeys"": [
@@ -193,6 +204,53 @@ public class AutoCrudTests
         var mySource = TryGetSource(my, "Customers.Upsert.auto.g.cs");
         Assert.NotNull(mySource);
         Assert.Contains("on duplicate key update company_name = values(company_name)", mySource);
+    }
+
+    [Fact]
+    public void Upsert_IdentityOnlyKey_UsesSecondaryUniqueIndexInstead()
+    {
+        var (result, compilation) = RunAutoCrud();
+
+        // mail_queue: identity-only PK ("id"), but ux_mail_queue_idempotency_key
+        // is a secondary UNIQUE index -> upsert IS synthesized, keyed on it.
+        var upsert = TryGetSource(result, "MailQueue.Upsert.auto.g.cs");
+        Assert.NotNull(upsert);
+        Assert.Contains("merge into mail_queue with (holdlock) as target", upsert);
+        Assert.Contains("on target.idempotency_key = src.idempotency_key", upsert);
+        Assert.Contains("when matched then update set payload = src.payload", upsert);
+        Assert.Contains("when not matched then insert (idempotency_key, payload) values (src.idempotency_key, src.payload)", upsert);
+
+        // the database-assigned identity column is never a caller-supplied arg
+        Assert.Contains("public int Upsert(string idempotency_key, string payload)", upsert);
+        Assert.DoesNotContain("int id", upsert);
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Upsert_IdentityOnlyKey_PostgresAndMySql_KeyOnSecondaryUniqueIndex()
+    {
+        var (pg, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"postgres\""));
+        var pgSource = TryGetSource(pg, "MailQueue.Upsert.auto.g.cs");
+        Assert.NotNull(pgSource);
+        Assert.Contains("insert into mail_queue (idempotency_key, payload)", pgSource);
+        Assert.Contains("on conflict (idempotency_key) do update set payload = excluded.payload", pgSource);
+
+        var (my, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"mysql\""));
+        var mySource = TryGetSource(my, "MailQueue.Upsert.auto.g.cs");
+        Assert.NotNull(mySource);
+        Assert.Contains("insert into mail_queue (idempotency_key, payload)", mySource);
+        Assert.Contains("on duplicate key update payload = values(payload)", mySource);
+    }
+
+    [Fact]
+    public void Upsert_IdentityOnlyKey_PocoOverload_OmitsIdentityColumn()
+    {
+        var (result, _) = RunAutoCrud();
+
+        var poco = TryGetSource(result, "MailQueue.Poco.auto.g.cs");
+        Assert.NotNull(poco);
+        Assert.Contains("public int Upsert(MailQueueRow row) => Upsert(row.IdempotencyKey, row.Payload);", poco);
     }
 
     [Fact]

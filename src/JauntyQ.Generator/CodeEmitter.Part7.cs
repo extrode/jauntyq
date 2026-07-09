@@ -115,7 +115,16 @@ public static partial class CodeEmitter
 
         if (hasUpsert)
         {
-            Forward("Upsert", columns.FindAll(c => !c.IsRowVersion));
+            // Must match EmitUpsert's own column set exactly: when the PK is
+            // identity-only and a secondary UNIQUE index is the upsert key,
+            // the identity column is database-assigned and never a caller-
+            // supplied argument.
+            var upsertKey = ResolveUpsertKey(tableSchema);
+            bool upsertUsesAlternateKey = upsertKey != null && upsertKey.Exists(c => !c.IsPrimaryKey);
+            var upsertCols = upsertUsesAlternateKey
+                ? columns.FindAll(c => !c.IsRowVersion && !c.IsIdentity)
+                : columns.FindAll(c => !c.IsRowVersion);
+            Forward("Upsert", upsertCols);
         }
 
         sb.AppendLine("    }");

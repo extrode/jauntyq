@@ -98,33 +98,49 @@ public static partial class CodeEmitter
     /// so the fixed Size can never truncate; comparison parameters size
     /// dynamically because a truncated key could match the wrong row.
     /// </summary>
-    private static void EmitParameterSizing(System.Text.StringBuilder sb, EmittedParam param, string varName)
+    private static void EmitParameterSizing(System.Text.StringBuilder sb, EmittedParam param, string varName) =>
+        EmitParameterSizing(sb, param.CSharpType, param.MaxLength, param.Precision, param.Scale, param.IsWriteTarget, varName, param.Name);
+
+    /// <summary>
+    /// Same DbParameter.Size / Precision / Scale sizing, but for a value
+    /// expression that is not simply "the parameter itself" — namely one
+    /// element of a -- @each list (<see cref="EmitEachParameterBinding"/>),
+    /// whose value expression is "list[i]", not the list parameter's own
+    /// name, and whose emitted lines sit one nesting level deeper (inside
+    /// the each-loop's own for-block). -- @each params are always comparison
+    /// (IN-list) params, never write targets, so the dynamic-sizing branch
+    /// is the only one reachable from that caller; the write-target branch
+    /// exists for the plain single-value overload above.
+    /// </summary>
+    private static void EmitParameterSizing(
+        System.Text.StringBuilder sb, string csharpType, int? maxLength, int? precision, int? scale,
+        bool isWriteTarget, string varName, string valueExpr, string indent = "                ")
     {
-        bool isText = param.CSharpType is "string" or "string?";
-        bool isBinary = param.CSharpType is "byte[]" or "byte[]?";
-        if ((isText || isBinary) && param.MaxLength is int max)
+        bool isText = csharpType is "string" or "string?";
+        bool isBinary = csharpType is "byte[]" or "byte[]?";
+        if ((isText || isBinary) && maxLength is int max)
         {
             if (max < 0)
             {
-                sb.AppendLine($"                {varName}.Size = -1;");
+                sb.AppendLine($"{indent}{varName}.Size = -1;");
             }
-            else if (param.IsWriteTarget)
+            else if (isWriteTarget)
             {
-                sb.AppendLine($"                {varName}.Size = {max};");
+                sb.AppendLine($"{indent}{varName}.Size = {max};");
             }
             else
             {
-                string sizeExpr = param.CSharpType is "string" or "byte[]"
-                    ? $"{param.Name}.Length > {max} ? {param.Name}.Length : {max}"
-                    : $"{param.Name} == null ? {max} : ({param.Name}.Length > {max} ? {param.Name}.Length : {max})";
-                sb.AppendLine($"                {varName}.Size = {sizeExpr};");
+                string sizeExpr = csharpType is "string" or "byte[]"
+                    ? $"{valueExpr}.Length > {max} ? {valueExpr}.Length : {max}"
+                    : $"{valueExpr} == null ? {max} : ({valueExpr}.Length > {max} ? {valueExpr}.Length : {max})";
+                sb.AppendLine($"{indent}{varName}.Size = {sizeExpr};");
             }
         }
 
-        if (param.CSharpType is "decimal" or "decimal?" && param.Precision is int precision && precision > 0)
+        if (csharpType is "decimal" or "decimal?" && precision is int prec && prec > 0)
         {
-            sb.AppendLine($"                {varName}.Precision = {precision};");
-            sb.AppendLine($"                {varName}.Scale = {param.Scale ?? 0};");
+            sb.AppendLine($"{indent}{varName}.Precision = {prec};");
+            sb.AppendLine($"{indent}{varName}.Scale = {scale ?? 0};");
         }
     }
 

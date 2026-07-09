@@ -204,6 +204,22 @@ public class EachDirectiveTests
     }
 
     [Fact]
+    public void Each_Sqlite_StringElement_SizesEachParameterDynamically()
+    {
+        // product_name is varchar(40): each bound element must size to
+        // max(its own length, 40), same defense a plain (non-each) string
+        // comparison parameter gets — an oversize element must never clip
+        // down to 40 chars and falsely match a shorter stored value.
+        string sql = "-- @each Names\nselect product_id, product_name from products where product_name in (@Names)";
+        var result = Run(sql);
+        string src = QuerySource(result);
+
+        Assert.Contains(
+            "p0.Size = Names[__ib_Names].Length > 40 ? Names[__ib_Names].Length : 40;",
+            src);
+    }
+
+    [Fact]
     public void GeneratedEachCode_ParsesClean()
     {
         var result = Run(EachSql);

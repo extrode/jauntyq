@@ -229,6 +229,13 @@ public static partial class CodeEmitter
         sb.AppendLine($"                    {varName}.ParameterName = \"@{param.Name}\" + {loopVar};");
         if (adoDbType != null)
             sb.AppendLine($"                    {varName}.DbType = System.Data.DbType.{adoDbType};");
+        // -- @each params are always comparison (IN-list) params, never write
+        // targets: same "size to fit the actual value" defense as a plain
+        // comparison parameter (CodeEmitter.Part2.cs's EmitParameterSizing),
+        // so an oversize element can never get clipped down to a shorter
+        // stored value and falsely match it.
+        EmitParameterSizing(sb, elementType, param.MaxLength, param.Precision, param.Scale,
+            isWriteTarget: false, varName, $"{param.Name}[{loopVar}]", indent: "                    ");
         sb.AppendLine(IsNonNullableValueType(elementType)
             ? $"                    {varName}.Value = {param.Name}[{loopVar}];"
             : $"                    {varName}.Value = (object?){param.Name}[{loopVar}] ?? System.DBNull.Value;");
