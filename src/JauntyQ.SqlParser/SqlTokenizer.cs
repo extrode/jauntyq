@@ -17,8 +17,28 @@ public static class SqlTokenizer
         "CAST", "COALESCE", "NULLIF", "WITH", "RECURSIVE", "RETURNING"
     };
 
+    /// <summary>
+    /// Upper bound on the length of SQL text the tokenizer will process. 1 MiB
+    /// is far larger than any legitimate hand-written query file, but caps the
+    /// worst-case the notes the tokenizer will do on a pathological or
+    /// accidentally-huge input.
+    /// </summary>
+    public const int MaxInputLength = 1_048_576;
+
     public static List<Token> Tokenize(string sql)
     {
+        // Refuse oversized input outright: bail with a TooLarge sentinel rather
+        // than tokenize, mirroring the two-token shape used by the unterminated
+        // cases below.
+        if (sql.Length > MaxInputLength)
+        {
+            return new List<Token>
+            {
+                new Token(TokenType.TooLarge, sql.Length.ToString()),
+                new Token(TokenType.End, string.Empty)
+            };
+        }
+
         var tokens = new List<Token>();
         int pos = 0;
         int len = sql.Length;

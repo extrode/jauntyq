@@ -23,5 +23,13 @@ public enum TokenType
     /// </summary>
     Unterminated,
 
+    /// <summary>
+    /// The input SQL exceeded <see cref="SqlTokenizer.MaxInputLength"/>. The
+    /// tokenizer refuses to run rather than do worst-case work on a pathological
+    /// or accidentally-huge input; <see cref="Token.Value"/> holds the actual
+    /// character count.
+    /// </summary>
+    TooLarge,
+
     End
 }
