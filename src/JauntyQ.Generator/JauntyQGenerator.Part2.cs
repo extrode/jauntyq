@@ -314,6 +314,24 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             source = CodeEmitter.Emit(queryModel, projection, cleanedSql, entityName, schema, directives, canonicalRowType);
         }
 
+        // Build-time RISKY impact (JNT9004): this file passed validation against
+        // the effective (post-migration) schema, so it is SAFE or RISKY — a
+        // breaking migration already failed above via the JNT2xxx validation
+        // errors. Flag the RISKY tier as a non-fatal warning without changing
+        // what fails the build.
+        if (schemaState.MigrationDelta != null)
+        {
+            var impactInput = new QueryImpactInput(sqlFile.Path, $"{entityName}.{methodName}",
+                ReferencedObjects.Resolve(queryModel));
+            var impact = ImpactClassifier.ClassifySingle(schemaState.MigrationDelta, impactInput);
+            if (impact.Classification == Classification.Risky)
+            {
+                var reasons = string.Join("; ", impact.Reasons.Select(r => $"{r.SchemaObject} {r.Effect}"));
+                diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT9004,
+                    $"{entityName}.{methodName}: {reasons}"));
+            }
+        }
+
         return new FileResult(
             $"{entityName}.{methodName}.g.cs",
             source,

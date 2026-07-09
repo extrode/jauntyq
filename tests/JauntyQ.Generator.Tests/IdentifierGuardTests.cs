@@ -1,3 +1,4 @@
+using JauntyQ.Analysis;
 using JauntyQ.Generator;
 using Xunit;
 

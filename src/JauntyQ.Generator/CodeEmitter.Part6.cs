@@ -13,37 +13,8 @@ public static partial class CodeEmitter
     /// by an idempotency token instead). Null when neither exists: callers
     /// skip Upsert synthesis for that table.
     /// </summary>
-    internal static List<ColumnSchema>? ResolveUpsertKey(TableSchema tableSchema)
-    {
-        var columns = tableSchema.Columns.Values.Where(c => !c.IsRowVersion).ToList();
-        var pkCols = columns.FindAll(c => c.IsPrimaryKey);
-        if (pkCols.Count == 0)
-            return null;
-        if (!pkCols.All(c => c.IsIdentity))
-            return pkCols;
-
-        foreach (var index in tableSchema.Indexes)
-        {
-            if (!index.IsUnique || index.Columns.Count == 0)
-                continue;
-
-            var keyCols = new List<ColumnSchema>();
-            bool allResolved = true;
-            foreach (var colName in index.Columns)
-            {
-                var col = columns.Find(c => string.Equals(c.Name, colName, StringComparison.OrdinalIgnoreCase));
-                if (col == null || col.IsIdentity)
-                {
-                    allResolved = false;
-                    break;
-                }
-                keyCols.Add(col);
-            }
-            if (allResolved)
-                return keyCols;
-        }
-        return null;
-    }
+    internal static List<ColumnSchema>? ResolveUpsertKey(TableSchema tableSchema) =>
+        UpsertKeyResolver.Resolve(tableSchema);
 
     /// <summary>
     /// Dialect-native upsert keyed on ResolveUpsertKey's result (the primary

@@ -1,6 +1,6 @@
 using JauntyQ.Schema;
 
-namespace JauntyQ.Generator;
+namespace JauntyQ.Analysis;
 
 /// <summary>
 /// Synthesizes CRUD SQL for every table in the schema snapshot so consumers get
@@ -140,12 +140,12 @@ public static class AutoCrud
 
             // Upsert — dialect-native, keyed on the PK, or (when the PK is
             // entirely database-assigned) on a secondary UNIQUE index
-            // instead (CodeEmitter.ResolveUpsertKey — e.g. an idempotency-key
+            // instead (UpsertKeyResolver.Resolve — e.g. an idempotency-key
             // column on an identity-PK queue table). Skipped when there's no
             // usable key at all, or no non-key columns to update. Rowversion
             // columns are excluded inside EmitUpsert; upsert is deliberately
             // last-writer-wins (documented).
-            var upsertKey = CodeEmitter.ResolveUpsertKey(table);
+            var upsertKey = UpsertKeyResolver.Resolve(table);
             bool hasNonKeyColumns = upsertKey != null &&
                 columns.Any(c => !c.IsRowVersion && !upsertKey.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
             if (upsertKey != null && hasNonKeyColumns && !string.IsNullOrEmpty(schema.Dialect))

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using JauntyQ.Analysis;
 using JauntyQ.Generator;
 using JauntyQ.Schema;
 using Xunit;

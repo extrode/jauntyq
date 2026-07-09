@@ -1,4 +1,5 @@
-using JauntyQ.Generator.Migrations;
+using JauntyQ.Analysis;
+using JauntyQ.Analysis.Migrations;
 using JauntyQ.Schema;
 using Xunit;
 
@@ -178,9 +179,9 @@ public class SchemaSimulatorTests
         return schema;
     }
 
-    private static (DatabaseSchema Schema, List<ValidationError> Errors) Apply(DatabaseSchema snapshot, string sql, string file = "0001_test.sql")
+    private static (DatabaseSchema Schema, List<AnalysisDiagnostic> Errors) Apply(DatabaseSchema snapshot, string sql, string file = "0001_test.sql")
     {
-        var errors = new List<ValidationError>();
+        var errors = new List<AnalysisDiagnostic>();
         var effective = SchemaSimulator.Apply(snapshot,
             new[] { (file, MigrationParser.Parse(sql)) }, errors);
         return (effective, errors);
@@ -271,7 +272,7 @@ alter table products add supplier_note nvarchar(50) null;
 
         var error = Assert.Single(errors);
         Assert.Equal("JNT9001", error.Code);
-        Assert.Equal(ValidationSeverity.Warning, error.Severity);
+        Assert.Equal(AnalysisSeverity.Warning, error.Severity);
     }
 
     [Fact]
