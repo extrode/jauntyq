@@ -1,0 +1,452 @@
+{
+  "dialect": "sqlserver",
+  "tables": {
+    "article_tags": {
+      "name": "article_tags",
+      "columns": {
+        "article_id": {
+          "name": "article_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "tag_id": {
+          "name": "tag_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "PK__article___BE9F8F1CA1B2C3D4",
+          "columns": [
+            "article_id",
+            "tag_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "articles": {
+      "name": "articles",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "slug": {
+          "name": "slug",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 255,
+          "isUnicode": false,
+          "isRowVersion": false
+        },
+        "title": {
+          "name": "title",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": -1,
+          "isUnicode": false,
+          "isRowVersion": false
+        },
+        "description": {
+          "name": "description",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": -1,
+          "isUnicode": false,
+          "isRowVersion": false
+        },
+        "body": {
+          "name": "body",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": -1,
+          "isUnicode": false,
+          "isRowVersion": false
+        },
+        "author_id": {
+          "name": "author_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 64,
+          "isUnicode": false,
+          "isRowVersion": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 64,
+          "isUnicode": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "PK__articles__3213E83FA1B2C3D5",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "UQ__articles__slug_A1B2C3D6",
+          "columns": [
+            "slug"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "comments": {
+      "name": "comments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "article_id": {
+          "name": "article_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "author_id": {
+          "name": "author_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "body": {
+          "name": "body",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": -1,
+          "isUnicode": false,
+          "isRowVersion": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 64,
+          "isUnicode": false,
+          "isRowVersion": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 64,
+          "isUnicode": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "PK__comments__3213E83FA1B2C3D7",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "idx_comments_article_id",
+          "columns": [
+            "article_id"
+          ],
+          "isUnique": false
+        }
+      ]
+    },
+    "favorites": {
+      "name": "favorites",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "article_id": {
+          "name": "article_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "PK__favorite__BE9F8F1CA1B2C3D8",
+          "columns": [
+            "user_id",
+            "article_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "follows": {
+      "name": "follows",
+      "columns": {
+        "follower_id": {
+          "name": "follower_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        },
+        "followed_id": {
+          "name": "followed_id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "PK__follows__BE9F8F1CA1B2C3D9",
+          "columns": [
+            "follower_id",
+            "followed_id"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "tags": {
+      "name": "tags",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 255,
+          "isUnicode": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "PK__tags__3213E83FA1B2C3DA",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "UQ__tags__name_A1B2C3DB",
+          "columns": [
+            "name"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false
+        },
+        "username": {
+          "name": "username",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 255,
+          "isUnicode": false,
+          "isRowVersion": false
+        },
+        "email": {
+          "name": "email",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 255,
+          "isUnicode": false,
+          "isRowVersion": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 255,
+          "isUnicode": false,
+          "isRowVersion": false
+        },
+        "bio": {
+          "name": "bio",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": -1,
+          "isUnicode": false,
+          "isRowVersion": false
+        },
+        "image": {
+          "name": "image",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 255,
+          "isUnicode": false,
+          "isRowVersion": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "PK__users__3213E83FA1B2C3DC",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "UQ__users__email_A1B2C3DD",
+          "columns": [
+            "email"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "UQ__users__username_A1B2C3DE",
+          "columns": [
+            "username"
+          ],
+          "isUnique": true
+        }
+      ]
+    }
+  },
+  "foreignKeys": [
+    {
+      "fromTable": "article_tags",
+      "fromColumn": "tag_id",
+      "toTable": "tags",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "article_tags",
+      "fromColumn": "article_id",
+      "toTable": "articles",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "articles",
+      "fromColumn": "author_id",
+      "toTable": "users",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "comments",
+      "fromColumn": "author_id",
+      "toTable": "users",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "comments",
+      "fromColumn": "article_id",
+      "toTable": "articles",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "favorites",
+      "fromColumn": "article_id",
+      "toTable": "articles",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "favorites",
+      "fromColumn": "user_id",
+      "toTable": "users",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "follows",
+      "fromColumn": "followed_id",
+      "toTable": "users",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "follows",
+      "fromColumn": "follower_id",
+      "toTable": "users",
+      "toColumn": "id"
+    }
+  ],
+  "procedures": {}
+}

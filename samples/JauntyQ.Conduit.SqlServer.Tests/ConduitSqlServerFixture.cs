@@ -1,0 +1,65 @@
+using Microsoft.Data.SqlClient;
+using Testcontainers.MsSql;
+using JauntyQ.Generated;
+using Xunit;
+
+namespace JauntyQ.Conduit.SqlServer.Tests;
+
+/// <summary>
+/// Boots a real SQL Server instance via Testcontainers, applies the
+/// Conduit/RealWorld schema + seed data, and exposes a JauntyDb over it.
+/// See the test log's "Part 3 kickoff scope decisions" for the
+/// scope behind this schema. Soft-skips (via <see cref="Available"/>) when
+/// Docker is unavailable -- every test method guards on it. SQL Server always
+/// enforces foreign keys, so no per-connection PRAGMA is needed (unlike the
+/// SQLite sibling); the `follows` FKs omit ON DELETE CASCADE to avoid SQL
+/// Server's multiple-cascade-path error (1785), see schema.mssql.sql.
+/// </summary>
+public sealed class ConduitSqlServerFixture : IAsyncLifetime
+{
+    private readonly MsSqlContainer _container =
+        new MsSqlBuilder().Build();
+
+    public bool Available { get; private set; }
+    public string? SkipReason { get; private set; }
+    public string ConnectionString => _container.GetConnectionString();
+    public JauntyDb Db { get; private set; } = null!;
+    public SqlConnection Connection { get; private set; } = null!;
+
+    public async Task InitializeAsync()
+    {
+        try
+        {
+            await _container.StartAsync();
+
+            string ddl = await File.ReadAllTextAsync(
+                Path.Combine(AppContext.BaseDirectory, "schema.mssql.sql"));
+
+            await using (var seed = new SqlConnection(_container.GetConnectionString()))
+            {
+                await seed.OpenAsync();
+                await using var cmd = seed.CreateCommand();
+                cmd.CommandText = ddl;
+                cmd.CommandTimeout = 300;
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            Connection = new SqlConnection(_container.GetConnectionString());
+            await Connection.OpenAsync();
+            Db = new JauntyDb(Connection);
+            Available = true;
+        }
+        catch (Exception ex)
+        {
+            Available = false;
+            SkipReason = $"Docker unavailable: {ex.GetType().Name}: {ex.Message}";
+        }
+    }
+
+    public async Task DisposeAsync()
+    {
+        if (Connection != null)
+            await Connection.DisposeAsync();
+        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+    }
+}
