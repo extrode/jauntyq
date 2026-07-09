@@ -274,6 +274,22 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    public static readonly DiagnosticDescriptor JNT8006 = new(
+        "JNT8006",
+        "Join Not A Foreign Key",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT8007 = new(
+        "JNT8007",
+        "Unindexed Order By",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 9xxx: Migrations ──────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT9001 = new(
