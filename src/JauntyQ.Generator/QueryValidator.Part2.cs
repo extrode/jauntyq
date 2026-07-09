@@ -134,6 +134,31 @@ public static partial class QueryValidator
             CheckIndexed(query, join.LeftTable, join.LeftColumn, aliasToTable, schema, filterColumns, errors);
             CheckIndexed(query, join.RightTable, join.RightColumn, aliasToTable, schema, filterColumns, errors);
         }
+
+        // JNT8007: an ORDER BY on a column no index can order forces a runtime
+        // sort. Only plain base-column items are eligible; ordinals, expressions,
+        // and projected aliases were recorded with a kind that skips them here.
+        // Reuses the same index-coverage test as JNT8004 (leading column, or a
+        // non-leading column whose more-leading index columns are all filtered),
+        // and its primary-key short-circuit.
+        foreach (var orderBy in query.OrderBy)
+        {
+            if (orderBy.Kind != OrderByItemKind.PlainColumn)
+                continue;
+
+            var column = ResolveColumn(query, orderBy.BoundTableAlias, orderBy.BoundColumnName, aliasToTable, schema, out string? tableName);
+            if (column == null || tableName == null)
+                continue;
+            if (!schema.Tables.TryGetValue(tableName, out var tableSchema))
+                continue;
+            if (IsColumnIndexSupported(column, tableName, tableSchema, filterColumns))
+                continue;
+
+            string message = $"ORDER BY {tableName}.{column.Name} has no supporting index: this query sorts at runtime. " +
+                             $"Add an index whose leading column is {column.Name}, or accept the sort.";
+            if (!errors.Exists(e => e.Code == "JNT8007" && e.Message == message))
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT8007, message));
+        }
     }
 
     private static void CheckIndexed(
@@ -145,10 +170,31 @@ public static partial class QueryValidator
         var column = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
         if (column == null || tableName == null)
             return;
-        if (column.IsPrimaryKey)
-            return;
         if (!schema.Tables.TryGetValue(tableName, out var tableSchema))
             return;
+        if (IsColumnIndexSupported(column, tableName, tableSchema, filterColumns))
+            return;
+
+        string message = $"No index covers {tableName}.{column.Name} used as a filter/join key: " +
+                         "this query scans. Add an index or filter on an indexed column.";
+        // one warning per column per query
+        if (!errors.Exists(e => e.Code == "JNT8004" && e.Message == message))
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT8004, message));
+    }
+
+    /// <summary>
+    /// True when an index can position on <paramref name="column"/>: it is the
+    /// table's primary key, or it appears in some index as the leading column, or
+    /// as a non-leading column every one of whose more-leading index columns is
+    /// also constrained (by an equality filter/join) in this query — so the
+    /// composite index can be positioned up to it. Shared by JNT8004 (filter/join
+    /// keys) and JNT8007 (ORDER BY columns).
+    /// </summary>
+    private static bool IsColumnIndexSupported(
+        ColumnSchema column, string tableName, TableSchema tableSchema, HashSet<string> filterColumns)
+    {
+        if (column.IsPrimaryKey)
+            return true;
 
         foreach (var index in tableSchema.Indexes)
         {
@@ -156,10 +202,6 @@ public static partial class QueryValidator
             if (pos < 0)
                 continue;
 
-            // The leading column always seeks. A non-leading column seeks
-            // too, but only when every column ahead of it in the same index
-            // is also being filtered/joined on in this query -- otherwise
-            // the composite index can't be positioned past its gap.
             bool coveredUpToHere = true;
             for (int i = 0; i < pos; i++)
             {
@@ -170,14 +212,9 @@ public static partial class QueryValidator
                 }
             }
             if (coveredUpToHere)
-                return;
+                return true;
         }
-
-        string message = $"No index covers {tableName}.{column.Name} used as a filter/join key: " +
-                         "this query scans. Add an index or filter on an indexed column.";
-        // one warning per column per query
-        if (!errors.Exists(e => e.Code == "JNT8004" && e.Message == message))
-            errors.Add(new ValidationError(JauntyDiagnostics.JNT8004, message));
+        return false;
     }
 
     /// <summary>

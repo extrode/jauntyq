@@ -401,4 +401,91 @@ public class PerfAnalyzerTests
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8006");
     }
+
+    // ── JNT8007: ORDER BY column has no supporting index ─────────────────
+
+    [Fact]
+    public void OrderByUnindexedColumn_JNT8007()
+    {
+        // product_name is the SECOND column of ix_products_composite; with the
+        // leading column (launched_at) not constrained, an index can't order it.
+        var result = RunOne("select product_id\nfrom products\norder by product_name");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT8007");
+        Assert.Equal(DiagnosticSeverity.Warning, diag.Severity);
+        Assert.Contains("products.product_name", diag.GetMessage());
+        // warnings never block: the query still compiled
+        Assert.Contains(result.Results[0].GeneratedSources, s => s.HintName == "Products.TestQuery.g.cs");
+    }
+
+    [Fact]
+    public void OrderByLeadingIndexColumn_NoWarning()
+    {
+        // category_id is the leading (only) column of ix_products_category.
+        var result = RunOne("select product_id\nfrom products\norder by category_id");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8007");
+    }
+
+    [Fact]
+    public void OrderByCompositeNonLeading_LeadingFiltered_NoWarning()
+    {
+        // launched_at (leading of the composite) is constrained by an equality
+        // filter, so ordering by product_name (its second column) is covered.
+        var result = RunOne(
+            "select product_id\nfrom products\n" +
+            "where products.launched_at = @launched_at\norder by product_name\n" +
+            "-- @params launched_at:System.DateTime");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8007");
+    }
+
+    [Fact]
+    public void OrderByPrimaryKey_NoWarning()
+    {
+        var result = RunOne("select product_id\nfrom products\norder by product_id");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8007");
+    }
+
+    [Fact]
+    public void OrderByExpressionOrdinalOrAlias_NoWarning()
+    {
+        // Expression: not a plain base column.
+        var expr = RunOne("select product_id\nfrom products\norder by lower(product_name)");
+        Assert.DoesNotContain(expr.Diagnostics, d => d.Id == "JNT8007");
+
+        // Ordinal: positional reference.
+        var ordinal = RunOne("select product_id, product_name\nfrom products\norder by 2");
+        Assert.DoesNotContain(ordinal.Diagnostics, d => d.Id == "JNT8007");
+
+        // Projected alias: names a SELECT-list alias, not a base column.
+        var alias = RunOne("select count(*) as cnt\nfrom products\norder by cnt");
+        Assert.DoesNotContain(alias.Diagnostics, d => d.Id == "JNT8007");
+    }
+
+    [Fact]
+    public void SnapshotWithoutIndexMetadata_JNT8007Suppressed()
+    {
+        string oldSchema = SchemaJson
+            .Replace(@"""indexes"": [
+        { ""name"": ""ix_products_category"", ""columns"": [""category_id""], ""isUnique"": false },
+        { ""name"": ""ix_products_composite"", ""columns"": [""launched_at"", ""product_name""], ""isUnique"": false }
+      ]", @"""indexes"": []");
+
+        var compilation = CSharpCompilation.Create("PerfTestAssembly3",
+            new[] { CSharpSyntaxTree.ParseText("") },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
+            .AddAdditionalTexts(ImmutableArray.Create<AdditionalText>(
+                new InMemoryAdditionalText("schema/jaunty.schema.json", oldSchema),
+                new InMemoryAdditionalText("db/Products/TestQuery.sql",
+                    "select product_id\nfrom products\norder by product_name")))
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
+        Assert.DoesNotContain(driver.GetRunResult().Diagnostics, d => d.Id == "JNT8007");
+    }
 }
