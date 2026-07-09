@@ -23,8 +23,16 @@ internal sealed class SchemaState
     /// <summary>JNT9001/JNT9002 from parsing and simulating pending migrations.</summary>
     public ImmutableArray<DiagnosticInfo> MigrationDiagnostics { get; }
 
+    /// <summary>
+    /// Baseline→effective delta when pending migrations were applied, else null.
+    /// Drives the build-time JNT9004 RISKY warning. Computed once here so every
+    /// per-file node shares it (reference-cached with the rest of SchemaState).
+    /// </summary>
+    public SchemaDelta? MigrationDelta { get; }
+
     private SchemaState(DatabaseSchema? schema, bool parseFailed, bool hasJson,
-        ImmutableArray<DiagnosticInfo> migrationDiagnostics = default)
+        ImmutableArray<DiagnosticInfo> migrationDiagnostics = default,
+        SchemaDelta? migrationDelta = null)
     {
         Schema = schema;
         ParseFailed = parseFailed;
@@ -32,6 +40,7 @@ internal sealed class SchemaState
         MigrationDiagnostics = migrationDiagnostics.IsDefault
             ? ImmutableArray<DiagnosticInfo>.Empty
             : migrationDiagnostics;
+        MigrationDelta = migrationDelta;
     }
 
     public static SchemaState Load(
@@ -65,8 +74,11 @@ internal sealed class SchemaState
             // instead of the deploy.
             var snapshotDiagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>();
             var effectiveFromJson = ApplyMigrations(snapshot, migrations, snapshotDiagnostics);
+            // SchemaSimulator.Apply works on a clone, so `snapshot` is still the
+            // pre-migration baseline for the impact delta.
+            var jsonDelta = StructuralSchemaDiff.Compute(snapshot, effectiveFromJson);
             return new SchemaState(effectiveFromJson, parseFailed: false, hasJson: true,
-                snapshotDiagnostics.ToImmutable());
+                snapshotDiagnostics.ToImmutable(), jsonDelta);
         }
 
         // No JSON snapshot. If db/ddl/*.sql files exist, they DEFINE the base
@@ -108,7 +120,12 @@ internal sealed class SchemaState
             ? ddlBuilt
             : ApplyMigrations(ddlBuilt, migrations, ddlDiagnostics);
 
-        return new SchemaState(effective, parseFailed: false, hasJson: true, ddlDiagnostics.ToImmutable());
+        // Impact delta only when migrations were applied on top of the DDL base.
+        var ddlDelta = migrations.IsDefaultOrEmpty
+            ? null
+            : StructuralSchemaDiff.Compute(ddlBuilt, effective);
+
+        return new SchemaState(effective, parseFailed: false, hasJson: true, ddlDiagnostics.ToImmutable(), ddlDelta);
     }
 
     /// <summary>

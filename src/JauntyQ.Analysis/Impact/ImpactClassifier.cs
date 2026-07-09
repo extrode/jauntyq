@@ -32,6 +32,11 @@ public static class ImpactClassifier
         return new MigrationImpactReport(baselineId, new List<string>(migrationSet), entries);
     }
 
+    /// <summary>Classifies a single query — used by the build-time surface, which
+    /// classifies each file as it processes it.</summary>
+    public static ImpactEntry ClassifySingle(SchemaDelta delta, QueryImpactInput query) =>
+        ClassifyOne(delta, query);
+
     private static ImpactEntry ClassifyOne(SchemaDelta delta, QueryImpactInput q)
     {
         // A query already broken against the baseline: its state is not

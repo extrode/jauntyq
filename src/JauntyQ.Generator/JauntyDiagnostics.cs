@@ -299,4 +299,12 @@ public static class JauntyDiagnostics
         "JauntyQ.Migrations",
         DiagnosticSeverity.Error,
         true);
+
+    public static readonly DiagnosticDescriptor JNT9004 = new(
+        "JNT9004",
+        "Migration Risky Impact",
+        "{0}",
+        "JauntyQ.Migrations",
+        DiagnosticSeverity.Warning,
+        true);
 }

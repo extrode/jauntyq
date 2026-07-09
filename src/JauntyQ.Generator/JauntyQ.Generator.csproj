@@ -35,6 +35,8 @@
   <ItemGroup>
     <Using Include="JauntyQ.Analysis" />
     <Using Include="JauntyQ.Analysis.Migrations" />
+    <Using Include="JauntyQ.Analysis.Diff" />
+    <Using Include="JauntyQ.Analysis.Impact" />
   </ItemGroup>
   <!-- Compile-include SqlParser, Schema and the shared Analysis kernel for
        generator embedding. The Generator is a Roslyn analyzer, so it embeds the
