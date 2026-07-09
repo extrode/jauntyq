@@ -302,6 +302,33 @@ public class ExpressionAndCteTests
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT7002");
     }
 
+    [Fact]
+    public void ReturningUnderMySql_JNT7002()
+    {
+        // Stock MySQL has no RETURNING clause on any DML statement (MariaDB's
+        // partial support, sharing the "mysql" dialect string, is a deliberate
+        // over-flag documented on ValidateDialectConstructs).
+        var mySqlSchema = SchemaJson.Replace("\"dialect\": \"postgres\"", "\"dialect\": \"mysql\"");
+        var sql = "insert into users (first_name, username, created_at) values (@firstName, @username, @createdAt) returning id";
+        var (result, _) = Run(sql, "db/Users/Create.sql", mySqlSchema);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT7002");
+    }
+
+    [Fact]
+    public void DataModifyingCteUnderMySql_JNT7002()
+    {
+        // MySQL/MariaDB CTE bodies can only be a SELECT; a modifying CTE body
+        // (INSERT/UPDATE/DELETE) is a postgres/sqlite-only construct.
+        var mySqlSchema = SchemaJson.Replace("\"dialect\": \"postgres\"", "\"dialect\": \"mysql\"");
+        var sql =
+            "with d1 as (delete from email_addresses where user_id = @userId) " +
+            "delete from users where id = @userId";
+        var (result, _) = Run(sql, "db/Users/PurgeUser.sql", mySqlSchema);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT7002");
+    }
+
     // ── Unrecognized dialect string (JNT7003) ──────────────
 
     [Fact]

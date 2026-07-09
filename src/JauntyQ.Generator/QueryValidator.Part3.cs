@@ -76,22 +76,37 @@ public static partial class QueryValidator
     }
 
     /// <summary>
-    /// JNT7002: verbatim SQL emission has no OUTPUT rewrite, so a RETURNING
-    /// clause or a data-modifying CTE cannot run under the SQL Server dialect.
-    /// Other dialects (postgres/sqlite/mysql) execute the SQL as written.
+    /// JNT7002: verbatim SQL emission has no dialect rewrite, so a RETURNING
+    /// clause or a data-modifying CTE fails under dialects that don't support
+    /// them as written:
+    ///   - sqlserver: no RETURNING/OUTPUT-rewrite and no writable CTEs at all.
+    ///   - mysql: no writable CTEs (a CTE body can only be a SELECT), and
+    ///     stock MySQL has no RETURNING clause on any DML statement. MariaDB
+    ///     (which shares the "mysql" dialect string — see DialectMapper)
+    ///     added RETURNING for INSERT/DELETE in 10.5 and UPDATE in 13.0, so
+    ///     this intentionally over-flags valid MariaDB RETURNING usage in
+    ///     exchange for catching it on stock MySQL, where it always fails.
+    /// postgres/sqlite support both constructs and are never gated here.
     /// </summary>
     private static void ValidateDialectConstructs(QueryModel query, DatabaseSchema schema, List<ValidationError> errors)
     {
-        if (!string.Equals(schema.Dialect, "sqlserver", StringComparison.OrdinalIgnoreCase))
+        bool isSqlServer = string.Equals(schema.Dialect, "sqlserver", StringComparison.OrdinalIgnoreCase);
+        bool isMySql = string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase);
+        if (!isSqlServer && !isMySql)
             return;
 
         if (query.Ctes.Count > 0)
             errors.Add(new ValidationError(JauntyDiagnostics.JNT7002,
-                "Data-modifying CTEs (WITH ... INSERT/UPDATE/DELETE) are not supported under the sqlserver dialect; the SQL is emitted verbatim with no OUTPUT rewrite."));
+                $"Data-modifying CTEs (WITH ... INSERT/UPDATE/DELETE) are not supported under the {schema.Dialect} dialect; the SQL is emitted verbatim with no rewrite."));
 
         if (query.HasReturning || query.Returning.Count > 0)
+        {
+            string advice = isSqlServer
+                ? "use OUTPUT"
+                : "use LAST_INSERT_ID()/a follow-up SELECT, or MariaDB 10.5+/13.0 if RETURNING is actually available on your server";
             errors.Add(new ValidationError(JauntyDiagnostics.JNT7002,
-                "RETURNING is not supported under the sqlserver dialect (use OUTPUT); the SQL is emitted verbatim so it cannot be rewritten."));
+                $"RETURNING is not supported under the {schema.Dialect} dialect ({advice}); the SQL is emitted verbatim so it cannot be rewritten."));
+        }
     }
 
     /// <summary>
