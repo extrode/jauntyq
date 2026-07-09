@@ -46,8 +46,17 @@ public static class SqlTokenizer
                 pos += 2;
                 while (pos + 1 < len && !(sql[pos] == '*' && sql[pos + 1] == '/'))
                     pos++;
-                if (pos + 1 < len) pos += 2; // skip */
-                continue;
+                if (pos + 1 < len)
+                {
+                    pos += 2; // skip */
+                    continue;
+                }
+                // Ran to end-of-input with no closing */: stop tokenizing
+                // instead of silently swallowing the rest of the file as
+                // comment text.
+                tokens.Add(new Token(TokenType.Unterminated, "/* ... */"));
+                tokens.Add(new Token(TokenType.End, string.Empty));
+                return tokens;
             }
 
             // Parameter: @name
@@ -68,8 +77,17 @@ public static class SqlTokenizer
                 int start = pos;
                 while (pos < len && sql[pos] != ']')
                     pos++;
+                if (pos >= len)
+                {
+                    // Ran to end-of-input with no closing ]: stop tokenizing
+                    // instead of silently treating the rest of the file as
+                    // one giant identifier.
+                    tokens.Add(new Token(TokenType.Unterminated, "[ ... ]"));
+                    tokens.Add(new Token(TokenType.End, string.Empty));
+                    return tokens;
+                }
                 tokens.Add(new Token(TokenType.Identifier, sql.Substring(start, pos - start)));
-                if (pos < len) pos++; // skip closing bracket
+                pos++; // skip closing bracket
                 continue;
             }
 

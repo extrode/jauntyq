@@ -17,6 +17,22 @@ public static partial class QueryValidator
             return errors;
         }
 
+        // JNT7003: schema.Dialect must be one of the strings the generator's
+        // dialect-specific switches actually recognize. Left unchecked, an
+        // unrecognized dialect (typo, or a hand-authored snapshot for a new
+        // engine) doesn't fail the build -- it silently falls through each
+        // switch's default case, producing SQL missing dialect-specific
+        // rewrites (e.g. no identity-return clause) that only surfaces as a
+        // confusing runtime failure.
+        if (!string.IsNullOrEmpty(schema.Dialect) && !DialectMapper.IsKnownDialect(schema.Dialect))
+        {
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT7003,
+                $"Unknown dialect '{schema.Dialect}' in the schema snapshot. Recognized dialects: " +
+                "sqlserver, postgres, sqlite, mysql. MariaDB is wire/SQL-compatible with MySQL for " +
+                "everything the generator emits, so a MariaDB snapshot should also declare \"mysql\"."));
+            return errors;
+        }
+
         // WITH RECURSIVE is out of scope: reported as an unsupported construct
         // (the parser did not descend into the body).
         if (query.WithRecursive)

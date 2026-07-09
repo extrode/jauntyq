@@ -72,6 +72,8 @@ public static partial class CodeEmitter
             case "mysql":
                 return trimmed + ";\nselect last_insert_id()";
             default:
+                // JNT7003 rejects an unrecognized schema.Dialect before emission
+                // ever reaches here; defensive only.
                 return trimmed;
         }
     }

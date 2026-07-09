@@ -301,4 +301,45 @@ public class ExpressionAndCteTests
 
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT7002");
     }
+
+    // ── Unrecognized dialect string (JNT7003) ──────────────
+
+    [Fact]
+    public void UnrecognizedDialectString_JNT7003()
+    {
+        // A schema.json typo (or a hand-authored snapshot for an engine the
+        // generator has no case for) must fail the build, not silently fall
+        // through every dialect-specific switch's default case.
+        var badDialectSchema = SchemaJson.Replace("\"dialect\": \"postgres\"", "\"dialect\": \"mariadb\"");
+        var sql = "select id from users where id = @id";
+        var (result, _) = Run(sql, "db/Users/GetById.sql", badDialectSchema);
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT7003");
+        Assert.Contains("mariadb", diag.GetMessage());
+        Assert.Contains("mysql", diag.GetMessage());
+    }
+
+    [Fact]
+    public void RecognizedDialectStrings_NoJNT7003()
+    {
+        foreach (var dialect in new[] { "sqlserver", "postgres", "sqlite", "mysql" })
+        {
+            var schema = SchemaJson.Replace("\"dialect\": \"postgres\"", $"\"dialect\": \"{dialect}\"");
+            var sql = "select id from users where id = @id";
+            var (result, _) = Run(sql, "db/Users/GetById.sql", schema);
+
+            Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT7003");
+        }
+    }
+
+    // ── Unterminated comment/bracket identifier (JNT1002) ──
+
+    [Fact]
+    public void UnterminatedBlockComment_JNT1002()
+    {
+        var sql = "select id from users /* where id = @id";
+        var (result, _) = Run(sql, "db/Users/GetById.sql");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT1002");
+    }
 }
