@@ -77,6 +77,13 @@ public class AutoCrudTests
             MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.ComponentModel.Primitives.dll")),
             MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Threading.Tasks.dll")),
             MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Collections.dll")),
+            // sqlserver-dialect schemas can synthesize BulkInsert via
+            // Microsoft.Data.SqlClient.SqlBulkCopy (whose ColumnMappings
+            // collection derives from the non-generic CollectionBase); a
+            // mysql-dialect schema would similarly need MySqlConnector.MySqlBulkCopy.
+            MetadataReference.CreateFromFile(typeof(Microsoft.Data.SqlClient.SqlConnection).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(MySqlConnector.MySqlConnection).Assembly.Location),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Collections.NonGeneric.dll")),
         };
 
         var compilation = CSharpCompilation.Create("AutoCrudTestAssembly",

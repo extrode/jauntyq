@@ -14,7 +14,14 @@ namespace JauntyQ.MySql.Tests;
 public sealed class MySqlFixture : IAsyncLifetime
 {
     private readonly MySqlContainer _container =
-        new MySqlBuilder().WithImage("mysql:8.0").Build();
+        new MySqlBuilder()
+            .WithImage("mysql:8.0")
+            // MySqlBulkCopy issues LOAD DATA LOCAL INFILE, which the server
+            // rejects unless local_infile is enabled. The client half of the
+            // handshake (AllowLoadLocalInfile=true) is added below when building
+            // the runtime connection string.
+            .WithCommand("--local-infile=1")
+            .Build();
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
@@ -54,7 +61,15 @@ public sealed class MySqlFixture : IAsyncLifetime
                 }
             }
 
-            _conn = new MySqlConnection(_container.GetConnectionString());
+            // MySqlBulkCopy (the BulkInsert fast path) requires the client to
+            // opt into LOAD DATA LOCAL INFILE. This is the consumer's
+            // responsibility — JauntyQ's generated code cannot set it — so it
+            // must be on the connection string the JauntyDb wraps.
+            var csb = new MySqlConnectionStringBuilder(_container.GetConnectionString())
+            {
+                AllowLoadLocalInfile = true
+            };
+            _conn = new MySqlConnection(csb.ConnectionString);
             await _conn.OpenAsync();
             Db = new JauntyDb(_conn);
             Available = true;

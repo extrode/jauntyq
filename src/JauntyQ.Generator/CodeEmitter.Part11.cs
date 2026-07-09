@@ -152,13 +152,22 @@ public static partial class CodeEmitter
     }
 
     /// <summary>
-    /// Emits BulkInsert(IEnumerable&lt;Row&gt;): inserts many rows in one
-    /// transaction using a single prepared command whose parameter values are
-    /// reassigned per row. Dialect-portable, allocation-light, and far faster
-    /// than N autocommitted round-trips. (Provider-native fast paths —
-    /// SqlBulkCopy / Npgsql binary COPY — are a future optimization; see
-    /// docs/01-roadmap/ROADMAP.md.) Identity and rowversion columns are database-assigned
-    /// and excluded. Returns the number of rows inserted.
+    /// Emits BulkInsert(IEnumerable&lt;Row&gt;): inserts many rows atomically.
+    /// The <paramref name="dialect"/> selects the emission strategy:
+    /// <list type="bullet">
+    /// <item>postgres: Npgsql binary COPY (NpgsqlBinaryImporter).</item>
+    /// <item>sqlserver: Microsoft.Data.SqlClient.SqlBulkCopy.</item>
+    /// <item>mysql: MySqlConnector.MySqlBulkCopy.</item>
+    /// <item>sqlite / anything else: the dialect-portable single-transaction
+    ///   prepared-command loop — one ExecuteNonQuery per row reusing the same
+    ///   DbCommand/parameters. Allocation-light and far faster than N
+    ///   autocommitted round-trips.</item>
+    /// </list>
+    /// The sqlserver and mysql fast paths both feed
+    /// <c>WriteToServer(IDataReader)</c>, so a single reflection-free (AOT-safe)
+    /// <c>DbDataReader</c>-over-<c>IEnumerable&lt;Row&gt;</c> adapter is emitted
+    /// once per table and shared. Identity and rowversion columns are
+    /// database-assigned and excluded. Returns the number of rows inserted.
     /// </summary>
     public static string EmitBulkInsert(string entityName, string rowType, TableSchema tableSchema, string dialect)
     {
@@ -173,13 +182,37 @@ public static partial class CodeEmitter
         sb.AppendLine($"    public partial class {entityName}");
         sb.AppendLine("    {");
 
-        EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, "_conn", isStatic: false, isAsync: false);
+        bool isPostgres = string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase);
+        bool isSqlServer = string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase);
+        bool isMySql = string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase);
+
+        void EmitOne(string connVar, bool isStatic, bool isAsync)
+        {
+            if (isPostgres)
+                EmitBulkInsertBodyPostgres(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync);
+            else if (isSqlServer)
+                EmitBulkInsertBodySqlServer(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync);
+            else if (isMySql)
+                EmitBulkInsertBodyMySql(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync);
+            else
+                EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync);
+        }
+
+        EmitOne("_conn", isStatic: false, isAsync: false);
         sb.AppendLine();
-        EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, "conn", isStatic: true, isAsync: false);
+        EmitOne("conn", isStatic: true, isAsync: false);
         sb.AppendLine();
-        EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, "_conn", isStatic: false, isAsync: true);
+        EmitOne("_conn", isStatic: false, isAsync: true);
         sb.AppendLine();
-        EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, "conn", isStatic: true, isAsync: true);
+        EmitOne("conn", isStatic: true, isAsync: true);
+
+        // The SqlBulkCopy / MySqlBulkCopy paths write columns through an
+        // IDataReader; emit the shared AOT-safe adapter exactly once.
+        if (isSqlServer || isMySql)
+        {
+            sb.AppendLine();
+            EmitBulkReaderAdapter(sb, rowType, cols);
+        }
 
         sb.AppendLine("    }");
         sb.AppendLine("}");
