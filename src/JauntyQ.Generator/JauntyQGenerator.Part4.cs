@@ -231,12 +231,13 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             context.AddSource($"{entity}.Core.g.cs", SourceText.From(coreSource, Encoding.UTF8));
         }
 
-        // Emit JauntyDb class
-        if (entityNames.Count > 0)
+        // Emit JauntyDb class (also when the snapshot has sequences but no
+        // emitted entities, so db.Sequences is still generated)
+        if (entityNames.Count > 0 || (schema != null && schema.Sequences.Count > 0))
         {
             var sortedEntities = new System.Collections.Generic.List<string>(entityNames);
             sortedEntities.Sort(StringComparer.Ordinal);
-            var dbSource = CodeEmitter.EmitJauntyDb(sortedEntities);
+            var dbSource = CodeEmitter.EmitJauntyDb(sortedEntities, schema);
             context.AddSource("JauntyDb.g.cs", SourceText.From(dbSource, Encoding.UTF8));
         }
     }
