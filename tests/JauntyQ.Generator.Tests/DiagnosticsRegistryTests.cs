@@ -83,6 +83,7 @@ public class DiagnosticsRegistryTests
     [InlineData("JNT8005", DiagnosticSeverity.Warning, "JauntyQ.Performance")]
     [InlineData("JNT9001", DiagnosticSeverity.Warning, "JauntyQ.Migrations")]
     [InlineData("JNT9002", DiagnosticSeverity.Error, "JauntyQ.Migrations")]
+    [InlineData("JNT9003", DiagnosticSeverity.Error, "JauntyQ.Migrations")]
     public void Descriptor_HasCorrectSeverityAndCategory(string id, DiagnosticSeverity severity, string category)
     {
         var field = DiagnosticFields.Single(f => f.Name == id);
@@ -96,6 +97,6 @@ public class DiagnosticsRegistryTests
     [Fact]
     public void Registry_ContainsExpectedCount()
     {
-        Assert.Equal(32, DiagnosticFields.Length); // +JNT8001..8005 performance (2026-07-05); +JNT2004 illegal identifier (2026-07-05); +JNT3003 invalid directive combination (2026-07-05); +JNT2005 stored procedure not found (2026-07-05); +JNT3004/3005/3006 expression projections + JNT7002 dialect gating (2026-07-06); +JNT3007 IN-subquery column count (2026-07-06); +JNT2006 entity/row POCO name collision (2026-07-08); +JNT2007 unmapped column type (2026-07-08); +JNT7003 unknown dialect (2026-07-09); +JNT1002 unterminated token (2026-07-09); +JNT1003 input too large (2026-07-09)
+        Assert.Equal(33, DiagnosticFields.Length); // +JNT8001..8005 performance (2026-07-05); +JNT2004 illegal identifier (2026-07-05); +JNT3003 invalid directive combination (2026-07-05); +JNT2005 stored procedure not found (2026-07-05); +JNT3004/3005/3006 expression projections + JNT7002 dialect gating (2026-07-06); +JNT3007 IN-subquery column count (2026-07-06); +JNT2006 entity/row POCO name collision (2026-07-08); +JNT2007 unmapped column type (2026-07-08); +JNT7003 unknown dialect (2026-07-09); +JNT1002 unterminated token (2026-07-09); +JNT1003 input too large (2026-07-09); +JNT9003 missing/unknown dialect for DDL schema source (2026-07-09)
     }
 }

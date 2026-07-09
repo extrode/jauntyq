@@ -1079,8 +1079,10 @@ internal sealed class TestAnalyzerConfigOptionsProvider : Microsoft.CodeAnalysis
 {
     private readonly TestAnalyzerConfigOptions _global;
 
-    public TestAnalyzerConfigOptionsProvider(bool autoCrud)
-        => _global = new TestAnalyzerConfigOptions(autoCrud);
+    // dialect is null when the consumer sets no <JauntyQDialect> property (the
+    // common case with a JSON snapshot); a non-null value stubs the property.
+    public TestAnalyzerConfigOptionsProvider(bool autoCrud, string? dialect = null)
+        => _global = new TestAnalyzerConfigOptions(autoCrud, dialect);
 
     public override Microsoft.CodeAnalysis.Diagnostics.AnalyzerConfigOptions GlobalOptions => _global;
     public override Microsoft.CodeAnalysis.Diagnostics.AnalyzerConfigOptions GetOptions(SyntaxTree tree) => _global;
@@ -1089,13 +1091,23 @@ internal sealed class TestAnalyzerConfigOptionsProvider : Microsoft.CodeAnalysis
     private sealed class TestAnalyzerConfigOptions : Microsoft.CodeAnalysis.Diagnostics.AnalyzerConfigOptions
     {
         private readonly bool _autoCrud;
-        public TestAnalyzerConfigOptions(bool autoCrud) => _autoCrud = autoCrud;
+        private readonly string? _dialect;
+        public TestAnalyzerConfigOptions(bool autoCrud, string? dialect)
+        {
+            _autoCrud = autoCrud;
+            _dialect = dialect;
+        }
 
         public override bool TryGetValue(string key, out string value)
         {
             if (key == "build_property.JauntyQAutoCrud")
             {
                 value = _autoCrud ? "true" : "false";
+                return true;
+            }
+            if (key == "build_property.JauntyQDialect" && _dialect != null)
+            {
+                value = _dialect;
                 return true;
             }
             value = string.Empty;

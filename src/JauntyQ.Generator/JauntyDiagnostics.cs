@@ -291,4 +291,12 @@ public static class JauntyDiagnostics
         "JauntyQ.Migrations",
         DiagnosticSeverity.Error,
         true);
+
+    public static readonly DiagnosticDescriptor JNT9003 = new(
+        "JNT9003",
+        "Missing or Unknown Dialect for DDL Schema Source",
+        "{0}",
+        "JauntyQ.Migrations",
+        DiagnosticSeverity.Error,
+        true);
 }
