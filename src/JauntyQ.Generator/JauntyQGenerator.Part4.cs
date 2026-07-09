@@ -88,9 +88,21 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 var queryModel = SqlParser.SqlParser.Parse(tokens, synth.MethodName);
 
                 // Synthesized SQL is derived from the schema itself; validation
-                // failures here indicate a synthesis bug, not a user error.
+                // errors here indicate a synthesis bug, not a user error, so
+                // emission is skipped rather than surfaced as a build error.
+                // Warnings (JNT8xxx performance advice) are real findings
+                // about the user's own schema/indexes, so they ARE reported —
+                // unlike errors, they were previously computed and discarded.
                 var errors = QueryValidator.Validate(queryModel, schema);
-                if (errors.Exists(e => e.Severity == ValidationSeverity.Error))
+                bool hasSynthError = false;
+                foreach (var error in errors)
+                {
+                    if (error.Severity == ValidationSeverity.Error)
+                        hasSynthError = true;
+                    else
+                        context.ReportDiagnostic(DiagnosticInfo.ForValidation(error).ToDiagnostic());
+                }
+                if (hasSynthError)
                     continue;
 
                 string source;
