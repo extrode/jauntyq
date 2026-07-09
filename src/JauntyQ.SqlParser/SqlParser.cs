@@ -91,6 +91,9 @@ public static partial class SqlParser
                     case "FULL":
                         pos = ParseJoin(tokens, pos, model);
                         break;
+                    case "ORDER":
+                        pos = ParseOrderBy(tokens, pos + 1, model);
+                        break;
                     default:
                         pos++;
                         break;
@@ -107,6 +110,131 @@ public static partial class SqlParser
 
     private static int ParseSelect(List<Token> tokens, int pos, QueryModel model)
         => ParseProjectionList(tokens, SkipProjectionModifiers(tokens, pos), model, model.Columns);
+
+    /// <summary>
+    /// Captures the <c>ORDER BY</c> item list into <see cref="QueryModel.OrderBy"/>
+    /// in clause order. <paramref name="pos"/> points just past the ORDER keyword.
+    /// A plain (optionally qualified) column becomes <see cref="OrderByItemKind.PlainColumn"/>
+    /// — unless its bare name matches a SELECT-list alias, in which case it is a
+    /// <see cref="OrderByItemKind.ProjectedAlias"/>; an integer is an
+    /// <see cref="OrderByItemKind.Ordinal"/>; anything else is an
+    /// <see cref="OrderByItemKind.Expression"/>. ASC/DESC direction keywords are
+    /// consumed and ignored. The list ends at LIMIT/OFFSET/UNION/another clause or End.
+    /// </summary>
+    private static int ParseOrderBy(List<Token> tokens, int pos, QueryModel model)
+    {
+        // consume the BY of "ORDER BY"
+        if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "BY")
+            pos++;
+
+        while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
+        {
+            var token = tokens[pos];
+
+            if (IsOrderByTerminator(token))
+                break;
+
+            // commas between items and per-item direction keywords carry no column
+            if ((token.Type == TokenType.Symbol && token.Value == ",") ||
+                (token.Type == TokenType.Keyword && (token.Value == "ASC" || token.Value == "DESC")))
+            {
+                pos++;
+                continue;
+            }
+
+            // ORDER BY <n> : a positional reference
+            if (token.Type == TokenType.Number)
+            {
+                model.OrderBy.Add(new OrderByRef { Kind = OrderByItemKind.Ordinal });
+                pos++;
+                continue;
+            }
+
+            // A plain column is a lone (optionally qualified) identifier that ends
+            // the item (comma / direction / clause / End). Anything else — a '(',
+            // an operator, a function call — is an expression.
+            if (token.Type == TokenType.Identifier && IsPlainOrderByItem(tokens, pos))
+            {
+                var (tableAlias, columnName) = SplitQualifiedName(token.Value);
+                var kind = string.IsNullOrEmpty(tableAlias) && IsProjectedAlias(model, columnName)
+                    ? OrderByItemKind.ProjectedAlias
+                    : OrderByItemKind.PlainColumn;
+                model.OrderBy.Add(new OrderByRef
+                {
+                    BoundTableAlias = tableAlias,
+                    BoundColumnName = columnName,
+                    Kind = kind
+                });
+                pos++;
+                continue;
+            }
+
+            // Expression item: consume tokens at paren-depth 0 to the next
+            // top-level comma or terminator; record one Expression item.
+            pos = SkipOrderByExpression(tokens, pos);
+            model.OrderBy.Add(new OrderByRef { Kind = OrderByItemKind.Expression });
+        }
+
+        return pos;
+    }
+
+    /// <summary>A token that ends the ORDER BY item list (a following clause or End).</summary>
+    private static bool IsOrderByTerminator(Token token) =>
+        token.Type == TokenType.End ||
+        (token.Type == TokenType.Keyword && (IsClauseKeyword(token.Value) || token.Value == "OFFSET"));
+
+    /// <summary>
+    /// True when the identifier at <paramref name="pos"/> is a complete ORDER BY
+    /// item: it is immediately followed by a comma, an ASC/DESC direction, a
+    /// terminator, or End. A following '(' or operator makes it an expression.
+    /// </summary>
+    private static bool IsPlainOrderByItem(List<Token> tokens, int pos)
+    {
+        if (pos + 1 >= tokens.Count)
+            return true;
+
+        var next = tokens[pos + 1];
+        if (next.Type == TokenType.End)
+            return true;
+        if (next.Type == TokenType.Symbol && next.Value == ",")
+            return true;
+        if (next.Type == TokenType.Keyword && (next.Value == "ASC" || next.Value == "DESC"))
+            return true;
+        return IsOrderByTerminator(next);
+    }
+
+    /// <summary>Consumes an expression ORDER BY item to the next top-level comma or terminator.</summary>
+    private static int SkipOrderByExpression(List<Token> tokens, int pos)
+    {
+        int depth = 0;
+        while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
+        {
+            var t = tokens[pos];
+            if (t.Type == TokenType.Symbol && t.Value == "(")
+                depth++;
+            else if (t.Type == TokenType.Symbol && t.Value == ")")
+                depth--;
+            else if (depth == 0 && t.Type == TokenType.Symbol && t.Value == ",")
+                break;
+            else if (depth == 0 && IsOrderByTerminator(t))
+                break;
+
+            pos++;
+        }
+        return pos;
+    }
+
+    /// <summary>True when <paramref name="name"/> matches a SELECT-list output alias (case-insensitive).</summary>
+    private static bool IsProjectedAlias(QueryModel model, string name)
+    {
+        foreach (var col in model.Columns)
+        {
+            if (!string.IsNullOrEmpty(col.OutputAlias) &&
+                string.Equals(col.OutputAlias, name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
 
     /// <summary>
     /// Consumes SELECT-list modifiers — <c>DISTINCT</c> and T-SQL's <c>TOP n</c>

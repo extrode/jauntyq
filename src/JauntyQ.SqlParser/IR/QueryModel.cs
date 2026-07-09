@@ -11,6 +11,7 @@ public class QueryModel
     public List<ParameterRef> Parameters { get; } = new();
     public List<LiteralBinding> Literals { get; } = new();
     public List<PerfHint> PerfHints { get; } = new();
+    public List<OrderByRef> OrderBy { get; } = new();
     public List<string> UnsupportedConstructs { get; } = new();
 
     /// <summary>
