@@ -168,6 +168,34 @@ public class PerfAnalyzerTests
     }
 
     [Fact]
+    public void CompositeIndex_BothColumnsFiltered_NoWarning()
+    {
+        // Consumer-gaps-report gap #6: launched_at is the leading column of
+        // ix_products_composite; product_name is the second. Filtering on
+        // both together is fully covered by the composite index, even
+        // though product_name alone (see NonLeadingIndexColumn_StillWarns)
+        // is not seekable.
+        var result = RunOne(
+            "select product_id\nfrom products\n" +
+            "where products.launched_at = @launched_at and products.product_name = @product_name\n" +
+            "-- @params launched_at:System.DateTime, product_name:string");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8004");
+    }
+
+    [Fact]
+    public void CompositeIndex_OnlyNonLeadingColumnFiltered_StillWarns()
+    {
+        // Same composite index, but the leading column (launched_at) is NOT
+        // also filtered -- product_name alone still cannot seek it.
+        var result = RunOne(
+            "select product_id\nfrom products\nwhere products.product_name = @product_name\n" +
+            "and products.category_id = @category_id");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("product_name"));
+    }
+
+    [Fact]
     public void SnapshotWithoutIndexMetadata_JNT8004Suppressed()
     {
         // strip all index arrays: old-snapshot compatibility

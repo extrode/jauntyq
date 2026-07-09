@@ -60,28 +60,59 @@ public static partial class QueryValidator
         if (!hasIndexMetadata)
             return;
 
+        // The full set of (table, column) pairs this query filters/joins on
+        // by equality, resolved to their schema-canonical names. Lets a
+        // non-leading index column be recognized as seekable when all of its
+        // more-leading columns are ALSO filtered in this same query -- a
+        // composite index is covered as a whole, not column-by-column.
+        var filterColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void CollectFilterColumn(string tableAlias, string columnName)
+        {
+            var col = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
+            if (col != null && tableName != null)
+                filterColumns.Add(tableName + "|" + col.Name);
+        }
+
         foreach (var param in query.Parameters)
         {
             if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
                 continue;
-            CheckIndexed(query, param.BoundTableAlias, param.BoundColumnName, aliasToTable, schema, errors);
+            CollectFilterColumn(param.BoundTableAlias, param.BoundColumnName);
+        }
+        foreach (var hint in query.PerfHints)
+        {
+            if (hint.Kind == PerfHintKind.ColumnComparedToColumn)
+                CollectFilterColumn(hint.BoundTableAlias, hint.BoundColumnName);
+        }
+        foreach (var join in query.Joins)
+        {
+            CollectFilterColumn(join.LeftTable, join.LeftColumn);
+            CollectFilterColumn(join.RightTable, join.RightColumn);
+        }
+
+        foreach (var param in query.Parameters)
+        {
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
+                continue;
+            CheckIndexed(query, param.BoundTableAlias, param.BoundColumnName, aliasToTable, schema, filterColumns, errors);
         }
         foreach (var hint in query.PerfHints)
         {
             if (hint.Kind != PerfHintKind.ColumnComparedToColumn)
                 continue;
-            CheckIndexed(query, hint.BoundTableAlias, hint.BoundColumnName, aliasToTable, schema, errors);
+            CheckIndexed(query, hint.BoundTableAlias, hint.BoundColumnName, aliasToTable, schema, filterColumns, errors);
         }
         foreach (var join in query.Joins)
         {
-            CheckIndexed(query, join.LeftTable, join.LeftColumn, aliasToTable, schema, errors);
-            CheckIndexed(query, join.RightTable, join.RightColumn, aliasToTable, schema, errors);
+            CheckIndexed(query, join.LeftTable, join.LeftColumn, aliasToTable, schema, filterColumns, errors);
+            CheckIndexed(query, join.RightTable, join.RightColumn, aliasToTable, schema, filterColumns, errors);
         }
     }
 
     private static void CheckIndexed(
         QueryModel query, string tableAlias, string columnName,
         Dictionary<string, string> aliasToTable, DatabaseSchema schema,
+        HashSet<string> filterColumns,
         List<ValidationError> errors)
     {
         var column = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
@@ -94,9 +125,24 @@ public static partial class QueryValidator
 
         foreach (var index in tableSchema.Indexes)
         {
-            // only the leading key column makes a filter seekable
-            if (index.Columns.Count > 0 &&
-                string.Equals(index.Columns[0], column.Name, StringComparison.OrdinalIgnoreCase))
+            int pos = index.Columns.FindIndex(c => string.Equals(c, column.Name, StringComparison.OrdinalIgnoreCase));
+            if (pos < 0)
+                continue;
+
+            // The leading column always seeks. A non-leading column seeks
+            // too, but only when every column ahead of it in the same index
+            // is also being filtered/joined on in this query -- otherwise
+            // the composite index can't be positioned past its gap.
+            bool coveredUpToHere = true;
+            for (int i = 0; i < pos; i++)
+            {
+                if (!filterColumns.Contains(tableName + "|" + index.Columns[i]))
+                {
+                    coveredUpToHere = false;
+                    break;
+                }
+            }
+            if (coveredUpToHere)
                 return;
         }
 
