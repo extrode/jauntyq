@@ -3,7 +3,8 @@ using Xunit;
 
 namespace JauntyQ.Northwind.Tests;
 
-public class RegionTests : IClassFixture<NorthwindFixture>
+[Collection("Northwind")]
+public class RegionTests
 {
     private readonly NorthwindFixture _fixture;
     public RegionTests(NorthwindFixture fixture) => _fixture = fixture;
@@ -11,6 +12,7 @@ public class RegionTests : IClassFixture<NorthwindFixture>
     [Fact]
     public void GetAll_Returns4Regions()
     {
+        if (!_fixture.Available) return;
         var results = _fixture.Db.Region.GetAll();
         Assert.Equal(4, results.Count);
     }

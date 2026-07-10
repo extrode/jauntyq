@@ -3,7 +3,8 @@ using Xunit;
 
 namespace JauntyQ.Northwind.Tests;
 
-public class EmployeeTerritoriesTests : IClassFixture<NorthwindFixture>
+[Collection("Northwind")]
+public class EmployeeTerritoriesTests
 {
     private readonly NorthwindFixture _fixture;
     public EmployeeTerritoriesTests(NorthwindFixture fixture) => _fixture = fixture;
@@ -11,6 +12,7 @@ public class EmployeeTerritoriesTests : IClassFixture<NorthwindFixture>
     [Fact]
     public void GetByEmployee_ReturnsTerritoriesForEmployee1()
     {
+        if (!_fixture.Available) return;
         var results = _fixture.Db.EmployeeTerritories.GetByEmployee(1);
         Assert.NotEmpty(results);
         Assert.All(results, et => Assert.NotNull(et.TerritoryDescription));

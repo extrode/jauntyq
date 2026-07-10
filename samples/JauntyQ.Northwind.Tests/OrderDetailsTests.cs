@@ -3,7 +3,8 @@ using Xunit;
 
 namespace JauntyQ.Northwind.Tests;
 
-public class OrderDetailsTests : IClassFixture<NorthwindFixture>
+[Collection("Northwind")]
+public class OrderDetailsTests
 {
     private readonly NorthwindFixture _fixture;
     public OrderDetailsTests(NorthwindFixture fixture) => _fixture = fixture;
@@ -11,6 +12,7 @@ public class OrderDetailsTests : IClassFixture<NorthwindFixture>
     [Fact]
     public void GetByOrder_10248_ReturnsDetails()
     {
+        if (!_fixture.Available) return;
         var results = _fixture.Db.OrderDetails.GetByOrder(10248);
         Assert.NotEmpty(results);
         Assert.All(results, d => Assert.Equal(10248, d.OrderId));
