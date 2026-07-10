@@ -14,9 +14,13 @@ public static partial class CodeEmitter
         string ret = isAsync ? "System.Threading.Tasks.Task<int>" : "int";
         string name = isAsync ? "BulkInsertAsync" : "BulkInsert";
         string rowsParam = $"System.Collections.Generic.IEnumerable<{rowType}> rows";
+        // Same signature shape as the provider fast paths (BulkInsertSignature
+        // in CodeEmitter.Part13.cs): statics take an optional caller-managed
+        // DbTransaction; instance variants flow _db.CurrentTransaction.
+        const string txParam = "System.Data.Common.DbTransaction? transaction = null";
         string paramList = isStatic
-            ? (isAsync ? $"System.Data.Common.DbConnection conn, {rowsParam}, System.Threading.CancellationToken cancellationToken = default"
-                       : $"System.Data.Common.DbConnection conn, {rowsParam}")
+            ? (isAsync ? $"System.Data.Common.DbConnection conn, {rowsParam}, {txParam}, System.Threading.CancellationToken cancellationToken = default"
+                       : $"System.Data.Common.DbConnection conn, {rowsParam}, {txParam}")
             : (isAsync ? $"{rowsParam}, System.Threading.CancellationToken cancellationToken = default" : rowsParam);
 
         string colList = string.Join(", ", cols.Select(c => c.Name));
@@ -40,8 +44,10 @@ public static partial class CodeEmitter
         }
         else
         {
-            sb.AppendLine("                System.Data.Common.DbTransaction? tx = null;");
-            sb.AppendLine("                bool ownTx = true;");
+            // A caller-supplied transaction is the caller's unit of work:
+            // enlist in it and leave commit/rollback/dispose to the caller.
+            sb.AppendLine("                System.Data.Common.DbTransaction? tx = transaction;");
+            sb.AppendLine("                bool ownTx = tx == null;");
         }
         sb.AppendLine(isAsync
             ? $"                if (ownTx) tx = await {connVar}.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);"

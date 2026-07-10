@@ -22,9 +22,15 @@ public static partial class CodeEmitter
         string ret = isAsync ? "System.Threading.Tasks.Task<int>" : "int";
         string name = isAsync ? "BulkInsertAsync" : "BulkInsert";
         string rowsParam = $"System.Collections.Generic.IEnumerable<{rowType}> rows";
+        // Static variants take an optional trailing DbTransaction so the copy
+        // can participate in a caller-managed unit of work (instance variants
+        // flow the ambient _db.CurrentTransaction instead). On PostgreSQL the
+        // binary COPY rides the connection's active transaction automatically,
+        // so the parameter exists there for API uniformity.
+        const string txParam = "System.Data.Common.DbTransaction? transaction = null";
         string paramList = isStatic
-            ? (isAsync ? $"System.Data.Common.DbConnection conn, {rowsParam}, System.Threading.CancellationToken cancellationToken = default"
-                       : $"System.Data.Common.DbConnection conn, {rowsParam}")
+            ? (isAsync ? $"System.Data.Common.DbConnection conn, {rowsParam}, {txParam}, System.Threading.CancellationToken cancellationToken = default"
+                       : $"System.Data.Common.DbConnection conn, {rowsParam}, {txParam}")
             : (isAsync ? $"{rowsParam}, System.Threading.CancellationToken cancellationToken = default" : rowsParam);
         return (modifier, asyncModifier, ret, name, paramList);
     }
@@ -132,7 +138,7 @@ public static partial class CodeEmitter
         if (!isStatic)
             sb.AppendLine("                var tx = (global::Microsoft.Data.SqlClient.SqlTransaction?)_db?.CurrentTransaction;");
         else
-            sb.AppendLine("                global::Microsoft.Data.SqlClient.SqlTransaction? tx = null;");
+            sb.AppendLine("                var tx = (global::Microsoft.Data.SqlClient.SqlTransaction?)transaction;");
         sb.AppendLine($"                var __reader = new {readerType}(rows);");
         sb.AppendLine($"                using (var __bulkCopy = new global::Microsoft.Data.SqlClient.SqlBulkCopy((global::Microsoft.Data.SqlClient.SqlConnection){connVar}, global::Microsoft.Data.SqlClient.SqlBulkCopyOptions.Default, tx))");
         sb.AppendLine("                {");
@@ -182,7 +188,7 @@ public static partial class CodeEmitter
         if (!isStatic)
             sb.AppendLine("                var tx = (global::MySqlConnector.MySqlTransaction?)_db?.CurrentTransaction;");
         else
-            sb.AppendLine("                global::MySqlConnector.MySqlTransaction? tx = null;");
+            sb.AppendLine("                var tx = (global::MySqlConnector.MySqlTransaction?)transaction;");
         sb.AppendLine($"                var __reader = new {readerType}(rows);");
         sb.AppendLine($"                var __bulkCopy = new global::MySqlConnector.MySqlBulkCopy((global::MySqlConnector.MySqlConnection){connVar}, tx);");
         sb.AppendLine($"                __bulkCopy.DestinationTableName = \"{IdentifierGuard.ToStringLiteral(tableName)}\";");

@@ -39,6 +39,13 @@ public static partial class CodeEmitter
             else
                 parts.Add($"{ct} {pname}");
         }
+        // Static variants take an optional trailing DbTransaction (see
+        // HasStaticTransactionParam); skipped if a proc parameter maps to the
+        // same C# name.
+        bool hasTransactionParam = isStatic
+            && !parts.Exists(p => p.EndsWith(" transaction", StringComparison.Ordinal));
+        if (hasTransactionParam)
+            parts.Add("System.Data.Common.DbTransaction? transaction = null");
         if (isAsync)
             parts.Add("System.Threading.CancellationToken cancellationToken = default");
 
@@ -64,6 +71,8 @@ public static partial class CodeEmitter
         sb.AppendLine($"                using var cmd = {connVar}.CreateCommand();");
         if (!isStatic)
             sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
+        else if (hasTransactionParam)
+            sb.AppendLine("                if (transaction != null) cmd.Transaction = transaction;");
         sb.AppendLine($"                cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procedure.Name)}\";");
         sb.AppendLine("                cmd.CommandType = System.Data.CommandType.StoredProcedure;");
 

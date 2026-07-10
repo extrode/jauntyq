@@ -182,7 +182,34 @@ public class GeneratorIntegrationTests
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("public static System.Collections.Generic.List<Result.GetProducts> GetProducts(System.Data.Common.DbConnection conn)", source);
+        Assert.Contains("public static System.Collections.Generic.List<Result.GetProducts> GetProducts(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction? transaction = null)", source);
+    }
+
+    [Fact]
+    public void StaticMethod_AssignsCallerTransactionToCommand()
+    {
+        var sql = "select p.product_id, p.product_name from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        // Static variants enlist in the caller's transaction: SqlClient throws
+        // if a command runs on a connection with an active transaction the
+        // command doesn't carry.
+        Assert.Contains("if (transaction != null) cmd.Transaction = transaction;", source);
+        // Instance variants keep flowing the ambient JauntyDb transaction.
+        Assert.Contains("if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;", source);
+    }
+
+    [Fact]
+    public void StaticAsyncMethod_TransactionPrecedesCancellationToken()
+    {
+        var sql = "select p.product_id, p.product_name from products p";
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains(
+            "GetProductsAsync(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction? transaction = null, System.Threading.CancellationToken cancellationToken = default)",
+            source);
     }
 
     // ── Connection lifecycle ───────────────────────────────
@@ -254,7 +281,7 @@ where p.category_id = @categoryId";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         // Static method: conn + query parameter
-        Assert.Contains("public static System.Collections.Generic.List<Result.GetProducts> GetProducts(System.Data.Common.DbConnection conn, int? categoryId)", source);
+        Assert.Contains("public static System.Collections.Generic.List<Result.GetProducts> GetProducts(System.Data.Common.DbConnection conn, int? categoryId, System.Data.Common.DbTransaction? transaction = null)", source);
     }
 
     // ── Nullable columns ───────────────────────────────────

@@ -127,6 +127,10 @@ public static partial class CodeEmitter
         {
             sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
         }
+        else if (HasStaticTransactionParam(paramInfos, isStatic))
+        {
+            sb.AppendLine("                if (transaction != null) cmd.Transaction = transaction;");
+        }
         if (procName != null)
         {
             sb.AppendLine($"                cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procName)}\";");

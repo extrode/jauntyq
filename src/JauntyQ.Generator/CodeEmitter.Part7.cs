@@ -44,13 +44,22 @@ public static partial class CodeEmitter
         sb.AppendLine($"    public partial class {entityName}");
         sb.AppendLine("    {");
 
+        // The scalar static targets only carry the optional DbTransaction when
+        // no column parameter is itself named "transaction" (the same guard as
+        // HasStaticTransactionParam); mirror that so forwarding stays in sync.
+        bool TxForwardable(System.Collections.Generic.List<ColumnSchema> cols)
+            => !cols.Exists(c => string.Equals(c.Name, "transaction", StringComparison.OrdinalIgnoreCase));
+
         void Forward(string method, System.Collections.Generic.List<ColumnSchema> cols)
         {
             string args = Args(cols);
+            bool tx = TxForwardable(cols);
+            string txParam = tx ? ", System.Data.Common.DbTransaction? transaction = null" : "";
+            string txArg = tx ? ", transaction" : "";
             sb.AppendLine($"        public int {method}({rowType} row) => {method}({args});");
-            sb.AppendLine($"        public static int {method}(System.Data.Common.DbConnection conn, {rowType} row) => {method}(conn, {args});");
+            sb.AppendLine($"        public static int {method}(System.Data.Common.DbConnection conn, {rowType} row{txParam}) => {method}(conn, {args}{txArg});");
             sb.AppendLine($"        public System.Threading.Tasks.Task<int> {method}Async({rowType} row, System.Threading.CancellationToken cancellationToken = default) => {method}Async({args}, cancellationToken);");
-            sb.AppendLine($"        public static System.Threading.Tasks.Task<int> {method}Async(System.Data.Common.DbConnection conn, {rowType} row, System.Threading.CancellationToken cancellationToken = default) => {method}Async(conn, {args}, cancellationToken);");
+            sb.AppendLine($"        public static System.Threading.Tasks.Task<int> {method}Async(System.Data.Common.DbConnection conn, {rowType} row{txParam}, System.Threading.CancellationToken cancellationToken = default) => {method}Async(conn, {args}{txArg}, cancellationToken);");
             sb.AppendLine();
         }
 
@@ -69,9 +78,12 @@ public static partial class CodeEmitter
                 sb.AppendLine("            return id;");
                 sb.AppendLine("        }");
                 sb.AppendLine();
-                sb.AppendLine($"        public static {idType} Insert(System.Data.Common.DbConnection conn, {rowType} row)");
+                bool insertTx = TxForwardable(insertCols);
+                string insertTxParam = insertTx ? ", System.Data.Common.DbTransaction? transaction = null" : "";
+                string insertTxArg = insertTx ? ", transaction" : "";
+                sb.AppendLine($"        public static {idType} Insert(System.Data.Common.DbConnection conn, {rowType} row{insertTxParam})");
                 sb.AppendLine("        {");
-                sb.AppendLine($"            {idType} id = Insert(conn, {args});");
+                sb.AppendLine($"            {idType} id = Insert(conn, {args}{insertTxArg});");
                 sb.AppendLine($"            row.{idProp} = id;");
                 sb.AppendLine("            return id;");
                 sb.AppendLine("        }");
@@ -83,9 +95,9 @@ public static partial class CodeEmitter
                 sb.AppendLine("            return id;");
                 sb.AppendLine("        }");
                 sb.AppendLine();
-                sb.AppendLine($"        public static async System.Threading.Tasks.Task<{idType}> InsertAsync(System.Data.Common.DbConnection conn, {rowType} row, System.Threading.CancellationToken cancellationToken = default)");
+                sb.AppendLine($"        public static async System.Threading.Tasks.Task<{idType}> InsertAsync(System.Data.Common.DbConnection conn, {rowType} row{insertTxParam}, System.Threading.CancellationToken cancellationToken = default)");
                 sb.AppendLine("        {");
-                sb.AppendLine($"            {idType} id = await InsertAsync(conn, {args}, cancellationToken).ConfigureAwait(false);");
+                sb.AppendLine($"            {idType} id = await InsertAsync(conn, {args}{insertTxArg}, cancellationToken).ConfigureAwait(false);");
                 sb.AppendLine($"            row.{idProp} = id;");
                 sb.AppendLine("            return id;");
                 sb.AppendLine("        }");

@@ -42,6 +42,10 @@ public static partial class CodeEmitter
         {
             sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
         }
+        else if (HasStaticTransactionParam(paramInfos, isStatic))
+        {
+            sb.AppendLine("                if (transaction != null) cmd.Transaction = transaction;");
+        }
         if (procName != null)
         {
             sb.AppendLine($"                cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procName)}\";");
@@ -86,6 +90,16 @@ public static partial class CodeEmitter
         sb.AppendLine("        }");
     }
 
+    /// <summary>
+    /// Static variants take an optional trailing DbTransaction: a connection
+    /// with an active transaction requires every command to carry it (SqlClient
+    /// throws otherwise), and static methods have no JauntyDb to flow an
+    /// ambient one from. Skipped in the (pathological) case of a SQL parameter
+    /// literally named @transaction, which would collide.
+    /// </summary>
+    private static bool HasStaticTransactionParam(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic) =>
+        isStatic && !paramInfos.Exists(p => string.Equals(p.Name, "transaction", StringComparison.OrdinalIgnoreCase));
+
     private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync, bool trailingNullableDefaults = false, bool enumeratorCancellation = false)
     {
         // C# optional parameters must be trailing: give `= default` to the
@@ -108,6 +122,12 @@ public static partial class CodeEmitter
             if (sb.Length > 0) sb.Append(", ");
             sb.Append($"{p.CSharpType} {p.Name}");
             if (i >= firstDefault) sb.Append(" = default");
+        }
+
+        if (HasStaticTransactionParam(paramInfos, isStatic))
+        {
+            if (sb.Length > 0) sb.Append(", ");
+            sb.Append("System.Data.Common.DbTransaction? transaction = null");
         }
 
         if (isAsync)

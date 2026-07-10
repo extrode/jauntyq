@@ -51,7 +51,7 @@ public class ProductsTests
         if (!_fixture.Available) return;
         using var cts = new CancellationTokenSource();
         using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
-        var results = await JauntyQ.Generated.Products.GetByCategoryAsync(conn, 1, cts.Token);
+        var results = await JauntyQ.Generated.Products.GetByCategoryAsync(conn, 1, cancellationToken: cts.Token);
         Assert.NotEmpty(results);
     }
 
