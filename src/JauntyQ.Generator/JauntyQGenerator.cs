@@ -135,31 +135,32 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // Duplicate-query detection (JNT8005): plain string comparison in its
         // own node, so body edits never invalidate the expensive aggregate.
         var fingerprints = perFile
-            .Select(static (r, _) => (Entity: r.Summary.EntityName, Method: r.Summary.MethodName, Fingerprint: r.Fingerprint))
+            .Select(static (r, _) => (Entity: r.Summary.EntityName, Method: r.Summary.MethodName, Fingerprint: r.Fingerprint, Path: r.Path))
             .Collect()
             .WithTrackingName("JauntyQ_Fingerprints");
 
         context.RegisterSourceOutput(fingerprints, static (ctx, entries) =>
         {
-            var groups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>(StringComparer.Ordinal);
+            var groups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<(string Name, string? Path)>>(StringComparer.Ordinal);
             foreach (var entry in entries)
             {
                 if (string.IsNullOrEmpty(entry.Fingerprint))
                     continue;
                 if (!groups.TryGetValue(entry.Fingerprint!, out var members))
                 {
-                    members = new System.Collections.Generic.List<string>();
+                    members = new System.Collections.Generic.List<(string, string?)>();
                     groups[entry.Fingerprint!] = members;
                 }
-                members.Add($"{entry.Entity}.{entry.Method}");
+                members.Add(($"{entry.Entity}.{entry.Method}", entry.Path));
             }
             foreach (var group in groups)
             {
                 if (group.Value.Count < 2)
                     continue;
-                group.Value.Sort(StringComparer.Ordinal);
-                ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT8005, Location.None,
-                    $"Queries {string.Join(", ", group.Value)} compile to identical SQL; consolidate them to keep one plan and one maintenance point."));
+                group.Value.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
+                // Anchor to the first member's .sql file so the IDE can navigate.
+                ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT8005, FileLocation(group.Value[0].Path),
+                    $"Queries {string.Join(", ", group.Value.Select(m => m.Name))} compile to identical SQL; consolidate them to keep one plan and one maintenance point."));
             }
         });
 
@@ -168,7 +169,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // full foreign key with a parent-collection query over the FK's
         // parent table, which needs the whole corpus plus the FK graph.
         var nPlusOneInput = perFile
-            .Select(static (r, _) => (Name: r.Summary.EntityName + "." + r.Summary.MethodName, Query: r.Query))
+            .Select(static (r, _) => (Name: r.Summary.EntityName + "." + r.Summary.MethodName, Path: r.Path, Query: r.Query))
             .Collect()
             .Combine(schemaState)
             .WithTrackingName("JauntyQ_NPlusOne");
@@ -202,5 +203,15 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             EmitAggregates(ctx, fileSummaries, schema, autoCrud);
         });
     }
+
+    /// <summary>
+    /// A file-level Location (line 1) for aggregate-stage diagnostics, so the
+    /// IDE can navigate to the offending .sql file; Location.None when the
+    /// path is unknown.
+    /// </summary>
+    internal static Location FileLocation(string? path) =>
+        string.IsNullOrEmpty(path)
+            ? Location.None
+            : Location.Create(path!, new TextSpan(0, 0), new LinePositionSpan());
 
 }

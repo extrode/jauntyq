@@ -32,7 +32,7 @@ internal static class NPlusOneAnalyzer
     /// are processed in sorted order).
     /// </summary>
     public static List<Diagnostic> Analyze(
-        IReadOnlyList<(string Name, QueryModel? Query)> corpus,
+        IReadOnlyList<(string Name, string? Path, QueryModel? Query)> corpus,
         DatabaseSchema schema)
     {
         var diagnostics = new List<Diagnostic>();
@@ -47,11 +47,11 @@ internal static class NPlusOneAnalyzer
 
         // Classify each parsed SELECT once.
         var facts = new List<QueryFacts>();
-        foreach (var (name, query) in corpus)
+        foreach (var (name, path, query) in corpus)
         {
             if (query == null || query.StatementType != StatementType.Select || query.Tables.Count == 0)
                 continue;
-            facts.Add(QueryFacts.Build(name, query, schema));
+            facts.Add(QueryFacts.Build(name, path, query, schema));
         }
         facts.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
 
@@ -59,12 +59,18 @@ internal static class NPlusOneAnalyzer
         var collections = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var fact in facts)
         {
+            // A query pinned to a single row by a unique key on ANY table it
+            // reads (inner-joined), or projecting only an aggregate, returns at
+            // most one row -- it is not a parent collection for any of its
+            // tables. Checking every read table (not just each in isolation)
+            // catches lookups whose uniqueness lives on a joined table, e.g. a
+            // user fetched via a unique email (WHERE e.realm_id = @r AND
+            // e.value = @v, unique on (realm_id, value)).
+            if (fact.AggregateOnlyProjection || IsSingleRowOverall(fact, schema))
+                continue;
             foreach (var tableKey in fact.TablesRead)
             {
-                var tableSchema = FindTableSchema(schema, tableKey);
-                if (tableSchema == null)
-                    continue;
-                if (IsSingleRowPkLookup(fact, tableKey, tableSchema) || fact.AggregateOnlyProjection)
+                if (FindTableSchema(schema, tableKey) == null)
                     continue;
                 if (!collections.TryGetValue(tableKey, out var names))
                 {
@@ -81,6 +87,16 @@ internal static class NPlusOneAnalyzer
             foreach (var group in fkGroups)
             {
                 if (!IsChildPointLookup(fact, group))
+                    continue;
+
+                // A lookup whose FK equality co-occurs with a unique key that
+                // includes a column BEYOND the FK returns at most one row via
+                // that more selective key: the FK is a scoping predicate (a
+                // tenant/realm_id column alongside a unique business key like
+                // username), not a per-parent-row N+1 driver. A lookup keyed
+                // SOLELY by the FK (unique key == the FK columns) still fires.
+                var childSchema = FindTableSchema(schema, group.ChildTableKey);
+                if (childSchema != null && IsScopingChildLookup(fact, group, childSchema))
                     continue;
 
                 if (!collections.TryGetValue(group.ParentTableKey, out var parents))
@@ -100,7 +116,8 @@ internal static class NPlusOneAnalyzer
                 if (parent == null)
                     continue;
 
-                diagnostics.Add(Diagnostic.Create(JauntyDiagnostics.JNT8008, Location.None,
+                // Anchor to the child lookup's .sql file so the IDE can navigate.
+                diagnostics.Add(Diagnostic.Create(JauntyDiagnostics.JNT8008, JauntyQGenerator.FileLocation(fact.Path),
                     BuildMessage(fact, group, parent)));
                 break; // at most once per child lookup (FR-007)
             }
@@ -165,22 +182,122 @@ internal static class NPlusOneAnalyzer
     }
 
     /// <summary>
-    /// True when the query filters the given table to (at most) one row by an
-    /// equality on every primary-key column — a single-row lookup, so there is
-    /// no collection to iterate. Tables without a primary key never qualify.
+    /// True when the query is constrained to at most one row by a unique key on
+    /// ANY table it reads — including a unique key on an inner-joined table (e.g.
+    /// a user fetched through a unique email address). Such a query is not a
+    /// parent collection to iterate.
     /// </summary>
-    private static bool IsSingleRowPkLookup(QueryFacts fact, string tableKey, TableSchema tableSchema)
+    private static bool IsSingleRowOverall(QueryFacts fact, DatabaseSchema schema)
     {
+        foreach (var tableKey in fact.TablesRead)
+        {
+            var tableSchema = FindTableSchema(schema, tableKey);
+            if (tableSchema != null && IsSingleRowUniqueLookup(fact, tableKey, tableSchema))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// True when the query filters the given table to (at most) one row by an
+    /// equality on every column of SOME unique key — its primary key or any
+    /// unique index. Such a query returns a single row, so on the parent side it
+    /// is not a collection to iterate. Tables with no primary key and no unique
+    /// index never qualify. (Filtering by a unique business key such as
+    /// (realm_id, username) counts, not just the surrogate primary key.)
+    /// </summary>
+    private static bool IsSingleRowUniqueLookup(QueryFacts fact, string tableKey, TableSchema tableSchema)
+    {
+        // Primary key: single-row when every PK column is equality-filtered.
         bool hasPk = false;
+        bool pkFullyFiltered = true;
         foreach (var column in tableSchema.Columns.Values)
         {
             if (!column.IsPrimaryKey)
                 continue;
             hasPk = true;
             if (!fact.EqualityFilterColumns.Contains(tableKey + "|" + column.Name.ToLowerInvariant()))
-                return false;
+            {
+                pkFullyFiltered = false;
+                break;
+            }
         }
-        return hasPk;
+        if (hasPk && pkFullyFiltered)
+            return true;
+
+        // Any unique index: single-row when every one of its key columns is
+        // equality-filtered.
+        foreach (var index in tableSchema.Indexes)
+        {
+            if (!index.IsUnique || index.Columns.Count == 0)
+                continue;
+            bool allFiltered = true;
+            foreach (var column in index.Columns)
+            {
+                if (!fact.EqualityFilterColumns.Contains(tableKey + "|" + column.ToLowerInvariant()))
+                {
+                    allFiltered = false;
+                    break;
+                }
+            }
+            if (allFiltered)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// True when the child lookup is constrained to a single row by a unique key
+    /// (primary key or any unique index) whose columns include at least one
+    /// column BEYOND the group's foreign-key columns. In that case the FK
+    /// equality is a scoping predicate — a tenant/realm discriminator sitting
+    /// alongside a more selective unique column that actually picks the row — so
+    /// the query is a scoped point read, not an N+1 driver over the parent
+    /// collection. A lookup whose unique key is EXACTLY the FK columns (so the FK
+    /// alone determines the row) is NOT scoping and still fires.
+    /// </summary>
+    private static bool IsScopingChildLookup(QueryFacts fact, FkGroup group, TableSchema tableSchema)
+    {
+        // The primary key as one candidate unique-key column set.
+        var pkColumns = new List<string>();
+        foreach (var column in tableSchema.Columns.Values)
+        {
+            if (column.IsPrimaryKey)
+                pkColumns.Add(column.Name);
+        }
+        if (UniqueKeyMakesScoping(fact, group, pkColumns))
+            return true;
+
+        foreach (var index in tableSchema.Indexes)
+        {
+            if (index.IsUnique && UniqueKeyMakesScoping(fact, group, index.Columns))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// True when every column of <paramref name="keyColumns"/> is equality-filtered
+    /// (the query is single-row by this unique key) AND at least one of those
+    /// columns is not a foreign-key column of <paramref name="group"/> (so a
+    /// non-FK column is what makes it selective). Empty key sets never qualify.
+    /// </summary>
+    private static bool UniqueKeyMakesScoping(QueryFacts fact, FkGroup group, List<string> keyColumns)
+    {
+        if (keyColumns.Count == 0)
+            return false;
+
+        bool hasColumnBeyondFk = false;
+        foreach (var column in keyColumns)
+        {
+            if (!fact.EqualityFilterColumns.Contains(group.ChildTableKey + "|" + column.ToLowerInvariant()))
+                return false; // key not fully constrained: not single-row by it
+            if (!group.ChildColumns.Contains(column, StringComparer.OrdinalIgnoreCase))
+                hasColumnBeyondFk = true;
+        }
+        return hasColumnBeyondFk;
     }
 
     /// <summary>
@@ -264,6 +381,9 @@ internal static class NPlusOneAnalyzer
     {
         public string Name = string.Empty;
 
+        /// <summary>The child lookup's .sql path (JNT8008 diagnostic anchor).</summary>
+        public string? Path;
+
         /// <summary>Lowercased snapshot tables this statement reads in FROM/JOIN.</summary>
         public readonly HashSet<string> TablesRead = new HashSet<string>(StringComparer.Ordinal);
 
@@ -284,9 +404,9 @@ internal static class NPlusOneAnalyzer
         /// </summary>
         public bool AggregateOnlyProjection;
 
-        public static QueryFacts Build(string name, QueryModel query, DatabaseSchema schema)
+        public static QueryFacts Build(string name, string? path, QueryModel query, DatabaseSchema schema)
         {
-            var facts = new QueryFacts { Name = name };
+            var facts = new QueryFacts { Name = name, Path = path };
 
             // Same alias map the validator builds (later duplicates win).
             var aliasToTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

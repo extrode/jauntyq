@@ -86,7 +86,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 callSource,
                 callDiagnostics.ToImmutable(),
                 new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable: null),
-                fingerprint: $"@call:{procedure.Name}");
+                fingerprint: $"@call:{procedure.Name}",
+                path: sqlFile.Path);
         }
 
         // Tokenize (use cleaned SQL with directive lines removed)
@@ -358,6 +359,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             diagnostics.ToImmutable(),
             new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable),
             ComputeFingerprint(tokens),
-            queryModel);
+            queryModel,
+            sqlFile.Path);
     }
 }

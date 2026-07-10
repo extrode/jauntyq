@@ -30,7 +30,14 @@ internal sealed class FileResult
     /// </summary>
     public QueryModel? Query { get; }
 
-    public FileResult(string? hintName, string? source, ImmutableArray<DiagnosticInfo> diagnostics, FileSummary summary, string? fingerprint = null, QueryModel? query = null)
+    /// <summary>
+    /// The .sql file's path, used to anchor aggregate-stage diagnostics
+    /// (JNT8005/JNT8008) to a navigable location instead of Location.None.
+    /// Null when the file emitted nothing.
+    /// </summary>
+    public string? Path { get; }
+
+    public FileResult(string? hintName, string? source, ImmutableArray<DiagnosticInfo> diagnostics, FileSummary summary, string? fingerprint = null, QueryModel? query = null, string? path = null)
     {
         HintName = hintName;
         Source = source;
@@ -38,6 +45,7 @@ internal sealed class FileResult
         Summary = summary;
         Fingerprint = fingerprint;
         Query = query;
+        Path = path;
     }
 
     public static FileResult None(string entityName, string methodName, bool claims) =>
