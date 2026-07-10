@@ -34,7 +34,7 @@ public static partial class CodeEmitter
         // One materializer shared by all four variants. A direct static call
         // (not a delegate): the JIT inlines small static methods, while
         // delegate invocations are indirect calls it will not reliably
-        // inline - see docs/02-design/design-decisions.md (row materialization).
+        // inline - see the design notes (row materialization).
         // Canonical full-row queries go one step further and share the
         // single Read() materializer on the row POCO itself.
         string mapperCall;
