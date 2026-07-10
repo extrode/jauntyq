@@ -11,6 +11,7 @@ namespace JauntyQ.Northwind.Tests;
 /// from the same DDL, runs the generated code against it, and drops it -
 /// including the first live optimistic-concurrency conflict proof.
 /// </summary>
+[Collection("Northwind")]
 public class Tier3LiveTests : IDisposable
 {
     // Keep in sync with db/migrations/0001_create_jq_gadgets.sql.
@@ -22,11 +23,12 @@ create table JQ_Gadgets (
     row_version rowversion not null
 )";
 
-    private readonly SqlConnection _conn;
-    private readonly JauntyDb _db;
+    private readonly SqlConnection _conn = null!;
+    private readonly JauntyDb _db = null!;
 
     public Tier3LiveTests()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         _conn = new SqlConnection(NorthwindFixture.ConnectionString);
         _conn.Open();
         Execute("drop table if exists JQ_Gadgets");
@@ -36,6 +38,7 @@ create table JQ_Gadgets (
 
     public void Dispose()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         Execute("drop table if exists JQ_Gadgets");
         _conn.Dispose();
     }
@@ -50,6 +53,7 @@ create table JQ_Gadgets (
     [Fact]
     public void MigrationGeneratedApi_FullCrudRoundTrip()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         int id = _db.JQGadgets.Insert("Widget", 19.99m);
         Assert.True(id > 0);
 
@@ -72,6 +76,7 @@ create table JQ_Gadgets (
     [Fact]
     public void OptimisticConcurrency_StaleUpdateAndDelete_Conflict()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         int id = _db.JQGadgets.Insert("Contested", null);
 
         var first = _db.JQGadgets.GetById(id);
@@ -100,6 +105,7 @@ create table JQ_Gadgets (
     [Fact]
     public void ValueSafety_AppliesToMigrationDefinedColumns()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var ex = Assert.Throws<ArgumentException>(
             () => _db.JQGadgets.Insert(new string('X', 41), null));
 

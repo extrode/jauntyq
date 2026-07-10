@@ -10,6 +10,7 @@ namespace JauntyQ.Northwind.Tests;
 /// throw client-side (no server round-trip) for a 41-char value, and the
 /// happy path must be unaffected by the new parameter sizing.
 /// </summary>
+[Collection("Northwind")]
 public class Tier2LiveTests
 {
     private static JauntyDb FreshDb() => new(new SqlConnection(NorthwindFixture.ConnectionString));
@@ -17,6 +18,7 @@ public class Tier2LiveTests
     [Fact]
     public void OversizeWriteValue_ThrowsClientSide_WithColumnAndLimit()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
         string tooLong = new string('X', 41);
 
@@ -31,6 +33,7 @@ public class Tier2LiveTests
     [Fact]
     public void OversizeWriteValue_PocoUpdate_AlsoThrows()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
         var shipper = db.Shippers.GetById(1);
         Assert.NotNull(shipper);
@@ -43,6 +46,7 @@ public class Tier2LiveTests
     [Fact]
     public void ExactLimitValue_WritesAndReadsBack()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
         string exact40 = new string('Z', 40);
 
@@ -57,6 +61,7 @@ public class Tier2LiveTests
     [Fact]
     public void OversizeComparisonValue_MatchesNothing_NoThrow()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
 
         // Read path must never truncate (a truncated key could match the

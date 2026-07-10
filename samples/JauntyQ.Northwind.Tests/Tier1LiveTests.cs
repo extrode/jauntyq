@@ -9,6 +9,7 @@ namespace JauntyQ.Northwind.Tests;
 /// identity-returning INSERT (synthetic Shippers.Insert carries -- @identity).
 /// Uses fresh connections so the shared fixture connection is untouched.
 /// </summary>
+[Collection("Northwind")]
 public class Tier1LiveTests
 {
     private static JauntyDb FreshDb() => new(new SqlConnection(NorthwindFixture.ConnectionString));
@@ -16,6 +17,7 @@ public class Tier1LiveTests
     [Fact]
     public void IdentityInsert_InsideTransaction_ReturnsNewId_RollbackDiscards()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
         int before = db.Shippers.GetAll().Count;
 
@@ -38,6 +40,7 @@ public class Tier1LiveTests
     [Fact]
     public void Transaction_DisposeWithoutCommit_RollsBack()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
         int before = db.Shippers.GetAll().Count;
 
@@ -53,6 +56,7 @@ public class Tier1LiveTests
     [Fact]
     public void Transaction_Commit_Persists()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
         int newId;
 
@@ -80,6 +84,7 @@ public class Tier1LiveTests
     [Fact]
     public async Task TransactionAsync_IdentityInsertAsync_Rollback()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
         int before = (await db.Shippers.GetAllAsync()).Count;
 
@@ -96,6 +101,7 @@ public class Tier1LiveTests
     [Fact]
     public void BeginTransaction_WhileActive_Throws()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
         using var tx = db.BeginTransaction();
         Assert.Throws<InvalidOperationException>(() => db.BeginTransaction());
@@ -107,6 +113,7 @@ public class Tier1LiveTests
     [Fact]
     public void CanonicalPocoTypes_AreTheApi()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
 
         // explicit types: full-row queries return the singular POCO
@@ -125,6 +132,7 @@ public class Tier1LiveTests
     [Fact]
     public void FkLoader_GetByCategoryId_ReturnsCategoryProducts()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
 
         List<Product> beverages = db.Products.GetByCategoryId(1);
@@ -136,6 +144,7 @@ public class Tier1LiveTests
     [Fact]
     public void PocoOverloads_ReadModifyWrite_UpdateAndUpsert()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
 
         using (var tx = db.BeginTransaction())
@@ -167,6 +176,7 @@ public class Tier1LiveTests
     [Fact]
     public void PocoInsert_WritesIdentityBack()
     {
+        if (!NorthwindFixture.IsAvailable) return;
         var db = FreshDb();
 
         using (var tx = db.BeginTransaction())
