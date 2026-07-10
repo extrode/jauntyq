@@ -13,15 +13,7 @@ namespace JauntyQ.MySql.Tests;
 /// </summary>
 public sealed class MySqlFixture : IAsyncLifetime
 {
-    private readonly MySqlContainer _container =
-        new MySqlBuilder()
-            .WithImage("mysql:8.0")
-            // MySqlBulkCopy issues LOAD DATA LOCAL INFILE, which the server
-            // rejects unless local_infile is enabled. The client half of the
-            // handshake (AllowLoadLocalInfile=true) is added below when building
-            // the runtime connection string.
-            .WithCommand("--local-infile=1")
-            .Build();
+    private MySqlContainer? _container;
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
@@ -32,6 +24,14 @@ public sealed class MySqlFixture : IAsyncLifetime
     {
         try
         {
+            _container = new MySqlBuilder()
+                .WithImage("mysql:8.0")
+                // MySqlBulkCopy issues LOAD DATA LOCAL INFILE, which the server
+                // rejects unless local_infile is enabled. The client half of the
+                // handshake (AllowLoadLocalInfile=true) is added below when building
+                // the runtime connection string.
+                .WithCommand("--local-infile=1")
+                .Build();
             await _container.StartAsync();
 
             string ddl = await File.ReadAllTextAsync(
@@ -85,6 +85,7 @@ public sealed class MySqlFixture : IAsyncLifetime
     {
         if (_conn != null)
             await _conn.DisposeAsync();
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+        if (_container != null)
+            try { await _container.DisposeAsync(); } catch { /* nothing started */ }
     }
 }

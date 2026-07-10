@@ -19,8 +19,7 @@ namespace JauntyQ.Postgres.Tests;
 /// </summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container =
-        new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+    private PostgreSqlContainer? _container;
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
@@ -31,6 +30,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         try
         {
+            _container = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
             await _container.StartAsync();
 
             string ddl = await File.ReadAllTextAsync(
@@ -61,6 +61,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         if (_conn != null)
             await _conn.DisposeAsync();
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+        if (_container != null)
+            try { await _container.DisposeAsync(); } catch { /* nothing started */ }
     }
 }
