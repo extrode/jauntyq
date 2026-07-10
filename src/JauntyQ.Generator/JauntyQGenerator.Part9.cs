@@ -23,13 +23,21 @@ internal sealed class FileResult
     /// <summary>Normalized-SQL fingerprint; null when the file emitted nothing.</summary>
     public string? Fingerprint { get; }
 
-    public FileResult(string? hintName, string? source, ImmutableArray<DiagnosticInfo> diagnostics, FileSummary summary, string? fingerprint = null)
+    /// <summary>
+    /// The parsed query model, kept for the cross-query N+1 pass (JNT8008)
+    /// at the aggregate stage. Null when the file did not parse/validate
+    /// clean (no model to reason about) or binds a stored procedure.
+    /// </summary>
+    public QueryModel? Query { get; }
+
+    public FileResult(string? hintName, string? source, ImmutableArray<DiagnosticInfo> diagnostics, FileSummary summary, string? fingerprint = null, QueryModel? query = null)
     {
         HintName = hintName;
         Source = source;
         Diagnostics = diagnostics;
         Summary = summary;
         Fingerprint = fingerprint;
+        Query = query;
     }
 
     public static FileResult None(string entityName, string methodName, bool claims) =>
