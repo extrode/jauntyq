@@ -63,14 +63,29 @@ public static partial class CodeEmitter
     }
 
     /// <summary>
-    /// Client-side length guards for write parameters. Fails fast with the
-    /// exact column and limit instead of a server round-trip ending in a
-    /// truncation error; also what makes the fixed DbParameter.Size safe
-    /// (ADO.NET providers silently truncate oversize values to Size).
+    /// Client-side value guards, emitted before the connection opens.
+    /// Null guards first: a null passed for a non-nullable reference parameter
+    /// (possible from non-NRT callers) would otherwise surface as an NRE deep
+    /// in the length guard / Size expression, or reach the provider as an
+    /// unset parameter value — fail fast with the parameter's name instead.
+    /// Then length guards for write parameters: fails fast with the exact
+    /// column and limit instead of a server round-trip ending in a truncation
+    /// error; also what makes the fixed DbParameter.Size safe (ADO.NET
+    /// providers silently truncate oversize values to Size).
     /// </summary>
     private static void EmitValueGuards(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos)
     {
         bool any = false;
+        foreach (var param in paramInfos)
+        {
+            // -- @each lists (IReadOnlyList<T>) and non-nullable string/byte[]
+            // params dereference below (.Count/.Length) — null-guard them.
+            if (!param.IsEach && param.CSharpType is not ("string" or "byte[]"))
+                continue;
+            sb.AppendLine($"            if ({param.Name} is null)");
+            sb.AppendLine($"                throw new System.ArgumentNullException(nameof({param.Name}));");
+            any = true;
+        }
         foreach (var param in paramInfos)
         {
             if (!param.IsWriteTarget || param.MaxLength is not int max || max <= 0)

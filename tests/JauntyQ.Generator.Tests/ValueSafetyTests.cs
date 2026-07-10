@@ -202,4 +202,29 @@ public class ValueSafetyTests
         Assert.Contains("default(short?)", source);
         Assert.DoesNotContain("? default :", source);
     }
+
+    // ── Null guards for non-nullable reference parameters ───────────────
+
+    [Fact]
+    public void NonNullableStringParam_EmitsArgumentNullGuard()
+    {
+        // product_name is NOT NULL -> the parameter is `string`; a null from a
+        // non-NRT caller must fail fast with the parameter name, not NRE in
+        // the length guard or reach the provider as an unset value.
+        var result = Run("insert into products (product_name) values (@product_name)");
+        string source = QuerySource(result);
+
+        Assert.Contains("if (product_name is null)", source);
+        Assert.Contains("throw new System.ArgumentNullException(nameof(product_name));", source);
+    }
+
+    [Fact]
+    public void NullableParam_NoArgumentNullGuard()
+    {
+        // reorder_level is nullable: null is a legitimate value (binds DBNull).
+        var result = Run("select product_id, product_name\nfrom products\nwhere products.reorder_level = @reorder_level");
+        string source = QuerySource(result);
+
+        Assert.DoesNotContain("throw new System.ArgumentNullException(nameof(reorder_level));", source);
+    }
 }
