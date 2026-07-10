@@ -211,15 +211,15 @@ public static partial class CodeEmitter
         {
             if (!param.IsEach)
                 continue;
-            sb.AppendLine($"            if ({param.Name}.Count == 0)");
+            sb.AppendLine($"            if ({param.CSharpName}.Count == 0)");
             if (isStream)
                 sb.AppendLine("                yield break;");
             else if (isFirst)
                 sb.AppendLine("                return null;");
             else
                 sb.AppendLine($"                return new System.Collections.Generic.List<{returnType}>();");
-            sb.AppendLine($"            if ({param.Name}.Count > {cap})");
-            sb.AppendLine($"                throw new System.ArgumentException($\"-- @each list '{param.Name}' has {{{param.Name}.Count}} elements, exceeding the {cap}-parameter budget for this database. Batch the call into smaller chunks.\", nameof({param.Name}));");
+            sb.AppendLine($"            if ({param.CSharpName}.Count > {cap})");
+            sb.AppendLine($"                throw new System.ArgumentException($\"-- @each list '{param.Name}' has {{{param.CSharpName}.Count}} elements, exceeding the {cap}-parameter budget for this database. Batch the call into smaller chunks.\", nameof({param.CSharpName}));");
             any = true;
         }
         if (any)
@@ -264,7 +264,7 @@ public static partial class CodeEmitter
         {
             string loopVar = $"__i_{ep.Name}";
             sb.AppendLine($"                var __each_{ep.Name} = new System.Text.StringBuilder();");
-            sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {ep.Name}.Count; {loopVar}++)");
+            sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {ep.CSharpName}.Count; {loopVar}++)");
             sb.AppendLine("                {");
             sb.AppendLine($"                    if ({loopVar} > 0) __each_{ep.Name}.Append(',');");
             sb.AppendLine($"                    __each_{ep.Name}.Append(\"@{ep.Name}\").Append({loopVar});");

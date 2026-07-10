@@ -82,8 +82,8 @@ public static partial class CodeEmitter
             // params dereference below (.Count/.Length) — null-guard them.
             if (!param.IsEach && param.CSharpType is not ("string" or "byte[]"))
                 continue;
-            sb.AppendLine($"            if ({param.Name} is null)");
-            sb.AppendLine($"                throw new System.ArgumentNullException(nameof({param.Name}));");
+            sb.AppendLine($"            if ({param.CSharpName} is null)");
+            sb.AppendLine($"                throw new System.ArgumentNullException(nameof({param.CSharpName}));");
             any = true;
         }
         foreach (var param in paramInfos)
@@ -96,10 +96,10 @@ public static partial class CodeEmitter
                 continue;
             string unit = isText ? "characters" : "bytes";
             string condition = param.CSharpType is "string" or "byte[]"
-                ? $"{param.Name}.Length > {max}"
-                : $"{param.Name} != null && {param.Name}.Length > {max}";
+                ? $"{param.CSharpName}.Length > {max}"
+                : $"{param.CSharpName} != null && {param.CSharpName}.Length > {max}";
             sb.AppendLine($"            if ({condition})");
-            sb.AppendLine($"                throw new System.ArgumentException($\"Value ({{{param.Name}.Length}} {unit}) exceeds {param.ColumnDisplay} max length ({max}).\", nameof({param.Name}));");
+            sb.AppendLine($"                throw new System.ArgumentException($\"Value ({{{param.CSharpName}.Length}} {unit}) exceeds {param.ColumnDisplay} max length ({max}).\", nameof({param.CSharpName}));");
             any = true;
         }
         if (any)
@@ -114,7 +114,7 @@ public static partial class CodeEmitter
     /// dynamically because a truncated key could match the wrong row.
     /// </summary>
     private static void EmitParameterSizing(System.Text.StringBuilder sb, EmittedParam param, string varName) =>
-        EmitParameterSizing(sb, param.CSharpType, param.MaxLength, param.Precision, param.Scale, param.IsWriteTarget, varName, param.Name);
+        EmitParameterSizing(sb, param.CSharpType, param.MaxLength, param.Precision, param.Scale, param.IsWriteTarget, varName, param.CSharpName);
 
     /// <summary>
     /// Same DbParameter.Size / Precision / Scale sizing, but for a value

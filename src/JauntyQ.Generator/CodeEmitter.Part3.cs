@@ -120,7 +120,7 @@ public static partial class CodeEmitter
         {
             var p = paramInfos[i];
             if (sb.Length > 0) sb.Append(", ");
-            sb.Append($"{p.CSharpType} {p.Name}");
+            sb.Append($"{p.CSharpType} {p.CSharpName}");
             if (i >= firstDefault) sb.Append(" = default");
         }
 
@@ -172,7 +172,7 @@ public static partial class CodeEmitter
                 // layer). Non-nullable value types keep the fast generic path.
                 if (IsNonNullableValueType(param.CSharpType))
                 {
-                    sb.AppendLine($"                var {varName} = new global::Npgsql.NpgsqlParameter<{param.CSharpType}> {{ ParameterName = \"@{param.Name}\", TypedValue = {param.Name} }};");
+                    sb.AppendLine($"                var {varName} = new global::Npgsql.NpgsqlParameter<{param.CSharpType}> {{ ParameterName = \"@{param.Name}\", TypedValue = {param.CSharpName} }};");
                 }
                 else
                 {
@@ -180,7 +180,7 @@ public static partial class CodeEmitter
                     string? pgAdoDbType = MapCSharpTypeToAdoDbType(param.CSharpType);
                     if (pgAdoDbType != null)
                         sb.AppendLine($"                {varName}.DbType = System.Data.DbType.{pgAdoDbType};");
-                    sb.AppendLine($"                {varName}.Value = (object?){param.Name} ?? System.DBNull.Value;");
+                    sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? System.DBNull.Value;");
                 }
                 sb.AppendLine($"                cmd.Parameters.Add({varName});");
                 continue;
@@ -201,11 +201,11 @@ public static partial class CodeEmitter
             // where null is actually possible.
             if (IsNonNullableValueType(param.CSharpType))
             {
-                sb.AppendLine($"                {varName}.Value = {param.Name};");
+                sb.AppendLine($"                {varName}.Value = {param.CSharpName};");
             }
             else
             {
-                sb.AppendLine($"                {varName}.Value = (object?){param.Name} ?? System.DBNull.Value;");
+                sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? System.DBNull.Value;");
             }
             sb.AppendLine($"                cmd.Parameters.Add({varName});");
         }
@@ -225,25 +225,25 @@ public static partial class CodeEmitter
 
         if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
         {
-            sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.Name}.Count; {loopVar}++)");
+            sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.CSharpName}.Count; {loopVar}++)");
             sb.AppendLine("                {");
             if (IsNonNullableValueType(elementType))
             {
-                sb.AppendLine($"                    cmd.Parameters.Add(new global::Npgsql.NpgsqlParameter<{elementType}> {{ ParameterName = \"@{param.Name}\" + {loopVar}, TypedValue = {param.Name}[{loopVar}] }});");
+                sb.AppendLine($"                    cmd.Parameters.Add(new global::Npgsql.NpgsqlParameter<{elementType}> {{ ParameterName = \"@{param.Name}\" + {loopVar}, TypedValue = {param.CSharpName}[{loopVar}] }});");
             }
             else
             {
                 sb.AppendLine($"                    var {varName} = new global::Npgsql.NpgsqlParameter {{ ParameterName = \"@{param.Name}\" + {loopVar} }};");
                 if (adoDbType != null)
                     sb.AppendLine($"                    {varName}.DbType = System.Data.DbType.{adoDbType};");
-                sb.AppendLine($"                    {varName}.Value = (object?){param.Name}[{loopVar}] ?? System.DBNull.Value;");
+                sb.AppendLine($"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? System.DBNull.Value;");
                 sb.AppendLine($"                    cmd.Parameters.Add({varName});");
             }
             sb.AppendLine("                }");
             return;
         }
 
-        sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.Name}.Count; {loopVar}++)");
+        sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.CSharpName}.Count; {loopVar}++)");
         sb.AppendLine("                {");
         sb.AppendLine($"                    var {varName} = cmd.CreateParameter();");
         sb.AppendLine($"                    {varName}.ParameterName = \"@{param.Name}\" + {loopVar};");
@@ -255,10 +255,10 @@ public static partial class CodeEmitter
         // so an oversize element can never get clipped down to a shorter
         // stored value and falsely match it.
         EmitParameterSizing(sb, elementType, param.MaxLength, param.Precision, param.Scale,
-            isWriteTarget: false, varName, $"{param.Name}[{loopVar}]", indent: "                    ");
+            isWriteTarget: false, varName, $"{param.CSharpName}[{loopVar}]", indent: "                    ");
         sb.AppendLine(IsNonNullableValueType(elementType)
-            ? $"                    {varName}.Value = {param.Name}[{loopVar}];"
-            : $"                    {varName}.Value = (object?){param.Name}[{loopVar}] ?? System.DBNull.Value;");
+            ? $"                    {varName}.Value = {param.CSharpName}[{loopVar}];"
+            : $"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? System.DBNull.Value;");
         sb.AppendLine($"                    cmd.Parameters.Add({varName});");
         sb.AppendLine("                }");
     }

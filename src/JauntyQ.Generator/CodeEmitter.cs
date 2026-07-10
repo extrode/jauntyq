@@ -198,6 +198,16 @@ namespace JauntyQ.Generated
     {
         public readonly string Name;
         public readonly string CSharpType;
+
+        /// <summary>
+        /// Emission-safe C# identifier for the parameter: '@'-prefixed when
+        /// <see cref="Name"/> is a C# keyword (e.g. a column named 'ref' or
+        /// 'operator'). Use this in every CODE position (declaration, value
+        /// reads, nameof); use the raw <see cref="Name"/> in STRING positions
+        /// (DbParameter.ParameterName, message text), where the SQL-side name
+        /// must survive verbatim.
+        /// </summary>
+        public string CSharpName => IdentifierGuard.Escape(Name);
         public readonly bool IsNullable;
         public readonly int? MaxLength;       // chars for text, bytes for binary; -1 = unbounded (MAX)
         public readonly int? Precision;

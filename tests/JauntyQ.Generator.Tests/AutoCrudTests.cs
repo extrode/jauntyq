@@ -435,4 +435,63 @@ public class AutoCrudTests
         var delete = AutoCrud.Synthesize(schema).Single(q => q.MethodName == "Delete");
         Assert.Contains("order_id = @order_id and line_no = @line_no", delete.Sql);
     }
+
+    // ── Columns named after C# keywords ──────────────────────────────────
+
+    // 'ref' and 'operator' are lexically valid identifiers (so JNT2004 lets
+    // them through) but C# keywords: emitted bare as parameter names they
+    // produce CS1988/CS1001 in the generated code. Reported by a downstream
+    // consumer (segments.ref / import_runs.operator).
+    private const string KeywordColumnsSchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""segments"": {
+      ""name"": ""segments"",
+      ""columns"": {
+        ""segment_id"": { ""name"": ""segment_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""ref"": { ""name"": ""ref"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 40 },
+        ""operator"": { ""name"": ""operator"", ""dbType"": ""varchar"", ""isNullable"": true, ""maxLength"": 40 }
+      }
+    }
+  }
+}";
+
+    [Fact]
+    public void KeywordColumns_AutoCrud_CompilesClean()
+    {
+        var (result, compilation) = RunAutoCrudWithSchema(KeywordColumnsSchemaJson);
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        // Parameters are '@'-escaped in code positions...
+        string? insert = TryGetSource(result, "Segments.Insert.auto.g.cs");
+        Assert.NotNull(insert);
+        Assert.Contains("string @ref", insert);
+        // ...but the SQL-side DbParameter name stays the raw column name.
+        Assert.Contains("ParameterName = \"@ref\"", insert);
+        Assert.DoesNotContain("ParameterName = \"@@ref\"", insert);
+    }
+
+    [Fact]
+    public void KeywordColumns_HandWrittenQueryParam_CompilesClean()
+    {
+        var (_, compilation) = RunAutoCrudWithSchema(KeywordColumnsSchemaJson, autoCrud: false,
+            ("db/Segments/GetByRef.sql",
+                "select segment_id, operator\nfrom segments\nwhere segments.ref = @ref"));
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void TypoDirective_ReportsJNT3008_AndStillEmits()
+    {
+        var (result, _) = RunAutoCrud(autoCrud: false, sqlFiles:
+            ("db/Products/GetAll.sql", "-- @frist\nselect product_id, product_name from products"));
+
+        var warning = Assert.Single(result.Diagnostics, d => d.Id == "JNT3008");
+        Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
+        Assert.Contains("did you mean '-- @first'", warning.GetMessage());
+        // Non-fatal: the file still generates (as a plain multi-row SELECT).
+        Assert.Contains(result.GeneratedTrees, t => t.FilePath.EndsWith("Products.GetAll.g.cs"));
+    }
 }
