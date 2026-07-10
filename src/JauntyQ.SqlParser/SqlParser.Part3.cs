@@ -39,6 +39,7 @@ public static partial class SqlParser
             {
                 paramRef.BoundTableAlias = tableAlias;
                 paramRef.BoundColumnName = columnName;
+                paramRef.ComparisonOp = tokens[i].Value;
             }
         }
 
@@ -56,6 +57,7 @@ public static partial class SqlParser
                 {
                     paramRef.BoundTableAlias = tableAlias;
                     paramRef.BoundColumnName = columnName;
+                    paramRef.ComparisonOp = "IN";
                 }
             }
         }
@@ -73,6 +75,7 @@ public static partial class SqlParser
                 {
                     paramRef.BoundTableAlias = tableAlias;
                     paramRef.BoundColumnName = columnName;
+                    paramRef.ComparisonOp = "LIKE";
                 }
             }
         }
@@ -90,6 +93,7 @@ public static partial class SqlParser
                 {
                     paramRef.BoundTableAlias = tableAlias;
                     paramRef.BoundColumnName = columnName;
+                    paramRef.ComparisonOp = "BETWEEN";
                 }
             }
         }

@@ -229,7 +229,8 @@ public static partial class SqlParser
                         Name = p.Name,
                         BoundTableAlias = p.BoundTableAlias,
                         BoundColumnName = p.BoundColumnName,
-                        IsWriteTarget = p.IsWriteTarget
+                        IsWriteTarget = p.IsWriteTarget,
+                        ComparisonOp = p.ComparisonOp
                     });
                 }
                 else if (string.IsNullOrEmpty(existing.BoundColumnName) && !string.IsNullOrEmpty(p.BoundColumnName))
@@ -237,6 +238,7 @@ public static partial class SqlParser
                     existing.BoundTableAlias = p.BoundTableAlias;
                     existing.BoundColumnName = p.BoundColumnName;
                     existing.IsWriteTarget = p.IsWriteTarget;
+                    existing.ComparisonOp = p.ComparisonOp;
                 }
             }
 

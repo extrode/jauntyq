@@ -4,7 +4,14 @@ using JauntyQ.SqlParser.IR;
 namespace JauntyQ.Generator;
 public static partial class QueryValidator
 {
-    private static ColumnSchema? ResolveColumn(
+    /// <summary>
+    /// Resolves an (alias, column) reference to its schema column and canonical
+    /// table. Shared by the per-query analyzers here and the cross-query
+    /// NPlusOneAnalyzer (JNT8008): alias-qualified references resolve through
+    /// the statement's alias map; unqualified ones resolve only when exactly one
+    /// referenced table has the column (ambiguity is never guessed).
+    /// </summary>
+    internal static ColumnSchema? ResolveColumn(
         QueryModel query, string tableAlias, string columnName,
         Dictionary<string, string> aliasToTable, DatabaseSchema schema, out string? tableName)
     {
