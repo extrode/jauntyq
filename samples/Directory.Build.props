@@ -1,0 +1,13 @@
+<Project>
+  <!-- Import the repo-root props so shared metadata still applies (MSBuild
+       stops at the first Directory.Build.props found walking up, so it must
+       be imported explicitly — same pattern as src/Directory.Build.props). -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- Sample apps and live test hosts target net8.0; let them run on
+         machines that only have a newer runtime installed (dev machines ahead
+         of CI's pinned 8.0.x) instead of aborting with "You must install .NET". -->
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+</Project>

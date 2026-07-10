@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
+    <!-- Override samples/Directory.Build.props LatestMajor: these suites host
+         an ASP.NET Core 8 app via Microsoft.AspNetCore.Mvc.Testing 8, whose
+         TestServer response writer is incompatible with System.Text.Json 10
+         (PipeWriter.UnflushedBytes) when rolled onto the .NET 10 runtime.
+         Stay within 8.x so a machine without the .NET 8 ASP.NET runtime gets
+         a clear install prompt instead of 500s on every request. -->
+    <RollForward>LatestMinor</RollForward>
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>JauntyQ.Conduit.Postgres.Tests</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
