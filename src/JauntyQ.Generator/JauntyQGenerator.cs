@@ -131,6 +131,25 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
         });
 
+        // N+1 heuristic (JNT8008): cross-query, so it runs here at the
+        // aggregate stage like JNT8005 — it pairs a child point-lookup by a
+        // full foreign key with a parent-collection query over the FK's
+        // parent table, which needs the whole corpus plus the FK graph.
+        var nPlusOneInput = perFile
+            .Select(static (r, _) => (Name: r.Summary.EntityName + "." + r.Summary.MethodName, Query: r.Query))
+            .Collect()
+            .Combine(schemaState)
+            .WithTrackingName("JauntyQ_NPlusOne");
+
+        context.RegisterSourceOutput(nPlusOneInput, static (ctx, pair) =>
+        {
+            var (entries, schema) = pair;
+            if (schema.Schema == null)
+                return;
+            foreach (var diag in NPlusOneAnalyzer.Analyze(entries, schema.Schema))
+                ctx.ReportDiagnostic(diag);
+        });
+
         // Aggregated outputs (synthetics, POCO overloads, row POCOs, entity
         // cores, JauntyDb) depend only on each file's value-equatable shape
         // summary — body edits that keep the shape leave all of it cached.

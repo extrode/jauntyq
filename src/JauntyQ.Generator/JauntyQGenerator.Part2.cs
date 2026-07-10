@@ -337,6 +337,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             source,
             diagnostics.ToImmutable(),
             new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable),
-            ComputeFingerprint(tokens));
+            ComputeFingerprint(tokens),
+            queryModel);
     }
 }

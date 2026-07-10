@@ -290,6 +290,14 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    public static readonly DiagnosticDescriptor JNT8008 = new(
+        "JNT8008",
+        "Possible N+1 Access Pattern",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 9xxx: Migrations ──────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT9001 = new(
