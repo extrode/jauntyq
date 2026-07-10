@@ -72,7 +72,12 @@ public static class DirectiveParser
                     continue; // strip this line from cleaned SQL
                 }
 
-                if (commentBody.StartsWith("@call", StringComparison.OrdinalIgnoreCase))
+                // Word-boundary match: bare "@call"/"@proc" or "@call <name>" /
+                // "@proc <name>" only. A prefix match would swallow ordinary
+                // comments like "-- @proceed with caution" (IsProc + garbage
+                // name -> a baffling JNT2004) or "-- @caller note".
+                if (string.Equals(commentBody, "@call", StringComparison.OrdinalIgnoreCase)
+                    || commentBody.StartsWith("@call ", StringComparison.OrdinalIgnoreCase))
                 {
                     // "@call" is 5 chars — the rest is the procedure name.
                     var rest = commentBody.Substring(5).Trim();
@@ -81,7 +86,8 @@ public static class DirectiveParser
                     continue; // strip this line from cleaned SQL
                 }
 
-                if (commentBody.StartsWith("@proc", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(commentBody, "@proc", StringComparison.OrdinalIgnoreCase)
+                    || commentBody.StartsWith("@proc ", StringComparison.OrdinalIgnoreCase))
                 {
                     directives.IsProc = true;
                     // "@proc" is 5 chars — anything after is the optional name

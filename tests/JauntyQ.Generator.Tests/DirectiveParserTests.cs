@@ -369,4 +369,50 @@ SELECT ProductId FROM Products";
         // The line is not a directive so it is preserved in the cleaned SQL
         Assert.Contains("@firstborn", cleaned);
     }
+
+    [Fact]
+    public void ProceedComment_DoesNotSetIsProc()
+    {
+        // Same word-boundary rule as @firstborn: "@proceed" must not match
+        // @proc (previously IsProc=true with ProcName "eed with caution",
+        // ending in a baffling JNT2004).
+        var sql = @"-- @proceed with caution
+SELECT ProductId FROM Products";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.False(directives.IsProc);
+        Assert.Null(directives.ProcName);
+        Assert.Contains("@proceed with caution", cleaned);
+    }
+
+    [Fact]
+    public void CallerComment_DoesNotSetCallProcName()
+    {
+        var sql = @"-- @caller must hold a lock
+SELECT ProductId FROM Products";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.Null(directives.CallProcName);
+        Assert.Contains("@caller must hold a lock", cleaned);
+    }
+
+    [Fact]
+    public void ProcWithName_StillParses()
+    {
+        var sql = @"-- @proc usp_GetProducts
+SELECT ProductId FROM Products";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.True(directives.IsProc);
+        Assert.Equal("usp_GetProducts", directives.ProcName);
+    }
+
+    [Fact]
+    public void CallWithName_StillParses()
+    {
+        var sql = "-- @call usp_TopProducts";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.Equal("usp_TopProducts", directives.CallProcName);
+    }
 }
