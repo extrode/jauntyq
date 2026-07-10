@@ -111,6 +111,46 @@ public static class SqlTokenizer
                 continue;
             }
 
+            // Double-quoted (ANSI/Postgres/SQLite/SQL Server) or backtick-quoted
+            // (MySQL/MariaDB) identifier. Previously these characters were
+            // silently skipped, so the quoted content mis-tokenized as bare
+            // identifiers/keywords and validation ran off a corrupted stream.
+            // The embedded delimiter is escaped by doubling ("" / ``), per each
+            // engine's rules.
+            if (sql[pos] == '"' || sql[pos] == '`')
+            {
+                char quote = sql[pos];
+                pos++; // skip opening quote
+                var name = new System.Text.StringBuilder();
+                bool closed = false;
+                while (pos < len)
+                {
+                    if (sql[pos] == quote)
+                    {
+                        if (pos + 1 < len && sql[pos + 1] == quote)
+                        {
+                            name.Append(quote); // escaped delimiter
+                            pos += 2;
+                            continue;
+                        }
+                        closed = true;
+                        pos++; // skip closing quote
+                        break;
+                    }
+                    name.Append(sql[pos]);
+                    pos++;
+                }
+                if (!closed)
+                {
+                    // Same end-of-input contract as brackets and block comments.
+                    tokens.Add(new Token(TokenType.Unterminated, quote == '"' ? "\" ... \"" : "` ... `"));
+                    tokens.Add(new Token(TokenType.End, string.Empty));
+                    return tokens;
+                }
+                tokens.Add(new Token(TokenType.Identifier, name.ToString()));
+                continue;
+            }
+
             // String literal: 'text'
             if (sql[pos] == '\'')
             {
@@ -127,8 +167,18 @@ public static class SqlTokenizer
                         break;
                     pos++;
                 }
+                if (pos >= len)
+                {
+                    // Ran to end-of-input with no closing ': stop tokenizing
+                    // instead of silently swallowing the rest of the file as
+                    // literal text (same contract as block comments and
+                    // quoted identifiers).
+                    tokens.Add(new Token(TokenType.Unterminated, "' ... '"));
+                    tokens.Add(new Token(TokenType.End, string.Empty));
+                    return tokens;
+                }
                 tokens.Add(new Token(TokenType.Literal, sql.Substring(start, pos - start)));
-                if (pos < len) pos++; // skip closing quote
+                pos++; // skip closing quote
                 continue;
             }
 

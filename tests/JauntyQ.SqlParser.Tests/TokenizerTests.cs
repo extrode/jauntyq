@@ -281,6 +281,85 @@ select product_id /* inline comment */ from products");
         Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unterminated);
     }
 
+    [Fact]
+    public void UnterminatedStringLiteral_EmitsUnterminatedToken()
+    {
+        var tokens = SqlTokenizer.Tokenize("select id from users where name = 'unclosed");
+
+        Assert.Contains(tokens, t => t.Type == TokenType.Unterminated);
+        int idx = tokens.FindIndex(t => t.Type == TokenType.Unterminated);
+        Assert.Equal(TokenType.End, tokens[idx + 1].Type);
+        Assert.Equal(idx + 2, tokens.Count);
+    }
+
+    [Fact]
+    public void UnterminatedStringLiteral_EndingInEscapedQuote_EmitsUnterminatedToken()
+    {
+        // The trailing '' is an ESCAPED quote inside a still-open literal.
+        var tokens = SqlTokenizer.Tokenize("select 'abc''");
+
+        Assert.Contains(tokens, t => t.Type == TokenType.Unterminated);
+    }
+
+    [Fact]
+    public void TerminatedStringLiteral_NoUnterminatedToken()
+    {
+        var tokens = SqlTokenizer.Tokenize("select id from users where name = 'o''brien'");
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unterminated);
+        Assert.Contains(tokens, t => t.Type == TokenType.Literal && t.Value == "o''brien");
+    }
+
+    // ── Double-quoted / backtick-quoted identifiers ──
+
+    [Fact]
+    public void DoubleQuotedIdentifier_TokenizesAsIdentifier()
+    {
+        var tokens = SqlTokenizer.Tokenize("select \"Product Name\" from products");
+        Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "Product Name");
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unterminated);
+    }
+
+    [Fact]
+    public void BacktickQuotedIdentifier_TokenizesAsIdentifier()
+    {
+        var tokens = SqlTokenizer.Tokenize("select `Product Name` from products");
+        Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "Product Name");
+    }
+
+    [Fact]
+    public void DoubleQuotedIdentifier_DoubledQuoteEscapes()
+    {
+        var tokens = SqlTokenizer.Tokenize("select \"a\"\"b\" from t");
+        Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "a\"b");
+    }
+
+    [Fact]
+    public void QuotedIdentifier_NeverMatchesKeywords()
+    {
+        // A quoted "select" is an identifier, not the SELECT keyword.
+        var tokens = SqlTokenizer.Tokenize("select \"select\" from t");
+        Assert.Equal(1, tokens.Count(t => t.Type == TokenType.Keyword && t.Value == "SELECT"));
+        Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "select");
+    }
+
+    [Fact]
+    public void UnterminatedDoubleQuotedIdentifier_EmitsUnterminatedToken()
+    {
+        var tokens = SqlTokenizer.Tokenize("select \"Name from products");
+
+        Assert.Contains(tokens, t => t.Type == TokenType.Unterminated);
+        int idx = tokens.FindIndex(t => t.Type == TokenType.Unterminated);
+        Assert.Equal(TokenType.End, tokens[idx + 1].Type);
+        Assert.Equal(idx + 2, tokens.Count);
+    }
+
+    [Fact]
+    public void UnterminatedBacktickIdentifier_EmitsUnterminatedToken()
+    {
+        var tokens = SqlTokenizer.Tokenize("select `Name from products");
+        Assert.Contains(tokens, t => t.Type == TokenType.Unterminated);
+    }
+
     // ── Input size cap: refuse oversized input, don't crash or silently pass ──
 
     [Fact]
