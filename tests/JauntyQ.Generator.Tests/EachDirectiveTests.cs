@@ -240,4 +240,73 @@ public class EachDirectiveTests
             Assert.Empty(tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         }
     }
+
+    [Fact]
+    public void Each_ParamNameInsideStringLiteral_IsNotExpanded()
+    {
+        // 'ops@Ids' is literal text, not a parameter reference: the runtime
+        // expansion must rewrite only the real IN (@Ids) placeholder.
+        string sql = "-- @each Ids\nselect product_id, product_name from products " +
+            "where product_id in (@Ids) and product_name != 'ops@Ids'";
+        var result = Run(sql);
+        string src = QuerySource(result);
+
+        // One expansion site per method variant (4 variants), never two.
+        Assert.Equal(4, src.Split("__each_Ids.ToString()").Length - 1);
+        // The literal survives verbatim inside the emitted verbatim string.
+        Assert.Contains("'ops@Ids'", src);
+    }
+
+    [Fact]
+    public void Each_ParamNameInsideComment_IsNotExpanded()
+    {
+        string sql = "-- @each Ids\nselect product_id, product_name from products " +
+            "where product_id in (@Ids) /* uses @Ids */";
+        var result = Run(sql);
+        string src = QuerySource(result);
+
+        Assert.Equal(4, src.Split("__each_Ids.ToString()").Length - 1);
+        Assert.Contains("/* uses @Ids */", src);
+    }
+
+    [Fact]
+    public void Each_OnDelete_FailsJNT3003_InsteadOfSilentlyIgnoring()
+    {
+        string sql = "-- @each Ids\ndelete from products where product_id in (@Ids)";
+        var result = Run(sql);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT3003");
+        Assert.DoesNotContain(result.Results[0].GeneratedSources, s => s.HintName == "Products.EachQuery.g.cs");
+    }
+
+    [Fact]
+    public void Each_WithProc_FailsJNT3003()
+    {
+        string sql = "-- @each Ids\n-- @proc\nselect product_id, product_name from products where product_id in (@Ids)";
+        var result = Run(sql);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT3003");
+    }
+
+    [Fact]
+    public void Each_EmitsOversizeListGuard_WithDialectBudget()
+    {
+        var result = Run(EachSql); // sqlite schema → 32000 budget
+        string src = QuerySource(result);
+
+        Assert.Contains("if (Ids.Count > 32000)", src);
+        Assert.Contains("throw new System.ArgumentException(", src);
+    }
+
+    [Fact]
+    public void Each_OversizeGuard_RunsBeforeConnectionOpens()
+    {
+        var result = Run(EachSql);
+        string src = QuerySource(result);
+
+        int guardIdx = src.IndexOf("if (Ids.Count > 32000)");
+        int openIdx = src.IndexOf("weOpened");
+        Assert.True(guardIdx >= 0 && openIdx >= 0);
+        Assert.True(guardIdx < openIdx, "the oversize-list guard must run before the connection is opened");
+    }
 }

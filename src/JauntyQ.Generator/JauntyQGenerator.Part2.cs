@@ -176,6 +176,26 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
         }
 
+        // -- @each preconditions (JNT3003). Runtime IN-list expansion is
+        // implemented for SELECT queries only; left ungated on a CRUD
+        // statement, the directive would be SILENTLY ignored (the parameter
+        // stays scalar and the SQL is never expanded) — fail the file with a
+        // clear message instead.
+        if (directives.EachParams is { Count: > 0 })
+        {
+            string? eachProblem = null;
+            if (queryModel.StatementType != StatementType.Select)
+                eachProblem = "-- @each is only supported on SELECT queries; runtime IN-list expansion is not implemented for INSERT/UPDATE/DELETE";
+            else if (directives.IsProc)
+                eachProblem = "-- @each cannot be combined with -- @proc (a stored procedure call has a fixed parameter list; IN-list expansion rewrites the SQL text)";
+
+            if (eachProblem != null)
+            {
+                diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3003, eachProblem));
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+            }
+        }
+
         // JNT2004: an explicit -- @proc <name> becomes the CommandText string
         // literal emitted for the StoredProcedure call. Reject anything that is
         // not a bare identifier so a hostile name cannot break out of the C#

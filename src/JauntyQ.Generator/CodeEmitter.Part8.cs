@@ -111,7 +111,7 @@ public static partial class CodeEmitter
         sb.AppendLine("        {");
 
         EmitValueGuards(sb, paramInfos);
-        EmitEachEmptyGuards(sb, paramInfos, returnType, isFirst, isStream);
+        EmitEachListGuards(sb, paramInfos, returnType, isFirst, isStream, dialect);
 
         // Connection lifecycle
         sb.AppendLine($"            bool weOpened = {connVar}.State != System.Data.ConnectionState.Open;");
@@ -191,14 +191,17 @@ public static partial class CodeEmitter
     }
 
     /// <summary>
-    /// Short-circuits before the connection is opened when an -- @each list
-    /// argument is empty: `IN ()` is invalid SQL in every supported dialect,
-    /// and an empty list unambiguously means an empty result set. Mirrors the
-    /// hand-written IN-list workaround this directive replaces (see
-    /// the test log, bug #2).
+    /// Per -- @each list argument, before the connection is opened:
+    /// an empty list short-circuits (`IN ()` is invalid SQL in every supported
+    /// dialect, and an empty list unambiguously means an empty result set —
+    /// mirrors the hand-written IN-list workaround this directive replaces,
+    /// see the test log, bug #2); an oversize list fails fast with
+    /// the dialect's parameter budget in the message instead of an obscure
+    /// server/provider error mid-command.
     /// </summary>
-    private static void EmitEachEmptyGuards(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos, string returnType, bool isFirst, bool isStream)
+    private static void EmitEachListGuards(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos, string returnType, bool isFirst, bool isStream, string? dialect)
     {
+        int cap = EachParameterCap(dialect);
         bool any = false;
         foreach (var param in paramInfos)
         {
@@ -211,11 +214,31 @@ public static partial class CodeEmitter
                 sb.AppendLine("                return null;");
             else
                 sb.AppendLine($"                return new System.Collections.Generic.List<{returnType}>();");
+            sb.AppendLine($"            if ({param.Name}.Count > {cap})");
+            sb.AppendLine($"                throw new System.ArgumentException($\"-- @each list '{param.Name}' has {{{param.Name}.Count}} elements, exceeding the {cap}-parameter budget for this database. Batch the call into smaller chunks.\", nameof({param.Name}));");
             any = true;
         }
         if (any)
             sb.AppendLine();
     }
+
+    /// <summary>
+    /// The per-list element budget for -- @each expansion, from each engine's
+    /// hard per-command parameter limit with headroom left for the query's
+    /// scalar parameters: SQL Server rejects &gt;2100 parameters per request;
+    /// SQLite's default SQLITE_MAX_VARIABLE_NUMBER is 32766 (3.32+, as bundled
+    /// by SQLitePCLRaw); the PostgreSQL extended-protocol Bind and MySQL
+    /// prepared-statement formats both carry a 16-bit parameter count. An
+    /// unknown/missing dialect gets the most conservative budget.
+    /// </summary>
+    private static int EachParameterCap(string? dialect) => dialect?.ToLowerInvariant() switch
+    {
+        "postgres" => 65_000,
+        "mysql" => 65_000,
+        "sqlite" => 32_000,
+        "sqlserver" => 2_000,
+        _ => 2_000,
+    };
 
     /// <summary>
     /// Emits CommandText. With no -- @each params this is the existing single
@@ -259,7 +282,9 @@ public static partial class CodeEmitter
     /// <summary>
     /// Splits SQL text into literal segments and @each-param references. Scans
     /// whole "@identifier" tokens (not a substring search) so "@IdsFoo" is
-    /// never mistaken for a reference to an @each param named "Ids".
+    /// never mistaken for a reference to an @each param named "Ids"; skips
+    /// string literals, quoted/bracketed identifiers, and comments so text
+    /// like <c>'ops@Ids'</c> is never expanded (it is not a parameter there).
     /// </summary>
     private static System.Collections.Generic.List<(bool IsEachRef, string Value)> SplitSqlForEach(string sql, System.Collections.Generic.List<EmittedParam> eachParams)
     {
@@ -268,6 +293,47 @@ public static partial class CodeEmitter
         int i = 0;
         while (i < sql.Length)
         {
+            // Regions where '@' is plain text, copied through verbatim:
+            // 'string' (with '' escape), "ident"/`ident` (doubled-char escape),
+            // [ident], -- line comments, /* block comments */.
+            char c = sql[i];
+            if (c == '\'' || c == '"' || c == '`')
+            {
+                int end = SkipQuotedRun(sql, i, c);
+                literal.Append(sql, i, end - i);
+                i = end;
+                continue;
+            }
+            if (c == '[')
+            {
+                int end = i + 1;
+                while (end < sql.Length && sql[end] != ']')
+                    end++;
+                if (end < sql.Length) end++; // include the closing ]
+                literal.Append(sql, i, end - i);
+                i = end;
+                continue;
+            }
+            if (c == '-' && i + 1 < sql.Length && sql[i + 1] == '-')
+            {
+                int end = i;
+                while (end < sql.Length && sql[end] != '\n')
+                    end++;
+                literal.Append(sql, i, end - i);
+                i = end;
+                continue;
+            }
+            if (c == '/' && i + 1 < sql.Length && sql[i + 1] == '*')
+            {
+                int end = i + 2;
+                while (end + 1 < sql.Length && !(sql[end] == '*' && sql[end + 1] == '/'))
+                    end++;
+                end = end + 1 < sql.Length ? end + 2 : sql.Length;
+                literal.Append(sql, i, end - i);
+                i = end;
+                continue;
+            }
+
             if (sql[i] == '@')
             {
                 int start = i + 1;
@@ -294,6 +360,32 @@ public static partial class CodeEmitter
         if (literal.Length > 0)
             segments.Add((false, literal.ToString()));
         return segments;
+    }
+
+    /// <summary>
+    /// Returns the index just past a quoted run starting at <paramref name="start"/>
+    /// (which holds the opening <paramref name="quote"/>). A doubled delimiter is
+    /// an escape in every supported dialect ('' / "" / ``). An unterminated run
+    /// extends to end-of-input — by emission time the tokenizer has already
+    /// rejected unterminated constructs, so this is defensive only.
+    /// </summary>
+    private static int SkipQuotedRun(string sql, int start, char quote)
+    {
+        int i = start + 1;
+        while (i < sql.Length)
+        {
+            if (sql[i] == quote)
+            {
+                if (i + 1 < sql.Length && sql[i + 1] == quote)
+                {
+                    i += 2; // escaped delimiter
+                    continue;
+                }
+                return i + 1; // past the closing quote
+            }
+            i++;
+        }
+        return sql.Length;
     }
 
 }
