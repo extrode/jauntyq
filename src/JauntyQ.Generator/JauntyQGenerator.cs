@@ -38,13 +38,45 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             .Select(static (f, ct) => (Name: System.IO.Path.GetFileName(f.Path), Text: f.GetText(ct)?.ToString() ?? ""))
             .Collect();
 
-        // Collect schema files
+        // Collect schema files. More than one *.schema.json is almost always a
+        // mistake (a stray copy, a rename leftover): the ordinal-lowest path is
+        // the deterministic winner — AdditionalTexts order is not guaranteed —
+        // and JNT6002 names every candidate so the surprise is visible.
         var schemaFiles = context.AdditionalTextsProvider
             .Where(static f => f.Path.EndsWith(".schema.json", StringComparison.OrdinalIgnoreCase));
 
-        // Get the first schema file's text
-        var schemaText = schemaFiles.Collect().Select(static (files, _) =>
-            files.IsEmpty ? null : files[0].GetText()?.ToString());
+        var schemaCandidates = schemaFiles
+            .Select(static (f, _) => f.Path)
+            .Collect()
+            .Select(static (paths, _) =>
+            {
+                var sorted = paths.Sort(StringComparer.Ordinal);
+                return sorted;
+            })
+            .WithTrackingName("JauntyQ_SchemaCandidates");
+
+        context.RegisterSourceOutput(schemaCandidates, static (ctx, paths) =>
+        {
+            if (paths.Length < 2)
+                return;
+            ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6002, Location.None,
+                $"Found {paths.Length} schema snapshots ({string.Join(", ", paths)}); using '{paths[0]}'. " +
+                "Remove the extra *.schema.json files (or exclude them from AdditionalFiles) so the schema source is unambiguous."));
+        });
+
+        // Get the winning schema file's text (ordinal-lowest path).
+        var schemaText = schemaFiles.Collect().Select(static (files, ct) =>
+        {
+            if (files.IsEmpty)
+                return null;
+            AdditionalText winner = files[0];
+            for (int i = 1; i < files.Length; i++)
+            {
+                if (StringComparer.Ordinal.Compare(files[i].Path, winner.Path) < 0)
+                    winner = files[i];
+            }
+            return winner.GetText(ct)?.ToString();
+        });
 
         // Dialect override for DDL-as-schema-source mode: with no JSON snapshot
         // there is nothing to infer the dialect from, so the consumer declares

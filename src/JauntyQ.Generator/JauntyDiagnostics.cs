@@ -206,6 +206,14 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    public static readonly DiagnosticDescriptor JNT6002 = new(
+        "JNT6002",
+        "Multiple Schema Snapshots",
+        "{0}",
+        "JauntyQ.Configuration",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 7xxx: Dialect ─────────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT7001 = new(
