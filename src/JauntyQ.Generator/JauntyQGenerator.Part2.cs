@@ -50,6 +50,19 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // Parse directives (before tokenization, since tokenizer strips comments)
         var (directives, cleanedSql) = Directives.DirectiveParser.Parse(sqlText!);
 
+        // JNT3008 (warning, non-fatal): directive-lookalike comments that
+        // parsed as nothing — a bare value-taking directive or a one-edit
+        // typo of a known name. The line stayed a plain comment; tell the
+        // author their intent was dropped instead of silently ignoring it.
+        var directiveWarnings = ImmutableArray<DiagnosticInfo>.Empty;
+        if (directives.SuspiciousDirectives is { Count: > 0 } suspicious)
+        {
+            var warnBuilder = ImmutableArray.CreateBuilder<DiagnosticInfo>(suspicious.Count);
+            foreach (var message in suspicious)
+                warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3008, message));
+            directiveWarnings = warnBuilder.ToImmutable();
+        }
+
         // -- @call binds to an existing stored procedure. The file has no SQL
         // body of its own; the callable contract (params + result columns)
         // comes from the schema snapshot, so this short-circuits the SQL
@@ -57,6 +70,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         if (directives.CallProcName != null)
         {
             var callDiagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+            callDiagnostics.AddRange(directiveWarnings);
 
             if (schema == null)
                 return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
@@ -121,6 +135,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
         // Validate
         var diagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+        diagnostics.AddRange(directiveWarnings);
         var errors = QueryValidator.Validate(queryModel, schema);
         bool hasErrors = false;
         foreach (var error in errors)

@@ -96,6 +96,12 @@ public static class DirectiveParser
                         directives.ProcName = rest;
                     continue; // strip this line from cleaned SQL
                 }
+
+                // Nothing matched: the line stays a plain comment. Before it
+                // does, check for a near-miss the author probably meant as a
+                // directive (JNT3008, surfaced by the generator).
+                if (commentBody.StartsWith("@"))
+                    CheckSuspiciousDirective(directives, commentBody);
             }
 
             cleanedLines.Add(line);
@@ -198,5 +204,102 @@ public static class DirectiveParser
         {
             directives.ExplicitParams = explicitParams;
         }
+    }
+
+    // Every recognized directive name; the value-taking subset falls through
+    // to the suspicious check when written bare (their prefix match requires
+    // the trailing space).
+    private static readonly string[] KnownDirectives =
+        { "result", "params", "type", "each", "first", "identity", "stream", "call", "proc" };
+
+    private static readonly HashSet<string> ValueRequiredDirectives =
+        new(StringComparer.Ordinal) { "result", "params", "type", "each" };
+
+    /// <summary>
+    /// Records a JNT3008 warning when an unmatched <c>-- @word</c> comment is
+    /// probably a directive: the word IS a known value-taking directive
+    /// (written bare, so its "@name " prefix never matched), or is one edit
+    /// away from a known name (<c>@frist</c>, <c>@indentity</c>). Anything
+    /// further away — <c>@author</c>, <c>@firstborn</c> — is an ordinary
+    /// comment and stays silent.
+    /// </summary>
+    private static void CheckSuspiciousDirective(DirectiveModel directives, string commentBody)
+    {
+        int end = 1;
+        while (end < commentBody.Length && char.IsLetter(commentBody[end]))
+            end++;
+        if (end == 1)
+            return; // bare '@' or '@123' — not directive-shaped
+        string word = commentBody.Substring(1, end - 1).ToLowerInvariant();
+
+        string? message = null;
+        if (ValueRequiredDirectives.Contains(word))
+        {
+            message = $"-- @{word} requires a value (e.g. '-- @{word} <...>'); the line was kept as a plain comment and had no effect.";
+        }
+        else if (word.Length >= 3)
+        {
+            foreach (var known in KnownDirectives)
+            {
+                if (IsOneEditAway(word, known))
+                {
+                    message = $"unrecognized directive '-- @{word}'; did you mean '-- @{known}'? The line was kept as a plain comment and had no effect.";
+                    break;
+                }
+            }
+        }
+
+        if (message == null)
+            return;
+        directives.SuspiciousDirectives ??= new List<string>();
+        directives.SuspiciousDirectives.Add(message);
+    }
+
+    /// <summary>
+    /// Damerau-Levenshtein distance exactly 1: one substitution, one adjacent
+    /// transposition, or one insertion/deletion. Equal strings return false
+    /// (an exact known name is handled by the real directive matches or the
+    /// value-required branch above).
+    /// </summary>
+    private static bool IsOneEditAway(string a, string b)
+    {
+        if (a == b)
+            return false;
+
+        if (a.Length == b.Length)
+        {
+            // One substitution, or one adjacent transposition.
+            int firstDiff = -1, diffs = 0;
+            for (int i = 0; i < a.Length; i++)
+            {
+                if (a[i] != b[i])
+                {
+                    if (diffs == 0) firstDiff = i;
+                    diffs++;
+                    if (diffs > 2) return false;
+                }
+            }
+            if (diffs == 1) return true;
+            return diffs == 2 && firstDiff + 1 < a.Length
+                && a[firstDiff] == b[firstDiff + 1] && a[firstDiff + 1] == b[firstDiff]
+                && (firstDiff + 2 >= a.Length || string.CompareOrdinal(a, firstDiff + 2, b, firstDiff + 2, a.Length - firstDiff - 2) == 0);
+        }
+
+        // One insertion/deletion: lengths differ by 1; the longer must equal
+        // the shorter with exactly one char skipped.
+        string longer = a.Length > b.Length ? a : b;
+        string shorter = a.Length > b.Length ? b : a;
+        if (longer.Length - shorter.Length != 1)
+            return false;
+        int li = 0, si = 0;
+        bool skipped = false;
+        while (li < longer.Length && si < shorter.Length)
+        {
+            if (longer[li] == shorter[si]) { li++; si++; continue; }
+            if (skipped) return false;
+            skipped = true;
+            li++;
+        }
+        return true;
     }
 }

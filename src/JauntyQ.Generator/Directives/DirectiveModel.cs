@@ -90,6 +90,16 @@ public class DirectiveModel
         ResultTypeName != null || ResultIsVoid || InlineColumns != null
         || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity || IsStream
         || CallProcName != null || TypeDirectives != null || EachParams != null;
+
+    /// <summary>
+    /// JNT3008 warning messages for directive-lookalike comment lines that
+    /// parsed as nothing: a known value-taking directive with no value
+    /// (bare <c>-- @each</c>), or a one-edit typo of a known directive
+    /// (<c>-- @frist</c>). The lines stay plain comments in the cleaned SQL;
+    /// these warnings tell the author their intent was dropped. Ordinary
+    /// <c>@word</c> comments (<c>-- @author</c>) never register here.
+    /// </summary>
+    public List<string>? SuspiciousDirectives { get; set; }
 }
 
 public class TypeDirective

@@ -415,4 +415,43 @@ SELECT ProductId FROM Products";
 
         Assert.Equal("usp_TopProducts", directives.CallProcName);
     }
+
+    // ── JNT3008: directive-lookalike comments that parsed as nothing ────
+
+    [Fact]
+    public void BareValueTakingDirective_RegistersSuspicious()
+    {
+        var sql = "-- @each\nselect product_id from products where product_id in (@Ids)";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.Null(directives.EachParams);
+        var msg = Assert.Single(directives.SuspiciousDirectives!);
+        Assert.Contains("@each requires a value", msg);
+        // The line stays a plain comment in the cleaned SQL.
+        Assert.Contains("-- @each", cleaned);
+    }
+
+    [Fact]
+    public void OneEditTypo_RegistersSuspicious_WithSuggestion()
+    {
+        var sql = "-- @frist\nselect product_id from products";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.False(directives.IsFirst);
+        var msg = Assert.Single(directives.SuspiciousDirectives!);
+        Assert.Contains("did you mean '-- @first'", msg);
+    }
+
+    [Fact]
+    public void OrdinaryAtComments_StaySilent()
+    {
+        // @author / @firstborn / @copyright are ordinary comment idioms, not
+        // near-misses — no warning, lines preserved.
+        var sql = "-- @author sy\n-- @firstborn\n-- @copyright 2026\nselect product_id from products";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.Null(directives.SuspiciousDirectives);
+        Assert.Contains("@author", cleaned);
+        Assert.Contains("@firstborn", cleaned);
+    }
 }
