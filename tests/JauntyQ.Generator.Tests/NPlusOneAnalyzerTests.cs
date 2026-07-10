@@ -319,4 +319,107 @@ public class NPlusOneAnalyzerTests
         Assert.Contains("Orders.GetAll", diag.GetMessage());
         Assert.Contains("grouped aggregate join", diag.GetMessage());
     }
+
+    // ── Guard: a lookup scoped by TWO+ distinct parent FKs is an
+    //    intersection, not iterating one parent's children ────────────────
+
+    // sessions carries full FKs to two distinct parents: users and applications.
+    private const string TwoParentSchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""users"": {
+      ""name"": ""users"",
+      ""columns"": {
+        ""user_id"": { ""name"": ""user_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""user_name"": { ""name"": ""user_name"", ""dbType"": ""nvarchar"", ""isNullable"": false, ""maxLength"": 60 }
+      },
+      ""indexes"": []
+    },
+    ""applications"": {
+      ""name"": ""applications"",
+      ""columns"": {
+        ""app_id"": { ""name"": ""app_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""app_name"": { ""name"": ""app_name"", ""dbType"": ""nvarchar"", ""isNullable"": false, ""maxLength"": 60 }
+      },
+      ""indexes"": []
+    },
+    ""sessions"": {
+      ""name"": ""sessions"",
+      ""columns"": {
+        ""session_id"": { ""name"": ""session_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""user_id"": { ""name"": ""user_id"", ""dbType"": ""int"", ""isNullable"": false },
+        ""app_id"": { ""name"": ""app_id"", ""dbType"": ""int"", ""isNullable"": false },
+        ""started_at"": { ""name"": ""started_at"", ""dbType"": ""datetime"", ""isNullable"": false }
+      },
+      ""indexes"": []
+    }
+  },
+  ""foreignKeys"": [
+    { ""fromTable"": ""sessions"", ""fromColumn"": ""user_id"", ""toTable"": ""users"", ""toColumn"": ""user_id"" },
+    { ""fromTable"": ""sessions"", ""fromColumn"": ""app_id"", ""toTable"": ""applications"", ""toColumn"": ""app_id"" }
+  ]
+}";
+
+    [Fact]
+    public void LookupPinnedToTwoDistinctParentFks_IsIntersectionScoped_NoWarning()
+    {
+        // (user_id, app_id) pins full FKs to BOTH users and applications:
+        // the lookup is scoped by their intersection — which single parent
+        // collection would it even iterate? Not an N+1 driver for either.
+        var result = Run(TwoParentSchemaJson,
+            ("db/Users/GetAll.sql", "select user_id, user_name\nfrom users"),
+            ("db/Applications/GetAll.sql", "select app_id, app_name\nfrom applications"),
+            ("db/Sessions/GetByUserAndApp.sql",
+                "select session_id, started_at\nfrom sessions\nwhere sessions.user_id = @user_id and sessions.app_id = @app_id"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
+    }
+
+    [Fact]
+    public void LookupPinnedToOnlyOneOfTwoParentFks_StillFires()
+    {
+        // Control: filtering only user_id iterates users' children as before.
+        var result = Run(TwoParentSchemaJson,
+            ("db/Users/GetAll.sql", "select user_id, user_name\nfrom users"),
+            ("db/Sessions/GetByUser.sql",
+                "select session_id, started_at\nfrom sessions\nwhere sessions.user_id = @user_id"));
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT8008");
+        Assert.Contains("Sessions.GetByUser", diag.GetMessage());
+        Assert.Contains("Users.GetAll", diag.GetMessage());
+    }
+
+    // ── Guard: a parent collection that already joins the child in is
+    //    set-based — not a loop driver for the child lookup ───────────────
+
+    [Fact]
+    public void OnlyParentCollectionJoinsChildIn_NoWarning()
+    {
+        // The only orders collection joins order_items in: its consumer
+        // already has the child rows set-based, so there is no per-row
+        // child lookup to batch.
+        var result = Run(SchemaJson,
+            ("db/Orders/GetAllWithItems.sql",
+                "select o.order_id, o.customer_name, i.sku\nfrom orders o\njoin order_items i on i.order_id = o.order_id"),
+            ("db/OrderItems/GetByOrderId.sql", ChildGetByOrderId));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
+    }
+
+    [Fact]
+    public void JoiningAndPlainParentCollectionsCoexist_FiresNamingThePlainOne()
+    {
+        // With both a joining and a plain orders collection in the corpus,
+        // the plain one is still a loop driver — the diagnostic fires and
+        // names it, not the joining one.
+        var result = Run(SchemaJson,
+            ("db/Orders/GetAll.sql", ParentGetAll),
+            ("db/Orders/GetAllWithItems.sql",
+                "select o.order_id, o.customer_name, i.sku\nfrom orders o\njoin order_items i on i.order_id = o.order_id"),
+            ("db/OrderItems/GetByOrderId.sql", ChildGetByOrderId));
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT8008");
+        Assert.Contains("Orders.GetAll", diag.GetMessage());
+        Assert.DoesNotContain("GetAllWithItems", diag.GetMessage());
+    }
 }

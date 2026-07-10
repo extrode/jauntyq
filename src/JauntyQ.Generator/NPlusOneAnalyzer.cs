@@ -55,6 +55,12 @@ internal static class NPlusOneAnalyzer
         }
         facts.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
 
+        // Name -> facts, so a candidate parent collection can be inspected (e.g.
+        // to see whether it already joins the child table).
+        var factsByName = new Dictionary<string, QueryFacts>(StringComparer.Ordinal);
+        foreach (var fact in facts)
+            factsByName[fact.Name] = fact;
+
         // Parent-collection queries per table (lowercase table -> sorted names).
         var collections = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var fact in facts)
@@ -99,19 +105,35 @@ internal static class NPlusOneAnalyzer
                 if (childSchema != null && IsScopingChildLookup(fact, group, childSchema))
                     continue;
 
+                // A lookup that pins full FKs to two or more DISTINCT parent
+                // tables is scoped by that intersection, not iterating one
+                // parent's children -- e.g. a user's sessions filtered by
+                // (user_id, application_id). Which single parent would you even
+                // loop? Not an N+1 driver for any of them.
+                if (CountDistinctFilteredParentFks(fact, fkGroups, group.ChildTableKey) >= 2)
+                    continue;
+
                 if (!collections.TryGetValue(group.ParentTableKey, out var parents))
                     continue;
 
-                // A self-FK child lookup is itself a multi-row SELECT over the
-                // parent table; it cannot be its own parent collection.
+                // Pick a representative parent collection, skipping (a) this same
+                // query and (b) any collection that already reads the child table
+                // -- if the parent query joins the child in, the child rows are
+                // already there set-based, so there is no per-row lookup to batch.
                 string? parent = null;
                 foreach (var candidate in parents)
                 {
-                    if (!string.Equals(candidate, fact.Name, StringComparison.Ordinal))
-                    {
-                        parent = candidate;
-                        break;
-                    }
+                    if (string.Equals(candidate, fact.Name, StringComparison.Ordinal))
+                        continue;
+                    // For a self-FK the parent IS the child table, so "reads the
+                    // child" is trivially true and must not disqualify -- only a
+                    // cross-table collection that joins the child in is exempt.
+                    if (!group.IsSelfReference
+                        && factsByName.TryGetValue(candidate, out var candidateFact)
+                        && candidateFact.TablesRead.Contains(group.ChildTableKey))
+                        continue;
+                    parent = candidate;
+                    break;
                 }
                 if (parent == null)
                     continue;
@@ -298,6 +320,35 @@ internal static class NPlusOneAnalyzer
                 hasColumnBeyondFk = true;
         }
         return hasColumnBeyondFk;
+    }
+
+    /// <summary>
+    /// Counts the distinct parent tables that <paramref name="fact"/> pins with a
+    /// full foreign key (every FK column equality-filtered) among the FK groups
+    /// whose child is <paramref name="childTableKey"/>. Two or more means the
+    /// query is scoped by an intersection of parents, not iterating one parent's
+    /// children.
+    /// </summary>
+    private static int CountDistinctFilteredParentFks(QueryFacts fact, List<FkGroup> fkGroups, string childTableKey)
+    {
+        var parents = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in fkGroups)
+        {
+            if (group.ChildTableKey != childTableKey)
+                continue;
+            bool allFiltered = true;
+            foreach (var column in group.ChildColumns)
+            {
+                if (!fact.EqualityFilterColumns.Contains(childTableKey + "|" + column.ToLowerInvariant()))
+                {
+                    allFiltered = false;
+                    break;
+                }
+            }
+            if (allFiltered)
+                parents.Add(group.ParentTableKey);
+        }
+        return parents.Count;
     }
 
     /// <summary>
