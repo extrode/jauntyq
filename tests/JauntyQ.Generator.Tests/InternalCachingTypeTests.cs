@@ -136,4 +136,28 @@ public class InternalCachingTypeTests
         Assert.False(cmp.Equals(def, nonEmpty));    // one default → not equal
         Assert.Equal(0, cmp.GetHashCode(def));      // default hashes to 0
     }
+
+    // ── ComputeCommonDirectoryPrefix (AdditionalText overload) ─────────────
+    [Fact]
+    public void ComputeCommonDirectoryPrefix_AdditionalTextOverload_DelegatesOnPaths()
+    {
+        // The AdditionalText overload only lifts .Path off each file and defers
+        // to the string overload; assert it produces the identical result.
+        var files = ImmutableArray.Create<Microsoft.CodeAnalysis.AdditionalText>(
+            new InMemoryAdditionalText("db/Products/GetAll.sql", "select 1"),
+            new InMemoryAdditionalText("db/Orders/GetAll.sql", "select 1"));
+
+        string viaFiles = JauntyQGenerator.ComputeCommonDirectoryPrefix(files);
+        string viaPaths = JauntyQGenerator.ComputeCommonDirectoryPrefix(
+            ImmutableArray.Create("db/Products/GetAll.sql", "db/Orders/GetAll.sql"));
+
+        Assert.Equal(viaPaths, viaFiles);
+    }
+
+    [Fact]
+    public void ComputeCommonDirectoryPrefix_AdditionalTextOverload_EmptyIsEmpty()
+    {
+        Assert.Equal("", JauntyQGenerator.ComputeCommonDirectoryPrefix(
+            ImmutableArray<Microsoft.CodeAnalysis.AdditionalText>.Empty));
+    }
 }
