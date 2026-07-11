@@ -203,7 +203,9 @@ public static class SqlTokenizer
                     (c0 == '!' && c1 == '=') ? "!=" :
                     (c0 == '<' && c1 == '>') ? "<>" :
                     (c0 == '<' && c1 == '=') ? "<=" :
-                    (c0 == '>' && c1 == '=') ? ">=" : null;
+                    (c0 == '>' && c1 == '=') ? ">=" :
+                    (c0 == '|' && c1 == '|') ? "||" :
+                    (c0 == ':' && c1 == ':') ? "::" : null;
                 if (two != null)
                 {
                     tokens.Add(new Token(TokenType.Symbol, two));
@@ -241,7 +243,15 @@ public static class SqlTokenizer
                 continue;
             }
 
-            // Unknown character — skip
+            // Unknown character: emit an Unknown token instead of skipping it.
+            // A skipped character silently corrupts the token stream — 'a || b'
+            // once parsed as two plain columns — and the resulting model passes
+            // validation while describing a different query than the one that
+            // will run. The generator refuses files containing Unknown tokens
+            // (JNT1004); lenient consumers (migration classification, usage
+            // scanning) keep tokenizing past it, so later statements still
+            // classify instead of vanishing.
+            tokens.Add(new Token(TokenType.Unknown, sql[pos].ToString()));
             pos++;
         }
 
@@ -272,6 +282,19 @@ public static class SqlTokenizer
         ';' => ";",
         '.' => ".",
         '!' => "!",
+        // Operator characters that appear inside expressions (modulo, bitwise,
+        // Postgres concat/cast/json halves, MySQL '#', SQLite '?'). They only
+        // need to BE tokens: an identifier followed by any symbol makes the
+        // projection item an expression, which routes it through the explicit
+        // alias + -- @type flow instead of mis-parsing as plain columns.
+        '%' => "%",
+        '&' => "&",
+        '|' => "|",
+        '^' => "^",
+        '~' => "~",
+        '?' => "?",
+        ':' => ":",
+        '#' => "#",
         _ => null
     };
 }

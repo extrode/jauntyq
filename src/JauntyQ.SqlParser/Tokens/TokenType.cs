@@ -31,5 +31,16 @@ public enum TokenType
     /// </summary>
     TooLarge,
 
+    /// <summary>
+    /// A character the tokenizer does not recognize (e.g. <c>$</c>, <c>\</c>,
+    /// or a stray control character), emitted in place instead of being
+    /// skipped — a skipped character silently corrupts the token stream and
+    /// the parsed model no longer describes the query that will run. The
+    /// generator refuses files containing Unknown tokens (JNT1004); lenient
+    /// consumers keep tokenizing past them. <see cref="Token.Value"/> holds
+    /// the offending character.
+    /// </summary>
+    Unknown,
+
     End
 }

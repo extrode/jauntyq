@@ -381,4 +381,63 @@ select product_id /* inline comment */ from products");
         var tokens = SqlTokenizer.Tokenize(atCap);
         Assert.DoesNotContain(tokens, t => t.Type == TokenType.TooLarge);
     }
+
+    // ── Operator characters: must be tokens, never silently skipped ──
+    // Skipping a character corrupts the stream: 'a || b' once tokenized as
+    // two adjacent identifiers and parsed as two plain columns.
+
+    [Fact]
+    public void ConcatOperator_TokenizesAsSingleSymbol()
+    {
+        var tokens = SqlTokenizer.Tokenize("select first_name || last_name from users");
+
+        int idx = tokens.FindIndex(t => t.Type == TokenType.Symbol && t.Value == "||");
+        Assert.True(idx > 0);
+        Assert.Equal("first_name", tokens[idx - 1].Value);
+        Assert.Equal("last_name", tokens[idx + 1].Value);
+    }
+
+    [Fact]
+    public void PostgresCastOperator_TokenizesAsSingleSymbol()
+    {
+        var tokens = SqlTokenizer.Tokenize("select id::text from users");
+        Assert.Contains(tokens, t => t.Type == TokenType.Symbol && t.Value == "::");
+    }
+
+    [Theory]
+    [InlineData("%")]
+    [InlineData("&")]
+    [InlineData("|")]
+    [InlineData("^")]
+    [InlineData("~")]
+    [InlineData("?")]
+    [InlineData("#")]
+    public void OperatorCharacters_TokenizeAsSymbols(string op)
+    {
+        var tokens = SqlTokenizer.Tokenize($"select a {op} b from t");
+        Assert.Contains(tokens, t => t.Type == TokenType.Symbol && t.Value == op);
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unknown);
+    }
+
+    // ── Unknown characters: emitted in place, never silently skipped ──
+
+    [Fact]
+    public void UnknownCharacter_EmitsUnknownToken()
+    {
+        var tokens = SqlTokenizer.Tokenize("select id from users where id = $1");
+
+        Assert.Contains(tokens, t => t.Type == TokenType.Unknown && t.Value == "$");
+    }
+
+    [Fact]
+    public void UnknownCharacter_TokenizingContinuesPastIt()
+    {
+        // Lenient consumers (migration classification, usage scanning) must
+        // still see everything after the unknown character.
+        var tokens = SqlTokenizer.Tokenize("select $ id from users");
+
+        Assert.Contains(tokens, t => t.Type == TokenType.Unknown);
+        Assert.Contains(tokens, t => t.Type == TokenType.Keyword && t.Value == "FROM");
+        Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "users");
+    }
 }

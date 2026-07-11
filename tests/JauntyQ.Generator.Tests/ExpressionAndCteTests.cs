@@ -370,6 +370,63 @@ public class ExpressionAndCteTests
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT1002");
     }
 
+    // ── Operator characters must not corrupt the projection ──
+    // Before the tokenizer emitted them, '||' vanished from the token stream
+    // and 'first_name || username as full_name' parsed as TWO plain columns —
+    // a silently wrong row shape that only failed at runtime.
+
+    [Fact]
+    public void ConcatExpression_IsOneExpressionItem_NotTwoColumns()
+    {
+        var sql = "select first_name || username as full_name from users where id = @id";
+        var (result, _) = Run(sql, "db/Users/GetFullName.sql");
+
+        // Expression with no inferable type: must demand -- @type, never emit
+        // a two-property row type.
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT3005");
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains("Users.GetFullName.g.cs"));
+    }
+
+    [Fact]
+    public void ConcatExpression_WithTypeDirective_EmitsSingleProperty()
+    {
+        var sql =
+            "-- @type full_name varchar\n" +
+            "select first_name || username as full_name from users where id = @id";
+        var (result, _) = Run(sql, "db/Users/GetFullName.sql");
+
+        AssertNoErrors(result);
+        var source = GetSource(result, "Users.GetFullName.g.cs");
+        Assert.Contains("string? FullName", source);
+        // The silently-wrong old shape had a FirstName property.
+        Assert.DoesNotContain("FirstName", source);
+    }
+
+    [Fact]
+    public void PostgresCast_IsExpression_NotPhantomColumnLookup()
+    {
+        // 'id::text' once mis-tokenized as the two identifiers 'id' and 'text',
+        // producing a misleading JNT2002 "Column 'text' does not exist".
+        var sql = "select id::text as id_text from users where id = @id";
+        var (result, _) = Run(sql, "db/Users/GetIdText.sql");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2002");
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT3005");
+    }
+
+    // ── Unknown character (JNT1004) ──
+
+    [Fact]
+    public void UnknownCharacter_JNT1004_NoEmit()
+    {
+        var sql = "select id from users where id = $1";
+        var (result, _) = Run(sql, "db/Users/GetById.sql");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT1004");
+        Assert.Contains("$", diag.GetMessage());
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains("Users.GetById.g.cs"));
+    }
+
     // ── Oversized input (JNT1003) ──
 
     [Fact]

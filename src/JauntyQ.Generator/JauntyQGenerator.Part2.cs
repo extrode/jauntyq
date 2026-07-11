@@ -130,6 +130,19 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             return FileResult.WithDiagnostics(entityName, methodName, unterminatedDiag.ToImmutable());
         }
 
+        // JNT1004: a character the tokenizer does not recognize. Bail before
+        // parsing — skipping the character (the old behavior) silently corrupts
+        // the token stream and the parsed model no longer describes the query
+        // that will actually run.
+        int unknownIndex = tokens.FindIndex(t => t.Type == JauntyQ.SqlParser.Tokens.TokenType.Unknown);
+        if (unknownIndex >= 0)
+        {
+            var unknownDiag = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+            unknownDiag.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT1004,
+                $"Unsupported character '{tokens[unknownIndex].Value}' in SQL; JauntyQ cannot safely parse this file. Remove the character or rewrite the construct."));
+            return FileResult.WithDiagnostics(entityName, methodName, unknownDiag.ToImmutable());
+        }
+
         // Parse
         var queryModel = SqlParser.SqlParser.Parse(tokens, methodName);
 
