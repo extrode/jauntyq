@@ -24,6 +24,14 @@
     <None Include="build\JauntyQ.Generator.props" Pack="true" PackagePath="build\" />
     <None Include="buildTransitive\JauntyQ.Generator.props" Pack="true" PackagePath="buildTransitive\" />
   </ItemGroup>
+  <!-- Expose internal cache-plumbing types (DiagnosticInfo, FileSummary,
+       FileResult, FileSummaryArrayComparer) to the test project so their
+       equality/hash contracts — which drive incremental-generator caching —
+       can be unit-tested directly. Ships only as metadata; no effect on
+       consumers of the analyzer. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="JauntyQ.Generator.Tests" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
