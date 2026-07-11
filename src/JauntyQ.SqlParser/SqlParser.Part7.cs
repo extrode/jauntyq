@@ -159,6 +159,7 @@ public static partial class SqlParser
         to.Joins.AddRange(from.Joins);
         to.Literals.AddRange(from.Literals);
         to.PerfHints.AddRange(from.PerfHints);
+        to.OrderBy.AddRange(from.OrderBy);
         to.Returning.AddRange(from.Returning);
         to.HasReturning = from.HasReturning;
         to.ExpressionsMissingAlias.AddRange(from.ExpressionsMissingAlias);
@@ -177,6 +178,7 @@ public static partial class SqlParser
                 existing.BoundTableAlias = p.BoundTableAlias;
                 existing.BoundColumnName = p.BoundColumnName;
                 existing.IsWriteTarget = p.IsWriteTarget;
+                existing.ComparisonOp = p.ComparisonOp;
             }
         }
 

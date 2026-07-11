@@ -94,4 +94,31 @@ public class OrderByParserTests
 
         Assert.Empty(model.OrderBy);
     }
+
+    [Fact]
+    public void WithChain_FinalStatementOrderBy_CopiedToOuterModel()
+    {
+        // CopyFinalStatement once dropped OrderBy, so JNT8007 never fired on
+        // WITH queries.
+        var model = ParseSql(
+            "with c as (select product_id, launched_at from products) " +
+            "select product_id from c order by launched_at");
+
+        var item = Assert.Single(model.OrderBy);
+        Assert.Equal(OrderByItemKind.PlainColumn, item.Kind);
+        Assert.Equal("launched_at", item.BoundColumnName);
+    }
+
+    [Fact]
+    public void WithChain_ParameterComparisonOp_SurvivesTheMerge()
+    {
+        // The WITH merge once dropped ComparisonOp, mis-classifying WITH
+        // point-lookups in the N+1 analyzer (JNT8008).
+        var model = ParseSql(
+            "with c as (select product_id from products) " +
+            "select product_id from c where product_id = @id");
+
+        var p = Assert.Single(model.Parameters);
+        Assert.Equal("=", p.ComparisonOp);
+    }
 }
