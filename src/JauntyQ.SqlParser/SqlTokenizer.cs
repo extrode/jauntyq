@@ -255,8 +255,50 @@ public static class SqlTokenizer
             pos++;
         }
 
+        MergeQualifiedIdentifiers(tokens);
         tokens.Add(new Token(TokenType.End, string.Empty));
         return tokens;
+    }
+
+    /// <summary>
+    /// Merges quoted qualified references into single dot-joined Identifier
+    /// tokens, matching the shape the bare scan already produces for
+    /// <c>p.product_id</c>. Without this, <c>"u"."col"</c> / <c>[u].[col]</c>
+    /// tokenize as identifier-dot-identifier and demote to an expression
+    /// demanding a spurious AS alias. Conservative: parts that themselves
+    /// contain a dot are left unmerged (visible as an expression) rather than
+    /// risk a wrong split downstream.
+    /// </summary>
+    private static void MergeQualifiedIdentifiers(List<Token> tokens)
+    {
+        for (int i = 0; i < tokens.Count - 1; i++)
+        {
+            if (tokens[i].Type != TokenType.Identifier)
+                continue;
+
+            // "u"."col" / [u].[col] / "u".col — Identifier '.' Identifier
+            if (i + 2 < tokens.Count &&
+                tokens[i + 1].Type == TokenType.Symbol && tokens[i + 1].Value == "." &&
+                tokens[i + 2].Type == TokenType.Identifier &&
+                !tokens[i].Value.Contains(".") && !tokens[i + 2].Value.Contains("."))
+            {
+                tokens[i] = new Token(TokenType.Identifier, tokens[i].Value + "." + tokens[i + 2].Value);
+                tokens.RemoveRange(i + 1, 2);
+                i--;
+                continue;
+            }
+
+            // u."col" — the bare scan consumed the dot into the left token
+            if (tokens[i].Value.EndsWith(".", StringComparison.Ordinal) &&
+                tokens[i + 1].Type == TokenType.Identifier &&
+                tokens[i].Value.IndexOf('.') == tokens[i].Value.Length - 1 &&
+                !tokens[i + 1].Value.Contains("."))
+            {
+                tokens[i] = new Token(TokenType.Identifier, tokens[i].Value + tokens[i + 1].Value);
+                tokens.RemoveAt(i + 1);
+                i--;
+            }
+        }
     }
 
     private static bool IsIdentifierStart(char c) =>

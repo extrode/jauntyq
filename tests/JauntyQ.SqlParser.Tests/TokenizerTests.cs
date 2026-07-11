@@ -419,6 +419,28 @@ select product_id /* inline comment */ from products");
         Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unknown);
     }
 
+    // ── Quoted qualified names merge like bare ones ──
+
+    [Theory]
+    [InlineData("select \"u\".\"col\" from users \"u\"")]
+    [InlineData("select [u].[col] from users [u]")]
+    [InlineData("select \"u\".col from users \"u\"")]
+    [InlineData("select u.\"col\" from users u")]
+    public void QuotedQualifiedName_MergesToSingleIdentifier(string sql)
+    {
+        var tokens = SqlTokenizer.Tokenize(sql);
+        Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "u.col");
+    }
+
+    [Fact]
+    public void QuotedPartContainingDot_IsNotMerged()
+    {
+        // A quoted identifier with a literal dot would split wrongly if
+        // merged; it must stay separate (and surface as an expression).
+        var tokens = SqlTokenizer.Tokenize("select \"u\".\"a.b\" from t");
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Identifier && t.Value == "u.a.b");
+    }
+
     // ── Unknown characters: emitted in place, never silently skipped ──
 
     [Fact]
