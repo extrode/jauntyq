@@ -92,15 +92,15 @@ internal sealed class SchemaState
         // no-schema case does — but hasJson: true so the aggregate step still
         // reports the diagnostic even when there are no query files.
         //
-        // KNOWN LIMITATION: the MigrationParser/SchemaSimulator machinery reused
-        // here does not populate TableSchema.Indexes — inline UNIQUE column
-        // constraints and standalone CREATE [UNIQUE] INDEX statements are
-        // dropped (classified Ignored) and SchemaSimulator.Clone doesn't carry
-        // Indexes. So DDL-sourced tables have correct PK/identity/column-type
-        // metadata but NO secondary unique-index metadata: JNT8004 and the
-        // Upsert alternate-key resolution only ever see the PK. This is a
-        // pre-existing gap across ALL migration-based schemas, not specific to
-        // DDL mode, and is not fixed here.
+        // KNOWN LIMITATION: the MigrationParser does not populate
+        // TableSchema.Indexes — inline UNIQUE column constraints and
+        // standalone CREATE [UNIQUE] INDEX statements are dropped (classified
+        // Ignored). So tables DEFINED in DDL/migration files have correct
+        // PK/identity/column-type metadata but NO secondary unique-index
+        // metadata: JNT8004 and the Upsert alternate-key resolution only ever
+        // see the PK for such tables. Snapshot-sourced tables are unaffected —
+        // SchemaSimulator.Clone carries Indexes, Procedures and Sequences
+        // through migration simulation.
         if (string.IsNullOrEmpty(dialectOverride) || !DialectMapper.IsKnownDialect(dialectOverride!))
         {
             var diag = ImmutableArray.Create(DiagnosticInfo.From(JauntyDiagnostics.JNT9003,

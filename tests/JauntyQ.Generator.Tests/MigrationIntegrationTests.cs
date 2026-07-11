@@ -29,14 +29,17 @@ public class MigrationIntegrationTests
   }
 }";
 
-    private static GeneratorDriverRunResult Run(bool autoCrud, params (string Path, string Text)[] files)
+    private static GeneratorDriverRunResult Run(bool autoCrud, params (string Path, string Text)[] files) =>
+        Run(autoCrud, SchemaJson, files);
+
+    private static GeneratorDriverRunResult Run(bool autoCrud, string schemaJson, params (string Path, string Text)[] files)
     {
         var compilation = CSharpCompilation.Create("MigrationTestAssembly",
             new[] { CSharpSyntaxTree.ParseText("") },
             new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var texts = new List<AdditionalText> { new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson) };
+        var texts = new List<AdditionalText> { new InMemoryAdditionalText("schema/jaunty.schema.json", schemaJson) };
         foreach (var (path, text) in files)
             texts.Add(new InMemoryAdditionalText(path, text));
 
@@ -147,6 +150,73 @@ create table gadgets (id int not null primary key, name nvarchar(20) not null);
         var warning = Assert.Single(result.Diagnostics, d => d.Id == "JNT9001");
         Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
         Assert.True(HasSource(result, "Gadgets.GetAll.auto.g.cs"));
+    }
+
+    // ── A pending migration must not erase snapshot parts the simulator ──
+    // ── doesn't mutate (SchemaSimulator.Clone once dropped all three)   ──
+
+    private const string RichSchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""products"": {
+      ""name"": ""products"",
+      ""columns"": {
+        ""product_id"": { ""name"": ""product_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""product_name"": { ""name"": ""product_name"", ""dbType"": ""nvarchar"", ""isNullable"": false, ""maxLength"": 40 },
+        ""category_id"": { ""name"": ""category_id"", ""dbType"": ""int"", ""isNullable"": true }
+      },
+      ""indexes"": [
+        { ""name"": ""ix_products_category"", ""columns"": [""category_id""], ""isUnique"": false }
+      ]
+    }
+  },
+  ""procedures"": {
+    ""GetTopProducts"": {
+      ""name"": ""GetTopProducts"",
+      ""params"": [ { ""name"": ""HowMany"", ""dbType"": ""int"", ""direction"": ""In"", ""isNullable"": false } ],
+      ""results"": [ { ""name"": ""ProductId"", ""dbType"": ""int"", ""isNullable"": false } ]
+    }
+  },
+  ""sequences"": {
+    ""order_number"": { ""name"": ""order_number"", ""startValue"": 100, ""increment"": 5 }
+  }
+}";
+
+    private const string UnrelatedMigration = "create table gadgets (id int not null primary key)";
+
+    [Fact]
+    public void PendingMigration_DoesNotErase_Procedures()
+    {
+        var result = Run(autoCrud: false, RichSchemaJson,
+            ("db/Products/CallTop.sql", "-- @call GetTopProducts"),
+            ("db/migrations/0001_unrelated.sql", UnrelatedMigration));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2005");
+        Assert.True(HasSource(result, "Products.CallTop.g.cs"));
+    }
+
+    [Fact]
+    public void PendingMigration_DoesNotErase_Sequences()
+    {
+        var result = Run(autoCrud: false, RichSchemaJson,
+            ("db/migrations/0001_unrelated.sql", UnrelatedMigration));
+
+        var db = Source(result, "JauntyDb.g.cs");
+        Assert.Contains("SequenceAccessor Sequences", db);
+        Assert.Contains("NextOrderNumber()", db);
+    }
+
+    [Fact]
+    public void PendingMigration_DoesNotErase_Indexes()
+    {
+        // category_id is indexed: filtering on it must not warn JNT8004, with
+        // or without a pending migration.
+        var result = Run(autoCrud: false, RichSchemaJson,
+            ("db/Products/GetByCategory.sql", "select product_id\nfrom products\nwhere category_id = @categoryId"),
+            ("db/migrations/0001_unrelated.sql", UnrelatedMigration));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8004");
+        Assert.True(HasSource(result, "Products.GetByCategory.g.cs"));
     }
 
     [Fact]
