@@ -131,6 +131,17 @@ public static partial class SqlParser
                 literalValue = right.Value;
                 (tableAlias, columnName) = SplitQualifiedName(left.Value);
             }
+            else if (left.Type == TokenType.Identifier &&
+                     right.Type == TokenType.Symbol && right.Value == "-" &&
+                     i + 2 < tokens.Count && tokens[i + 2].Type == TokenType.Number)
+            {
+                // col <op> -N : unary minus (nothing precedes the '-' but the
+                // comparison operator, so it cannot be a subtraction)
+                found = true;
+                literalType = TokenType.Number;
+                literalValue = "-" + tokens[i + 2].Value;
+                (tableAlias, columnName) = SplitQualifiedName(left.Value);
+            }
             else if ((left.Type == TokenType.Literal || left.Type == TokenType.Number) &&
                      right.Type == TokenType.Identifier)
             {
@@ -163,6 +174,21 @@ public static partial class SqlParser
                 int j = i + 3;
                 while (j < tokens.Count && !(tokens[j].Type == TokenType.Symbol && tokens[j].Value == ")"))
                 {
+                    // -N in the list: unary minus (list items are comma-
+                    // separated, so a '-' before a number is never subtraction)
+                    if (tokens[j].Type == TokenType.Symbol && tokens[j].Value == "-" &&
+                        j + 1 < tokens.Count && tokens[j + 1].Type == TokenType.Number)
+                    {
+                        model.Literals.Add(new LiteralBinding
+                        {
+                            Kind = LiteralKind.Number,
+                            Value = "-" + tokens[j + 1].Value,
+                            BoundTableAlias = tableAlias,
+                            BoundColumnName = columnName
+                        });
+                        j += 2;
+                        continue;
+                    }
                     if (tokens[j].Type == TokenType.Literal || tokens[j].Type == TokenType.Number)
                     {
                         model.Literals.Add(new LiteralBinding

@@ -114,4 +114,29 @@ public class LiteralBindingTests
         var lit = Assert.Single(model.Literals);
         Assert.Equal("it''s", lit.Value); // decoded to one char by the validator
     }
+
+    [Fact]
+    public void WhereComparison_NegativeNumericLiteral_BindsToColumn()
+    {
+        // '-' tokenizes separately from the number; the unary minus after a
+        // comparison operator was once never captured, so negative WHERE
+        // literals silently skipped JNT5002 range checks.
+        var model = Parse("select id from t where t.level = -200");
+
+        var lit = Assert.Single(model.Literals);
+        Assert.Equal(LiteralKind.Number, lit.Kind);
+        Assert.Equal("-200", lit.Value);
+        Assert.Equal("level", lit.BoundColumnName);
+    }
+
+    [Fact]
+    public void InList_NegativeNumericLiterals_AllBind()
+    {
+        var model = Parse("select id from t where t.level in (1, -2, 3)");
+
+        Assert.Equal(3, model.Literals.Count);
+        Assert.Contains(model.Literals, l => l.Value == "-2" && l.BoundColumnName == "level");
+        Assert.Contains(model.Literals, l => l.Value == "1");
+        Assert.Contains(model.Literals, l => l.Value == "3");
+    }
 }

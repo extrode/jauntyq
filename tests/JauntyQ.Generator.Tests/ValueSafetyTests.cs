@@ -123,6 +123,25 @@ public class ValueSafetyTests
     }
 
     [Fact]
+    public void NegativeWhereLiteralOutOfRange_JNT5002()
+    {
+        // Negative WHERE literals once weren't captured at all, silently
+        // skipping the range check.
+        var result = Run("select product_id\nfrom products\nwhere products.quantity = -40000");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void NegativeWhereLiteralInRange_NoJNT5002()
+    {
+        var result = Run("select product_id\nfrom products\nwhere products.quantity = -5");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+        Assert.True(HasQuerySource(result));
+    }
+
+    [Fact]
     public void FittingLiterals_NoValueSafetyDiagnostics()
     {
         var result = Run("select product_id\nfrom products\nwhere products.product_name = 'ok' and products.unit_price >= 99999999.99 and products.quantity = 32000");
