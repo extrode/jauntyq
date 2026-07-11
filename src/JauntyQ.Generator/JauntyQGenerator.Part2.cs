@@ -217,6 +217,21 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 eachProblem = "-- @each is only supported on SELECT queries; runtime IN-list expansion is not implemented for INSERT/UPDATE/DELETE";
             else if (directives.IsProc)
                 eachProblem = "-- @each cannot be combined with -- @proc (a stored procedure call has a fixed parameter list; IN-list expansion rewrites the SQL text)";
+            else
+            {
+                // A name matching no parameter would otherwise be a silent
+                // no-op: the method takes a scalar instead of a list and the
+                // SQL is never expanded. Same never-silently-ignored rule as
+                // the gates above.
+                foreach (var eachName in directives.EachParams)
+                {
+                    if (!queryModel.Parameters.Exists(p => string.Equals(p.Name, eachName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        eachProblem = $"-- @each names unknown parameter '{eachName}': the query has no @{eachName} parameter. Check the spelling; left as-is the directive would be silently ignored.";
+                        break;
+                    }
+                }
+            }
 
             if (eachProblem != null)
             {

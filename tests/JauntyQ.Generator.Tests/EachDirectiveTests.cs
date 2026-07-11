@@ -289,6 +289,28 @@ public class EachDirectiveTests
     }
 
     [Fact]
+    public void Each_UnknownParamName_FailsJNT3003_InsteadOfSilentlyIgnoring()
+    {
+        // Typo'd name: the query declares @Ids but the directive says Idz.
+        // Silently ignoring it would generate a scalar-parameter method.
+        string sql = "-- @each Idz\nselect product_id, product_name from products where product_id in (@Ids)";
+        var result = Run(sql);
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT3003");
+        Assert.Contains("Idz", diag.GetMessage());
+        Assert.DoesNotContain(result.Results[0].GeneratedSources, s => s.HintName == "Products.EachQuery.g.cs");
+    }
+
+    [Fact]
+    public void Each_MatchingParamName_CaseInsensitive_NoJNT3003()
+    {
+        string sql = "-- @each ids\nselect product_id, product_name from products where product_id in (@Ids)";
+        var result = Run(sql);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT3003");
+    }
+
+    [Fact]
     public void Each_EmitsOversizeListGuard_WithDialectBudget()
     {
         var result = Run(EachSql); // sqlite schema → 32000 budget
