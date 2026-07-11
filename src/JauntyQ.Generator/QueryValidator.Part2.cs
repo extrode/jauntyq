@@ -278,13 +278,13 @@ public static partial class QueryValidator
             }
             else
             {
-                ValidateNumericLiteral(lit, column, tableName!, errors);
+                ValidateNumericLiteral(lit, column, tableName!, schema.Dialect, errors);
             }
         }
     }
 
     private static void ValidateNumericLiteral(
-        LiteralBinding lit, ColumnSchema column, string tableName, List<ValidationError> errors)
+        LiteralBinding lit, ColumnSchema column, string tableName, string dialect, List<ValidationError> errors)
     {
         if (!decimal.TryParse(lit.Value,
                 System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowDecimalPoint,
@@ -308,18 +308,31 @@ public static partial class QueryValidator
             return;
         }
 
-        // integer families: compile-time range check
-        string dbType = column.DbType.ToLowerInvariant();
-        int paren = dbType.IndexOf('(');
-        if (paren >= 0)
-            dbType = dbType.Substring(0, paren);
+        // integer families: compile-time range check. The base type is the
+        // text before any '(n)' facet or modifier word ("tinyint(1) unsigned"
+        // -> "tinyint"); MySQL's 'unsigned' modifier shifts the range.
+        string fullDbType = column.DbType.ToLowerInvariant();
+        bool unsigned = fullDbType.Contains("unsigned");
+        string dbType = fullDbType;
+        int cut = dbType.IndexOfAny(new[] { '(', ' ' });
+        if (cut >= 0)
+            dbType = dbType.Substring(0, cut);
+
+        // tinyint is the one integer type whose signedness depends on the
+        // engine: SQL Server's is unsigned 0..255, MySQL/MariaDB's is SIGNED
+        // -128..127 unless declared 'unsigned'.
+        bool mysqlDialect = string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase);
 
         (decimal Min, decimal Max)? range = dbType switch
         {
-            "int" or "int4" or "integer" or "serial" => (int.MinValue, int.MaxValue),
-            "bigint" or "int8" or "bigserial" => (long.MinValue, long.MaxValue),
-            "smallint" or "int2" => (short.MinValue, short.MaxValue),
-            "tinyint" => (0m, 255m),
+            "int" or "int4" or "integer" or "serial" =>
+                unsigned ? (0m, 4294967295m) : (int.MinValue, int.MaxValue),
+            "bigint" or "int8" or "bigserial" =>
+                unsigned ? (0m, 18446744073709551615m) : (long.MinValue, long.MaxValue),
+            "smallint" or "int2" =>
+                unsigned ? (0m, 65535m) : (short.MinValue, short.MaxValue),
+            "tinyint" =>
+                mysqlDialect && !unsigned ? (-128m, 127m) : (0m, 255m),
             _ => ((decimal, decimal)?)null
         };
 

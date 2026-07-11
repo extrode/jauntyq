@@ -131,6 +131,84 @@ public class ValueSafetyTests
         Assert.True(HasQuerySource(result));
     }
 
+    // ── tinyint is dialect-dependent: SQL Server 0..255, MySQL -128..127 ─
+
+    private static GeneratorDriverRunResult RunTinyint(string dialect, string dbType, string sql)
+    {
+        string schema = @"{
+  ""dialect"": """ + dialect + @""",
+  ""tables"": {
+    ""flags"": {
+      ""name"": ""flags"",
+      ""columns"": {
+        ""flag_id"": { ""name"": ""flag_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""level"": { ""name"": ""level"", ""dbType"": """ + dbType + @""", ""isNullable"": false }
+      }
+    }
+  }
+}";
+        var compilation = CSharpCompilation.Create("TinyintTestAssembly",
+            new[] { CSharpSyntaxTree.ParseText("") },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
+            .AddAdditionalTexts(ImmutableArray.Create<AdditionalText>(
+                new InMemoryAdditionalText("db/Flags/TestQuery.sql", sql),
+                new InMemoryAdditionalText("schema/jaunty.schema.json", schema)))
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
+        return driver.GetRunResult();
+    }
+
+    [Fact]
+    public void MySqlTinyint_MinusOne_Fits_NoJNT5002()
+    {
+        // MySQL tinyint is SIGNED (-128..127); -1 is a perfectly valid value.
+        var result = RunTinyint("mysql", "tinyint",
+            "insert into flags (flag_id, level) values (@flagId, -1)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlTinyint_200_OutOfRange_JNT5002()
+    {
+        var result = RunTinyint("mysql", "tinyint",
+            "insert into flags (flag_id, level) values (@flagId, 200)");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlTinyintUnsigned_200_Fits_NoJNT5002()
+    {
+        var result = RunTinyint("mysql", "tinyint unsigned",
+            "insert into flags (flag_id, level) values (@flagId, 200)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void SqlServerTinyint_MinusOne_OutOfRange_JNT5002()
+    {
+        // SQL Server tinyint is unsigned 0..255.
+        var result = RunTinyint("sqlserver", "tinyint",
+            "insert into flags (flag_id, level) values (@flagId, -1)");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void SqlServerTinyint_200_Fits_NoJNT5002()
+    {
+        var result = RunTinyint("sqlserver", "tinyint",
+            "insert into flags (flag_id, level) values (@flagId, 200)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
     // ── Guards and DbParameter sizing ───────────────────────────────────
 
     [Fact]
