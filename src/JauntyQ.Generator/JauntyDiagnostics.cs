@@ -52,6 +52,14 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    public static readonly DiagnosticDescriptor JNT1005 = new(
+        "JNT1005",
+        "Nesting Too Deep",
+        "{0}",
+        "JauntyQ.Parsing",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 2xxx: Schema Validation ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT2001 = new(
@@ -108,6 +116,14 @@ public static class JauntyDiagnostics
         "{0}",
         "JauntyQ.Schema",
         DiagnosticSeverity.Warning,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT2008 = new(
+        "JNT2008",
+        "Duplicate Generated File",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Error,
         true);
 
     // ── 3xxx: Query Shape / Projection ────────────────────
@@ -174,6 +190,14 @@ public static class JauntyDiagnostics
         "{0}",
         "JauntyQ.Projection",
         DiagnosticSeverity.Warning,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT3009 = new(
+        "JNT3009",
+        "Duplicate Result Column",
+        "{0}",
+        "JauntyQ.Projection",
+        DiagnosticSeverity.Error,
         true);
 
     // ── 4xxx: Parameter Binding ───────────────────────────

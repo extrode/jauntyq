@@ -70,6 +70,16 @@ public static class IdentifierGuard
         => Keywords.Contains(name) ? "@" + name : name;
 
     /// <summary>
+    /// True when <paramref name="name"/> is a reserved C# keyword. A name taken
+    /// from a file/folder path becomes a class or method identifier that is
+    /// emitted verbatim (unlike parameters and column aliases, which go through
+    /// <see cref="Escape"/>), so a keyword there produces uncompilable code —
+    /// the caller rejects it with a diagnostic instead.
+    /// </summary>
+    public static bool IsReservedKeyword(string? name)
+        => name != null && Keywords.Contains(name);
+
+    /// <summary>
     /// Encodes an arbitrary string as the body of a regular C# "..." literal
     /// (not verbatim). Escapes backslash, quote, and control characters so the
     /// value cannot break out of the literal.

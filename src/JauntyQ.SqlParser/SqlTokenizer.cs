@@ -25,6 +25,16 @@ public static class SqlTokenizer
     /// </summary>
     public const int MaxInputLength = 1_048_576;
 
+    /// <summary>
+    /// Upper bound on parenthesis nesting depth. The recursive-descent parser
+    /// slices and re-copies each nested span before recursing, so parse cost is
+    /// O(n²) in depth — a ~1 MiB file of nested parens (well under
+    /// <see cref="MaxInputLength"/>) would hang the build for minutes. Real SQL,
+    /// including machine-generated queries, never approaches this; 1000 leaves
+    /// vast headroom while capping worst-case parse work at a few tens of ms.
+    /// </summary>
+    public const int MaxNestingDepth = 1000;
+
     public static List<Token> Tokenize(string sql)
     {
         // Refuse oversized input outright: bail with a TooLarge sentinel rather
@@ -267,6 +277,32 @@ public static class SqlTokenizer
             // classify instead of vanishing.
             tokens.Add(new Token(TokenType.Unknown, sql[pos].ToString()));
             pos++;
+        }
+
+        // Refuse pathologically deep parenthesis nesting before the quadratic
+        // parser ever sees it: a single linear pass over the already-tokenized
+        // symbols (cheap; tokenization is O(n)) finds the maximum depth, and a
+        // two-token sentinel — same shape as TooLarge — stops here if it is
+        // exceeded. Counts structural parens only; parens inside strings,
+        // comments and bracket-quoted identifiers were never emitted as tokens.
+        int depth = 0;
+        foreach (var t in tokens)
+        {
+            if (t.Type != TokenType.Symbol)
+                continue;
+            if (t.Value == "(")
+            {
+                if (++depth > MaxNestingDepth)
+                    return new List<Token>
+                    {
+                        new Token(TokenType.TooDeep, depth.ToString()),
+                        new Token(TokenType.End, string.Empty)
+                    };
+            }
+            else if (t.Value == ")" && depth > 0)
+            {
+                depth--;
+            }
         }
 
         MergeQualifiedIdentifiers(tokens);

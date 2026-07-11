@@ -124,12 +124,43 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             })
             .WithTrackingName("JauntyQ_PerFile");
 
-        context.RegisterSourceOutput(perFile, static (ctx, result) =>
+        // Case-insensitive hint-name collisions (JNT2008): Roslyn's AddSource
+        // treats hint names case-insensitively (they map to file paths), so two
+        // files whose {entity}.{method} names differ only by case — reachable on
+        // a case-sensitive filesystem such as a Linux CI runner — would make the
+        // second AddSource throw and abort the ENTIRE generator with an opaque
+        // CS8785, erasing every generated type. Detect the collision across the
+        // whole file set (cached until a file's hint name changes, i.e. an
+        // add/rename/delete — not a body edit) so the emit step below can report
+        // it and skip the colliding files instead of crashing.
+        var hintCollisions = perFile
+            .Select(static (r, _) => (Hint: r.HintName, Path: r.Path))
+            .Collect()
+            .Select(static (entries, _) => ComputeHintCollisions(entries))
+            .WithTrackingName("JauntyQ_HintCollisions");
+
+        context.RegisterSourceOutput(perFile.Combine(hintCollisions), static (ctx, pair) =>
         {
+            var (result, collisions) = pair;
             foreach (var diag in result.Diagnostics)
                 ctx.ReportDiagnostic(diag.ToDiagnostic());
-            if (result.HintName != null && result.Source != null)
-                ctx.AddSource(result.HintName, SourceText.From(result.Source, Encoding.UTF8));
+            if (result.HintName == null || result.Source == null)
+                return;
+
+            if (result.Path != null)
+            {
+                foreach (var collision in collisions)
+                {
+                    if (string.Equals(collision.Path, result.Path, StringComparison.Ordinal))
+                    {
+                        ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2008,
+                            FileLocation(result.Path), collision.Message));
+                        return; // skip emission so AddSource never collides/throws
+                    }
+                }
+            }
+
+            ctx.AddSource(result.HintName, SourceText.From(result.Source, Encoding.UTF8));
         });
 
         // Duplicate-query detection (JNT8005): plain string comparison in its
@@ -202,6 +233,43 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             var ((fileSummaries, schema), autoCrud) = pair;
             EmitAggregates(ctx, fileSummaries, schema, autoCrud);
         });
+    }
+
+    /// <summary>
+    /// Groups the emitted files by hint name, case-insensitively (matching how
+    /// Roslyn's AddSource compares them), and returns one (path, message) entry
+    /// for every file that shares its generated name with at least one other —
+    /// the empty array when all names are unique. The result is value-equatable
+    /// (ImmutableArray of tuples), so it stays cached across body edits that
+    /// leave every hint name unchanged.
+    /// </summary>
+    private static ImmutableArray<(string Path, string Message)> ComputeHintCollisions(
+        ImmutableArray<(string? Hint, string? Path)> entries)
+    {
+        var groups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<(string Hint, string Path)>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in entries)
+        {
+            if (string.IsNullOrEmpty(e.Hint) || string.IsNullOrEmpty(e.Path))
+                continue;
+            if (!groups.TryGetValue(e.Hint!, out var list))
+                groups[e.Hint!] = list = new System.Collections.Generic.List<(string, string)>();
+            list.Add((e.Hint!, e.Path!));
+        }
+
+        var builder = ImmutableArray.CreateBuilder<(string, string)>();
+        foreach (var list in groups.Values)
+        {
+            if (list.Count < 2)
+                continue;
+            list.Sort(static (a, b) => string.CompareOrdinal(a.Path, b.Path));
+            string paths = string.Join(", ", list.Select(m => m.Path));
+            string message =
+                $"SQL files [{paths}] all generate the file '{list[0].Hint}'. Generated file names are compared case-insensitively, so these collide and would abort code generation. Rename one so the generated names differ by more than case.";
+            foreach (var m in list)
+                builder.Add((m.Path, message));
+        }
+        builder.Sort(static (a, b) => string.CompareOrdinal(a.Item1, b.Item1));
+        return builder.ToImmutable();
     }
 
     /// <summary>

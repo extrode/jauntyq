@@ -39,6 +39,20 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             return FileResult.WithDiagnostics(entityName, methodName, badNameDiag);
         }
 
+        // JNT2004 (H1, keyword case): a bare identifier can still be a reserved
+        // C# keyword (a file literally named 'class.sql' or 'int.sql'). Unlike
+        // parameters and column aliases — which flow through IdentifierGuard.Escape
+        // — the entity/method names are emitted verbatim as a class and method,
+        // so a keyword yields uncompilable code ('public class class'). Reject it
+        // with actionable guidance rather than emit broken source.
+        if (IdentifierGuard.IsReservedKeyword(entityName) || IdentifierGuard.IsReservedKeyword(methodName))
+        {
+            string offender = IdentifierGuard.IsReservedKeyword(methodName) ? methodName : entityName;
+            var keywordNameDiag = ImmutableArray.Create(DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
+                $"SQL file path yields the C# reserved keyword '{offender}' as an entity/method name, which cannot be emitted as-is. Rename the file/folder (e.g. '{offender}Query')."));
+            return FileResult.WithDiagnostics(entityName, methodName, keywordNameDiag);
+        }
+
         // From here on the file claims its entity.method slot: a user file
         // always overrides the auto-CRUD synthetic of the same name, even
         // when it currently fails validation.
@@ -116,6 +130,19 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             tooLargeDiag.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT1003,
                 $"SQL text is {tokens[tooLargeIndex].Value} characters, exceeding the {SqlTokenizer.MaxInputLength}-character limit; refusing to tokenize."));
             return FileResult.WithDiagnostics(entityName, methodName, tooLargeDiag.ToImmutable());
+        }
+
+        // JNT1005: parenthesis nesting exceeded the tokenizer's depth cap and
+        // was refused. The recursive-descent parser is O(n²) in depth, so a
+        // pathologically deep file would otherwise hang the build. Bail before
+        // parsing.
+        int tooDeepIndex = tokens.FindIndex(t => t.Type == JauntyQ.SqlParser.Tokens.TokenType.TooDeep);
+        if (tooDeepIndex >= 0)
+        {
+            var tooDeepDiag = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+            tooDeepDiag.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT1005,
+                $"SQL nests parentheses more than {SqlTokenizer.MaxNestingDepth} levels deep; refusing to parse. Simplify the query — nesting this deep is almost always a generated-SQL or copy-paste error."));
+            return FileResult.WithDiagnostics(entityName, methodName, tooDeepDiag.ToImmutable());
         }
 
         // JNT1002: an unterminated block comment or bracket-quoted identifier
@@ -312,6 +339,15 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     }
                 }
 
+                // JNT3009: duplicate emitted property name in the RETURNING row
+                // type (same rule as the SELECT projection below).
+                var dupReturningCol = FindDuplicateResultColumn(returningProjection);
+                if (dupReturningCol != null)
+                {
+                    diagnostics.Add(dupReturningCol);
+                    return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+                }
+
                 source = CodeEmitter.EmitCrudReturning(queryModel, returningProjection, cleanedSql, entityName, schema, directives);
             }
             else
@@ -344,6 +380,18 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         $"Column or alias maps to an illegal C# identifier '{pcol.Name}'. Use a SQL alias that is a valid identifier (letters, digits, underscore; not starting with a digit)."));
                     return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
                 }
+            }
+
+            // JNT3009: two SELECT items that map to the same generated property
+            // name (e.g. `id as X, other as X`, or `x`/`X`, or `my_col`/`myCol`
+            // after PascalCasing) would emit a row type with a duplicate member
+            // — a confusing CS0102 inside generated code. Catch it here with a
+            // clear diagnostic naming the property.
+            var dupResultCol = FindDuplicateResultColumn(projection);
+            if (dupResultCol != null)
+            {
+                diagnostics.Add(dupResultCol);
+                return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
             }
 
             // JNT2004 (H2): parameter names are emitted as C# parameter identifiers.
@@ -404,5 +452,27 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             ComputeFingerprint(tokens),
             queryModel,
             sqlFile.Path);
+    }
+
+    /// <summary>
+    /// Returns a JNT3009 diagnostic when two projected columns collapse to the
+    /// same emitted member name, else null. The comparison is on the emitted
+    /// form — <c>DialectMapper.ToPascalCase(name)</c>, exactly what the row POCO
+    /// and mapper use — so it catches case-only clashes (<c>x</c>/<c>X</c>) and
+    /// separator clashes (<c>my_col</c>/<c>myCol</c>) that both fold to one C#
+    /// property, which the compiler would otherwise reject with an opaque CS0102
+    /// inside generated code.
+    /// </summary>
+    private static DiagnosticInfo? FindDuplicateResultColumn(ProjectionModel projection)
+    {
+        var seen = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+        foreach (var pcol in projection.Columns)
+        {
+            string emitted = DialectMapper.ToPascalCase(pcol.Name);
+            if (!seen.Add(emitted))
+                return DiagnosticInfo.From(JauntyDiagnostics.JNT3009,
+                    $"Two result columns map to the same generated property '{emitted}'. Give each SELECT/RETURNING item a distinct alias (AS) — the generated row type cannot declare '{emitted}' twice.");
+        }
+        return null;
     }
 }

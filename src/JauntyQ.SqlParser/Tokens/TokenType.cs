@@ -42,5 +42,16 @@ public enum TokenType
     /// </summary>
     Unknown,
 
+    /// <summary>
+    /// Parenthesis nesting exceeded <see cref="SqlTokenizer.MaxNestingDepth"/>.
+    /// The recursive-descent parser copies each nested span before recursing,
+    /// so parse cost is quadratic in depth; the tokenizer refuses pathologically
+    /// deep input with this sentinel (mirroring <see cref="TooLarge"/>) rather
+    /// than let a single crafted or machine-generated file hang the build. The
+    /// generator refuses files containing it (JNT1005).
+    /// <see cref="Token.Value"/> holds the depth that was reached.
+    /// </summary>
+    TooDeep,
+
     End
 }

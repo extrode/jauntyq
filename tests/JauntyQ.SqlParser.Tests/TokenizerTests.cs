@@ -483,4 +483,35 @@ select product_id /* inline comment */ from products");
         Assert.Contains(tokens, t => t.Type == TokenType.Keyword && t.Value == "FROM");
         Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "users");
     }
+
+    [Fact]
+    public void ParenNestingBeyondCap_EmitsTooDeepSentinel()
+    {
+        int d = SqlTokenizer.MaxNestingDepth + 5;
+        var tokens = SqlTokenizer.Tokenize("select " + new string('(', d) + "1" + new string(')', d) + " from t");
+
+        // Two-token sentinel, same shape as TooLarge: refuse rather than let the
+        // O(n²) parser run on pathologically deep input.
+        Assert.Contains(tokens, t => t.Type == TokenType.TooDeep);
+        Assert.Equal(TokenType.End, tokens[^1].Type);
+    }
+
+    [Fact]
+    public void ParenNestingAtCap_NoTooDeepSentinel()
+    {
+        int d = SqlTokenizer.MaxNestingDepth; // exactly at the cap is allowed
+        var tokens = SqlTokenizer.Tokenize("select " + new string('(', d) + "1" + new string(')', d) + " from t");
+
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.TooDeep);
+    }
+
+    [Fact]
+    public void ParensInStringLiteral_DoNotCountTowardDepth()
+    {
+        // A string full of '(' must not trip the structural-nesting cap.
+        var tokens = SqlTokenizer.Tokenize("select '" + new string('(', SqlTokenizer.MaxNestingDepth + 50) + "' as v from t");
+
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.TooDeep);
+        Assert.Contains(tokens, t => t.Type == TokenType.Literal);
+    }
 }
