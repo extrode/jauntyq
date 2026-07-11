@@ -80,8 +80,19 @@ public static partial class CodeEmitter
 
     private static int FindValuesKeyword(string sql)
     {
+        // Quoted regions are skipped: a column literally named [values] or
+        // "values" in the INSERT column list must not match the keyword.
+        bool inBracket = false, inString = false, inQuote = false;
         for (int i = 0; i + 6 <= sql.Length; i++)
         {
+            char c = sql[i];
+            if (inString) { if (c == '\'') inString = false; continue; }
+            if (inBracket) { if (c == ']') inBracket = false; continue; }
+            if (inQuote) { if (c == '"') inQuote = false; continue; }
+            if (c == '\'') { inString = true; continue; }
+            if (c == '[') { inBracket = true; continue; }
+            if (c == '"') { inQuote = true; continue; }
+
             if (string.Compare(sql, i, "values", 0, 6, StringComparison.OrdinalIgnoreCase) != 0)
                 continue;
             bool startOk = i == 0 || !char.IsLetterOrDigit(sql[i - 1]) && sql[i - 1] != '_' && sql[i - 1] != '@';

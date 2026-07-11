@@ -182,12 +182,26 @@ public static class SqlTokenizer
                 continue;
             }
 
-            // Numeric literal
+            // Numeric literal (with optional exponent: 1e5, 2.5E-3). A bare
+            // 'e' with no exponent digits is not consumed — '1e' stays Number
+            // then Identifier.
             if (char.IsDigit(sql[pos]))
             {
                 int start = pos;
                 while (pos < len && (char.IsDigit(sql[pos]) || sql[pos] == '.'))
                     pos++;
+                if (pos < len && (sql[pos] == 'e' || sql[pos] == 'E'))
+                {
+                    int expPos = pos + 1;
+                    if (expPos < len && (sql[expPos] == '+' || sql[expPos] == '-'))
+                        expPos++;
+                    if (expPos < len && char.IsDigit(sql[expPos]))
+                    {
+                        pos = expPos;
+                        while (pos < len && char.IsDigit(sql[pos]))
+                            pos++;
+                    }
+                }
                 tokens.Add(new Token(TokenType.Number, sql.Substring(start, pos - start)));
                 continue;
             }

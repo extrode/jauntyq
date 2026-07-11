@@ -419,6 +419,27 @@ select product_id /* inline comment */ from products");
         Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unknown);
     }
 
+    // ── Exponent numeric literals ──
+
+    [Theory]
+    [InlineData("1e5")]
+    [InlineData("2.5E-3")]
+    [InlineData("7e+2")]
+    public void ExponentNumericLiteral_TokenizesAsOneNumber(string literal)
+    {
+        var tokens = SqlTokenizer.Tokenize($"select {literal} as x from t");
+        Assert.Contains(tokens, t => t.Type == TokenType.Number && t.Value == literal);
+    }
+
+    [Fact]
+    public void DigitFollowedByBareE_DoesNotConsumeTheIdentifier()
+    {
+        // '1e' with no exponent digits: Number(1) then Identifier(e).
+        var tokens = SqlTokenizer.Tokenize("select 1e from t");
+        Assert.Contains(tokens, t => t.Type == TokenType.Number && t.Value == "1");
+        Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "e");
+    }
+
     // ── Quoted qualified names merge like bare ones ──
 
     [Theory]

@@ -139,7 +139,7 @@ public static partial class CodeEmitter
             sb.AppendLine("                var tx = (global::Microsoft.Data.SqlClient.SqlTransaction?)_db?.CurrentTransaction;");
         else
             sb.AppendLine("                var tx = (global::Microsoft.Data.SqlClient.SqlTransaction?)transaction;");
-        sb.AppendLine($"                var __reader = new {readerType}(rows);");
+        sb.AppendLine($"                using var __reader = new {readerType}(rows);");
         sb.AppendLine($"                using (var __bulkCopy = new global::Microsoft.Data.SqlClient.SqlBulkCopy((global::Microsoft.Data.SqlClient.SqlConnection){connVar}, global::Microsoft.Data.SqlClient.SqlBulkCopyOptions.Default, tx))");
         sb.AppendLine("                {");
         sb.AppendLine($"                    __bulkCopy.DestinationTableName = \"{IdentifierGuard.ToStringLiteral(tableName)}\";");
@@ -189,7 +189,7 @@ public static partial class CodeEmitter
             sb.AppendLine("                var tx = (global::MySqlConnector.MySqlTransaction?)_db?.CurrentTransaction;");
         else
             sb.AppendLine("                var tx = (global::MySqlConnector.MySqlTransaction?)transaction;");
-        sb.AppendLine($"                var __reader = new {readerType}(rows);");
+        sb.AppendLine($"                using var __reader = new {readerType}(rows);");
         sb.AppendLine($"                var __bulkCopy = new global::MySqlConnector.MySqlBulkCopy((global::MySqlConnector.MySqlConnection){connVar}, tx);");
         sb.AppendLine($"                __bulkCopy.DestinationTableName = \"{IdentifierGuard.ToStringLiteral(tableName)}\";");
         // Map each source ordinal to its destination column by name. Without
