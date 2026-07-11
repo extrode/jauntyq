@@ -114,11 +114,18 @@ public static partial class CodeEmitter
         {
             // Qualified — resolve alias to table name
             string? tableName = ResolveAlias(tableAlias, query);
-            if (tableName != null &&
-                schema.Tables.TryGetValue(tableName, out var tableSchema) &&
-                tableSchema.Columns.TryGetValue(columnName, out var colSchema))
+            if (tableName != null)
             {
-                return DialectMapper.MapColumnToCSharp(colSchema);
+                if (schema.Tables.TryGetValue(tableName, out var tableSchema) &&
+                    tableSchema.Columns.TryGetValue(columnName, out var colSchema))
+                {
+                    return DialectMapper.MapColumnToCSharp(colSchema);
+                }
+                // Not a schema table: the qualifier may name a CTE whose
+                // virtual column traces back to a real one.
+                var qualifiedViaCte = ProjectionBuilder.ResolveThroughCtes(tableName, columnName, query.Ctes, schema, depth: 0);
+                if (qualifiedViaCte != null)
+                    return DialectMapper.MapColumnToCSharp(qualifiedViaCte);
             }
         }
         else
@@ -131,6 +138,15 @@ public static partial class CodeEmitter
                 {
                     return DialectMapper.MapColumnToCSharp(colSchema);
                 }
+            }
+
+            // Not in any schema table: it may be a CTE's virtual column
+            // (declared column list or aliased output).
+            foreach (var table in query.Tables)
+            {
+                var viaCte = ProjectionBuilder.ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
+                if (viaCte != null)
+                    return DialectMapper.MapColumnToCSharp(viaCte);
             }
         }
 

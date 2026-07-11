@@ -205,6 +205,16 @@ public static partial class CodeEmitter
             }
         }
 
+        // The bound name may be a CTE's VIRTUAL column (a declared column
+        // list or an aliased output), not a real column of any body table:
+        // trace it through the CTE outputs the same way projections resolve.
+        foreach (var table in query.Tables)
+        {
+            var viaCte = ProjectionBuilder.ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
+            if (viaCte != null)
+                return DialectMapper.MapColumnToCSharp(viaCte);
+        }
+
         return null;
     }
 

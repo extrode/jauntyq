@@ -97,13 +97,15 @@ public static class ProjectionBuilder
     {
         if (!string.IsNullOrEmpty(tableAlias))
         {
-            if (aliasToTable.TryGetValue(tableAlias, out var tableName) &&
-                schema.Tables.TryGetValue(tableName, out var tableSchema) &&
+            if (!aliasToTable.TryGetValue(tableAlias, out var tableName))
+                return null;
+            if (schema.Tables.TryGetValue(tableName, out var tableSchema) &&
                 tableSchema.Columns.TryGetValue(columnName, out var schemaColumn))
             {
                 return schemaColumn;
             }
-            return null;
+            // Not a schema table: the FROM source may be a CTE's virtual table.
+            return ResolveThroughCtes(tableName, columnName, query.Ctes, schema, depth: 0);
         }
 
         // Unqualified — search all referenced tables
@@ -114,6 +116,111 @@ public static class ProjectionBuilder
             {
                 return schemaColumn;
             }
+        }
+
+        // Unqualified and not in any schema table: the query may read FROM a CTE.
+        foreach (var table in query.Tables)
+        {
+            var viaCte = ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
+            if (viaCte != null)
+                return viaCte;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Resolves a column selected FROM a CTE by tracing the CTE's output item
+    /// back to a real schema column (or, for an expression item, the parser's
+    /// shape inference). Without this, CTE-sourced plain columns silently
+    /// projected as <c>object</c> with no diagnostic. Internal so the
+    /// parameter-inference fallback (ResolveBoundColumnWide) can trace renamed
+    /// CTE outputs the same way.
+    /// </summary>
+    internal static ColumnSchema? ResolveThroughCtes(string cteName, string columnName,
+        List<CteRef> ctes, DatabaseSchema schema, int depth)
+    {
+        if (depth > 8)
+            return null; // cycle guard (WITH RECURSIVE is rejected upstream)
+
+        foreach (var cte in ctes)
+        {
+            if (!string.Equals(cte.Name, cteName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var body = cte.Body;
+            var outputs = body.Columns.Count > 0 ? body.Columns : body.Returning;
+
+            // Find the body output that produces this virtual column: a
+            // declared column list (WITH t (a, b) AS ...) maps positionally
+            // onto the body projection; otherwise the output name matches.
+            ColumnRef? source = null;
+            if (cte.DeclaredColumns.Count > 0)
+            {
+                for (int i = 0; i < cte.DeclaredColumns.Count && i < outputs.Count; i++)
+                {
+                    if (string.Equals(cte.DeclaredColumns[i], columnName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        source = outputs[i];
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                foreach (var item in outputs)
+                {
+                    string outputName = !string.IsNullOrEmpty(item.OutputAlias) ? item.OutputAlias : item.ColumnName;
+                    if (string.Equals(outputName, columnName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        source = item;
+                        break;
+                    }
+                }
+            }
+
+            if (source == null || source.ColumnName == "*")
+                return null;
+
+            if (source.IsExpression)
+            {
+                // Expression item: the best available type is the parser's
+                // shape inference (count(...) -> bigint, predicate -> boolean).
+                // No inference -> unresolved, exactly as before.
+                if (string.IsNullOrEmpty(source.InferredDbType))
+                    return null;
+                return new ColumnSchema
+                {
+                    Name = columnName,
+                    DbType = source.InferredDbType!,
+                    IsNullable = !source.InferredNotNull
+                };
+            }
+
+            // Plain column: resolve against the body's own tables (respecting
+            // an alias qualifier); when the body itself reads another CTE,
+            // recurse through the same declaration list.
+            foreach (var table in body.Tables)
+            {
+                if (!string.IsNullOrEmpty(source.TableAlias))
+                {
+                    string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+                    if (!string.Equals(key, source.TableAlias, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                }
+                if (schema.Tables.TryGetValue(table.TableName, out var ts) &&
+                    ts.Columns.TryGetValue(source.ColumnName, out var schemaColumn))
+                {
+                    return schemaColumn;
+                }
+            }
+            foreach (var table in body.Tables)
+            {
+                var nested = ResolveThroughCtes(table.TableName, source.ColumnName, ctes, schema, depth + 1);
+                if (nested != null)
+                    return nested;
+            }
+            return null;
         }
 
         return null;

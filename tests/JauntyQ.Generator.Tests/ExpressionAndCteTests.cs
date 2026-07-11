@@ -370,6 +370,68 @@ public class ExpressionAndCteTests
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT1002");
     }
 
+    // ── CTE-sourced projection columns must resolve to real types ──
+    // Before ResolveThroughCtes they silently typed as object/GetValue.
+
+    [Fact]
+    public void CteColumns_ResolveToRealTypes_NotObject()
+    {
+        var sql =
+            "with c as (select id, first_name from users) " +
+            "select c.id, c.first_name from c where c.id = @id";
+        var (result, _) = Run(sql, "db/Users/GetViaCte.sql");
+
+        AssertNoErrors(result);
+        var source = GetSource(result, "Users.GetViaCte.g.cs");
+        Assert.Contains("int Id", source);
+        Assert.Contains("string FirstName", source);
+        Assert.DoesNotContain("object Id", source);
+        Assert.DoesNotContain("object FirstName", source);
+    }
+
+    [Fact]
+    public void CteDeclaredColumnList_MapsPositionally()
+    {
+        var sql =
+            "with c (uid, uname) as (select id, first_name from users) " +
+            "select uid, uname from c where uid = @id";
+        var (result, _) = Run(sql, "db/Users/GetDeclared.sql");
+
+        AssertNoErrors(result);
+        var source = GetSource(result, "Users.GetDeclared.g.cs");
+        Assert.Contains("int Uid", source);
+        Assert.Contains("string Uname", source);
+    }
+
+    [Fact]
+    public void CteExpressionOutput_TypesFromShapeInference()
+    {
+        var sql =
+            "-- @first\n" +
+            "with c as (select count(*) as n from users) " +
+            "select c.n from c";
+        var (result, _) = Run(sql, "db/Users/CountViaCte.sql");
+
+        AssertNoErrors(result);
+        var source = GetSource(result, "Users.CountViaCte.g.cs");
+        Assert.Contains("long N", source); // count(*) -> bigint NOT NULL
+    }
+
+    [Fact]
+    public void NestedCtes_ResolveThroughTheChain()
+    {
+        var sql =
+            "with a as (select id from users), " +
+            "b as (select id from a) " +
+            "select b.id from b where b.id = @id";
+        var (result, _) = Run(sql, "db/Users/GetNested.sql");
+
+        AssertNoErrors(result);
+        var source = GetSource(result, "Users.GetNested.g.cs");
+        Assert.Contains("int Id", source);
+        Assert.DoesNotContain("object Id", source);
+    }
+
     // ── Operator characters must not corrupt the projection ──
     // Before the tokenizer emitted them, '||' vanished from the token stream
     // and 'first_name || username as full_name' parsed as TWO plain columns —
