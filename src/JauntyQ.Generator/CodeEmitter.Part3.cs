@@ -243,8 +243,15 @@ public static partial class CodeEmitter
             return;
         }
 
+        string elementVar = $"{varName}_element";
         sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.CSharpName}.Count; {loopVar}++)");
         sb.AppendLine("                {");
+        // Bind the indexed element to a local once: the guarded length
+        // expression EmitParameterSizing emits below re-checks the value for
+        // null, and re-evaluating a list indexer (rather than a plain local)
+        // at each of those checks defeats the compiler's null-state tracking
+        // and emits a spurious CS8602 on the second dereference.
+        sb.AppendLine($"                    var {elementVar} = {param.CSharpName}[{loopVar}];");
         sb.AppendLine($"                    var {varName} = cmd.CreateParameter();");
         sb.AppendLine($"                    {varName}.ParameterName = \"@{param.Name}\" + {loopVar};");
         if (adoDbType != null)
@@ -255,10 +262,10 @@ public static partial class CodeEmitter
         // so an oversize element can never get clipped down to a shorter
         // stored value and falsely match it.
         EmitParameterSizing(sb, elementType, param.MaxLength, param.Precision, param.Scale,
-            isWriteTarget: false, varName, $"{param.CSharpName}[{loopVar}]", indent: "                    ");
+            isWriteTarget: false, varName, elementVar, indent: "                    ");
         sb.AppendLine(IsNonNullableValueType(elementType)
-            ? $"                    {varName}.Value = {param.CSharpName}[{loopVar}];"
-            : $"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? System.DBNull.Value;");
+            ? $"                    {varName}.Value = {elementVar};"
+            : $"                    {varName}.Value = (object?){elementVar} ?? System.DBNull.Value;");
         sb.AppendLine($"                    cmd.Parameters.Add({varName});");
         sb.AppendLine("                }");
     }

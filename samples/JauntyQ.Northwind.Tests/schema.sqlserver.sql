@@ -87,6 +87,12 @@ CREATE TABLE [Employees] (
     CONSTRAINT [PK_Employees] PRIMARY KEY ([EmployeeId])
 )
 GO
+CREATE INDEX [IX_Employees_LastName] ON [Employees] ([LastName])
+GO
+CREATE INDEX [IX_Employees_PostalCode] ON [Employees] ([PostalCode])
+GO
+CREATE INDEX [IX_Employees_ReportsTo] ON [Employees] ([ReportsTo])
+GO
 CREATE TABLE [Products] (
     [ProductId] int IDENTITY(1,1) NOT NULL,
     [ProductName] nvarchar(40) NOT NULL,
@@ -107,6 +113,8 @@ CREATE TABLE [Territories] (
     [RegionId] smallint NOT NULL,
     CONSTRAINT [PK_Territories] PRIMARY KEY ([TerritoryId])
 )
+GO
+CREATE INDEX [IX_Territories_RegionId] ON [Territories] ([RegionId])
 GO
 CREATE TABLE [Orders] (
     [OrderId] int IDENTITY(1,1) NOT NULL,

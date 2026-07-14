@@ -187,9 +187,10 @@ public class EachDirectiveTests
         string src = QuerySource(result);
 
         Assert.Contains("for (int __ib_Ids = 0; __ib_Ids < Ids.Count; __ib_Ids++)", src);
+        Assert.Contains("var p0_element = Ids[__ib_Ids];", src);
         Assert.Contains("var p0 = cmd.CreateParameter();", src);
         Assert.Contains("p0.ParameterName = \"@Ids\" + __ib_Ids;", src);
-        Assert.Contains("p0.Value = Ids[__ib_Ids];", src);
+        Assert.Contains("p0.Value = p0_element;", src);
         Assert.Contains("cmd.Parameters.Add(p0);", src);
     }
 
@@ -215,7 +216,7 @@ public class EachDirectiveTests
         string src = QuerySource(result);
 
         Assert.Contains(
-            "p0.Size = Names[__ib_Names].Length > 40 ? Names[__ib_Names].Length : 40;",
+            "p0.Size = p0_element.Length > 40 ? p0_element.Length : 40;",
             src);
     }
 

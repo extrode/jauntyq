@@ -73,6 +73,15 @@ def emit_ddl(snapshot):
         lines.append(")")
         out.append("\n".join(lines))
         out.append("GO")
+
+        pk_index_name = f'PK_{name.replace(" ", "_")}'
+        for idx in tbl.get("indexes", []):
+            if idx["name"] == pk_index_name:
+                continue  # already declared as the table's PK constraint above
+            unique = "UNIQUE " if idx.get("isUnique") else ""
+            idx_cols = ", ".join(f'[{c}]' for c in idx["columns"])
+            out.append(f'CREATE {unique}INDEX [{idx["name"]}] ON [{name}] ({idx_cols})')
+            out.append("GO")
     return "\n".join(out)
 
 
