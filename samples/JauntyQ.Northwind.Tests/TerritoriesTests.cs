@@ -22,7 +22,7 @@ public class TerritoriesTests
     public void GetByRegion_Region1_ReturnsResults()
     {
         if (!_fixture.Available) return;
-        var results = _fixture.Db.Territories.GetByRegion(1);
+        var results = _fixture.Db.Territories.GetByRegion(new short[] { 1 });
         Assert.NotEmpty(results);
     }
 }
