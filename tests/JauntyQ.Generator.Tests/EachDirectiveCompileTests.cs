@@ -45,6 +45,19 @@ public class EachDirectiveCompileTests
   }
 }";
 
+    private const string SqliteNullableNameSchemaJson = @"{
+  ""dialect"": ""sqlite"",
+  ""tables"": {
+    ""products"": {
+      ""name"": ""products"",
+      ""columns"": {
+        ""product_id"": { ""name"": ""product_id"", ""dbType"": ""integer"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""product_name"": { ""name"": ""product_name"", ""dbType"": ""text"", ""isNullable"": true, ""maxLength"": 40 }
+      }
+    }
+  }
+}";
+
     private const string EachSql = "-- @each Ids\nselect product_id, product_name from products where product_id in (@Ids)";
 
     private static GeneratorDriverRunResult Run(string schemaJson, string sql, string path = "db/Products/EachQuery.sql")
@@ -108,6 +121,42 @@ public class EachDirectiveCompileTests
         Assert.True(errors.Count == 0,
             "generated @each code failed to compile against plain ADO.NET:\n" +
             string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    [Fact]
+    public void GeneratedEachCode_NullableStringElement_NoNullableWarnings()
+    {
+        // Regression: an -- @each param over a nullable column re-indexed the
+        // caller's list at every use inside the guarded length/size expression
+        // (list[i] == null ? ... : list[i].Length ...). The compiler's
+        // null-state tracking does not carry across repeated indexer
+        // expressions the way it does for a plain local, so the second
+        // dereference spuriously warned CS8602 even though it is guarded.
+        string sql = "-- @each Names\nselect product_id, product_name from products where product_name in (@Names)";
+        var result = Run(SqliteNullableNameSchemaJson, sql);
+        string source = QuerySource(result);
+
+        string runtimeDir = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+        var references = BaseReferences(runtimeDir);
+
+        var extraSources = result.Results[0].GeneratedSources
+            .Where(s => s.HintName is "Products.Core.g.cs" or "Products.Row.g.cs" or "JauntyDb.g.cs" or "JauntyQShapeGuard.g.cs")
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        extraSources.Add(CSharpSyntaxTree.ParseText(source));
+
+        var compilation = CSharpCompilation.Create("EachNullableElementEmittedCode",
+            extraSources,
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var problems = compilation.GetDiagnostics()
+            .Where(d => d.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
+            .ToList();
+
+        Assert.True(problems.Count == 0,
+            "generated @each code over a nullable column raised diagnostics:\n" +
+            string.Join("\n", problems.Select(e => e.ToString())));
     }
 
     [Fact]

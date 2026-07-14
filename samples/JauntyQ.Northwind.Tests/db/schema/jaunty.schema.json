@@ -753,6 +753,13 @@
           "isUnique": false
         },
         {
+          "name": "IX_Employees_ReportsTo",
+          "columns": [
+            "ReportsTo"
+          ],
+          "isUnique": false
+        },
+        {
           "name": "PK_Employees",
           "columns": [
             "EmployeeId"
@@ -2271,6 +2278,13 @@
         }
       },
       "indexes": [
+        {
+          "name": "IX_Territories_RegionId",
+          "columns": [
+            "RegionId"
+          ],
+          "isUnique": false
+        },
         {
           "name": "PK_Territories",
           "columns": [
