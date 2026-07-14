@@ -13,7 +13,7 @@ public class EmployeeTerritoriesTests
     public void GetByEmployee_ReturnsTerritoriesForEmployee1()
     {
         Skip.IfNot(_fixture.Available, _fixture.SkipReason);
-        var results = _fixture.Db.EmployeeTerritories.GetByEmployee(1);
+        var results = _fixture.Db.EmployeeTerritories.GetByEmployee(new short[] { 1 });
         Assert.NotEmpty(results);
         Assert.All(results, et => Assert.NotNull(et.TerritoryDescription));
     }

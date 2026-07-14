@@ -227,7 +227,7 @@ public class EachDirectiveTests
         foreach (var gen in result.Results[0].GeneratedSources)
         {
             var tree = CSharpSyntaxTree.ParseText(gen.SourceText.ToString());
-            Assert.Empty(tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+            Assert.DoesNotContain(tree.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         }
     }
 
@@ -238,7 +238,7 @@ public class EachDirectiveTests
         foreach (var gen in result.Results[0].GeneratedSources)
         {
             var tree = CSharpSyntaxTree.ParseText(gen.SourceText.ToString());
-            Assert.Empty(tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+            Assert.DoesNotContain(tree.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         }
     }
 
