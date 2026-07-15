@@ -19,10 +19,49 @@ public static partial class CodeEmitter
         string asyncModifier = isAsync ? " async" : "";
         // Return: List<Result> for row-returning procs, else int (row count).
         string syncReturn = hasResults ? $"System.Collections.Generic.List<{resultType}>" : "int";
-        string declaredReturn = isAsync ? $"System.Threading.Tasks.Task<{syncReturn}>" : syncReturn;
         string name = isAsync ? $"{methodName}Async" : methodName;
 
-        // Parameter list: IN params by value, OUT/INOUT params as C# `out`.
+        // Async methods cannot declare ref/out parameters (CS1988) -- confirmed
+        // via a live Roslyn compilation (not just ParseText, which accepts
+        // ref/out on async and stays silent: this is a binding-time error, so
+        // the codegen's own syntax-only self-check never caught it). When the
+        // proc has OUT/INOUT params, the async overload instead omits OUT
+        // params from the parameter list entirely (output-only, nothing for
+        // the caller to pass in) and keeps INOUT as a plain input value; every
+        // out-flowing value is returned in a tuple alongside the normal return
+        // value, so nothing the sync overload exposes is lost.
+        var outOrInOutParams = new System.Collections.Generic.List<JauntyQ.Schema.ProcedureParam>();
+        foreach (var p in procedure.Params)
+        {
+            if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out
+                || p.Direction == JauntyQ.Schema.ProcedureParamDirection.InOut)
+                outOrInOutParams.Add(p);
+        }
+        bool asyncReturnsTuple = isAsync && outOrInOutParams.Count > 0;
+
+        string declaredReturn;
+        if (asyncReturnsTuple)
+        {
+            var tupleParts = new System.Collections.Generic.List<string>
+            {
+                $"{syncReturn} {(hasResults ? "results" : "affected")}"
+            };
+            foreach (var p in outOrInOutParams)
+            {
+                string outCt = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
+                string outPname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
+                tupleParts.Add($"{outCt} {outPname}");
+            }
+            declaredReturn = $"System.Threading.Tasks.Task<({string.Join(", ", tupleParts)})>";
+        }
+        else
+        {
+            declaredReturn = isAsync ? $"System.Threading.Tasks.Task<{syncReturn}>" : syncReturn;
+        }
+
+        // Parameter list: IN params by value; OUT/INOUT params as C# `out`/`ref`
+        // on the sync overload. Async drops OUT entirely and keeps INOUT as a
+        // plain input value (see above).
         var parts = new System.Collections.Generic.List<string>();
         if (isStatic)
             parts.Add("System.Data.Common.DbConnection conn");
@@ -33,9 +72,12 @@ public static partial class CodeEmitter
             string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
             string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
             if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out)
-                parts.Add($"out {ct} {pname}");
+            {
+                if (!isAsync)
+                    parts.Add($"out {ct} {pname}");
+            }
             else if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.InOut)
-                parts.Add($"ref {ct} {pname}");
+                parts.Add(isAsync ? $"{ct} {pname}" : $"ref {ct} {pname}");
             else
                 parts.Add($"{ct} {pname}");
         }
@@ -52,13 +94,18 @@ public static partial class CodeEmitter
         sb.AppendLine($"        {modifier}{asyncModifier} {declaredReturn} {name}({string.Join(", ", parts)})");
         sb.AppendLine("        {");
 
-        // Pre-assign out params so the method is definitely-assigned on all paths.
-        foreach (var p in procedure.Params)
+        // Pre-assign out params so the method is definitely-assigned on all
+        // paths. Only the sync overload has them as real `out` parameters;
+        // async declares a local at readback time instead (see below).
+        if (!isAsync)
         {
-            if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out)
+            foreach (var p in procedure.Params)
             {
-                string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
-                sb.AppendLine($"            {pname} = default;");
+                if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out)
+                {
+                    string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
+                    sb.AppendLine($"            {pname} = default;");
+                }
             }
         }
 
@@ -129,8 +176,16 @@ public static partial class CodeEmitter
             string readCall = isAsync ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)" : "reader.Read()";
             sb.AppendLine($"                    while ({readCall})");
             sb.AppendLine($"                        results.Add(__Map{methodName}(reader));");
-            EmitProcOutReadback(sb, outReadback, "                    ");
-            sb.AppendLine("                    return results;");
+            if (asyncReturnsTuple)
+            {
+                var localNames = EmitProcOutReadback(sb, outReadback, "                    ", declareLocals: true);
+                sb.AppendLine($"                    return (results, {string.Join(", ", localNames)});");
+            }
+            else
+            {
+                EmitProcOutReadback(sb, outReadback, "                    ", declareLocals: false);
+                sb.AppendLine("                    return results;");
+            }
             sb.AppendLine("                }");
         }
         else
@@ -138,26 +193,47 @@ public static partial class CodeEmitter
             sb.AppendLine(isAsync
                 ? "                int __affected = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);"
                 : "                int __affected = cmd.ExecuteNonQuery();");
-            EmitProcOutReadback(sb, outReadback, "                ");
-            sb.AppendLine("                return __affected;");
+            if (asyncReturnsTuple)
+            {
+                var localNames = EmitProcOutReadback(sb, outReadback, "                ", declareLocals: true);
+                sb.AppendLine($"                return (__affected, {string.Join(", ", localNames)});");
+            }
+            else
+            {
+                EmitProcOutReadback(sb, outReadback, "                ", declareLocals: false);
+                sb.AppendLine("                return __affected;");
+            }
         }
 
         EmitFinallyClose(sb, connVar, isAsync);
         sb.AppendLine("        }");
     }
 
-    /// <summary>Reads OUT/INOUT parameter values back into the C# out/ref args.</summary>
-    private static void EmitProcOutReadback(
+    /// <summary>
+    /// Reads OUT/INOUT parameter values back. The sync overload assigns
+    /// directly into its out/ref parameter (<paramref name="declareLocals"/>
+    /// false). The async overload cannot declare ref/out parameters (CS1988),
+    /// so it declares a local instead; the caller then folds these into the
+    /// tuple return value. Returns the target variable names, in the same
+    /// order as <paramref name="outParams"/>.
+    /// </summary>
+    private static System.Collections.Generic.List<string> EmitProcOutReadback(
         System.Text.StringBuilder sb,
         System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType, bool Nullable)> outParams,
-        string indent)
+        string indent,
+        bool declareLocals)
     {
+        var targetNames = new System.Collections.Generic.List<string>();
         foreach (var (paramVar, csName, csType, nullable) in outParams)
         {
             string baseType = csType.EndsWith("?") ? csType.Substring(0, csType.Length - 1) : csType;
+            string target = declareLocals ? $"{csName}Out" : csName;
+            string declKeyword = declareLocals ? $"{csType} " : "";
             // DBNull -> default; otherwise unbox to the declared type.
-            sb.AppendLine($"{indent}{csName} = {paramVar}.Value is null || {paramVar}.Value is System.DBNull ? default! : ({csType})({baseType}){paramVar}.Value;");
+            sb.AppendLine($"{indent}{declKeyword}{target} = {paramVar}.Value is null || {paramVar}.Value is System.DBNull ? default! : ({csType})({baseType}){paramVar}.Value;");
+            targetNames.Add(target);
         }
+        return targetNames;
     }
 
     /// <summary>

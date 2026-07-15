@@ -37,6 +37,14 @@ public class ProcCallTests
         { ""name"": ""ArchivedCount"", ""dbType"": ""int"", ""direction"": ""Out"", ""isNullable"": false }
       ],
       ""results"": []
+    },
+    ""AdjustStock"": {
+      ""name"": ""AdjustStock"",
+      ""params"": [
+        { ""name"": ""ProductId"", ""dbType"": ""int"", ""direction"": ""In"", ""isNullable"": false },
+        { ""name"": ""Quantity"", ""dbType"": ""int"", ""direction"": ""InOut"", ""isNullable"": false }
+      ],
+      ""results"": []
     }
   }
 }";
@@ -109,5 +117,90 @@ public class ProcCallTests
             Assert.True(errors.Count == 0,
                 $"proc-call code broke in {gen.HintName}: {string.Join("; ", errors.Select(e => e.GetMessage()))}");
         }
+    }
+
+    private static readonly System.Collections.Generic.List<MetadataReference> BaseReferences = BuildBaseReferences();
+
+    private static System.Collections.Generic.List<MetadataReference> BuildBaseReferences()
+    {
+        string runtimeDir = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+        return new()
+        {
+            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Runtime.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Data.Common.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Collections.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Linq.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Threading.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Threading.Tasks.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.ComponentModel.Primitives.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "netstandard.dll")),
+        };
+    }
+
+    /// <summary>
+    /// Real-compile verification (not just ParseText, which stays silent on
+    /// ref/out-on-async since that is a binding-time error, not a syntax
+    /// error) that the async overloads of a proc with OUT/INOUT params
+    /// actually compile. Before the fix, EmitProcCallBody emitted `out`/`ref`
+    /// on the async overloads unconditionally, which is illegal (CS1988) and
+    /// was invisible to the old parse-only self-check.
+    /// </summary>
+    [Fact]
+    public void GeneratedProcCallCode_WithOutParam_CompilesAgainstRealAdo()
+    {
+        var result = Run("-- @call ArchiveCustomer\n", "db/Customers/ArchiveCustomer.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveCustomer.g.cs").SourceText.ToString();
+
+        // Sync keeps the real `out` parameter; async drops it entirely and
+        // returns it via a tuple instead (no line declares both).
+        Assert.Contains("out int archivedCount", source);
+        Assert.Contains("Task<(int affected, int archivedCount)> ArchiveCustomerAsync(", source);
+        Assert.DoesNotContain(source.Split('\n'), line => line.Contains("async") && line.Contains("out int archivedCount"));
+
+        // Compile alongside every other file the generator emitted for this
+        // run (Customers.Core.g.cs supplies the _conn/_db fields this partial
+        // class relies on) so the check is a real, representative compile.
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+
+        var compilation = CSharpCompilation.Create("ProcCallOutEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated proc-call code with an OUT param failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    [Fact]
+    public void GeneratedProcCallCode_WithInOutParam_CompilesAgainstRealAdo()
+    {
+        var result = Run("-- @call AdjustStock\n", "db/Products/AdjustStock.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Products.AdjustStock.g.cs").SourceText.ToString();
+
+        // Sync keeps `ref`; async takes it as a plain value and returns the
+        // updated value via a tuple instead.
+        Assert.Contains("ref int quantity", source);
+        Assert.Contains("Task<(int affected, int quantity)> AdjustStockAsync(", source);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+
+        var compilation = CSharpCompilation.Create("ProcCallInOutEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated proc-call code with an INOUT param failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
     }
 }
