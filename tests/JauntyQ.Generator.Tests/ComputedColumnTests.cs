@@ -33,6 +33,29 @@ public class ComputedColumnTests
   }
 }";
 
+    // Identity PK with a secondary UNIQUE index on a computed column — the
+    // only candidate upsert key besides the identity PK itself. Resolving
+    // the computed column as the upsert key would break SQL Server's MERGE:
+    // the generated src row never defines it (EmitUpsert excludes computed
+    // columns from its column list), so "on target.Slug = src.Slug" fails
+    // with "Invalid column name 'Slug'" at runtime.
+    private const string IdentityKeyWithComputedSecondaryIndexSchema = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""Widgets"": {
+      ""name"": ""Widgets"",
+      ""columns"": {
+        ""WidgetId"": { ""name"": ""WidgetId"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""Name"": { ""name"": ""Name"", ""dbType"": ""nvarchar"", ""isNullable"": false, ""maxLength"": 20, ""isUnicode"": true },
+        ""Slug"": { ""name"": ""Slug"", ""dbType"": ""nvarchar"", ""isNullable"": true, ""maxLength"": 20, ""isUnicode"": true, ""isComputed"": true }
+      },
+      ""indexes"": [
+        { ""name"": ""UQ_Widgets_Slug"", ""columns"": [ ""Slug"" ], ""isUnique"": true }
+      ]
+    }
+  }
+}";
+
     // Natural (non-identity) PK, so Upsert IS synthesized — covers EmitUpsert's
     // own column filtering as well.
     private const string NaturalKeySchema = @"{
@@ -125,6 +148,14 @@ public class ComputedColumnTests
         Assert.Contains("when not matched then insert (Code, Name) values (src.Code, src.Name)", source);
         Assert.Contains("when matched then update set Name = src.Name", source);
         Assert.DoesNotContain("FullName", source);
+    }
+
+    [Fact]
+    public void Upsert_SkippedWhenOnlyCandidateKeyIsComputed_NotSynthesizedWithBrokenMergeOnClause()
+    {
+        var result = Run(IdentityKeyWithComputedSecondaryIndexSchema);
+
+        Assert.DoesNotContain(result.Results[0].GeneratedSources, s => s.HintName == "Widgets.Upsert.auto.g.cs");
     }
 
     [Fact]
