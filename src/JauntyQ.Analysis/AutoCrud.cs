@@ -1,4 +1,5 @@
 using JauntyQ.Schema;
+using JauntyQ.SqlParser;
 
 namespace JauntyQ.Analysis;
 
@@ -157,6 +158,17 @@ public static class AutoCrud
         return result;
     }
 
+    /// <summary>
+    /// True when <paramref name="name"/> can be emitted unquoted into synthetic
+    /// SQL and still round-trip correctly. Beyond the lexical bare-identifier
+    /// shape, a name that collides with a SQL reserved word (e.g. a column
+    /// literally named <c>Group</c> or <c>Order</c>) also fails this check:
+    /// unquoted, it tokenizes as a keyword rather than an identifier, which
+    /// silently desyncs the positional column/parameter binding in
+    /// <c>ParseInsert</c>'s column list — a wrong-typed-parameter bug, not a
+    /// clean compile error, for every column after it. v1 has no quoting
+    /// support, so such tables/columns are skipped rather than emitted broken.
+    /// </summary>
     private static bool IsBareIdentifier(string name)
     {
         if (string.IsNullOrEmpty(name))
@@ -168,6 +180,6 @@ public static class AutoCrud
             if (!char.IsLetterOrDigit(name[i]) && name[i] != '_')
                 return false;
         }
-        return true;
+        return !SqlTokenizer.IsReservedKeyword(name);
     }
 }

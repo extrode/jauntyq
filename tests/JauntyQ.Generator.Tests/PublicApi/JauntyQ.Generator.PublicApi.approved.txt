@@ -419,6 +419,7 @@ class JauntyQ.SqlParser.SqlParser
 class JauntyQ.SqlParser.SqlTokenizer
     field MaxInputLength:Int32
     field MaxNestingDepth:Int32
+    method IsReservedKeyword(String):Boolean
     method Tokenize(String):List<Token>
 struct JauntyQ.SqlParser.Token
     ctor .ctor(TokenType,String)
