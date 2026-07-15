@@ -9,7 +9,7 @@ public static partial class SqlParser
         // Expect table name, optionally followed by alias
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
         {
-            string tableName = tokens[pos].Value;
+            string tableName = StripQualifier(tokens[pos].Value);
             string alias = string.Empty;
             pos++;
 
@@ -50,7 +50,7 @@ public static partial class SqlParser
         // Table name
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
         {
-            string tableName = tokens[pos].Value;
+            string tableName = StripQualifier(tokens[pos].Value);
             string alias = string.Empty;
             pos++;
 
@@ -129,14 +129,48 @@ public static partial class SqlParser
         return pos;
     }
 
+    /// <summary>
+    /// Splits a possibly-qualified column reference into (tableAlias, columnName).
+    /// Only the LAST dot-segment is ever the column name; only the segment
+    /// immediately before it can be a table alias/name. A schema/catalog
+    /// qualifier further out (e.g. the "dbo" in "dbo.Products.ProductId") is
+    /// discarded here for the same reason <see cref="StripQualifier"/> drops
+    /// it from <c>TableRef.TableName</c>: the schema model has no notion of
+    /// schema/catalog scoping, so only the innermost table-ish segment can
+    /// ever match an alias or table name in scope.
+    /// </summary>
     private static (string tableAlias, string columnName) SplitQualifiedName(string name)
     {
-        int dotIndex = name.IndexOf('.');
-        if (dotIndex >= 0)
-        {
-            return (name.Substring(0, dotIndex), name.Substring(dotIndex + 1));
-        }
-        return (string.Empty, name);
+        int lastDot = name.LastIndexOf('.');
+        if (lastDot < 0)
+            return (string.Empty, name);
+
+        string columnName = name.Substring(lastDot + 1);
+        string prefix = name.Substring(0, lastDot);
+        int prevDot = prefix.LastIndexOf('.');
+        string tableAlias = prevDot >= 0 ? prefix.Substring(prevDot + 1) : prefix;
+        return (tableAlias, columnName);
+    }
+
+    /// <summary>
+    /// Drops any schema/catalog qualifier from a dotted table reference (e.g.
+    /// "dbo.Products" or "server.dbo.Products" -&gt; "Products"), keeping only
+    /// the final segment. The tokenizer merges a dotted FROM/JOIN/INSERT
+    /// INTO/UPDATE/DELETE-FROM identifier into one Identifier token (dots are
+    /// part of an identifier's character class), and <c>DatabaseSchema.Tables</c>
+    /// is keyed by bare table name with no schema/catalog concept — so an
+    /// unqualified strip here is the only thing that lets idiomatic
+    /// schema-qualified SQL (routine on SQL Server/Postgres) resolve against
+    /// the schema snapshot instead of failing JNT2001 on the literal
+    /// "dbo.Products" string. This only affects the parsed IR used for
+    /// validation/type-resolution; the emitted CommandText is always the
+    /// original raw SQL text, so the schema qualifier the author wrote is
+    /// preserved verbatim at runtime.
+    /// </summary>
+    private static string StripQualifier(string name)
+    {
+        int lastDot = name.LastIndexOf('.');
+        return lastDot >= 0 ? name.Substring(lastDot + 1) : name;
     }
 
     private static bool IsClauseKeyword(string value) =>
