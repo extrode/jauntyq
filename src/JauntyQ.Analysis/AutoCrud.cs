@@ -109,7 +109,7 @@ public static class AutoCrud
             // Insert — identity columns are database-assigned, never bound.
             // When the table has a single identity key and the snapshot knows
             // the dialect, the synthetic Insert returns the new id (-- @identity).
-            var insertCols = columns.Where(c => !c.IsIdentity && !c.IsRowVersion).ToList();
+            var insertCols = columns.Where(c => !c.IsIdentity && !c.IsRowVersion && !c.IsComputed).ToList();
             if (insertCols.Count > 0)
             {
                 string insertColList = string.Join(", ", insertCols.Select(c => c.Name));
@@ -123,7 +123,7 @@ public static class AutoCrud
 
             // Update — SET every non-PK column, WHERE the full primary key
             // plus the rowversion token when the table has one.
-            var setCols = columns.Where(c => !c.IsPrimaryKey && !c.IsRowVersion).ToList();
+            var setCols = columns.Where(c => !c.IsPrimaryKey && !c.IsRowVersion && !c.IsComputed).ToList();
             var whereCols = pkCols.Concat(versionCols).ToList();
             if (setCols.Count > 0)
             {
@@ -147,7 +147,7 @@ public static class AutoCrud
             // last-writer-wins (documented).
             var upsertKey = UpsertKeyResolver.Resolve(table);
             bool hasNonKeyColumns = upsertKey != null &&
-                columns.Any(c => !c.IsRowVersion && !upsertKey.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
+                columns.Any(c => !c.IsRowVersion && !c.IsComputed && !upsertKey.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
             if (upsertKey != null && hasNonKeyColumns && !string.IsNullOrEmpty(schema.Dialect))
             {
                 result.Add(new SyntheticQuery(entityName, "Upsert", "", table.Name, isUpsert: true));

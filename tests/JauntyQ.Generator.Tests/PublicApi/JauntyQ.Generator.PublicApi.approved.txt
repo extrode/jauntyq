@@ -257,6 +257,7 @@ enum JauntyQ.Generator.ValidationSeverity
 class JauntyQ.Schema.ColumnSchema
     ctor .ctor()
     prop DbType:String
+    prop IsComputed:Boolean
     prop IsIdentity:Boolean
     prop IsNullable:Boolean
     prop IsPrimaryKey:Boolean
