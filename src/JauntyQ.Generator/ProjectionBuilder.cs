@@ -53,7 +53,7 @@ public static class ProjectionBuilder
                             projection.Columns.Add(new ProjectionColumn
                             {
                                 Name = DialectMapper.ToPascalCase(schemaCol.Name),
-                                Type = DialectMapper.MapColumnToCSharp(schemaCol),
+                                Type = DialectMapper.MapColumnToCSharp(schemaCol, dialect),
                                 Ordinal = ordinal++,
                                 SourceName = schemaCol.Name
                             });
@@ -73,7 +73,7 @@ public static class ProjectionBuilder
 
             // Determine C# type
             string csharpType = schemaColumn != null
-                ? DialectMapper.MapColumnToCSharp(schemaColumn)
+                ? DialectMapper.MapColumnToCSharp(schemaColumn, dialect)
                 : "object";
 
             projection.Columns.Add(new ProjectionColumn
@@ -317,7 +317,7 @@ public static class ProjectionBuilder
 
         // NOT NULL only when the parser's shape inference proved it; an
         // @type-only expression stays nullable.
-        string csharpType = DialectMapper.MapDbTypeToCSharp(dbType, isNullable: !notNull);
+        string csharpType = DialectMapper.MapDbTypeToCSharp(dbType, isNullable: !notNull, dialect: dialect);
 
         return new ProjectionColumn
         {

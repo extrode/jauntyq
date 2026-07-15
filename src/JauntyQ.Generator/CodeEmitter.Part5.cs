@@ -249,7 +249,7 @@ public static partial class CodeEmitter
     /// Property order mirrors the table's column order, matching the
     /// ordinals every full-row query reads.
     /// </summary>
-    public static string EmitRowPoco(string rowTypeName, TableSchema tableSchema)
+    public static string EmitRowPoco(string rowTypeName, TableSchema tableSchema, string? dialect = null)
     {
         var sb = new System.Text.StringBuilder();
 
@@ -276,7 +276,7 @@ public static partial class CodeEmitter
         sb.AppendLine("    {");
         foreach (var col in tableSchema.Columns.Values)
         {
-            string csharpType = DialectMapper.MapColumnToCSharp(col);
+            string csharpType = DialectMapper.MapColumnToCSharp(col, dialect);
             // `required` only where CS8618 applies (non-nullable reference
             // types); value types stay optional so POCO-based Insert doesn't
             // force callers to zero-fill database-assigned keys.
@@ -291,7 +291,7 @@ public static partial class CodeEmitter
         int colCount = tableSchema.Columns.Count;
         foreach (var col in tableSchema.Columns.Values)
         {
-            string csharpType = DialectMapper.MapColumnToCSharp(col);
+            string csharpType = DialectMapper.MapColumnToCSharp(col, dialect);
             string comma = ordinal < colCount - 1 ? "," : "";
             sb.AppendLine($"            {IdentifierGuard.Escape(DialectMapper.ToPascalCase(col.Name))} = {GetReaderCall(csharpType, ordinal)}{comma}");
             ordinal++;

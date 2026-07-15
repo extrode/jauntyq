@@ -130,4 +130,31 @@ public class DialectMapperTests
         Assert.Equal("object", DialectMapper.MapDbTypeToCSharp("bit varying", false, 10));
         Assert.True(DialectMapper.IsUnmappedDbType("bit varying", false, 10));
     }
+
+    /// <summary>
+    /// SQL Server's tinyint is unsigned 0-255, stored on the wire as
+    /// System.Byte -- confirmed empirically against a real SQL Server 2022
+    /// container that reader.GetInt16() throws InvalidCastException against
+    /// that provider type (no implicit widening), so the old dialect-blind
+    /// "tinyint" -&gt; "short" mapping produced generated code that crashed at
+    /// read time. MySQL's tinyint is signed by default (-128..127) and its
+    /// GetInt16() already widens correctly -- confirmed live that GetByte()
+    /// there throws OverflowException on a negative value -- so MySQL (and
+    /// the no-dialect default, for any caller lacking schema/dialect context)
+    /// must keep mapping to "short" unchanged.
+    /// </summary>
+    [Theory]
+    [InlineData("sqlserver", false, "byte")]
+    [InlineData("sqlserver", true, "byte?")]
+    [InlineData("SqlServer", false, "byte")]
+    [InlineData("mysql", false, "short")]
+    [InlineData("mysql", true, "short?")]
+    [InlineData("postgres", false, "short")]
+    [InlineData(null, false, "short")]
+    [InlineData(null, true, "short?")]
+    public void TinyintColumn_MapsByDialect(string? dialect, bool isNullable, string expected)
+    {
+        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp("tinyint", isNullable, dialect: dialect));
+        Assert.False(DialectMapper.IsUnmappedDbType("tinyint", isNullable));
+    }
 }

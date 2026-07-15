@@ -26,6 +26,7 @@ public static partial class CodeEmitter
             "int" => $"reader.GetInt32({ordinal})",
             "long" => $"reader.GetInt64({ordinal})",
             "short" => $"reader.GetInt16({ordinal})",
+            "byte" => $"reader.GetByte({ordinal})",
             "bool" => $"reader.GetBoolean({ordinal})",
             "decimal" => $"reader.GetDecimal({ordinal})",
             "double" => $"reader.GetDouble({ordinal})",
@@ -119,13 +120,13 @@ public static partial class CodeEmitter
                 if (schema.Tables.TryGetValue(tableName, out var tableSchema) &&
                     tableSchema.Columns.TryGetValue(columnName, out var colSchema))
                 {
-                    return DialectMapper.MapColumnToCSharp(colSchema);
+                    return DialectMapper.MapColumnToCSharp(colSchema, schema.Dialect);
                 }
                 // Not a schema table: the qualifier may name a CTE whose
                 // virtual column traces back to a real one.
                 var qualifiedViaCte = ProjectionBuilder.ResolveThroughCtes(tableName, columnName, query.Ctes, schema, depth: 0);
                 if (qualifiedViaCte != null)
-                    return DialectMapper.MapColumnToCSharp(qualifiedViaCte);
+                    return DialectMapper.MapColumnToCSharp(qualifiedViaCte, schema.Dialect);
             }
         }
         else
@@ -136,7 +137,7 @@ public static partial class CodeEmitter
                 if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
                     tableSchema.Columns.TryGetValue(columnName, out var colSchema))
                 {
-                    return DialectMapper.MapColumnToCSharp(colSchema);
+                    return DialectMapper.MapColumnToCSharp(colSchema, schema.Dialect);
                 }
             }
 
@@ -146,7 +147,7 @@ public static partial class CodeEmitter
             {
                 var viaCte = ProjectionBuilder.ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
                 if (viaCte != null)
-                    return DialectMapper.MapColumnToCSharp(viaCte);
+                    return DialectMapper.MapColumnToCSharp(viaCte, schema.Dialect);
             }
         }
 

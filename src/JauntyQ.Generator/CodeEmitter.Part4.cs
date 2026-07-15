@@ -42,7 +42,7 @@ public static partial class CodeEmitter
         if (identityCol == null)
             return null;
 
-        string csharpType = DialectMapper.MapDbTypeToCSharp(identityCol.DbType, isNullable: false);
+        string csharpType = DialectMapper.MapDbTypeToCSharp(identityCol.DbType, isNullable: false, dialect: schema.Dialect);
         return new IdentityInfo(identityCol.Name, csharpType, schema.Dialect);
     }
 
@@ -125,7 +125,7 @@ public static partial class CodeEmitter
 
     private static bool IsNonNullableValueType(string csharpType) => csharpType switch
     {
-        "int" or "long" or "short" or "bool" or "decimal" or "double" or "float"
+        "int" or "long" or "short" or "byte" or "bool" or "decimal" or "double" or "float"
             or "System.DateTime" or "System.TimeSpan" or "System.Guid" => true,
         _ => false
     };
@@ -142,6 +142,7 @@ public static partial class CodeEmitter
             "int" => "Int32",
             "long" => "Int64",
             "short" => "Int16",
+            "byte" => "Byte",
             "bool" => "Boolean",
             "decimal" => "Decimal",
             "double" => "Double",
@@ -177,7 +178,7 @@ public static partial class CodeEmitter
             // explicit qualifier must not be shadowed by the target table).
             var resolvedCol = ResolveBoundColumn(param, query, schema, out _);
             if (resolvedCol != null)
-                return DialectMapper.MapColumnToCSharp(resolvedCol);
+                return DialectMapper.MapColumnToCSharp(resolvedCol, schema.Dialect);
 
             // Feature B fallback: for INSERT...SELECT the source tables are on
             // the model, and for a WITH chain the binding may resolve inside a
@@ -203,7 +204,7 @@ public static partial class CodeEmitter
         {
             if (schema.Tables.TryGetValue(table.TableName, out var ts) &&
                 ts.Columns.TryGetValue(columnName, out var col))
-                return DialectMapper.MapColumnToCSharp(col);
+                return DialectMapper.MapColumnToCSharp(col, schema.Dialect);
         }
 
         foreach (var cte in query.Ctes)
@@ -212,7 +213,7 @@ public static partial class CodeEmitter
             {
                 if (schema.Tables.TryGetValue(table.TableName, out var ts) &&
                     ts.Columns.TryGetValue(columnName, out var col))
-                    return DialectMapper.MapColumnToCSharp(col);
+                    return DialectMapper.MapColumnToCSharp(col, schema.Dialect);
             }
         }
 
@@ -223,7 +224,7 @@ public static partial class CodeEmitter
         {
             var viaCte = ProjectionBuilder.ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
             if (viaCte != null)
-                return DialectMapper.MapColumnToCSharp(viaCte);
+                return DialectMapper.MapColumnToCSharp(viaCte, schema.Dialect);
         }
 
         return null;

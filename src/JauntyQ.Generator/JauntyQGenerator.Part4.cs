@@ -220,7 +220,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 }
 
                 context.AddSource($"{entityPascal}.Row.g.cs",
-                    SourceText.From(CodeEmitter.EmitRowPoco(rowType, tableSchema), Encoding.UTF8));
+                    SourceText.From(CodeEmitter.EmitRowPoco(rowType, tableSchema, schema.Dialect), Encoding.UTF8));
             }
         }
 
