@@ -54,9 +54,19 @@ public static class DialectMapper
     /// 'timestamp', which would otherwise map to System.DateTime.
     /// </summary>
     public static string MapColumnToCSharp(JauntyQ.Schema.ColumnSchema column) =>
-        column.IsRowVersion ? "byte[]?" : MapDbTypeToCSharp(column.DbType, column.IsNullable);
+        column.IsRowVersion ? "byte[]?" : MapDbTypeToCSharp(column.DbType, column.IsNullable, column.Precision ?? column.MaxLength);
 
-    public static string MapDbTypeToCSharp(string dbType, bool isNullable)
+    /// <summary>
+    /// <paramref name="length"/> is the declared bit/char length for types
+    /// where it changes the mapping — currently just <c>bit(n)</c>: MySQL and
+    /// PostgreSQL both allow a multi-bit <c>BIT(n &gt; 1)</c> column (unlike SQL
+    /// Server, where BIT is always a single bit), and neither MySqlConnector
+    /// nor Npgsql returns that as a bool (ulong and BitArray respectively) — so
+    /// mapping it to "bool" would silently corrupt/throw. Null means "unknown
+    /// or not applicable", which preserves the old single-bit behavior for
+    /// callers (identity/param types) that don't have column metadata handy.
+    /// </summary>
+    public static string MapDbTypeToCSharp(string dbType, bool isNullable, int? length = null)
     {
         string normalized = NormalizeDbType(dbType.ToLowerInvariant());
 
@@ -76,7 +86,8 @@ public static class DialectMapper
             "smallint" or "int2" or "tinyint" => isNullable ? "short?" : "short",
             "varchar" or "text" or "nvarchar" or "ntext" or "character varying"
                 or "char" or "nchar" or "character" or "citext" => isNullable ? "string?" : "string",
-            "bool" or "boolean" or "bit" => isNullable ? "bool?" : "bool",
+            "bool" or "boolean" => isNullable ? "bool?" : "bool",
+            "bit" when length is null or <= 1 => isNullable ? "bool?" : "bool",
             "decimal" or "numeric" or "money" or "smallmoney" => isNullable ? "decimal?" : "decimal",
             "float" or "double precision" or "float8" => isNullable ? "double?" : "double",
             "real" or "float4" => isNullable ? "float?" : "float",
@@ -121,13 +132,13 @@ public static class DialectMapper
     /// degraded "object" mapping for this db type — used to surface JNT2007
     /// instead of leaving the type-loss silent.
     /// </summary>
-    public static bool IsUnmappedDbType(string dbType, bool isNullable)
+    public static bool IsUnmappedDbType(string dbType, bool isNullable, int? length = null)
     {
         string normalized = NormalizeDbType(dbType.ToLowerInvariant());
         if (normalized.EndsWith("[]"))
             return IsUnmappedDbType(normalized.Substring(0, normalized.Length - 2), isNullable: false);
 
-        return MapDbTypeToCSharp(dbType, isNullable) == "object";
+        return MapDbTypeToCSharp(dbType, isNullable, length) == "object";
     }
 
     private static string NormalizeDbType(string dbType)
