@@ -1,0 +1,184 @@
+{
+  "dialect": "sqlserver",
+  "tables": {
+    "Person": {
+      "name": "Person",
+      "columns": {
+        "BusinessEntityID": { "name": "BusinessEntityID", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "PersonType": { "name": "PersonType", "dbType": "varchar", "isNullable": false, "maxLength": 2, "isUnicode": false },
+        "FirstName": { "name": "FirstName", "dbType": "nvarchar", "isNullable": false, "maxLength": 50, "isUnicode": true },
+        "LastName": { "name": "LastName", "dbType": "nvarchar", "isNullable": false, "maxLength": 50, "isUnicode": true },
+        "rowguid": { "name": "rowguid", "dbType": "uniqueidentifier", "isNullable": false },
+        "ModifiedDate": { "name": "ModifiedDate", "dbType": "datetime", "isNullable": false }
+      },
+      "indexes": [
+        { "name": "PK_Person", "columns": [ "BusinessEntityID" ], "isUnique": true }
+      ]
+    },
+    "EmailAddress": {
+      "name": "EmailAddress",
+      "columns": {
+        "BusinessEntityID": { "name": "BusinessEntityID", "dbType": "int", "isNullable": false, "isPrimaryKey": true },
+        "EmailAddressID": { "name": "EmailAddressID", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "EmailAddress": { "name": "EmailAddress", "dbType": "varchar", "isNullable": false, "maxLength": 50, "isUnicode": false }
+      },
+      "indexes": [
+        { "name": "PK_EmailAddress", "columns": [ "BusinessEntityID", "EmailAddressID" ], "isUnique": true }
+      ]
+    },
+    "Employee": {
+      "name": "Employee",
+      "columns": {
+        "BusinessEntityID": { "name": "BusinessEntityID", "dbType": "int", "isNullable": false, "isPrimaryKey": true },
+        "NationalIDNumber": { "name": "NationalIDNumber", "dbType": "varchar", "isNullable": false, "maxLength": 15, "isUnicode": false },
+        "JobTitle": { "name": "JobTitle", "dbType": "varchar", "isNullable": false, "maxLength": 50, "isUnicode": false },
+        "HireDate": { "name": "HireDate", "dbType": "date", "isNullable": false },
+        "OrganizationNode": { "name": "OrganizationNode", "dbType": "hierarchyid", "isNullable": true },
+        "rowguid": { "name": "rowguid", "dbType": "uniqueidentifier", "isNullable": false },
+        "ModifiedDate": { "name": "ModifiedDate", "dbType": "datetime", "isNullable": false }
+      },
+      "indexes": [
+        { "name": "PK_Employee", "columns": [ "BusinessEntityID" ], "isUnique": true }
+      ]
+    },
+    "ProductCategory": {
+      "name": "ProductCategory",
+      "columns": {
+        "ProductCategoryID": { "name": "ProductCategoryID", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "Name": { "name": "Name", "dbType": "varchar", "isNullable": false, "maxLength": 50, "isUnicode": false },
+        "rowguid": { "name": "rowguid", "dbType": "uniqueidentifier", "isNullable": false },
+        "ModifiedDate": { "name": "ModifiedDate", "dbType": "datetime", "isNullable": false }
+      },
+      "indexes": [
+        { "name": "PK_ProductCategory", "columns": [ "ProductCategoryID" ], "isUnique": true }
+      ]
+    },
+    "ProductSubcategory": {
+      "name": "ProductSubcategory",
+      "columns": {
+        "ProductSubcategoryID": { "name": "ProductSubcategoryID", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "ProductCategoryID": { "name": "ProductCategoryID", "dbType": "int", "isNullable": false },
+        "Name": { "name": "Name", "dbType": "varchar", "isNullable": false, "maxLength": 50, "isUnicode": false },
+        "rowguid": { "name": "rowguid", "dbType": "uniqueidentifier", "isNullable": false },
+        "ModifiedDate": { "name": "ModifiedDate", "dbType": "datetime", "isNullable": false }
+      },
+      "indexes": [
+        { "name": "PK_ProductSubcategory", "columns": [ "ProductSubcategoryID" ], "isUnique": true }
+      ]
+    },
+    "Product": {
+      "name": "Product",
+      "columns": {
+        "ProductID": { "name": "ProductID", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "Name": { "name": "Name", "dbType": "varchar", "isNullable": false, "maxLength": 50, "isUnicode": false },
+        "ProductNumber": { "name": "ProductNumber", "dbType": "varchar", "isNullable": false, "maxLength": 25, "isUnicode": false },
+        "StandardCost": { "name": "StandardCost", "dbType": "decimal", "isNullable": false, "precision": 19, "scale": 4 },
+        "ListPrice": { "name": "ListPrice", "dbType": "decimal", "isNullable": false, "precision": 19, "scale": 4 },
+        "ProductSubcategoryID": { "name": "ProductSubcategoryID", "dbType": "int", "isNullable": true },
+        "SellStartDate": { "name": "SellStartDate", "dbType": "date", "isNullable": false },
+        "rowguid": { "name": "rowguid", "dbType": "uniqueidentifier", "isNullable": false },
+        "ModifiedDate": { "name": "ModifiedDate", "dbType": "datetime", "isNullable": false }
+      },
+      "indexes": [
+        { "name": "PK_Product", "columns": [ "ProductID" ], "isUnique": true }
+      ]
+    },
+    "Vendor": {
+      "name": "Vendor",
+      "columns": {
+        "BusinessEntityID": { "name": "BusinessEntityID", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "Name": { "name": "Name", "dbType": "varchar", "isNullable": false, "maxLength": 50, "isUnicode": false },
+        "CreditRating": { "name": "CreditRating", "dbType": "tinyint", "isNullable": false },
+        "ActiveFlag": { "name": "ActiveFlag", "dbType": "bit", "isNullable": false },
+        "ModifiedDate": { "name": "ModifiedDate", "dbType": "datetime", "isNullable": false }
+      },
+      "indexes": [
+        { "name": "PK_Vendor", "columns": [ "BusinessEntityID" ], "isUnique": true }
+      ]
+    },
+    "ProductVendor": {
+      "name": "ProductVendor",
+      "columns": {
+        "ProductID": { "name": "ProductID", "dbType": "int", "isNullable": false, "isPrimaryKey": true },
+        "BusinessEntityID": { "name": "BusinessEntityID", "dbType": "int", "isNullable": false, "isPrimaryKey": true },
+        "AverageLeadTime": { "name": "AverageLeadTime", "dbType": "int", "isNullable": false },
+        "StandardPrice": { "name": "StandardPrice", "dbType": "decimal", "isNullable": false, "precision": 19, "scale": 4 }
+      },
+      "indexes": [
+        { "name": "PK_ProductVendor", "columns": [ "ProductID", "BusinessEntityID" ], "isUnique": true }
+      ]
+    },
+    "SalesTerritory": {
+      "name": "SalesTerritory",
+      "columns": {
+        "TerritoryID": { "name": "TerritoryID", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "Name": { "name": "Name", "dbType": "varchar", "isNullable": false, "maxLength": 50, "isUnicode": false },
+        "CountryRegionCode": { "name": "CountryRegionCode", "dbType": "varchar", "isNullable": false, "maxLength": 3, "isUnicode": false },
+        "Group": { "name": "Group", "dbType": "varchar", "isNullable": false, "maxLength": 50, "isUnicode": false },
+        "rowguid": { "name": "rowguid", "dbType": "uniqueidentifier", "isNullable": false },
+        "ModifiedDate": { "name": "ModifiedDate", "dbType": "datetime", "isNullable": false }
+      },
+      "indexes": [
+        { "name": "PK_SalesTerritory", "columns": [ "TerritoryID" ], "isUnique": true }
+      ]
+    },
+    "Customer": {
+      "name": "Customer",
+      "columns": {
+        "CustomerID": { "name": "CustomerID", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "PersonID": { "name": "PersonID", "dbType": "int", "isNullable": true },
+        "TerritoryID": { "name": "TerritoryID", "dbType": "int", "isNullable": true },
+        "AccountNumber": { "name": "AccountNumber", "dbType": "varchar", "isNullable": true, "maxLength": 10, "isUnicode": false, "isComputed": true },
+        "rowguid": { "name": "rowguid", "dbType": "uniqueidentifier", "isNullable": false },
+        "ModifiedDate": { "name": "ModifiedDate", "dbType": "datetime", "isNullable": false }
+      },
+      "indexes": [
+        { "name": "PK_Customer", "columns": [ "CustomerID" ], "isUnique": true }
+      ]
+    },
+    "SalesOrderHeader": {
+      "name": "SalesOrderHeader",
+      "columns": {
+        "SalesOrderID": { "name": "SalesOrderID", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "OrderDate": { "name": "OrderDate", "dbType": "datetime", "isNullable": false },
+        "CustomerID": { "name": "CustomerID", "dbType": "int", "isNullable": false },
+        "TerritoryID": { "name": "TerritoryID", "dbType": "int", "isNullable": true },
+        "SubTotal": { "name": "SubTotal", "dbType": "decimal", "isNullable": false, "precision": 19, "scale": 4 },
+        "TaxAmt": { "name": "TaxAmt", "dbType": "decimal", "isNullable": false, "precision": 19, "scale": 4 },
+        "Freight": { "name": "Freight", "dbType": "decimal", "isNullable": false, "precision": 19, "scale": 4 },
+        "TotalDue": { "name": "TotalDue", "dbType": "decimal", "isNullable": true, "precision": 19, "scale": 4, "isComputed": true },
+        "rowguid": { "name": "rowguid", "dbType": "uniqueidentifier", "isNullable": false },
+        "ModifiedDate": { "name": "ModifiedDate", "dbType": "datetime", "isNullable": false }
+      },
+      "indexes": [
+        { "name": "PK_SalesOrderHeader", "columns": [ "SalesOrderID" ], "isUnique": true }
+      ]
+    },
+    "SalesOrderDetail": {
+      "name": "SalesOrderDetail",
+      "columns": {
+        "SalesOrderID": { "name": "SalesOrderID", "dbType": "int", "isNullable": false, "isPrimaryKey": true },
+        "SalesOrderDetailID": { "name": "SalesOrderDetailID", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "ProductID": { "name": "ProductID", "dbType": "int", "isNullable": false },
+        "OrderQty": { "name": "OrderQty", "dbType": "smallint", "isNullable": false },
+        "UnitPrice": { "name": "UnitPrice", "dbType": "decimal", "isNullable": false, "precision": 19, "scale": 4 },
+        "UnitPriceDiscount": { "name": "UnitPriceDiscount", "dbType": "decimal", "isNullable": false, "precision": 19, "scale": 4 },
+        "LineTotal": { "name": "LineTotal", "dbType": "decimal", "isNullable": true, "precision": 19, "scale": 4, "isComputed": true }
+      },
+      "indexes": [
+        { "name": "PK_SalesOrderDetail", "columns": [ "SalesOrderID", "SalesOrderDetailID" ], "isUnique": true }
+      ]
+    },
+    "vSalesOrderDetailExtended": {
+      "name": "vSalesOrderDetailExtended",
+      "columns": {
+        "SalesOrderID": { "name": "SalesOrderID", "dbType": "int", "isNullable": false },
+        "SalesOrderDetailID": { "name": "SalesOrderDetailID", "dbType": "int", "isNullable": false },
+        "ProductName": { "name": "ProductName", "dbType": "varchar", "isNullable": false, "maxLength": 50, "isUnicode": false },
+        "OrderQty": { "name": "OrderQty", "dbType": "smallint", "isNullable": false },
+        "UnitPrice": { "name": "UnitPrice", "dbType": "decimal", "isNullable": false, "precision": 19, "scale": 4 },
+        "LineTotal": { "name": "LineTotal", "dbType": "decimal", "isNullable": true, "precision": 19, "scale": 4, "isComputed": true }
+      }
+    }
+  }
+}
