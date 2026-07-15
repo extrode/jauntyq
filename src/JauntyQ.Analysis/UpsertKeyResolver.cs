@@ -16,7 +16,7 @@ public static class UpsertKeyResolver
 {
     public static List<ColumnSchema>? Resolve(TableSchema tableSchema)
     {
-        var columns = tableSchema.Columns.Values.Where(c => !c.IsRowVersion).ToList();
+        var columns = tableSchema.Columns.Values.Where(c => !c.IsRowVersion && !c.IsComputed).ToList();
         var pkCols = columns.FindAll(c => c.IsPrimaryKey);
         if (pkCols.Count == 0)
             return null;

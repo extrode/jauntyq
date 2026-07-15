@@ -25,9 +25,11 @@ public static partial class CodeEmitter
     /// </summary>
     public static string EmitUpsert(string entityName, TableSchema tableSchema, string dialect)
     {
-        // Rowversion tokens are database-assigned: excluded from the upsert
-        // column set entirely. Upsert is documented last-writer-wins.
-        var allColumns = tableSchema.Columns.Values.Where(c => !c.IsRowVersion).ToList();
+        // Rowversion tokens and computed/generated columns are both
+        // database-assigned: excluded from the upsert column set entirely
+        // (a database rejects an INSERT/UPDATE that targets either). Upsert
+        // is documented last-writer-wins.
+        var allColumns = tableSchema.Columns.Values.Where(c => !c.IsRowVersion && !c.IsComputed).ToList();
         var keyCols = ResolveUpsertKey(tableSchema)
             ?? throw new System.InvalidOperationException(
                 $"Table '{tableSchema.Name}' has no usable upsert key: no primary key, or an " +

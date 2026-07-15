@@ -56,4 +56,15 @@ public class ColumnSchema
     /// </summary>
     [JsonPropertyName("isRowVersion")]
     public bool IsRowVersion { get; set; }
+
+    /// <summary>
+    /// True for a computed/generated column (SQL Server <c>AS ...</c>
+    /// [PERSISTED], PostgreSQL <c>GENERATED ALWAYS AS (...) STORED</c>, MySQL
+    /// <c>GENERATED ALWAYS AS (...)</c>). The database rejects an INSERT/UPDATE
+    /// that targets one, so auto-CRUD and BulkInsert must exclude it from
+    /// their column/value lists the same way they already exclude
+    /// <see cref="IsIdentity"/> and <see cref="IsRowVersion"/>.
+    /// </summary>
+    [JsonPropertyName("isComputed")]
+    public bool IsComputed { get; set; }
 }

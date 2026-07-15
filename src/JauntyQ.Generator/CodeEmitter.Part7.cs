@@ -23,8 +23,8 @@ public static partial class CodeEmitter
         var columns = new System.Collections.Generic.List<ColumnSchema>(tableSchema.Columns.Values);
         var versionCols = columns.FindAll(c => c.IsRowVersion);
         var pkCols = columns.FindAll(c => c.IsPrimaryKey);
-        var setCols = columns.FindAll(c => !c.IsPrimaryKey && !c.IsRowVersion);
-        var insertCols = columns.FindAll(c => !c.IsIdentity && !c.IsRowVersion);
+        var setCols = columns.FindAll(c => !c.IsPrimaryKey && !c.IsRowVersion && !c.IsComputed);
+        var insertCols = columns.FindAll(c => !c.IsIdentity && !c.IsRowVersion && !c.IsComputed);
         ColumnSchema? identityCol = null;
         foreach (var c in columns)
         {
@@ -134,8 +134,8 @@ public static partial class CodeEmitter
             var upsertKey = ResolveUpsertKey(tableSchema);
             bool upsertUsesAlternateKey = upsertKey != null && upsertKey.Exists(c => !c.IsPrimaryKey);
             var upsertCols = upsertUsesAlternateKey
-                ? columns.FindAll(c => !c.IsRowVersion && !c.IsIdentity)
-                : columns.FindAll(c => !c.IsRowVersion);
+                ? columns.FindAll(c => !c.IsRowVersion && !c.IsIdentity && !c.IsComputed)
+                : columns.FindAll(c => !c.IsRowVersion && !c.IsComputed);
             Forward("Upsert", upsertCols);
         }
 
