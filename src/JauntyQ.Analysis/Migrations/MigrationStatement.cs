@@ -10,6 +10,11 @@ public enum MigrationStatementKind
     DropColumn,
     AlterColumn,
 
+    /// <summary>ALTER TABLE t ADD [CONSTRAINT name] PRIMARY KEY (a, b, ...):
+    /// marks existing columns primary-key/non-nullable without redefining
+    /// them. See <see cref="MigrationStatement.ColumnNames"/>.</summary>
+    AddPrimaryKey,
+
     /// <summary>Statement that cannot change the table/column model (indexes,
     /// transactions, SET options): skipped without a diagnostic.</summary>
     Ignored,
@@ -32,7 +37,8 @@ public class MigrationStatement
     /// <summary>CreateTable: full column list. AddColumn/AlterColumn: the affected column(s).</summary>
     public List<ColumnSchema> Columns { get; } = new();
 
-    /// <summary>DropColumn: the column names to remove.</summary>
+    /// <summary>DropColumn: the column names to remove. AddPrimaryKey: the
+    /// existing column(s) to mark primary-key/non-nullable.</summary>
     public List<string> ColumnNames { get; } = new();
 
     /// <summary>DROP TABLE IF EXISTS: a missing table is not an error.</summary>

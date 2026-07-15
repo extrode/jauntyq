@@ -163,7 +163,37 @@ public static class MigrationParser
                 pos++;
             if (Is(tokens, pos, "CONSTRAINT") || Is(tokens, pos, "PRIMARY") ||
                 Is(tokens, pos, "UNIQUE") || Is(tokens, pos, "FOREIGN") || Is(tokens, pos, "CHECK"))
-                return new MigrationStatement { Kind = MigrationStatementKind.Ignored, RawText = raw };
+            {
+                int constraintPos = pos;
+                if (Is(tokens, constraintPos, "CONSTRAINT"))
+                    constraintPos += 2; // skip CONSTRAINT <name>
+
+                // ADD [CONSTRAINT name] PRIMARY KEY (a, b): the common
+                // create-then-constrain pattern (a table created without an
+                // inline PK, keyed later). Mirrors ParseCreateTable's
+                // table-level PRIMARY KEY (...) handling instead of silently
+                // dropping it — a table keyed only this way used to never
+                // get IsPrimaryKey set, so UpsertKeyResolver silently skipped
+                // auto-CRUD Upsert synthesis for it with no diagnostic at all.
+                if (Is(tokens, constraintPos, "PRIMARY") && Is(tokens, constraintPos + 1, "KEY"))
+                {
+                    var pkColumns = ReadParenNameList(tokens, constraintPos + 2).ToList();
+                    if (pkColumns.Count > 0)
+                    {
+                        var pkStmt = new MigrationStatement { Kind = MigrationStatementKind.AddPrimaryKey, TableName = tableName, RawText = raw };
+                        pkStmt.ColumnNames.AddRange(pkColumns);
+                        return pkStmt;
+                    }
+                }
+
+                // UNIQUE/FOREIGN/CHECK constraints (and an unparseable ADD
+                // PRIMARY KEY) aren't modeled — the simulator has no
+                // secondary-index or FK population from migrations. Unsupported
+                // means JNT9001 fires so the developer knows the effective
+                // schema may be incomplete, instead of the change silently
+                // vanishing, matching ALTER TABLE ... DROP CONSTRAINT below.
+                return Unsupported(raw);
+            }
 
             var stmt = new MigrationStatement { Kind = MigrationStatementKind.AddColumn, TableName = tableName, RawText = raw };
             foreach (var def in SplitRemaining(tokens, pos))

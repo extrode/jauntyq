@@ -51,6 +51,10 @@ public static class SchemaSimulator
                     case MigrationStatementKind.AlterColumn:
                         ApplyAlterColumn(schema, stmt, fileName, errors);
                         break;
+
+                    case MigrationStatementKind.AddPrimaryKey:
+                        ApplyAddPrimaryKey(schema, stmt, fileName, errors);
+                        break;
                 }
             }
         }
@@ -172,6 +176,29 @@ public static class SchemaSimulator
             updated.IsPrimaryKey = existing.IsPrimaryKey;
             updated.IsIdentity = existing.IsIdentity;
             table.Columns[col.Name] = updated; // in-place value swap keeps order
+        }
+    }
+
+    private static void ApplyAddPrimaryKey(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
+    {
+        if (!schema.Tables.TryGetValue(stmt.TableName, out var table))
+        {
+            errors.Add(AnalysisDiagnostic.Error("JNT9002",
+                $"{fileName}: cannot add a primary key to '{stmt.TableName}': table does not exist in the effective schema."));
+            return;
+        }
+
+        foreach (var name in stmt.ColumnNames)
+        {
+            if (!table.Columns.TryGetValue(name, out var existing))
+            {
+                errors.Add(AnalysisDiagnostic.Error("JNT9002",
+                    $"{fileName}: cannot add a primary key on '{stmt.TableName}.{name}': it does not exist in the effective schema."));
+                continue;
+            }
+
+            existing.IsPrimaryKey = true;
+            existing.IsNullable = false;
         }
     }
 
