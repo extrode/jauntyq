@@ -109,6 +109,48 @@ create table order_items (
         Assert.Equal(10, col.MaxLength);
     }
 
+    [Theory]
+    [InlineData("alter table products add constraint pk_products primary key (product_id)")]
+    [InlineData("alter table products add primary key (product_id)")]
+    public void AddConstraintPrimaryKey_ParsesAsAddPrimaryKey(string sql)
+    {
+        var statements = MigrationParser.Parse(sql);
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.AddPrimaryKey, stmt.Kind);
+        Assert.Equal("products", stmt.TableName);
+        Assert.Equal(new[] { "product_id" }, stmt.ColumnNames);
+    }
+
+    [Fact]
+    public void AddConstraintPrimaryKey_CompositeKey_CapturesAllColumns()
+    {
+        var statements = MigrationParser.Parse(
+            "alter table order_items add constraint pk_order_items primary key (order_id, line_no)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.AddPrimaryKey, stmt.Kind);
+        Assert.Equal(new[] { "order_id", "line_no" }, stmt.ColumnNames);
+    }
+
+    [Theory]
+    [InlineData("alter table products add constraint uq_products_name unique (product_name)")]
+    [InlineData("alter table products add constraint fk_products_category foreign key (category_id) references categories (category_id)")]
+    [InlineData("alter table products add constraint chk_products_price check (unit_price > 0)")]
+    [InlineData("alter table products drop constraint pk_products")]
+    public void AddOrDropOtherConstraints_Unsupported_NotSilentlyIgnored(string sql)
+    {
+        // These aren't modeled (no secondary-index/FK population from
+        // migrations), so they must surface as JNT9001 (Unsupported) rather
+        // than vanish as Ignored — the effective schema silently missing a
+        // uniqueness/FK/check constraint with no diagnostic at all is worse
+        // than a warning that says "not simulated".
+        var statements = MigrationParser.Parse(sql);
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
+
     [Fact]
     public void IndexStatements_Ignored_RenameUnsupported()
     {
@@ -241,6 +283,60 @@ alter table products add supplier_note nvarchar(50) null;
         Assert.Equal("bigint", id.DbType);
         Assert.True(id.IsPrimaryKey);   // key status survives the type change
         Assert.True(id.IsIdentity);
+    }
+
+    [Fact]
+    public void AddConstraintPrimaryKey_MarksColumnPrimaryKeyAndNonNullable()
+    {
+        // The common create-then-constrain pattern: a table created without
+        // an inline PK, keyed by a later migration.
+        var (schema, errors) = Apply(BaseSchema(),
+            "alter table products add constraint pk_products_name primary key (product_name)");
+
+        Assert.Empty(errors);
+        var col = schema.Tables["products"].Columns["product_name"];
+        Assert.True(col.IsPrimaryKey);
+        Assert.False(col.IsNullable);
+        // Unrelated facets (type, length, unicode) are untouched — only key
+        // status changes, unlike AlterColumn which redefines the column.
+        Assert.Equal("nvarchar", col.DbType);
+        Assert.Equal(40, col.MaxLength);
+    }
+
+    [Fact]
+    public void AddConstraintPrimaryKey_CompositeKey_MarksBothColumns()
+    {
+        var (schema, errors) = Apply(BaseSchema(),
+            "alter table products add constraint pk_products_composite primary key (product_name, unit_price)");
+
+        Assert.Empty(errors);
+        Assert.True(schema.Tables["products"].Columns["product_name"].IsPrimaryKey);
+        Assert.True(schema.Tables["products"].Columns["unit_price"].IsPrimaryKey);
+    }
+
+    [Fact]
+    public void AddConstraintPrimaryKey_MissingTableOrColumn_JNT9002()
+    {
+        var (_, missingTable) = Apply(BaseSchema(),
+            "alter table missing_table add constraint pk_x primary key (id)");
+        var tableError = Assert.Single(missingTable);
+        Assert.Equal("JNT9002", tableError.Code);
+
+        var (_, missingColumn) = Apply(BaseSchema(),
+            "alter table products add constraint pk_x primary key (no_such_column)");
+        var columnError = Assert.Single(missingColumn);
+        Assert.Equal("JNT9002", columnError.Code);
+    }
+
+    [Fact]
+    public void AddOtherConstraint_JNT9001Warning_NotSilentlyDropped()
+    {
+        var (_, errors) = Apply(BaseSchema(),
+            "alter table products add constraint uq_products_name unique (product_name)");
+
+        var error = Assert.Single(errors);
+        Assert.Equal("JNT9001", error.Code);
+        Assert.Equal(AnalysisSeverity.Warning, error.Severity);
     }
 
     [Fact]

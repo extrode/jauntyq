@@ -117,6 +117,7 @@ class JauntyQ.Analysis.Migrations.MigrationStatement
     prop TableName:String
 enum JauntyQ.Analysis.Migrations.MigrationStatementKind
     field AddColumn:MigrationStatementKind
+    field AddPrimaryKey:MigrationStatementKind
     field AlterColumn:MigrationStatementKind
     field CreateTable:MigrationStatementKind
     field DropColumn:MigrationStatementKind
