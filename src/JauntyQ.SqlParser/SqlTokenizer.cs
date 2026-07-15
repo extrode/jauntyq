@@ -325,38 +325,70 @@ public static class SqlTokenizer
     /// tokens, matching the shape the bare scan already produces for
     /// <c>p.product_id</c>. Without this, <c>"u"."col"</c> / <c>[u].[col]</c>
     /// tokenize as identifier-dot-identifier and demote to an expression
-    /// demanding a spurious AS alias. Conservative: parts that themselves
-    /// contain a dot are left unmerged (visible as an expression) rather than
-    /// risk a wrong split downstream.
+    /// demanding a spurious AS alias.
+    ///
+    /// <paramref name="tokens"/> is walked left to right, re-merging the same
+    /// position after each successful merge (<c>i--</c> then the loop's own
+    /// <c>i++</c> nets to no movement) so an arbitrary-length chain —
+    /// <c>"db"."schema"."table"</c>, <c>[db].[schema].[table].[col]</c>, or a
+    /// mixed bare-then-quoted tail like <c>dbo.users."first_name"</c> —
+    /// collapses into one dotted Identifier token the same way
+    /// <see cref="SqlParser.SplitQualifiedName"/> and
+    /// <see cref="SqlParser.StripQualifier"/> already resolve N-part names.
+    ///
+    /// <c>continuingChain</c> tracks whether the CURRENT position was just
+    /// produced by a merge on the previous iteration: only then is it safe to
+    /// treat an already-dotted left operand as "more of the same chain"
+    /// rather than a fresh identifier. Without that distinction, a quoted
+    /// name that itself contains a literal dot (e.g. a table pathologically
+    /// named <c>"weird.name"</c>) encountered fresh — not via chain
+    /// continuation — would risk folding into a further qualifier with a
+    /// silently wrong table/column split; that case is deliberately left
+    /// unmerged, same as before this method supported multi-part chains.
     /// </summary>
     private static void MergeQualifiedIdentifiers(List<Token> tokens)
     {
+        bool continuingChain = false;
         for (int i = 0; i < tokens.Count - 1; i++)
         {
+            bool leftIsChainContinuation = continuingChain;
+            continuingChain = false;
+
             if (tokens[i].Type != TokenType.Identifier)
                 continue;
 
-            // "u"."col" / [u].[col] / "u".col — Identifier '.' Identifier
+            // "u"."col" / [u].[col] / "u".col — Identifier '.' Identifier.
+            // The right operand must still be a single un-dotted segment; the
+            // left operand may be an already-dotted chain only when this
+            // position is a direct continuation of a chain merge just done.
             if (i + 2 < tokens.Count &&
                 tokens[i + 1].Type == TokenType.Symbol && tokens[i + 1].Value == "." &&
                 tokens[i + 2].Type == TokenType.Identifier &&
-                !tokens[i].Value.Contains(".") && !tokens[i + 2].Value.Contains("."))
+                (leftIsChainContinuation || !tokens[i].Value.Contains(".")) &&
+                !tokens[i + 2].Value.Contains("."))
             {
                 tokens[i] = new Token(TokenType.Identifier, tokens[i].Value + "." + tokens[i + 2].Value);
                 tokens.RemoveRange(i + 1, 2);
                 i--;
+                continuingChain = true;
                 continue;
             }
 
-            // u."col" — the bare scan consumed the dot into the left token
+            // u."col" / dbo.users."col" — the bare scan consumed the dot(s)
+            // into the left token. Unlike branch 1's quoted left operand, a
+            // bare-scanned run ending in "." can never contain a *literal*
+            // dot (SQL's bare/unquoted identifier grammar has no way to
+            // express one — a literal dot always requires quoting), so an
+            // arbitrarily multi-part bare prefix ("dbo.users.") is always
+            // safe here; no chain-continuation guard needed.
             if (tokens[i].Value.EndsWith(".", StringComparison.Ordinal) &&
                 tokens[i + 1].Type == TokenType.Identifier &&
-                tokens[i].Value.IndexOf('.') == tokens[i].Value.Length - 1 &&
                 !tokens[i + 1].Value.Contains("."))
             {
                 tokens[i] = new Token(TokenType.Identifier, tokens[i].Value + tokens[i + 1].Value);
                 tokens.RemoveAt(i + 1);
                 i--;
+                continuingChain = true;
             }
         }
     }
