@@ -89,4 +89,45 @@ public class DialectMapperTests
         Assert.True(DialectMapper.IsUnmappedDbType("some_enum_type", false));
         Assert.Equal("object", DialectMapper.MapDbTypeToCSharp("some_enum_type", false));
     }
+
+    /// <summary>
+    /// SQL Server's BIT is always single-bit, but MySQL and PostgreSQL both
+    /// allow BIT(n > 1). Confirmed empirically against real MySQL 8 and
+    /// PostgreSQL 16 containers: neither MySqlConnector (returns ulong) nor
+    /// Npgsql (returns BitArray) hands back a bool for those, so mapping to
+    /// "bool" would silently read the wrong value or throw at the
+    /// (bool)reader.GetValue(...) cast the generator emits for a bool column.
+    /// length=null (SQL Server, and any caller without column metadata) keeps
+    /// the historical single-bit behavior.
+    /// </summary>
+    [Theory]
+    [InlineData(null, false, "bool")]
+    [InlineData(null, true, "bool?")]
+    [InlineData(1, false, "bool")]
+    [InlineData(1, true, "bool?")]
+    public void SingleBitColumn_MapsToBool(int? length, bool isNullable, string expected)
+    {
+        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp("bit", isNullable, length));
+        Assert.False(DialectMapper.IsUnmappedDbType("bit", isNullable, length));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(64)]
+    public void MultiBitColumn_DegradesToObject_InsteadOfWrongBool(int length)
+    {
+        Assert.Equal("object", DialectMapper.MapDbTypeToCSharp("bit", false, length));
+        Assert.True(DialectMapper.IsUnmappedDbType("bit", false, length));
+    }
+
+    [Fact]
+    public void BitVarying_AlreadyDegradesToObject()
+    {
+        // Postgres "bit varying(n)" was already unmapped before this fix
+        // (no case matched the "bit varying" string); this pins that it
+        // stays that way rather than accidentally starting to match "bit".
+        Assert.Equal("object", DialectMapper.MapDbTypeToCSharp("bit varying", false, 10));
+        Assert.True(DialectMapper.IsUnmappedDbType("bit varying", false, 10));
+    }
 }

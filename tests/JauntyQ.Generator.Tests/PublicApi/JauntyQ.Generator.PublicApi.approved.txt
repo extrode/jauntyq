@@ -20,9 +20,9 @@ class JauntyQ.Analysis.AutoCrud+SyntheticQuery
     prop TableName:String
 class JauntyQ.Analysis.DialectMapper
     method IsKnownDialect(String):Boolean
-    method IsUnmappedDbType(String,Boolean):Boolean
+    method IsUnmappedDbType(String,Boolean,Nullable<Int32>):Boolean
     method MapColumnToCSharp(ColumnSchema):String
-    method MapDbTypeToCSharp(String,Boolean):String
+    method MapDbTypeToCSharp(String,Boolean,Nullable<Int32>):String
     method ToPascalCase(String):String
 class JauntyQ.Analysis.Diff.ColumnChange
     ctor .ctor(String,ColumnSchema,ColumnSchema,IReadOnlyList<ColumnChangeKind>)
