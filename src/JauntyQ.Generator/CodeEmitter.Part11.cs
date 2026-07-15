@@ -30,7 +30,7 @@ public static partial class CodeEmitter
         {
             if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.ReturnValue)
                 continue;
-            string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable);
+            string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
             string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
             if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out)
                 parts.Add($"out {ct} {pname}");
@@ -84,7 +84,7 @@ public static partial class CodeEmitter
             if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.ReturnValue)
                 continue;
             string varName = $"p{idx++}";
-            string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable);
+            string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
             string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
             sb.AppendLine($"                var {varName} = cmd.CreateParameter();");
             sb.AppendLine($"                {varName}.ParameterName = \"@{IdentifierGuard.ToStringLiteral(p.Name)}\";");

@@ -68,7 +68,7 @@ public static partial class CodeEmitter
             if (insertReturnsId)
             {
                 string idProp = IdentifierGuard.Escape(DialectMapper.ToPascalCase(identityCol!.Name));
-                string idType = DialectMapper.MapDbTypeToCSharp(identityCol.DbType, isNullable: false);
+                string idType = DialectMapper.MapDbTypeToCSharp(identityCol.DbType, isNullable: false, dialect: dialect);
                 string args = Args(insertCols);
                 sb.AppendLine($"        /// <summary>Inserts the row and writes the database-assigned {idProp} back onto it.</summary>");
                 sb.AppendLine($"        public {idType} Insert({rowType} row)");

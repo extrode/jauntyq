@@ -16,6 +16,7 @@ public static class CSharpToSqlTypeMapper
             "int"             => "int",
             "long"            => "bigint",
             "short"           => "smallint",
+            "byte"            => "tinyint",
             "bool"            => "bit",
             "decimal"         => "decimal(18,2)",
             "double"          => "float",

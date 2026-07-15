@@ -53,8 +53,8 @@ public static class DialectMapper
     /// of the reported db type. SQL Server reports rowversion as data type
     /// 'timestamp', which would otherwise map to System.DateTime.
     /// </summary>
-    public static string MapColumnToCSharp(JauntyQ.Schema.ColumnSchema column) =>
-        column.IsRowVersion ? "byte[]?" : MapDbTypeToCSharp(column.DbType, column.IsNullable, column.Precision ?? column.MaxLength);
+    public static string MapColumnToCSharp(JauntyQ.Schema.ColumnSchema column, string? dialect = null) =>
+        column.IsRowVersion ? "byte[]?" : MapDbTypeToCSharp(column.DbType, column.IsNullable, column.Precision ?? column.MaxLength, dialect);
 
     /// <summary>
     /// <paramref name="length"/> is the declared bit/char length for types
@@ -65,8 +65,18 @@ public static class DialectMapper
     /// mapping it to "bool" would silently corrupt/throw. Null means "unknown
     /// or not applicable", which preserves the old single-bit behavior for
     /// callers (identity/param types) that don't have column metadata handy.
+    ///
+    /// <paramref name="dialect"/> disambiguates the one dbType string that
+    /// means genuinely different things on different engines: "tinyint" is
+    /// SQL Server's unsigned single-byte type (0-255, provider storage type
+    /// byte — Microsoft.Data.SqlClient's GetInt16 throws InvalidCastException
+    /// on it) but MySQL's signed-by-default tinyint (-128..127, provider
+    /// storage type sbyte/byte depending on UNSIGNED) round-trips fine through
+    /// GetInt16 today. Only "sqlserver" gets the byte mapping; every other
+    /// dialect (and null, for callers without schema/dialect in scope) keeps
+    /// the historical short mapping.
     /// </summary>
-    public static string MapDbTypeToCSharp(string dbType, bool isNullable, int? length = null)
+    public static string MapDbTypeToCSharp(string dbType, bool isNullable, int? length = null, string? dialect = null)
     {
         string normalized = NormalizeDbType(dbType.ToLowerInvariant());
 
@@ -79,10 +89,13 @@ public static class DialectMapper
             return isNullable ? $"{elementType}[]?" : $"{elementType}[]";
         }
 
+        bool isSqlServer = string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase);
+
         string csharpType = normalized switch
         {
             "int" or "int4" or "integer" or "serial" => isNullable ? "int?" : "int",
             "bigint" or "int8" or "bigserial" => isNullable ? "long?" : "long",
+            "tinyint" when isSqlServer => isNullable ? "byte?" : "byte",
             "smallint" or "int2" or "tinyint" => isNullable ? "short?" : "short",
             "varchar" or "text" or "nvarchar" or "ntext" or "character varying"
                 or "char" or "nchar" or "character" or "citext" => isNullable ? "string?" : "string",
