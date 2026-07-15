@@ -18,6 +18,16 @@ public static class SqlTokenizer
     };
 
     /// <summary>
+    /// True when <paramref name="word"/> tokenizes as a <see cref="TokenType.Keyword"/>
+    /// rather than a plain identifier (case-insensitive). Callers that need to
+    /// emit a bare (unquoted) column/table reference — e.g. <c>AutoCrud</c>,
+    /// which skips names it can't safely emit unquoted — use this to reject
+    /// reserved words before they ever reach the tokenizer, since an unquoted
+    /// reserved word in that position silently mis-parses (see AutoCrud.cs).
+    /// </summary>
+    public static bool IsReservedKeyword(string word) => Keywords.Contains(word);
+
+    /// <summary>
     /// Upper bound on the length of SQL text the tokenizer will process. 1 MiB
     /// is far larger than any legitimate hand-written query file, but caps the
     /// worst-case the notes the tokenizer will do on a pathological or

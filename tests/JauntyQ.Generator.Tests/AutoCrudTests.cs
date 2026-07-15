@@ -418,6 +418,35 @@ public class AutoCrudTests
     }
 
     [Fact]
+    public void Synthesize_SkipsTablesWithSqlReservedKeywordColumn()
+    {
+        // "Group" is lexically a bare identifier (letters only, no spaces) but
+        // a SQL reserved word. Emitted unquoted into synthetic SQL, it
+        // tokenizes as a Keyword rather than an Identifier, which silently
+        // desyncs ParseInsert's positional column-list binding for every
+        // column after it — the Insert overload used to come out as
+        // Insert(string Name, Guid Group, DateTime rowguid, object
+        // ModifiedDate), each parameter one column off from its real type,
+        // instead of failing loudly. AutoCrud must skip the table rather than
+        // emit it broken (real-world case: AdventureWorks SalesTerritory).
+        var schema = new DatabaseSchema();
+        schema.Tables["SalesTerritory"] = new TableSchema
+        {
+            Name = "SalesTerritory",
+            Columns = new Dictionary<string, ColumnSchema>
+            {
+                ["TerritoryID"] = new ColumnSchema { Name = "TerritoryID", DbType = "int", IsPrimaryKey = true, IsIdentity = true },
+                ["Name"] = new ColumnSchema { Name = "Name", DbType = "varchar" },
+                ["Group"] = new ColumnSchema { Name = "Group", DbType = "varchar" },
+                ["rowguid"] = new ColumnSchema { Name = "rowguid", DbType = "uniqueidentifier" },
+                ["ModifiedDate"] = new ColumnSchema { Name = "ModifiedDate", DbType = "datetime" }
+            }
+        };
+
+        Assert.Empty(AutoCrud.Synthesize(schema));
+    }
+
+    [Fact]
     public void Synthesize_CompositePk_UsesAllKeyColumnsInWhere()
     {
         var schema = new DatabaseSchema();
