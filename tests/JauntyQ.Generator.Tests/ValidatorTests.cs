@@ -65,6 +65,21 @@ where p.category_id = @categoryId");
     }
 
     [Fact]
+    public void SchemaQualifiedTable_NoErrors()
+    {
+        // dbo.products must resolve against the bare "products" table in the
+        // schema snapshot, same as the unqualified form above.
+        var query = ParseSql(@"
+select p.product_id, p.product_name
+from dbo.products p
+where p.category_id = @categoryId");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
     public void MissingColumn_JNT2002()
     {
         var query = ParseSql(@"

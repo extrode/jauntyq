@@ -16,8 +16,9 @@ public static partial class SqlParser
         // Table name
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
         {
-            model.TargetTable = tokens[pos].Value;
-            model.Tables.Add(new TableRef { TableName = tokens[pos].Value, Alias = string.Empty });
+            string tableName = StripQualifier(tokens[pos].Value);
+            model.TargetTable = tableName;
+            model.Tables.Add(new TableRef { TableName = tableName, Alias = string.Empty });
         }
 
         // Parameter bindings handled by ExtractParameterBindings (col = @param in WHERE)
