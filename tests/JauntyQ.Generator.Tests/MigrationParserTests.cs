@@ -319,6 +319,70 @@ drop table if exists c
         Assert.Equal("Gadgets", stmt.TableName);
     }
 
+    [Theory]
+    [InlineData("amount double precision not null", "double precision")]
+    [InlineData("created_at timestamp with time zone not null", "timestamp with time zone")]
+    [InlineData("created_at timestamp without time zone not null", "timestamp without time zone")]
+    [InlineData("start_time time with time zone not null", "time with time zone")]
+    [InlineData("start_time time without time zone not null", "time without time zone")]
+    public void MultiWordType_CapturedInFull_NotTruncatedToFirstWord(string columnDef, string expectedDbType)
+    {
+        var statements = MigrationParser.Parse($"alter table t add {columnDef}");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.AddColumn, stmt.Kind);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal(expectedDbType, col.DbType);
+    }
+
+    [Fact]
+    public void CharacterVarying_CapturesMaxLength_NotLostBehindTheContinuationWord()
+    {
+        // The facet paren follows "varying", not "character" -- without
+        // absorbing "varying" into DbType first, the parser looked for "("
+        // immediately after "character" and never found "(40)", silently
+        // losing the length entirely (a live pull of the same column
+        // reports MaxLength=40).
+        var statements = MigrationParser.Parse("alter table t add name character varying(40) not null");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal("character varying", col.DbType);
+        Assert.Equal(40, col.MaxLength);
+    }
+
+    [Fact]
+    public void BitVarying_CapturesMaxLength()
+    {
+        var statements = MigrationParser.Parse("alter table t add flags bit varying(10) not null");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal("bit varying", col.DbType);
+        Assert.Equal(10, col.MaxLength);
+    }
+
+    [Theory]
+    [InlineData("flag bit not null", null)]
+    [InlineData("flags bit(1) not null", 1)]
+    [InlineData("flags bit(5) not null", 5)]
+    public void Bit_CapturesLengthFacet_NotAlwaysNull(string columnDef, int? expectedMaxLength)
+    {
+        // Bare "bit" or "bit(1)" (bool-shaped) vs. "bit(5)" (a genuine
+        // multi-bit string DialectMapper must NOT mistype as bool) are
+        // distinguished only by this MaxLength value -- before this fix
+        // ApplyFacets had no case for "bit" at all, so every migration-
+        // declared bit column always reported MaxLength null regardless of
+        // its actual declared length, incorrectly satisfying DialectMapper's
+        // "length is null" bool guard for bit(5) too.
+        var statements = MigrationParser.Parse($"alter table t add {columnDef}");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal("bit", col.DbType);
+        Assert.Equal(expectedMaxLength, col.MaxLength);
+    }
+
     [Fact]
     public void DefaultExpressions_Skipped()
     {

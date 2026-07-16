@@ -432,6 +432,40 @@ public static class MigrationParser
 
         int pos = 2;
 
+        // Some Postgres base types are multi-word ("double precision",
+        // "character varying", "bit varying", "timestamp/time [with|without]
+        // time zone"), matching DialectMapper.MapDbTypeToCSharp's own
+        // multi-word case-arm strings. The facet paren for these (if any)
+        // follows the LAST word, not the first, so the continuation words
+        // must be absorbed into DbType before the "(facets)" check below --
+        // otherwise it looks for "(" immediately after the first word and
+        // silently never finds "character varying(255)"'s "(255)", losing
+        // the facet entirely (a live pull of the same column would still
+        // report MaxLength=255).
+        if (column.DbType == "double" && Is(def, pos, "PRECISION"))
+        {
+            column.DbType += " precision";
+            pos++;
+        }
+        else if ((column.DbType == "character" || column.DbType == "bit") && Is(def, pos, "VARYING"))
+        {
+            column.DbType += " varying";
+            pos++;
+        }
+        else if (column.DbType is "timestamp" or "time")
+        {
+            if (Is(def, pos, "WITHOUT") && Is(def, pos + 1, "TIME") && Is(def, pos + 2, "ZONE"))
+            {
+                column.DbType += " without time zone";
+                pos += 3;
+            }
+            else if (Is(def, pos, "WITH") && Is(def, pos + 1, "TIME") && Is(def, pos + 2, "ZONE"))
+            {
+                column.DbType += " with time zone";
+                pos += 3;
+            }
+        }
+
         // (facets): (40), (10,2), (max)
         int? first = null, second = null;
         bool isMax = false;
@@ -529,6 +563,15 @@ public static class MigrationParser
         bool isText = t.Contains("char") || t.Contains("text") || t.Contains("clob");
         bool isBinary = t.Contains("binary") || t == "bytea" || t.Contains("blob") || t == "image";
         bool isDecimal = t is "decimal" or "numeric" or "money" or "smallmoney";
+        // Postgres "bit"/"bit varying": the (n) facet is the bit length, not
+        // a byte count, but DialectMapper.MapDbTypeToCSharp's "bit" case only
+        // needs a length vs. null distinction (bare/length<=1 -> bool,
+        // otherwise falls through to the unmapped "object" case) -- without
+        // capturing it here, a migration-declared "bit(5)" always parsed as
+        // MaxLength null, which wrongly satisfies that "length is null"
+        // guard and mistyped a 5-bit bitstring as bool. A live pull of the
+        // same column reports MaxLength=5 and correctly leaves it unmapped.
+        bool isBitString = t is "bit" or "bit varying";
 
         if (isText || isBinary)
         {
@@ -540,6 +583,10 @@ public static class MigrationParser
         {
             column.Precision = first;
             column.Scale = second ?? 0;
+        }
+        else if (isBitString)
+        {
+            column.MaxLength = first;
         }
     }
 
