@@ -72,25 +72,47 @@ public static partial class CodeEmitter
 
     private static int FindValuesKeyword(string sql)
     {
-        // Quoted regions are skipped: a column literally named [values] or
-        // "values" in the INSERT column list must not match the keyword.
+        // Quoted regions and comments are skipped: a column literally named
+        // [values] or "values" in the INSERT column list must not match the
+        // keyword, and neither must the word appearing inside a -- line
+        // comment or /* block comment */ (e.g. "-- restore old values here")
+        // -- splicing "output inserted.x" into the middle of a comment would
+        // corrupt it into live SQL, same class of bug this already guards
+        // against for quoted identifiers.
         bool inBracket = false, inString = false, inQuote = false;
-        for (int i = 0; i + 6 <= sql.Length; i++)
+        int i = 0;
+        while (i < sql.Length)
         {
             char c = sql[i];
-            if (inString) { if (c == '\'') inString = false; continue; }
-            if (inBracket) { if (c == ']') inBracket = false; continue; }
-            if (inQuote) { if (c == '"') inQuote = false; continue; }
-            if (c == '\'') { inString = true; continue; }
-            if (c == '[') { inBracket = true; continue; }
-            if (c == '"') { inQuote = true; continue; }
-
-            if (string.Compare(sql, i, "values", 0, 6, StringComparison.OrdinalIgnoreCase) != 0)
+            if (inString) { if (c == '\'') inString = false; i++; continue; }
+            if (inBracket) { if (c == ']') inBracket = false; i++; continue; }
+            if (inQuote) { if (c == '"') inQuote = false; i++; continue; }
+            if (c == '\'') { inString = true; i++; continue; }
+            if (c == '[') { inBracket = true; i++; continue; }
+            if (c == '"') { inQuote = true; i++; continue; }
+            if (c == '-' && i + 1 < sql.Length && sql[i + 1] == '-')
+            {
+                while (i < sql.Length && sql[i] != '\n')
+                    i++;
                 continue;
-            bool startOk = i == 0 || !char.IsLetterOrDigit(sql[i - 1]) && sql[i - 1] != '_' && sql[i - 1] != '@';
-            bool endOk = i + 6 == sql.Length || !char.IsLetterOrDigit(sql[i + 6]) && sql[i + 6] != '_';
-            if (startOk && endOk)
-                return i;
+            }
+            if (c == '/' && i + 1 < sql.Length && sql[i + 1] == '*')
+            {
+                int end = i + 2;
+                while (end + 1 < sql.Length && !(sql[end] == '*' && sql[end + 1] == '/'))
+                    end++;
+                i = end + 1 < sql.Length ? end + 2 : sql.Length;
+                continue;
+            }
+
+            if (i + 6 <= sql.Length && string.Compare(sql, i, "values", 0, 6, StringComparison.OrdinalIgnoreCase) == 0)
+            {
+                bool startOk = i == 0 || !char.IsLetterOrDigit(sql[i - 1]) && sql[i - 1] != '_' && sql[i - 1] != '@';
+                bool endOk = i + 6 == sql.Length || !char.IsLetterOrDigit(sql[i + 6]) && sql[i + 6] != '_';
+                if (startOk && endOk)
+                    return i;
+            }
+            i++;
         }
         return -1;
     }
