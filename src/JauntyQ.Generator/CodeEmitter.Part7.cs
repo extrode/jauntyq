@@ -21,21 +21,15 @@ public static partial class CodeEmitter
         bool hasUpsert)
     {
         var columns = new System.Collections.Generic.List<ColumnSchema>(tableSchema.Columns.Values);
-        var versionCols = columns.FindAll(c => c.IsRowVersion);
-        var pkCols = columns.FindAll(c => c.IsPrimaryKey);
-        // Must mirror AutoCrud.Synthesize's own Update setCols filter exactly
-        // (AutoCrud.cs) -- this list supplies the Update(row) POCO overload's
-        // forwarded arguments and has to match the synthesized SQL's
-        // @parameter list one-for-one, including excluding a non-PK identity
-        // column (database-assigned; every dialect tested rejects an UPDATE
-        // targeting an identity column).
-        var setCols = columns.FindAll(c => !c.IsPrimaryKey && !c.IsIdentity && !c.IsRowVersion && !c.IsComputed);
-        var insertCols = columns.FindAll(c => !c.IsIdentity && !c.IsRowVersion && !c.IsComputed);
-        ColumnSchema? identityCol = null;
-        foreach (var c in columns)
-        {
-            if (c.IsIdentity) { identityCol = identityCol == null ? c : null; if (identityCol == null) break; }
-        }
+        var versionCols = CrudColumnRules.RowVersionColumns(columns);
+        var pkCols = CrudColumnRules.PrimaryKeyColumns(columns);
+        // CrudColumnRules.UpdatableColumns is the single source of truth this
+        // must match: it supplies the Update(row) POCO overload's forwarded
+        // arguments, which have to line up with the synthesized SQL's
+        // @parameter list (AutoCrud.cs) one-for-one.
+        var setCols = CrudColumnRules.UpdatableColumns(columns);
+        var insertCols = CrudColumnRules.InsertableColumns(columns);
+        var identityCol = CrudColumnRules.SingleIdentityColumn(columns);
         bool insertReturnsId = identityCol != null && !string.IsNullOrEmpty(dialect);
 
         string Args(System.Collections.Generic.List<ColumnSchema> cols)
@@ -133,16 +127,14 @@ public static partial class CodeEmitter
 
         if (hasUpsert)
         {
-            // Must match EmitUpsert's own column set exactly (CodeEmitter.
-            // Part6.cs): no identity column is ever a caller-supplied
-            // argument -- true of the PK's own identity column when a
-            // secondary UNIQUE index is the upsert key (identity-only PK),
-            // and equally true of any other identity column on a table with
-            // a natural PK -- except an identity column that is itself part
-            // of the upsert key (a composite PK with one identity member).
-            var upsertKey = ResolveUpsertKey(tableSchema);
-            var upsertCols = columns.FindAll(c => !c.IsRowVersion && !c.IsComputed
-                && (!c.IsIdentity || (upsertKey?.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)) ?? false)));
+            // CrudColumnRules.UpsertColumns is the single source of truth
+            // this must match: EmitUpsert (CodeEmitter.Part6.cs) builds its
+            // MERGE/ON CONFLICT SQL from the exact same column set.
+            var upsertKey = ResolveUpsertKey(tableSchema)
+                ?? throw new System.InvalidOperationException(
+                    $"Table '{tableSchema.Name}' has no usable upsert key: no primary key, or an " +
+                    "identity-only primary key with no secondary UNIQUE index to match on instead.");
+            var upsertCols = CrudColumnRules.UpsertColumns(columns, upsertKey);
             Forward("Upsert", upsertCols);
         }
 

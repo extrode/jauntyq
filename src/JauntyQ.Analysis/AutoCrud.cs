@@ -87,7 +87,7 @@ public static class AutoCrud
             result.Add(new SyntheticQuery(entityName, "GetAll",
                 $"select {colList}\nfrom {table.Name}", table.Name));
 
-            var pkCols = columns.FindAll(c => c.IsPrimaryKey);
+            var pkCols = CrudColumnRules.PrimaryKeyColumns(columns);
 
             // FK loaders: one GetBy<FkColumn> per foreign-key column on this
             // table (composite FKs yield one loader per column). Skipped when
@@ -121,23 +121,17 @@ public static class AutoCrud
             // tokens — never inserted or updated, but required in the WHERE of
             // Update/Delete so a stale read can't overwrite a newer write
             // (0 rows affected = conflict).
-            var versionCols = columns.FindAll(c => c.IsRowVersion);
+            var versionCols = CrudColumnRules.RowVersionColumns(columns);
 
             // Insert — identity columns are database-assigned, never bound.
             // When the table has a single identity key and the snapshot knows
             // the dialect, the synthetic Insert returns the new id (-- @identity).
-            var insertCols = columns.FindAll(c => !c.IsIdentity && !c.IsRowVersion && !c.IsComputed);
+            var insertCols = CrudColumnRules.InsertableColumns(columns);
             if (insertCols.Count > 0)
             {
                 string insertColList = JoinColumns(insertCols, ", ", c => c.Name);
                 string insertParams = JoinColumns(insertCols, ", ", c => $"@{c.Name}");
-                int identityColCount = 0;
-                foreach (var c in columns)
-                {
-                    if (c.IsIdentity)
-                        identityColCount++;
-                }
-                bool returnsIdentity = !string.IsNullOrEmpty(schema.Dialect) && identityColCount == 1;
+                bool returnsIdentity = !string.IsNullOrEmpty(schema.Dialect) && CrudColumnRules.SingleIdentityColumn(columns) != null;
                 string prefix = returnsIdentity ? "-- @identity\n" : "";
                 result.Add(new SyntheticQuery(entityName, "Insert",
                     $"{prefix}insert into {table.Name} ({insertColList})\nvalues ({insertParams})", table.Name));
@@ -154,7 +148,7 @@ public static class AutoCrud
             // Part7.cs's EmitPocoOverloads setCols exactly -- that list
             // supplies the Update(row) POCO overload's forwarded arguments
             // and has to match this SQL's @parameter list one-for-one.
-            var setCols = columns.FindAll(c => !c.IsPrimaryKey && !c.IsIdentity && !c.IsRowVersion && !c.IsComputed);
+            var setCols = CrudColumnRules.UpdatableColumns(columns);
             var whereCols = new List<ColumnSchema>(pkCols.Count + versionCols.Count);
             whereCols.AddRange(pkCols);
             whereCols.AddRange(versionCols);
@@ -179,26 +173,21 @@ public static class AutoCrud
             // columns are excluded inside EmitUpsert; upsert is deliberately
             // last-writer-wins (documented).
             var upsertKey = UpsertKeyResolver.Resolve(table);
-            // Must mirror EmitUpsert's own column filtering exactly (CodeEmitter.
-            // Part6.cs): no identity column can ever be supplied by the caller
-            // before the row exists, whether it's the PK's own identity (the
-            // secondary-UNIQUE-index/identity-only-PK case) or any OTHER
-            // identity column on a table with a natural PK -- both are
-            // excluded from "columns to update" regardless of which key
-            // resolved, except an identity column that is itself part of
-            // upsertKey (a composite PK with one identity member). Without
-            // this exclusion, a table whose only non-key column is such an
-            // identity column (e.g. an identity id + a single idempotency-key
-            // unique column, or a natural-PK table with a lone non-PK
-            // identity column) looked like it had a non-key column to
-            // update, but EmitUpsert would then either emit invalid SQL with
-            // a dangling "update set" / "do update set" and nothing after it
-            // (identity-only-PK case), or SQL that writes to / updates the
-            // identity column directly (natural-PK case) -- the database
-            // rejects both at runtime.
-            bool hasNonKeyColumns = upsertKey != null && columns.Exists(c => !c.IsRowVersion && !c.IsComputed
-                && !c.IsIdentity
-                && !upsertKey.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
+            // CrudColumnRules.UpsertColumns/UpsertSetColumns are the same
+            // filtering CodeEmitter.Part6.cs's EmitUpsert and Part7.cs's
+            // EmitPocoOverloads apply to build the actual MERGE/ON CONFLICT
+            // SQL -- reusing them here (rather than a separately-written
+            // existence check) is what keeps this gate in sync with what
+            // EmitUpsert would actually do. A table whose only non-key
+            // column is a lone non-key identity column (e.g. an identity id
+            // plus a single idempotency-key unique column, or a natural-PK
+            // table with a lone non-PK identity column) has zero SET
+            // columns: EmitUpsert would otherwise emit invalid SQL with a
+            // dangling "update set" / "do update set" and nothing after it,
+            // or SQL that writes to the identity column directly -- the
+            // database rejects both at runtime.
+            bool hasNonKeyColumns = upsertKey != null
+                && CrudColumnRules.UpsertSetColumns(CrudColumnRules.UpsertColumns(columns, upsertKey), upsertKey).Count > 0;
             if (upsertKey != null && hasNonKeyColumns && !string.IsNullOrEmpty(schema.Dialect))
             {
                 result.Add(new SyntheticQuery(entityName, "Upsert", "", table.Name, isUpsert: true));

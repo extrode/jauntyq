@@ -18,6 +18,14 @@ class JauntyQ.Analysis.AutoCrud+SyntheticQuery
     prop MethodName:String
     prop Sql:String
     prop TableName:String
+class JauntyQ.Analysis.CrudColumnRules
+    method InsertableColumns(IEnumerable<ColumnSchema>):List<ColumnSchema>
+    method PrimaryKeyColumns(IEnumerable<ColumnSchema>):List<ColumnSchema>
+    method RowVersionColumns(IEnumerable<ColumnSchema>):List<ColumnSchema>
+    method SingleIdentityColumn(IEnumerable<ColumnSchema>):ColumnSchema
+    method UpdatableColumns(IEnumerable<ColumnSchema>):List<ColumnSchema>
+    method UpsertColumns(IEnumerable<ColumnSchema>,List<ColumnSchema>):List<ColumnSchema>
+    method UpsertSetColumns(List<ColumnSchema>,List<ColumnSchema>):List<ColumnSchema>
 class JauntyQ.Analysis.DialectMapper
     method IsKnownDialect(String):Boolean
     method IsUnmappedDbType(String,Boolean,Nullable<Int32>):Boolean
