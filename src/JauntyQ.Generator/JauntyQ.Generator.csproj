@@ -74,6 +74,10 @@
       <TfmSpecificPackageFile Include="$(PkgSystem_Threading_Tasks_Extensions)\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll" PackagePath="analyzers/dotnet/cs" />
     </ItemGroup>
   </Target>
+  <!-- MIT attribution for the bundled DLLs above (required by their license). -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <!-- Global usings for the compile-included JauntyQ.Analysis kernel (the
        generator consumes these primitives; DialectMapper/AutoCrud/UpsertKeyResolver
        live in JauntyQ.Analysis, the migration types in JauntyQ.Analysis.Migrations). -->
