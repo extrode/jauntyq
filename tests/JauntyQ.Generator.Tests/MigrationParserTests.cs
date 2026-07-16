@@ -621,4 +621,74 @@ alter table products add supplier_note nvarchar(50) null;
         Assert.True(snapshot.Tables.ContainsKey("products"));
         Assert.True(snapshot.Tables["products"].Columns.ContainsKey("product_name"));
     }
+
+    // ── Case-insensitivity: SQL Server/MySQL identifiers are effectively
+    // case-insensitive under their default collations, so a migration
+    // written with different casing than the snapshot's stored casing must
+    // still resolve -- not report a false JNT9002 "does not exist".
+
+    [Fact]
+    public void AddColumn_TableNameDifferentCase_Resolves()
+    {
+        var (schema, errors) = Apply(BaseSchema(), "alter table Products add supplier_note nvarchar(50) null");
+
+        Assert.Empty(errors);
+        Assert.True(schema.Tables["products"].Columns.ContainsKey("supplier_note"));
+    }
+
+    [Fact]
+    public void DropColumn_ColumnNameDifferentCase_Resolves_PreservesOtherColumns()
+    {
+        var (schema, errors) = Apply(BaseSchema(), "alter table products drop column PRODUCT_NAME");
+
+        Assert.Empty(errors);
+        var remaining = schema.Tables["products"].Columns.Values.Select(c => c.Name).ToList();
+        Assert.Equal(new[] { "product_id", "unit_price" }, remaining);
+    }
+
+    [Fact]
+    public void AlterColumn_DifferentCase_ReplacesInPlace_NoDuplicateEntry()
+    {
+        // Indexing by the migration's own casing instead of the resolved
+        // key would silently ADD a second, differently-cased column entry
+        // (Dictionary key equality is case-sensitive) rather than replacing
+        // the existing one.
+        var (schema, errors) = Apply(BaseSchema(), "alter table products alter column Product_Name nvarchar(10) not null");
+
+        Assert.Empty(errors);
+        var table = schema.Tables["products"];
+        Assert.Equal(3, table.Columns.Count); // no phantom duplicate
+        Assert.True(table.Columns.ContainsKey("product_name"));
+        Assert.False(table.Columns.ContainsKey("Product_Name"));
+        Assert.Equal(10, table.Columns["product_name"].MaxLength);
+    }
+
+    [Fact]
+    public void DropTable_DifferentCase_Resolves()
+    {
+        var (schema, errors) = Apply(BaseSchema(), "drop table Products");
+
+        Assert.Empty(errors);
+        Assert.False(schema.Tables.ContainsKey("products"));
+    }
+
+    [Fact]
+    public void CreateTable_DifferentCase_DuplicateDetected()
+    {
+        var (_, errors) = Apply(BaseSchema(),
+            "create table PRODUCTS (id int not null primary key)");
+
+        var error = Assert.Single(errors);
+        Assert.Equal("JNT9002", error.Code);
+    }
+
+    [Fact]
+    public void AddPrimaryKey_ColumnNameDifferentCase_Resolves()
+    {
+        var (schema, errors) = Apply(BaseSchema(),
+            "alter table products add constraint pk_x primary key (PRODUCT_NAME)");
+
+        Assert.Empty(errors);
+        Assert.True(schema.Tables["products"].Columns["product_name"].IsPrimaryKey);
+    }
 }

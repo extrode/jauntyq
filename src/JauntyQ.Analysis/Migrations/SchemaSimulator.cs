@@ -68,7 +68,7 @@ public static class SchemaSimulator
 
     private static void ApplyCreateTable(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        if (schema.Tables.ContainsKey(stmt.TableName))
+        if (TryFindTable(schema, stmt.TableName, out _))
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: table '{stmt.TableName}' already exists. If this migration was already deployed, archive it and re-run 'jaunty schema pull'."));
@@ -78,7 +78,7 @@ public static class SchemaSimulator
         var table = new TableSchema { Name = stmt.TableName, Columns = new Dictionary<string, ColumnSchema>() };
         foreach (var col in stmt.Columns)
         {
-            if (table.Columns.ContainsKey(col.Name))
+            if (TryFindColumnKey(table, col.Name, out _))
             {
                 errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: duplicate column '{col.Name}' in create table '{stmt.TableName}'."));
@@ -91,7 +91,7 @@ public static class SchemaSimulator
 
     private static void ApplyDropTable(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        if (!schema.Tables.Remove(stmt.TableName) && !stmt.IfExists)
+        if (!RemoveTable(schema, stmt.TableName) && !stmt.IfExists)
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot drop table '{stmt.TableName}': it does not exist in the effective schema."));
@@ -103,7 +103,7 @@ public static class SchemaSimulator
 
     private static void ApplyAddColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        if (!schema.Tables.TryGetValue(stmt.TableName, out var table))
+        if (!TryFindTable(schema, stmt.TableName, out var table) || table == null)
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot add column to '{stmt.TableName}': table does not exist in the effective schema."));
@@ -111,7 +111,7 @@ public static class SchemaSimulator
         }
         foreach (var col in stmt.Columns)
         {
-            if (table.Columns.ContainsKey(col.Name))
+            if (TryFindColumnKey(table, col.Name, out _))
             {
                 errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: column '{stmt.TableName}.{col.Name}' already exists. If this migration was already deployed, archive it and re-run 'jaunty schema pull'."));
@@ -123,7 +123,7 @@ public static class SchemaSimulator
 
     private static void ApplyDropColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        if (!schema.Tables.TryGetValue(stmt.TableName, out var table))
+        if (!TryFindTable(schema, stmt.TableName, out var table) || table == null)
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot drop column from '{stmt.TableName}': table does not exist in the effective schema."));
@@ -132,7 +132,7 @@ public static class SchemaSimulator
 
         foreach (var name in stmt.ColumnNames)
         {
-            if (!table.Columns.ContainsKey(name))
+            if (!TryFindColumnKey(table, name, out var actualKey) || actualKey == null)
             {
                 errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: cannot drop column '{stmt.TableName}.{name}': it does not exist in the effective schema."));
@@ -141,11 +141,14 @@ public static class SchemaSimulator
 
             // Rebuild the dictionary: generated ordinals depend on column
             // order, and Dictionary reuses freed slots after Remove, which
-            // would corrupt the order of any column added later.
+            // would corrupt the order of any column added later. Exclude by
+            // the resolved actual key (not the migration's possibly
+            // differently-cased spelling), since that is the real key
+            // present in the dictionary.
             var rebuilt = new Dictionary<string, ColumnSchema>();
             foreach (var kvp in table.Columns)
             {
-                if (!string.Equals(kvp.Key, name, StringComparison.Ordinal))
+                if (!string.Equals(kvp.Key, actualKey, StringComparison.Ordinal))
                     rebuilt[kvp.Key] = kvp.Value;
             }
             table.Columns = rebuilt;
@@ -158,7 +161,7 @@ public static class SchemaSimulator
 
     private static void ApplyAlterColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        if (!schema.Tables.TryGetValue(stmt.TableName, out var table))
+        if (!TryFindTable(schema, stmt.TableName, out var table) || table == null)
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot alter column on '{stmt.TableName}': table does not exist in the effective schema."));
@@ -167,7 +170,7 @@ public static class SchemaSimulator
 
         foreach (var col in stmt.Columns)
         {
-            if (!table.Columns.TryGetValue(col.Name, out var existing))
+            if (!TryFindColumnKey(table, col.Name, out var actualKey) || actualKey == null)
             {
                 errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: cannot alter column '{stmt.TableName}.{col.Name}': it does not exist in the effective schema."));
@@ -176,10 +179,17 @@ public static class SchemaSimulator
 
             // ALTER COLUMN changes type/nullability/facets; key and identity
             // status stay with the existing column.
+            var existing = table.Columns[actualKey];
             var updated = Finalize(col, schema.Dialect);
             updated.IsPrimaryKey = existing.IsPrimaryKey;
             updated.IsIdentity = existing.IsIdentity;
-            table.Columns[col.Name] = updated; // in-place value swap keeps order
+            // Reassign under the RESOLVED key, not col.Name: if the migration
+            // spells the column differently-cased than the stored key,
+            // indexing by col.Name would silently ADD a second, duplicate
+            // column entry instead of replacing the existing one (Dictionary
+            // key equality is case-sensitive), corrupting column order and
+            // leaving a phantom entry with a stale type behind.
+            table.Columns[actualKey] = updated; // in-place value swap keeps order
         }
     }
 
@@ -192,7 +202,7 @@ public static class SchemaSimulator
     /// </summary>
     private static void ApplyAlterColumnNullability(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        if (!schema.Tables.TryGetValue(stmt.TableName, out var table))
+        if (!TryFindTable(schema, stmt.TableName, out var table) || table == null)
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot alter column on '{stmt.TableName}': table does not exist in the effective schema."));
@@ -200,7 +210,7 @@ public static class SchemaSimulator
         }
 
         string colName = stmt.ColumnNames.Count > 0 ? stmt.ColumnNames[0] : string.Empty;
-        if (!table.Columns.TryGetValue(colName, out var existing))
+        if (!TryFindColumn(table, colName, out var existing) || existing == null)
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot alter column '{stmt.TableName}.{colName}': it does not exist in the effective schema."));
@@ -212,7 +222,7 @@ public static class SchemaSimulator
 
     private static void ApplyAddPrimaryKey(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        if (!schema.Tables.TryGetValue(stmt.TableName, out var table))
+        if (!TryFindTable(schema, stmt.TableName, out var table) || table == null)
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot add a primary key to '{stmt.TableName}': table does not exist in the effective schema."));
@@ -221,7 +231,7 @@ public static class SchemaSimulator
 
         foreach (var name in stmt.ColumnNames)
         {
-            if (!table.Columns.TryGetValue(name, out var existing))
+            if (!TryFindColumn(table, name, out var existing) || existing == null)
             {
                 errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: cannot add a primary key on '{stmt.TableName}.{name}': it does not exist in the effective schema."));
@@ -231,6 +241,88 @@ public static class SchemaSimulator
             existing.IsPrimaryKey = true;
             existing.IsNullable = false;
         }
+    }
+
+    /// <summary>
+    /// Case-insensitive table lookup, falling back from the fast-path exact
+    /// match. <see cref="DatabaseSchema.Tables"/> is a plain (ordinal,
+    /// case-sensitive) dictionary keyed by whatever casing the snapshot was
+    /// pulled with, but SQL Server/MySQL identifiers are effectively
+    /// case-insensitive under their default collations and a hand-written
+    /// migration commonly spells a table differently-cased than the live
+    /// database returned it -- a direct TryGetValue silently produced a
+    /// false JNT9002 "does not exist" for a perfectly valid migration.
+    /// Mirrors JauntyQ.Generator.SchemaLookup's identical pattern for query
+    /// validation; duplicated here rather than shared because
+    /// JauntyQ.Generator embeds JauntyQ.Analysis's source wholesale (Roslyn
+    /// analyzers can't take ordinary assembly dependencies), so a shared
+    /// helper would need to live in JauntyQ.Schema instead -- out of scope
+    /// for this fix.
+    /// </summary>
+    private static bool TryFindTable(DatabaseSchema schema, string name, out TableSchema? table)
+    {
+        if (schema.Tables.TryGetValue(name, out table))
+            return true;
+        foreach (var kvp in schema.Tables)
+        {
+            if (string.Equals(kvp.Key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                table = kvp.Value;
+                return true;
+            }
+        }
+        table = null;
+        return false;
+    }
+
+    /// <summary>Case-insensitive table removal; returns the actual stored
+    /// key to <c>Dictionary.Remove</c>, not <paramref name="name"/>'s casing.</summary>
+    private static bool RemoveTable(DatabaseSchema schema, string name)
+    {
+        if (schema.Tables.Remove(name))
+            return true;
+        foreach (var key in schema.Tables.Keys)
+        {
+            if (string.Equals(key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                schema.Tables.Remove(key);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>Case-insensitive column lookup; returns the actual stored key
+    /// (not <paramref name="name"/>'s casing) so a caller that needs to
+    /// reassign or remove by key does so under the real one.</summary>
+    private static bool TryFindColumnKey(TableSchema table, string name, out string? actualKey)
+    {
+        if (table.Columns.ContainsKey(name))
+        {
+            actualKey = name;
+            return true;
+        }
+        foreach (var key in table.Columns.Keys)
+        {
+            if (string.Equals(key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                actualKey = key;
+                return true;
+            }
+        }
+        actualKey = null;
+        return false;
+    }
+
+    private static bool TryFindColumn(TableSchema table, string name, out ColumnSchema? column)
+    {
+        if (TryFindColumnKey(table, name, out var key) && key != null)
+        {
+            column = table.Columns[key];
+            return true;
+        }
+        column = null;
+        return false;
     }
 
     /// <summary>
