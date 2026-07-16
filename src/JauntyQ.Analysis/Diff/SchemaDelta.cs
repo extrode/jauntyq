@@ -16,7 +16,8 @@ public enum ColumnChangeKind
     Unicode,
     PrimaryKey,
     Identity,
-    RowVersion
+    RowVersion,
+    Computed
 }
 
 /// <summary>

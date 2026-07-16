@@ -94,6 +94,13 @@ public static class StructuralSchemaDiff
             kinds.Add(ColumnChangeKind.Identity);
         if (before.IsRowVersion != after.IsRowVersion)
             kinds.Add(ColumnChangeKind.RowVersion);
+        // Previously undiffed: a migration that turns a plain column
+        // computed/generated (or vice versa) produced zero delta here, so a
+        // query writing to that column via INSERT/UPDATE was classified Safe
+        // by ImpactClassifier instead of Risky, even though the write will
+        // be rejected by the database once the column is generated.
+        if (before.IsComputed != after.IsComputed)
+            kinds.Add(ColumnChangeKind.Computed);
         return kinds;
     }
 
