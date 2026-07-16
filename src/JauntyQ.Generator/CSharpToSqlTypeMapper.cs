@@ -23,6 +23,7 @@ public static class CSharpToSqlTypeMapper
             "float"           => "real",
             "string"          => "nvarchar(MAX)",
             "System.DateTime" => "datetime2",
+            "System.DateTimeOffset" => "datetimeoffset",
             "System.TimeSpan" => "time",
             "System.Guid"     => "uniqueidentifier",
             "byte[]"          => "varbinary(MAX)",
