@@ -169,7 +169,20 @@ public static class DialectMapper
                 or "blob" or "tinyblob" or "mediumblob" or "longblob" => isNullable ? "byte[]?" : "byte[]",
             "json" or "jsonb" => isNullable ? "string?" : "string",
             "inet" or "cidr" => isNullable ? "System.Net.IPAddress?" : "System.Net.IPAddress",
-            _ => "object"
+            // Every other branch above appends "?" for a nullable column; the
+            // fallback must too. Without it, a nullable column of an
+            // unrecognized db type (e.g. SQL Server "hierarchyid", reachable
+            // live via AdventureWorksLite's HumanResources.Employee
+            // .OrganizationNode) gets a non-annotated `object` property AND
+            // CodeEmitter.Part9.GetReaderCall's own `isNullable` check (which
+            // keys off the type string ending in "?") sees no "?" and skips
+            // the `reader.IsDBNull(...)` guard entirely -- so a genuine SQL
+            // NULL comes through as the raw `System.DBNull.Value` sentinel
+            // instead of C# `null`, silently breaking the same
+            // null-means-no-value contract every other nullable column
+            // honors. JNT2007 only warns (it doesn't block), so nothing else
+            // catches this.
+            _ => isNullable ? "object?" : "object"
         };
 
         return csharpType;
@@ -208,7 +221,12 @@ public static class DialectMapper
         if (normalized.EndsWith("[]"))
             return IsUnmappedDbType(normalized.Substring(0, normalized.Length - 2), isNullable: false, length, dialect);
 
-        return MapDbTypeToCSharp(dbType, isNullable, length, dialect) == "object";
+        // The fallback arm of MapDbTypeToCSharp returns "object?" (not
+        // "object") when isNullable is true, so both must be checked here --
+        // matching only "object" would silently stop reporting JNT2007 for
+        // every nullable unmapped-type column.
+        string mapped = MapDbTypeToCSharp(dbType, isNullable, length, dialect);
+        return mapped == "object" || mapped == "object?";
     }
 
     private static string NormalizeDbType(string dbType)
