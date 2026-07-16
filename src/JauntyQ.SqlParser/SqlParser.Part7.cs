@@ -73,7 +73,7 @@ public static partial class SqlParser
             // unbound, carry the body's binding so type inference can resolve it.
             foreach (var p in cte.Body.Parameters)
             {
-                var existing = model.Parameters.FirstOrDefault(x => x.Name == p.Name);
+                var existing = model.Parameters.Find(x => x.Name == p.Name);
                 if (existing == null)
                 {
                     model.Parameters.Add(new ParameterRef
@@ -168,7 +168,7 @@ public static partial class SqlParser
         // Merge parameters (bindings resolved by the final statement's parse).
         foreach (var p in from.Parameters)
         {
-            var existing = to.Parameters.FirstOrDefault(x => x.Name == p.Name);
+            var existing = to.Parameters.Find(x => x.Name == p.Name);
             if (existing == null)
             {
                 to.Parameters.Add(p);

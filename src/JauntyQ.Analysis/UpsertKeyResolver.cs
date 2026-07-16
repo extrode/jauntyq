@@ -16,11 +16,16 @@ public static class UpsertKeyResolver
 {
     public static List<ColumnSchema>? Resolve(TableSchema tableSchema)
     {
-        var columns = tableSchema.Columns.Values.Where(c => !c.IsRowVersion && !c.IsComputed).ToList();
+        var columns = new List<ColumnSchema>(tableSchema.Columns.Count);
+        foreach (var c in tableSchema.Columns.Values)
+        {
+            if (!c.IsRowVersion && !c.IsComputed)
+                columns.Add(c);
+        }
         var pkCols = columns.FindAll(c => c.IsPrimaryKey);
         if (pkCols.Count == 0)
             return null;
-        if (!pkCols.All(c => c.IsIdentity))
+        if (!pkCols.TrueForAll(c => c.IsIdentity))
             return pkCols;
 
         foreach (var index in tableSchema.Indexes)

@@ -60,7 +60,10 @@ public static class MigrationParser
 
     private static MigrationStatement ParseStatement(List<Token> tokens)
     {
-        string raw = string.Join(" ", tokens.Select(t => t.Value));
+        var tokenValues = new List<string>(tokens.Count);
+        foreach (var t in tokens)
+            tokenValues.Add(t.Value);
+        string raw = string.Join(" ", tokenValues);
 
         if (Is(tokens, 0, "CREATE") && Is(tokens, 1, "TABLE"))
             return ParseCreateTable(tokens, raw);
@@ -177,7 +180,7 @@ public static class MigrationParser
                 // auto-CRUD Upsert synthesis for it with no diagnostic at all.
                 if (Is(tokens, constraintPos, "PRIMARY") && Is(tokens, constraintPos + 1, "KEY"))
                 {
-                    var pkColumns = ReadParenNameList(tokens, constraintPos + 2).ToList();
+                    var pkColumns = ReadParenNameList(tokens, constraintPos + 2);
                     if (pkColumns.Count > 0)
                     {
                         var pkStmt = new MigrationStatement { Kind = MigrationStatementKind.AddPrimaryKey, TableName = tableName, RawText = raw };
@@ -534,7 +537,7 @@ public static class MigrationParser
         return result;
     }
 
-    private static IEnumerable<string> ReadParenNameList(List<Token> tokens, int pos)
+    private static List<string> ReadParenNameList(List<Token> tokens, int pos)
     {
         var names = new List<string>();
         if (!IsSymbol(tokens, pos, "("))

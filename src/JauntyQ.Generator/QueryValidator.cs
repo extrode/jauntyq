@@ -249,8 +249,15 @@ public static partial class QueryValidator
 
             if (sub.Kind == SubqueryKind.In)
             {
-                int projected = sub.Body.Columns.Count(c => c.ColumnName != "*");
-                bool hasStar = sub.Body.Columns.Any(c => c.ColumnName == "*");
+                int projected = 0;
+                bool hasStar = false;
+                foreach (var c in sub.Body.Columns)
+                {
+                    if (c.ColumnName != "*")
+                        projected++;
+                    else
+                        hasStar = true;
+                }
                 if (!hasStar && projected != 1)
                 {
                     errors.Add(new ValidationError(JauntyDiagnostics.JNT3007,

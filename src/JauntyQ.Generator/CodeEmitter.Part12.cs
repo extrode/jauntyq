@@ -23,8 +23,8 @@ public static partial class CodeEmitter
                        : $"System.Data.Common.DbConnection conn, {rowsParam}, {txParam}")
             : (isAsync ? $"{rowsParam}, System.Threading.CancellationToken cancellationToken = default" : rowsParam);
 
-        string colList = string.Join(", ", cols.Select(c => c.Name));
-        string valueList = string.Join(", ", cols.Select(c => $"@{c.Name}"));
+        string colList = JoinColumns(cols, ", ", c => c.Name);
+        string valueList = JoinColumns(cols, ", ", c => $"@{c.Name}");
         string insertSql = $"insert into {tableName} ({colList}) values ({valueList})";
 
         sb.AppendLine($"        {modifier}{asyncModifier} {ret} {name}({paramList})");

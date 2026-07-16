@@ -34,7 +34,7 @@ public static partial class SqlParser
                 continue;
 
             // Find the ParameterRef and bind it (first binding wins)
-            var paramRef = model.Parameters.FirstOrDefault(p => p.Name == paramName);
+            var paramRef = model.Parameters.Find(p => p.Name == paramName);
             if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
             {
                 paramRef.BoundTableAlias = tableAlias;
@@ -52,7 +52,7 @@ public static partial class SqlParser
                 tokens[i + 3].Type == TokenType.Parameter)
             {
                 var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
-                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 3].Value);
+                var paramRef = model.Parameters.Find(p => p.Name == tokens[i + 3].Value);
                 if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
                 {
                     paramRef.BoundTableAlias = tableAlias;
@@ -70,7 +70,7 @@ public static partial class SqlParser
                 tokens[i + 2].Type == TokenType.Parameter)
             {
                 var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
-                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 2].Value);
+                var paramRef = model.Parameters.Find(p => p.Name == tokens[i + 2].Value);
                 if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
                 {
                     paramRef.BoundTableAlias = tableAlias;
@@ -93,7 +93,7 @@ public static partial class SqlParser
             {
                 var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
 
-                var lowerParam = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 2].Value);
+                var lowerParam = model.Parameters.Find(p => p.Name == tokens[i + 2].Value);
                 if (lowerParam != null && string.IsNullOrEmpty(lowerParam.BoundColumnName))
                 {
                     lowerParam.BoundTableAlias = tableAlias;
@@ -105,7 +105,7 @@ public static partial class SqlParser
                     tokens[i + 3].Type == TokenType.Keyword && tokens[i + 3].Value == "AND" &&
                     tokens[i + 4].Type == TokenType.Parameter)
                 {
-                    var upperParam = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 4].Value);
+                    var upperParam = model.Parameters.Find(p => p.Name == tokens[i + 4].Value);
                     if (upperParam != null && string.IsNullOrEmpty(upperParam.BoundColumnName))
                     {
                         upperParam.BoundTableAlias = tableAlias;

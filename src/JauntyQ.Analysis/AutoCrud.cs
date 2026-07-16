@@ -38,6 +38,22 @@ public static class AutoCrud
         }
     }
 
+    /// <summary>
+    /// Builds "sep"-joined text from each column via <paramref name="selector"/>
+    /// without pulling in System.Linq (product code stays reflection/LINQ-free
+    /// for NativeAOT compatibility). string.Join(string, IEnumerable&lt;string&gt;)
+    /// is a plain System.String member, not an Enumerable extension method.
+    /// </summary>
+    private static string JoinColumns(List<ColumnSchema> cols, string separator, System.Func<ColumnSchema, string> selector)
+    {
+        if (cols.Count == 0)
+            return "";
+        var parts = new List<string>(cols.Count);
+        foreach (var c in cols)
+            parts.Add(selector(c));
+        return string.Join(separator, parts);
+    }
+
     public static List<SyntheticQuery> Synthesize(DatabaseSchema schema)
     {
         var result = new List<SyntheticQuery>();
@@ -65,13 +81,13 @@ public static class AutoCrud
                 continue;
 
             string entityName = DialectMapper.ToPascalCase(table.Name);
-            string colList = string.Join(", ", columns.Select(c => c.Name));
+            string colList = JoinColumns(columns, ", ", c => c.Name);
 
             // GetAll — always (works for views and PK-less tables too)
             result.Add(new SyntheticQuery(entityName, "GetAll",
                 $"select {colList}\nfrom {table.Name}", table.Name));
 
-            var pkCols = columns.Where(c => c.IsPrimaryKey).ToList();
+            var pkCols = columns.FindAll(c => c.IsPrimaryKey);
 
             // FK loaders: one GetBy<FkColumn> per foreign-key column on this
             // table (composite FKs yield one loader per column). Skipped when
@@ -95,7 +111,7 @@ public static class AutoCrud
             if (pkCols.Count == 0)
                 continue; // views / heap tables: read-only beyond GetAll (+ FK loaders)
 
-            string pkWhere = string.Join(" and ", pkCols.Select(c => $"{table.Name}.{c.Name} = @{c.Name}"));
+            string pkWhere = JoinColumns(pkCols, " and ", c => $"{table.Name}.{c.Name} = @{c.Name}");
 
             // GetById — single row by primary key
             result.Add(new SyntheticQuery(entityName, "GetById",
@@ -105,18 +121,23 @@ public static class AutoCrud
             // tokens — never inserted or updated, but required in the WHERE of
             // Update/Delete so a stale read can't overwrite a newer write
             // (0 rows affected = conflict).
-            var versionCols = columns.Where(c => c.IsRowVersion).ToList();
+            var versionCols = columns.FindAll(c => c.IsRowVersion);
 
             // Insert — identity columns are database-assigned, never bound.
             // When the table has a single identity key and the snapshot knows
             // the dialect, the synthetic Insert returns the new id (-- @identity).
-            var insertCols = columns.Where(c => !c.IsIdentity && !c.IsRowVersion && !c.IsComputed).ToList();
+            var insertCols = columns.FindAll(c => !c.IsIdentity && !c.IsRowVersion && !c.IsComputed);
             if (insertCols.Count > 0)
             {
-                string insertColList = string.Join(", ", insertCols.Select(c => c.Name));
-                string insertParams = string.Join(", ", insertCols.Select(c => $"@{c.Name}"));
-                bool returnsIdentity = !string.IsNullOrEmpty(schema.Dialect)
-                    && columns.Count(c => c.IsIdentity) == 1;
+                string insertColList = JoinColumns(insertCols, ", ", c => c.Name);
+                string insertParams = JoinColumns(insertCols, ", ", c => $"@{c.Name}");
+                int identityColCount = 0;
+                foreach (var c in columns)
+                {
+                    if (c.IsIdentity)
+                        identityColCount++;
+                }
+                bool returnsIdentity = !string.IsNullOrEmpty(schema.Dialect) && identityColCount == 1;
                 string prefix = returnsIdentity ? "-- @identity\n" : "";
                 result.Add(new SyntheticQuery(entityName, "Insert",
                     $"{prefix}insert into {table.Name} ({insertColList})\nvalues ({insertParams})", table.Name));
@@ -133,18 +154,20 @@ public static class AutoCrud
             // Part7.cs's EmitPocoOverloads setCols exactly -- that list
             // supplies the Update(row) POCO overload's forwarded arguments
             // and has to match this SQL's @parameter list one-for-one.
-            var setCols = columns.Where(c => !c.IsPrimaryKey && !c.IsIdentity && !c.IsRowVersion && !c.IsComputed).ToList();
-            var whereCols = pkCols.Concat(versionCols).ToList();
+            var setCols = columns.FindAll(c => !c.IsPrimaryKey && !c.IsIdentity && !c.IsRowVersion && !c.IsComputed);
+            var whereCols = new List<ColumnSchema>(pkCols.Count + versionCols.Count);
+            whereCols.AddRange(pkCols);
+            whereCols.AddRange(versionCols);
             if (setCols.Count > 0)
             {
-                string setList = string.Join(", ", setCols.Select(c => $"{c.Name} = @{c.Name}"));
-                string updateWhere = string.Join(" and ", whereCols.Select(c => $"{c.Name} = @{c.Name}"));
+                string setList = JoinColumns(setCols, ", ", c => $"{c.Name} = @{c.Name}");
+                string updateWhere = JoinColumns(whereCols, " and ", c => $"{c.Name} = @{c.Name}");
                 result.Add(new SyntheticQuery(entityName, "Update",
                     $"update {table.Name}\nset {setList}\nwhere {updateWhere}", table.Name));
             }
 
             // Delete — WHERE the full primary key (plus rowversion token)
-            string deleteWhere = string.Join(" and ", whereCols.Select(c => $"{c.Name} = @{c.Name}"));
+            string deleteWhere = JoinColumns(whereCols, " and ", c => $"{c.Name} = @{c.Name}");
             result.Add(new SyntheticQuery(entityName, "Delete",
                 $"delete from {table.Name}\nwhere {deleteWhere}", table.Name));
 
@@ -173,10 +196,9 @@ public static class AutoCrud
             // (identity-only-PK case), or SQL that writes to / updates the
             // identity column directly (natural-PK case) -- the database
             // rejects both at runtime.
-            bool hasNonKeyColumns = upsertKey != null &&
-                columns.Any(c => !c.IsRowVersion && !c.IsComputed
-                    && !c.IsIdentity
-                    && !upsertKey.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
+            bool hasNonKeyColumns = upsertKey != null && columns.Exists(c => !c.IsRowVersion && !c.IsComputed
+                && !c.IsIdentity
+                && !upsertKey.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
             if (upsertKey != null && hasNonKeyColumns && !string.IsNullOrEmpty(schema.Dialect))
             {
                 result.Add(new SyntheticQuery(entityName, "Upsert", "", table.Name, isUpsert: true));

@@ -48,7 +48,7 @@ public static partial class CodeEmitter
         string connVar, bool isStatic, bool isAsync)
     {
         var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync);
-        string colList = string.Join(", ", cols.Select(c => c.Name));
+        string colList = JoinColumns(cols, ", ", c => c.Name);
         string copySql = $"COPY {tableName} ({colList}) FROM STDIN (FORMAT BINARY)";
 
         sb.AppendLine($"        {modifier}{asyncModifier} {ret} {name}({paramList})");
