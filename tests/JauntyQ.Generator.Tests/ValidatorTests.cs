@@ -204,8 +204,12 @@ where p.category_id = @categoryId");
     }
 
     [Fact]
-    public void UnionQuery_JNT1001()
+    public void UnionQuery_JNT1006_Error()
     {
+        // UNION gets its own Error-severity diagnostic, not JNT1001's
+        // Warning: the parser only ever models the first branch's column
+        // shape, so a differently-nullable second branch would otherwise
+        // silently generate code that throws at read time.
         var query = ParseSql(@"
 select p.product_id from products p
 union
@@ -213,9 +217,9 @@ select c.category_id from categories c");
 
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JNT1001");
+        Assert.Contains(errors, e => e.Code == "JNT1006");
         Assert.Contains(errors, e => e.Message.Contains("UNION"));
-        Assert.Equal(ValidationSeverity.Warning, errors.First(e => e.Code == "JNT1001").Severity);
+        Assert.Equal(ValidationSeverity.Error, errors.First(e => e.Code == "JNT1006").Severity);
     }
 
     [Fact]
@@ -297,7 +301,7 @@ where p.category_id in (select c.nonexistent from categories c)");
     }
 
     [Fact]
-    public void Subquery_UnionInside_StillRejected_JNT1001()
+    public void Subquery_UnionInside_StillRejected_JNT1006()
     {
         var query = ParseSql(@"
 select p.product_id from products p
@@ -308,7 +312,8 @@ where p.category_id in (
 
         var errors = QueryValidator.Validate(query, CreateTestSchema());
 
-        Assert.Contains(errors, e => e.Code == "JNT1001" && e.Message.Contains("UNION"));
+        Assert.Contains(errors, e => e.Code == "JNT1006" && e.Message.Contains("UNION"));
+        Assert.Equal(ValidationSeverity.Error, errors.First(e => e.Code == "JNT1006").Severity);
     }
 
     [Fact]

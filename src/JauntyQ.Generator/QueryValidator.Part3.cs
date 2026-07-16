@@ -50,6 +50,21 @@ public static partial class QueryValidator
     {
         foreach (var construct in query.UnsupportedConstructs)
         {
+            // UNION gets its own Error-severity diagnostic (JNT1006) instead
+            // of this generic Warning: the generator would otherwise proceed
+            // to emit code modeled on only the first branch. See JNT1006's
+            // doc comment for why that's a correctness bug, not a stylistic
+            // nicety.
+            if (construct == "UNION")
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT1006,
+                    "UNION/UNION ALL is not supported: the generator only models the first branch's " +
+                    "column shape, so a second branch with different nullability would silently generate " +
+                    "code that reads NULL as non-nullable and throws at runtime. Split into separate " +
+                    "queries, or model the combined result as an application-level merge."));
+                continue;
+            }
+
             errors.Add(new ValidationError(JauntyDiagnostics.JNT1001,
                 $"Unsupported SQL construct: {construct}"));
         }

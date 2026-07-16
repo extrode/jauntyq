@@ -60,6 +60,27 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    /// <summary>
+    /// UNION gets its own Error-severity diagnostic rather than sharing
+    /// JNT1001's Warning severity: the parser only ever models the first
+    /// branch's projection (SqlParser.Part6.cs records the UNION construct
+    /// but never parses past it), so a second branch with different
+    /// nullability (e.g. a literal NULL in a column the first branch has
+    /// NOT NULL) silently generates a projection that throws at read time --
+    /// this isn't "an unusual construct we noticed", it's "we know the
+    /// generated code is wrong here."
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT1006 = new(
+        "JNT1006",
+        "Unsupported UNION",
+        "UNION/UNION ALL is not supported: the generator only models the first branch's " +
+        "column shape, so a second branch with different nullability would silently generate " +
+        "code that reads NULL as non-nullable and throws at runtime. Split into separate " +
+        "queries, or model the combined result as an application-level merge.",
+        "JauntyQ.Parsing",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 2xxx: Schema Validation ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT2001 = new(
