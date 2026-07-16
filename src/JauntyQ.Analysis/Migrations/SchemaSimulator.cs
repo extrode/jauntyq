@@ -179,12 +179,24 @@ public static class SchemaSimulator
                 continue;
             }
 
-            // ALTER COLUMN changes type/nullability/facets; key and identity
-            // status stay with the existing column.
+            // ALTER COLUMN changes type/nullability/facets; key status stays
+            // with the existing column always. Identity status also stays
+            // put for SQL Server/Postgres/SQLite, whose ALTER COLUMN cannot
+            // touch identity at all (Postgres needs a separate ADD/DROP
+            // GENERATED ... AS IDENTITY clause). MySQL's MODIFY is different:
+            // it fully REDEFINES the column, so a MODIFY that omits
+            // AUTO_INCREMENT really does drop it, and one that adds it really
+            // does add it -- ParseColumnDef already captured whichever the
+            // statement declared in col.IsIdentity, so honor that verbatim
+            // for MySQL instead of forcing back the pre-migration value
+            // (which previously made a MODIFY ... AUTO_INCREMENT silently
+            // no-op: the simulated schema kept reporting non-identity while
+            // a live re-pull after the same migration would report identity).
             var existing = table.Columns[actualKey];
             var updated = Finalize(col, schema.Dialect);
             updated.IsPrimaryKey = existing.IsPrimaryKey;
-            updated.IsIdentity = existing.IsIdentity;
+            if (!string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
+                updated.IsIdentity = existing.IsIdentity;
             // Reassign under the RESOLVED key, not col.Name: if the migration
             // spells the column differently-cased than the stored key,
             // indexing by col.Name would silently ADD a second, duplicate

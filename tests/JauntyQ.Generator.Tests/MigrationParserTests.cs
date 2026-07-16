@@ -542,6 +542,41 @@ alter table products add supplier_note nvarchar(50) null;
         Assert.True(id.IsIdentity);
     }
 
+    [Fact]
+    public void MySqlModify_HonorsDeclaredIdentity_UnlikeOtherDialectsAlterColumn()
+    {
+        // MySQL's MODIFY fully REDEFINES the column (unlike SQL Server/
+        // Postgres/SQLite's ALTER COLUMN, which cannot touch identity at
+        // all): a MODIFY that adds AUTO_INCREMENT really does add it, and
+        // one that omits it on an already-identity column really does drop
+        // it. Previously ApplyAlterColumn always forced back the
+        // pre-migration IsIdentity regardless of dialect, so a
+        // MODIFY ... AUTO_INCREMENT silently no-opped in the simulated
+        // schema even though the parser correctly read it.
+        var mysqlSchema = BaseSchema();
+        mysqlSchema.Dialect = "mysql";
+        mysqlSchema.Tables["products"].Columns["product_id"].IsIdentity = false;
+
+        var (added, errors) = Apply(mysqlSchema, "alter table products modify product_id int not null auto_increment");
+        Assert.Empty(errors);
+        Assert.True(added.Tables["products"].Columns["product_id"].IsIdentity);
+
+        var mysqlSchema2 = BaseSchema();
+        mysqlSchema2.Dialect = "mysql";
+        mysqlSchema2.Tables["products"].Columns["product_id"].IsIdentity = true;
+
+        var (removed, errors2) = Apply(mysqlSchema2, "alter table products modify product_id int not null");
+        Assert.Empty(errors2);
+        Assert.False(removed.Tables["products"].Columns["product_id"].IsIdentity);
+
+        // Control: SQL Server's ALTER COLUMN still preserves identity
+        // regardless of what the statement's own type token says, matching
+        // AlterColumn_ChangesFacets_KeepsKeyAndIdentity above.
+        var (sqlServerSchema, errors3) = Apply(BaseSchema(), "alter table products alter column product_id bigint not null");
+        Assert.Empty(errors3);
+        Assert.True(sqlServerSchema.Tables["products"].Columns["product_id"].IsIdentity);
+    }
+
     [Theory]
     [InlineData("alter table products alter column product_name drop not null", true)]
     [InlineData("alter table products alter column product_name set not null", false)]
