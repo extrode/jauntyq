@@ -316,6 +316,27 @@ public class ExpressionAndCteTests
     }
 
     [Fact]
+    public void DataModifyingCteUnderSqlServer_JNT7002()
+    {
+        // Round 14 sibling-sweep: ValidateDialectConstructs gates the
+        // writable-CTE construct on a single `isSqlServer || isMySql ||
+        // isSqlite` condition (QueryValidator.Part3.cs ~line 152), but only
+        // the MySql and Sqlite arms had a dedicated regression test
+        // (DataModifyingCteUnderMySql_JNT7002 below, and
+        // DataModifyingCteUnderSqlite_JNT7002 added by AUD-R11-01) --
+        // sqlserver itself, the dialect the diagnostic's own doc comment
+        // leads with, was only ever exercised for the separate RETURNING
+        // gate (ReturningUnderSqlServer_JNT7002 above), never for this one.
+        var sqlServerSchema = SchemaJson.Replace("\"dialect\": \"postgres\"", "\"dialect\": \"sqlserver\"");
+        var sql =
+            "with d1 as (delete from email_addresses where user_id = @userId) " +
+            "delete from users where id = @userId";
+        var (result, _) = Run(sql, "db/Users/PurgeUser.sql", sqlServerSchema);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT7002");
+    }
+
+    [Fact]
     public void DataModifyingCteUnderMySql_JNT7002()
     {
         // MySQL/MariaDB CTE bodies can only be a SELECT; a modifying CTE body
@@ -492,6 +513,52 @@ public class ExpressionAndCteTests
 
         AssertNoErrors(result);
         var source = GetSource(result, "Users.GetWithOptionalCte.g.cs");
+        Assert.Contains("string? FirstName", source);
+        Assert.DoesNotContain("string FirstName", source);
+    }
+
+    [Fact]
+    public void CteColumn_OuterRightJoinOptionalSide_IsNullable()
+    {
+        // Round 14 sibling-sweep (audit-criteria §4.4) of
+        // CteColumn_OuterLeftJoinOptionalSide_IsNullable above: that fix
+        // (forceNullable = resolvedTableKey != null &&
+        // outerJoinedKeys.Contains(resolvedTableKey)) is join-kind-agnostic
+        // by construction -- ProjectionBuilder.Build populates
+        // outerJoinedKeys for RIGHT JOIN by marking every *earlier* key in
+        // the FROM/JOIN chain (see ProjectionBuilder.cs ~line 43-47), the
+        // same set ResolveColumn's resolvedTableKey is checked against
+        // regardless of whether that key maps to a real table or a CTE.
+        // Only the LEFT JOIN case had a dedicated regression test; this
+        // closes the RIGHT JOIN gap the same mechanism was never proven
+        // against (real-table RIGHT JOIN nullability has its own coverage:
+        // ProjectionBuilderTests.Build_RightJoin_ForcesPreservedSideTableColumnsNullable).
+        var sql =
+            "with c as (select id, first_name from users) " +
+            "select c.first_name, u.id from c right join users u on c.id = u.id";
+        var (result, _) = Run(sql, "db/Users/GetWithOptionalCteRight.sql");
+
+        AssertNoErrors(result);
+        var source = GetSource(result, "Users.GetWithOptionalCteRight.g.cs");
+        Assert.Contains("string? FirstName", source);
+        Assert.DoesNotContain("string FirstName", source);
+    }
+
+    [Fact]
+    public void CteColumn_OuterFullJoinOptionalSide_IsNullable()
+    {
+        // Round 14 sibling-sweep, FULL JOIN half: FULL marks BOTH sides
+        // optional (the CTE side via the same-key branch at
+        // ProjectionBuilder.cs ~line 41, and the real-table preceding side
+        // via the earlier-keys branch at ~line 43), so a CTE reference on
+        // either side must widen.
+        var sql =
+            "with c as (select id, first_name from users) " +
+            "select u.id, c.first_name from users u full join c on c.id = u.id";
+        var (result, _) = Run(sql, "db/Users/GetWithOptionalCteFull.sql");
+
+        AssertNoErrors(result);
+        var source = GetSource(result, "Users.GetWithOptionalCteFull.g.cs");
         Assert.Contains("string? FirstName", source);
         Assert.DoesNotContain("string FirstName", source);
     }
