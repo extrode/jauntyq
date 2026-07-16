@@ -45,9 +45,9 @@ public class NpgsqlTypedParamTests
         return driver.GetRunResult();
     }
 
-    private static string QuerySource(GeneratorDriverRunResult result) =>
+    private static string QuerySource(GeneratorDriverRunResult result, string hintName = "Products.TestQuery.g.cs") =>
         result.Results[0].GeneratedSources
-            .Single(s => s.HintName == "Products.TestQuery.g.cs")
+            .Single(s => s.HintName == hintName)
             .SourceText.ToString();
 
     [Fact]
@@ -143,6 +143,83 @@ public class NpgsqlTypedParamTests
 
         Assert.True(errors.Count == 0,
             "generated postgres code failed to compile against Npgsql:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    // "time with time zone" maps to System.DateTimeOffset (task #26/#30).
+    // IsNonNullableValueType/MapCSharpTypeToAdoDbType (CodeEmitter.Part4.cs)
+    // didn't know DateTimeOffset: a non-nullable timetz parameter missed the
+    // NpgsqlParameter<T> TypedValue fast path (perf regression, not a compile
+    // error), and a nullable one silently skipped the DbType pin, which would
+    // throw "Parameter '@...' must have either its DbType ... or its Value
+    // set" at runtime the moment the parameter is bound null.
+    private const string PostgresDateTimeOffsetSchemaJson = @"{
+  ""dialect"": ""postgres"",
+  ""tables"": {
+    ""events"": {
+      ""name"": ""events"",
+      ""columns"": {
+        ""event_id"": { ""name"": ""event_id"", ""dbType"": ""integer"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""observed_at"": { ""name"": ""observed_at"", ""dbType"": ""time with time zone"", ""isNullable"": false },
+        ""resolved_at"": { ""name"": ""resolved_at"", ""dbType"": ""time with time zone"", ""isNullable"": true }
+      }
+    }
+  }
+}";
+
+    [Fact]
+    public void PostgresDateTimeOffsetParam_NonNullable_UsesTypedValueFastPath_Nullable_PinsDbType()
+    {
+        var result = Run(PostgresDateTimeOffsetSchemaJson,
+            "insert into events (observed_at, resolved_at)\nvalues (@observed_at, @resolved_at)",
+            "db/Events/Insert.sql");
+        string source = QuerySource(result, "Events.Insert.g.cs");
+
+        Assert.Contains("new global::Npgsql.NpgsqlParameter<System.DateTimeOffset> { ParameterName = \"@observed_at\", TypedValue = observed_at }", source);
+
+        Assert.DoesNotContain("NpgsqlParameter<System.DateTimeOffset?>", source);
+        Assert.Contains(".Value = (object?)resolved_at ?? System.DBNull.Value;", source);
+        Assert.Contains(".DbType = System.Data.DbType.DateTimeOffset;", source);
+    }
+
+    [Fact]
+    public void GeneratedPostgresDateTimeOffsetCode_CompilesAgainstRealNpgsql()
+    {
+        var result = Run(PostgresDateTimeOffsetSchemaJson,
+            "insert into events (observed_at, resolved_at)\nvalues (@observed_at, @resolved_at)",
+            "db/Events/Insert.sql");
+        string source = QuerySource(result, "Events.Insert.g.cs");
+
+        string runtimeDir = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+        var references = new List<MetadataReference>
+        {
+            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Runtime.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Data.Common.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Collections.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Threading.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.ComponentModel.Primitives.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "netstandard.dll")),
+            MetadataReference.CreateFromFile(typeof(Npgsql.NpgsqlParameter).Assembly.Location),
+        };
+
+        var extraSources = result.Results[0].GeneratedSources
+            .Where(s => s.HintName is "Events.Core.g.cs" or "JauntyDb.g.cs" or "JauntyQShapeGuard.g.cs")
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        extraSources.Add(CSharpSyntaxTree.ParseText(source));
+
+        var compilation = CSharpCompilation.Create("NpgsqlDateTimeOffsetEmittedCode",
+            extraSources,
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+
+        Assert.True(errors.Count == 0,
+            "generated postgres code with a DateTimeOffset parameter failed to compile against Npgsql:\n" +
             string.Join("\n", errors.Select(e => e.ToString())));
     }
 

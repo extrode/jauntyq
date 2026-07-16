@@ -126,7 +126,7 @@ public static partial class CodeEmitter
     private static bool IsNonNullableValueType(string csharpType) => csharpType switch
     {
         "int" or "long" or "short" or "byte" or "bool" or "decimal" or "double" or "float"
-            or "System.DateTime" or "System.TimeSpan" or "System.Guid" => true,
+            or "System.DateTime" or "System.DateTimeOffset" or "System.TimeSpan" or "System.Guid" => true,
         _ => false
     };
 
@@ -149,6 +149,7 @@ public static partial class CodeEmitter
             "float" => "Single",
             "string" => "String",
             "System.DateTime" => "DateTime",
+            "System.DateTimeOffset" => "DateTimeOffset",
             "System.TimeSpan" => "Time",
             "System.Guid" => "Guid",
             "byte[]" => "Binary",

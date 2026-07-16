@@ -145,6 +145,73 @@ public class BulkInsertTests
         Assert.Contains("AllowLoadLocalInfile=true", src);
     }
 
+    // A NOT NULL "time with time zone" column maps to non-nullable
+    // System.DateTimeOffset (task #26/#30). IsNonNullableValueType (CodeEmitter.
+    // Part4.cs) didn't know DateTimeOffset, so EmitBulkInsertBodyPostgres took
+    // the reference/nullable branch and emitted `if (row.ObservedAt is null)`
+    // against a non-nullable struct property -- CS0037 ("cannot convert null
+    // to 'System.DateTimeOffset' because it is a non-nullable value type"),
+    // invisible to a syntax-only parse check since object/struct nullability
+    // is a binding-time error, not a syntax error.
+    private const string PostgresDateTimeOffsetSchemaJson = @"{
+  ""dialect"": ""postgres"",
+  ""tables"": {
+    ""Widgets"": {
+      ""name"": ""Widgets"",
+      ""columns"": {
+        ""WidgetId"": { ""name"": ""WidgetId"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""ObservedAt"": { ""name"": ""ObservedAt"", ""dbType"": ""time with time zone"", ""isNullable"": false }
+      }
+    }
+  }
+}";
+
+    [Fact]
+    public void Postgres_NonNullableDateTimeOffsetColumn_BulkInsert_TakesUnconditionalWritePath()
+    {
+        var src = AllSources(Run(PostgresDateTimeOffsetSchemaJson));
+
+        // Non-nullable DateTimeOffset must take IsNonNullableValueType's
+        // unconditional-write branch, not the reference/nullable
+        // "if (row.Prop is null)" branch.
+        Assert.Contains("__importer.Write(row.ObservedAt)", src);
+        Assert.DoesNotContain("if (row.ObservedAt is null)", src);
+    }
+
+    [Fact]
+    public void Postgres_NonNullableDateTimeOffsetColumn_BulkInsert_CompilesCleanAgainstRealNpgsql()
+    {
+        var result = Run(PostgresDateTimeOffsetSchemaJson);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+
+        string runtimeDir = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+        var references = new List<MetadataReference>
+        {
+            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Runtime.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Data.Common.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Collections.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Linq.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Threading.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.ComponentModel.Primitives.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "netstandard.dll")),
+            MetadataReference.CreateFromFile(typeof(Npgsql.NpgsqlParameter).Assembly.Location),
+        };
+
+        var compilation = CSharpCompilation.Create("BulkInsertDateTimeOffsetAssembly",
+            allTrees,
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated bulk insert code with a non-nullable DateTimeOffset column failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
     [Fact]
     public void Sqlite_KeepsPortableLoop_NoProviderTypes()
     {

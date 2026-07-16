@@ -15,6 +15,7 @@ public class CSharpToSqlTypeMapperTests
     [InlineData("float", "real")]
     [InlineData("string", "nvarchar(MAX)")]
     [InlineData("System.DateTime", "datetime2")]
+    [InlineData("System.DateTimeOffset", "datetimeoffset")]
     [InlineData("System.TimeSpan", "time")]
     [InlineData("System.Guid", "uniqueidentifier")]
     [InlineData("byte[]", "varbinary(MAX)")]
