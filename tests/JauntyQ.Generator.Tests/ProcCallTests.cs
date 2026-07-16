@@ -45,6 +45,11 @@ public class ProcCallTests
         { ""name"": ""Quantity"", ""dbType"": ""int"", ""direction"": ""InOut"", ""isNullable"": false }
       ],
       ""results"": []
+    },
+    ""GetProductsAndCount"": {
+      ""name"": ""GetProductsAndCount"",
+      ""params"": [ { ""name"": ""Total"", ""dbType"": ""int"", ""direction"": ""Out"", ""isNullable"": false } ],
+      ""results"": [ { ""name"": ""ProductId"", ""dbType"": ""int"", ""isNullable"": false } ]
     }
   }
 }";
@@ -201,6 +206,66 @@ public class ProcCallTests
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         Assert.True(errors.Count == 0,
             "generated proc-call code with an INOUT param failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    /// <summary>
+    /// A row-returning proc with an OUT param must read the OUT param back
+    /// AFTER the reader's using block closes, not inside it. Confirmed live
+    /// against Microsoft.Data.SqlClient (Testcontainers SQL Server): reading
+    /// cmd.Parameters[i].Value while a DbDataReader from the same command is
+    /// still open -- even after every row has been read via reader.Read()
+    /// returning false -- returns DBNull, not the procedure's real OUT value.
+    /// Only once the reader is disposed does the provider populate it. Before
+    /// the fix, EmitProcCallBody read it back inside the using block (at one
+    /// extra indent level, 20 spaces); the fix moves it after the block's
+    /// closing brace (back at the method body's own 16-space indent), so the
+    /// indentation of the readback line is a precise, cheap proxy for "did
+    /// this happen before or after the reader closed" without having to
+    /// re-parse the emitted source's control flow.
+    /// </summary>
+    [Fact]
+    public void Call_RowReturningWithOutParam_ReadsBackOutParamAfterReaderCloses()
+    {
+        var result = Run("-- @call GetProductsAndCount\n", "db/Products/GetProductsAndCount.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Products.GetProductsAndCount.g.cs").SourceText.ToString();
+
+        // Sync overloads assign the out parameter directly (declareLocals: false).
+        Assert.Contains("\n                total = p0.Value is null", source);
+        Assert.DoesNotContain("\n                    total = p0.Value is null", source);
+
+        // Async overloads declare a local to fold into the tuple return (declareLocals: true).
+        Assert.Contains("\n                int totalOut = p0.Value is null", source);
+        Assert.DoesNotContain("\n                    int totalOut = p0.Value is null", source);
+
+        // Both readback forms occur once per overload (instance/static x sync/async).
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(source, @"total = p0\.Value is null").Count);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(source, @"int totalOut = p0\.Value is null").Count);
+    }
+
+    /// <summary>
+    /// Same shape as <see cref="GeneratedProcCallCode_WithOutParam_CompilesAgainstRealAdo"/>,
+    /// for a proc that both returns rows AND has an OUT param -- the specific
+    /// combination the readback-ordering fix applies to.
+    /// </summary>
+    [Fact]
+    public void GeneratedProcCallCode_RowReturningWithOutParam_CompilesAgainstRealAdo()
+    {
+        var result = Run("-- @call GetProductsAndCount\n", "db/Products/GetProductsAndCount.sql");
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+
+        var compilation = CSharpCompilation.Create("ProcCallRowReturningWithOutEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated row-returning proc-call code with an OUT param failed to compile:\n" +
             string.Join("\n", errors.Select(e => e.ToString())));
     }
 }
