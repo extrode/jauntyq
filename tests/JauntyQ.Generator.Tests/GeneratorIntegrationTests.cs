@@ -10,6 +10,7 @@ namespace JauntyQ.Generator.Tests;
 public class GeneratorIntegrationTests
 {
     private const string SchemaJson = @"{
+  ""dialect"": ""sqlserver"",
   ""tables"": {
     ""products"": {
       ""name"": ""products"",
@@ -33,7 +34,7 @@ public class GeneratorIntegrationTests
 }";
 
     private static (GeneratorDriverRunResult result, Compilation compilation) RunGenerator(
-        string sql, string sqlFilePath = "db/Products/GetProducts.sql")
+        string sql, string sqlFilePath = "db/Products/GetProducts.sql", string? schemaJson = null)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText("");
         var references = new[]
@@ -61,7 +62,7 @@ public class GeneratorIntegrationTests
         var driver = CSharpGeneratorDriver.Create(generator)
             .AddAdditionalTexts(ImmutableArray.Create<AdditionalText>(
                 new InMemoryAdditionalText(sqlFilePath, sql),
-                new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson)
+                new InMemoryAdditionalText("schema/jaunty.schema.json", schemaJson ?? SchemaJson)
             ))
             .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
 
@@ -785,6 +786,38 @@ where p.category_id = c.category_id and c.category_name = @categoryName";
         Assert.DoesNotContain("StoredProcedure", source);
         Assert.DoesNotContain("partial class Proc", source);
         Assert.Contains("cmd.CommandText = @\"", source);
+    }
+
+    [Theory]
+    [InlineData("postgres")]
+    [InlineData("mysql")]
+    [InlineData("sqlite")]
+    public void ProcDirective_NonSqlServerDialect_ReportsJNT7002_InsteadOfEmittingBrokenDdl(string dialect)
+    {
+        // EmitProcScript unconditionally emits "CREATE OR ALTER PROCEDURE ...
+        // AS BEGIN ... END" with T-SQL-only parameter types
+        // (CSharpToSqlTypeMapper) -- Postgres/MySQL have no "CREATE OR ALTER"
+        // syntax and no "uniqueidentifier" type, and SQLite has no stored
+        // procedures at all. Before this fix, -- @proc under any of these
+        // dialects silently generated a non-functional SQL string constant
+        // with zero diagnostic anywhere in the pipeline.
+        string schemaJson = SchemaJson.Replace("\"dialect\": \"sqlserver\"", $"\"dialect\": \"{dialect}\"");
+        var sql = "-- @proc\nselect p.product_id, p.product_name from products p where p.category_id = @categoryId";
+        var (result, _) = RunGenerator(sql, schemaJson: schemaJson);
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT7002");
+        Assert.Contains(dialect, diag.GetMessage());
+    }
+
+    [Fact]
+    public void ProcDirective_SqlServerDialect_StillEmitsDdl_NoDialectDiagnostic()
+    {
+        var sql = "-- @proc\nselect p.product_id, p.product_name from products p where p.category_id = @categoryId";
+        var (result, _) = RunGenerator(sql);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT7002");
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("CREATE OR ALTER PROCEDURE [Products_GetProducts]", source);
     }
 
     // ── GW-2: async variants ───────────────────────────────
