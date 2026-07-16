@@ -121,6 +121,72 @@ create table order_items (
         Assert.Equal("reorder_level", Assert.Single(stmt.ColumnNames));
     }
 
+    [Fact]
+    public void AlterDropColumn_MultipleNames_CommaSeparated()
+    {
+        var statements = MigrationParser.Parse("alter table products drop column reorder_level, discontinued");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.DropColumn, stmt.Kind);
+        Assert.Equal(new[] { "reorder_level", "discontinued" }, stmt.ColumnNames);
+    }
+
+    [Fact]
+    public void AlterTable_MixedAddDropAdd_SplitsIntoThreeActions()
+    {
+        // ADD/DROP/COLUMN aren't tokenizer keywords (they tokenize as plain
+        // identifiers), so a second action clause used to satisfy
+        // ParseColumnDef's "identifier identifier" shape and get misparsed
+        // as a phantom column (e.g. "DROP COLUMN b" read as a column named
+        // "DROP" of type "column") instead of its own DropColumn action.
+        var statements = MigrationParser.Parse(
+            "alter table products add discontinued_at datetime null, drop column reorder_level, add note nvarchar(50)");
+
+        Assert.Equal(3, statements.Count);
+
+        Assert.Equal(MigrationStatementKind.AddColumn, statements[0].Kind);
+        var added1 = Assert.Single(statements[0].Columns);
+        Assert.Equal("discontinued_at", added1.Name);
+        Assert.Equal("datetime", added1.DbType);
+
+        Assert.Equal(MigrationStatementKind.DropColumn, statements[1].Kind);
+        Assert.Equal("reorder_level", Assert.Single(statements[1].ColumnNames));
+
+        Assert.Equal(MigrationStatementKind.AddColumn, statements[2].Kind);
+        var added2 = Assert.Single(statements[2].Columns);
+        Assert.Equal("note", added2.Name);
+        Assert.Equal(50, added2.MaxLength);
+
+        foreach (var stmt in statements)
+            Assert.Equal("products", stmt.TableName);
+    }
+
+    [Fact]
+    public void AlterTable_RepeatedAddColumnClauses_EachOwnAction()
+    {
+        var statements = MigrationParser.Parse(
+            "alter table products add column a int, add column b varchar(10)");
+
+        Assert.Equal(2, statements.Count);
+        Assert.Equal(MigrationStatementKind.AddColumn, statements[0].Kind);
+        Assert.Equal("a", Assert.Single(statements[0].Columns).Name);
+        Assert.Equal(MigrationStatementKind.AddColumn, statements[1].Kind);
+        Assert.Equal("b", Assert.Single(statements[1].Columns).Name);
+    }
+
+    [Fact]
+    public void AlterTable_MultipleAlterColumnClauses_EachOwnAction()
+    {
+        var statements = MigrationParser.Parse(
+            "alter table products alter column product_name nvarchar(20) not null, alter column unit_price decimal(12,4) null");
+
+        Assert.Equal(2, statements.Count);
+        Assert.Equal(MigrationStatementKind.AlterColumn, statements[0].Kind);
+        Assert.Equal("product_name", Assert.Single(statements[0].Columns).Name);
+        Assert.Equal(MigrationStatementKind.AlterColumn, statements[1].Kind);
+        Assert.Equal("unit_price", Assert.Single(statements[1].Columns).Name);
+    }
+
     [Theory]
     [InlineData("alter table products alter column product_name nvarchar(10) not null")] // sqlserver
     [InlineData("alter table products modify column product_name nvarchar(10) not null")] // mysql
@@ -315,6 +381,21 @@ public class SchemaSimulatorTests
 
         var (schema2, _) = Apply(BaseSchema(), "create table logs (id int not null primary key, at timestamp not null)");
         Assert.True(schema2.Tables["logs"].Columns["at"].IsRowVersion);
+    }
+
+    [Fact]
+    public void MixedAddDropAdd_AppliesAllThreeActions()
+    {
+        var (schema, errors) = Apply(BaseSchema(),
+            "alter table products add discontinued_at datetime null, drop column unit_price, add note nvarchar(50)");
+
+        Assert.Empty(errors);
+        var table = schema.Tables["products"];
+        Assert.True(table.Columns.ContainsKey("discontinued_at"));
+        Assert.False(table.Columns.ContainsKey("unit_price"));
+        Assert.True(table.Columns.ContainsKey("note"));
+        // the untouched column survives all three actions
+        Assert.True(table.Columns.ContainsKey("product_name"));
     }
 
     [Fact]
