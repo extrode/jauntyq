@@ -123,8 +123,17 @@ public static class AutoCrud
             }
 
             // Update — SET every non-PK column, WHERE the full primary key
-            // plus the rowversion token when the table has one.
-            var setCols = columns.Where(c => !c.IsPrimaryKey && !c.IsRowVersion && !c.IsComputed).ToList();
+            // plus the rowversion token when the table has one. A non-PK
+            // identity column (e.g. a separate auto-increment sequence
+            // column alongside a natural-key PK) is also excluded: it's
+            // still database-assigned even though it isn't the key, and
+            // every dialect tested (confirmed live: SQL Server) rejects an
+            // UPDATE that targets an identity column outright ("Cannot
+            // update identity column '...'"). Must mirror CodeEmitter.
+            // Part7.cs's EmitPocoOverloads setCols exactly -- that list
+            // supplies the Update(row) POCO overload's forwarded arguments
+            // and has to match this SQL's @parameter list one-for-one.
+            var setCols = columns.Where(c => !c.IsPrimaryKey && !c.IsIdentity && !c.IsRowVersion && !c.IsComputed).ToList();
             var whereCols = pkCols.Concat(versionCols).ToList();
             if (setCols.Count > 0)
             {

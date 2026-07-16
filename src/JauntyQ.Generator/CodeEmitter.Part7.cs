@@ -23,7 +23,13 @@ public static partial class CodeEmitter
         var columns = new System.Collections.Generic.List<ColumnSchema>(tableSchema.Columns.Values);
         var versionCols = columns.FindAll(c => c.IsRowVersion);
         var pkCols = columns.FindAll(c => c.IsPrimaryKey);
-        var setCols = columns.FindAll(c => !c.IsPrimaryKey && !c.IsRowVersion && !c.IsComputed);
+        // Must mirror AutoCrud.Synthesize's own Update setCols filter exactly
+        // (AutoCrud.cs) -- this list supplies the Update(row) POCO overload's
+        // forwarded arguments and has to match the synthesized SQL's
+        // @parameter list one-for-one, including excluding a non-PK identity
+        // column (database-assigned; every dialect tested rejects an UPDATE
+        // targeting an identity column).
+        var setCols = columns.FindAll(c => !c.IsPrimaryKey && !c.IsIdentity && !c.IsRowVersion && !c.IsComputed);
         var insertCols = columns.FindAll(c => !c.IsIdentity && !c.IsRowVersion && !c.IsComputed);
         ColumnSchema? identityCol = null;
         foreach (var c in columns)
