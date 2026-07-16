@@ -83,6 +83,37 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // parse/validate pipeline entirely.
         if (directives.CallProcName != null)
         {
+            // AUD-R8 (JNT2005 sibling-sweep): every other directive
+            // presupposes the file has its own parsed query (a result shape,
+            // parameters bound from the SQL text, a statement @identity can
+            // check, etc.) -- none of that exists for @call. Before this
+            // check, e.g. "-- @call X" + "-- @proc Y" in the same file
+            // emitted ZERO diagnostics and silently discarded @proc (and
+            // every other directive here behaves the same way, since the
+            // @call branch below never consults them). Reject the
+            // combination explicitly instead of silently picking @call.
+            string? conflictingDirective =
+                directives.IsProc ? "@proc" :
+                directives.IsFirst ? "@first" :
+                directives.ReturnsIdentity ? "@identity" :
+                directives.IsStream ? "@stream" :
+                directives.EachParams != null ? "@each" :
+                directives.TypeDirectives != null ? "@type" :
+                directives.ExplicitParams != null ? "@params" :
+                (directives.ResultTypeName != null || directives.ResultIsVoid || directives.InlineColumns != null) ? "@result" :
+                null;
+
+            if (conflictingDirective != null)
+            {
+                var conflictDiagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+                conflictDiagnostics.AddRange(directiveWarnings);
+                conflictDiagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3003,
+                    $"-- @call cannot be combined with -- {conflictingDirective}: @call has no SQL body of " +
+                    "its own -- its parameter and result shape come entirely from the schema snapshot's " +
+                    $"procedure signature, so -- {conflictingDirective} would be silently ignored. Remove one directive."));
+                return FileResult.WithDiagnostics(entityName, methodName, conflictDiagnostics.ToImmutable());
+            }
+
             var callDiagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>();
             callDiagnostics.AddRange(directiveWarnings);
 
