@@ -9,10 +9,10 @@ public class OrderDetailsTests
     private readonly NorthwindFixture _fixture;
     public OrderDetailsTests(NorthwindFixture fixture) => _fixture = fixture;
 
-    [Fact]
+    [SkippableFact]
     public void GetByOrder_10248_ReturnsDetails()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = _fixture.Db.OrderDetails.GetByOrder(10248);
         Assert.NotEmpty(results);
         Assert.All(results, d => Assert.Equal(10248, d.OrderId));

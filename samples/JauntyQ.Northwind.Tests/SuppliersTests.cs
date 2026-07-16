@@ -9,18 +9,18 @@ public class SuppliersTests
     private readonly NorthwindFixture _fixture;
     public SuppliersTests(NorthwindFixture fixture) => _fixture = fixture;
 
-    [Fact]
+    [SkippableFact]
     public void GetAll_Returns29Suppliers()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = _fixture.Db.Suppliers.GetAll();
         Assert.Equal(29, results.Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetById_ReturnsSupplier1()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var supplier = _fixture.Db.Suppliers.GetById(1);
         Assert.NotNull(supplier);
         Assert.NotNull(supplier.CompanyName);

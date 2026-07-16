@@ -9,35 +9,35 @@ public class OrdersTests
     private readonly NorthwindFixture _fixture;
     public OrdersTests(NorthwindFixture fixture) => _fixture = fixture;
 
-    [Fact]
+    [SkippableFact]
     public void GetAll_Returns830Orders()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = _fixture.Db.Orders.GetAll();
         Assert.Equal(830, results.Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetById_Returns10248()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var order = _fixture.Db.Orders.GetById(10248);
         Assert.NotNull(order);
         Assert.Equal(10248, order.OrderId);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetByCustomer_VINET_ReturnsOrders()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = _fixture.Db.Orders.GetByCustomer("VINET");
         Assert.NotEmpty(results);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetByEmployee_ReturnsOrders()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = _fixture.Db.Orders.GetByEmployee(1);
         Assert.NotEmpty(results);
     }

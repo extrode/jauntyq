@@ -10,81 +10,81 @@ public class ProductsTests
     private readonly NorthwindFixture _fixture;
     public ProductsTests(NorthwindFixture fixture) => _fixture = fixture;
 
-    [Fact]
+    [SkippableFact]
     public void GetAll_Returns77Products()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = _fixture.Db.Products.GetAll();
         Assert.Equal(77, results.Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetById_ReturnsChai()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         // -- @first: single row or null
         var product = _fixture.Db.Products.GetById(1);
         Assert.NotNull(product);
         Assert.Equal("Chai", product.ProductName);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetByIdAsync_ReturnsChai()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var product = await _fixture.Db.Products.GetByIdAsync(1);
         Assert.NotNull(product);
         Assert.Equal("Chai", product.ProductName);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetAllAsync_Returns77Products()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = await _fixture.Db.Products.GetAllAsync();
         Assert.Equal(77, results.Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetByCategoryAsync_StaticWithCancellation_ReturnsProducts()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         using var cts = new CancellationTokenSource();
         using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
         var results = await JauntyQ.Generated.Products.GetByCategoryAsync(conn, 1, cancellationToken: cts.Token);
         Assert.NotEmpty(results);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetByCategory_Beverages_ReturnsProducts()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = _fixture.Db.Products.GetByCategory(1);
         Assert.NotEmpty(results);
         Assert.All(results, p => Assert.NotNull(p.CategoryName));
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetBySupplier_ReturnsProducts()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = _fixture.Db.Products.GetBySupplier(1);
         Assert.NotEmpty(results);
         Assert.All(results, p => Assert.NotNull(p.SupplierName));
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetById_NonExistent_ReturnsNull()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var product = _fixture.Db.Products.GetById(9999);
         Assert.Null(product);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task InsertAsync_RollsBackWithTransactionScope()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
         using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
         conn.Open();
@@ -94,10 +94,10 @@ public class ProductsTests
         // scope.Dispose() without Complete() -> rollback
     }
 
-    [Fact]
+    [SkippableFact]
     public void Insert_ReturnsAffectedRows()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         // TransactionScope with a fresh connection ensures auto-enlistment and rollback
         using var scope = new TransactionScope();
         using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
@@ -108,10 +108,10 @@ public class ProductsTests
         // scope.Dispose() without Complete() → rollback
     }
 
-    [Fact]
+    [SkippableFact]
     public void Update_ReturnsAffectedRows()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         using var scope = new TransactionScope();
         using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
         conn.Open();
@@ -120,10 +120,10 @@ public class ProductsTests
         Assert.Equal(1, affected);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Delete_ReturnsAffectedRows()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         using var scope = new TransactionScope();
         using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
         conn.Open();

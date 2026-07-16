@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.Data.SqlClient;
 using Testcontainers.MsSql;
 using JauntyQ.Generated;
+using JauntyQ.TestInfra;
 using Xunit;
 
 namespace JauntyQ.Northwind.Tests;
@@ -37,39 +38,46 @@ public sealed class NorthwindFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // ONLY container/Docker bring-up is treated as infra. A failure here
+        // soft-skips locally; under CI (GITHUB_ACTIONS) FixtureGate rethrows so
+        // a broken runner fails loudly instead of going silently green.
         try
         {
             _container = new MsSqlBuilder().Build();
             await _container.StartAsync();
-
-            string script = await File.ReadAllTextAsync(
-                Path.Combine(AppContext.BaseDirectory, "schema.sqlserver.sql"));
-
-            await using (var seed = new SqlConnection(_container.GetConnectionString()))
-            {
-                await seed.OpenAsync();
-                foreach (var batch in SplitBatches(script))
-                {
-                    await using var cmd = seed.CreateCommand();
-                    cmd.CommandText = batch;
-                    await cmd.ExecuteNonQueryAsync();
-                }
-            }
-
-            ConnectionString = _container.GetConnectionString();
-            _conn = new SqlConnection(ConnectionString);
-            await _conn.OpenAsync();
-            Db = new JauntyDb(_conn);
-            Available = true;
-            IsAvailable = true;
         }
         catch (Exception ex)
         {
-            // Docker not present / not reachable: soft-skip the live tests.
             Available = false;
             IsAvailable = false;
-            SkipReason = $"Docker unavailable: {ex.GetType().Name}: {ex.Message}";
+            SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            return;
         }
+
+        // Everything below runs OUTSIDE the skip guard: applying the seed script
+        // and connecting exercise product/seed code, so a failure here is a real
+        // bug and MUST throw and fail the suite — never be reclassified as a
+        // "Docker unavailable" skip (which previously masked seed-script bugs).
+        string script = await File.ReadAllTextAsync(
+            Path.Combine(AppContext.BaseDirectory, "schema.sqlserver.sql"));
+
+        await using (var seed = new SqlConnection(_container.GetConnectionString()))
+        {
+            await seed.OpenAsync();
+            foreach (var batch in SplitBatches(script))
+            {
+                await using var cmd = seed.CreateCommand();
+                cmd.CommandText = batch;
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        ConnectionString = _container.GetConnectionString();
+        _conn = new SqlConnection(ConnectionString);
+        await _conn.OpenAsync();
+        Db = new JauntyDb(_conn);
+        Available = true;
+        IsAvailable = true;
     }
 
     // schema.sqlserver.sql separates batches with a bare "GO"; CREATE VIEW and

@@ -9,10 +9,10 @@ public class ShippersTests
     private readonly NorthwindFixture _fixture;
     public ShippersTests(NorthwindFixture fixture) => _fixture = fixture;
 
-    [Fact]
+    [SkippableFact]
     public void GetAll_Returns3Shippers()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = _fixture.Db.Shippers.GetAll();
         Assert.Equal(3, results.Count);
     }
