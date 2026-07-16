@@ -85,7 +85,7 @@ public static class DialectMapper
         // reference itself, not each element) and wrap in "[]".
         if (normalized.EndsWith("[]"))
         {
-            string elementType = MapDbTypeToCSharp(normalized.Substring(0, normalized.Length - 2), isNullable: false);
+            string elementType = MapDbTypeToCSharp(normalized.Substring(0, normalized.Length - 2), isNullable: false, length, dialect);
             return isNullable ? $"{elementType}[]?" : $"{elementType}[]";
         }
 
@@ -164,13 +164,13 @@ public static class DialectMapper
     /// degraded "object" mapping for this db type — used to surface JNT2007
     /// instead of leaving the type-loss silent.
     /// </summary>
-    public static bool IsUnmappedDbType(string dbType, bool isNullable, int? length = null)
+    public static bool IsUnmappedDbType(string dbType, bool isNullable, int? length = null, string? dialect = null)
     {
         string normalized = NormalizeDbType(dbType.ToLowerInvariant());
         if (normalized.EndsWith("[]"))
-            return IsUnmappedDbType(normalized.Substring(0, normalized.Length - 2), isNullable: false);
+            return IsUnmappedDbType(normalized.Substring(0, normalized.Length - 2), isNullable: false, length, dialect);
 
-        return MapDbTypeToCSharp(dbType, isNullable, length) == "object";
+        return MapDbTypeToCSharp(dbType, isNullable, length, dialect) == "object";
     }
 
     private static string NormalizeDbType(string dbType)
