@@ -79,8 +79,6 @@ public static partial class SqlParser
         // SELECT remains after this is a genuinely unsupported subquery.
         ExtractPredicateSubqueries(tokens, model);
 
-        bool seenSelect = false;
-
         for (int i = 0; i < tokens.Count; i++)
         {
             var token = tokens[i];
@@ -90,18 +88,32 @@ public static partial class SqlParser
                 switch (token.Value)
                 {
                     case "SELECT":
-                        // A SELECT that is the argument of a projection-list
-                        // EXISTS(...) is a supported expression projection
-                        // (Feature A), not a free-standing subquery. Predicate
-                        // subqueries have already been lifted above, so any
-                        // remaining nested SELECT that is NOT such an EXISTS is
-                        // a genuinely unsupported subquery.
-                        if (seenSelect && !IsExistsSubquery(tokens, i))
+                        // A SELECT immediately preceded by an opening paren is
+                        // a nested, parenthesized subquery -- a scalar
+                        // subquery in a projection/SET/VALUES expression, or a
+                        // derived table in FROM. The enclosing statement's own
+                        // top-level SELECT (a SELECT statement) and an
+                        // INSERT...SELECT's row source (ParseInsertSelect) are
+                        // never paren-preceded, so this correctly leaves both
+                        // alone without needing to track statement kind here.
+                        // WHERE-clause IN/EXISTS predicate subqueries were
+                        // already lifted (tokens removed) above; a
+                        // projection-list EXISTS(...) is excluded explicitly,
+                        // since it is a supported expression projection
+                        // (Feature A), not a free-standing subquery. Previously
+                        // this used a "seenSelect" counter that assumed the
+                        // first SELECT keyword in the stream is always the
+                        // statement's own -- true for SELECT statements, but
+                        // wrong for UPDATE/INSERT/DELETE, where the first (and
+                        // possibly only) SELECT keyword in the whole statement
+                        // IS the illegal subquery: it slipped through
+                        // undetected, e.g. `UPDATE t SET x = (SELECT ...)`.
+                        if (i > 0 && tokens[i - 1].Type == TokenType.Symbol && tokens[i - 1].Value == "(" &&
+                            !IsExistsSubquery(tokens, i))
                         {
                             if (!model.UnsupportedConstructs.Contains("SUBQUERY"))
                                 model.UnsupportedConstructs.Add("SUBQUERY");
                         }
-                        seenSelect = true;
                         break;
                     case "UNION":
                         if (!model.UnsupportedConstructs.Contains("UNION"))
