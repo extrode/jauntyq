@@ -208,6 +208,33 @@ join categories c on p.category_id = c.category_id", "GetProductsByCategory");
     }
 
     [Fact]
+    public void Build_SumExpression_MultiWordTypeDirective_MapsCorrectly()
+    {
+        // R9 §2.5 mandate (2.5-@type-multiword-dbtype), end-to-end: a
+        // multi-word dbtype from -- @type (e.g. Postgres's "double
+        // precision") must flow through ProjectionBuilder and
+        // DialectMapper unmangled and resolve to the correct C# type, not
+        // fall through to "object" because only the first word ("double")
+        // survived some earlier split.
+        var query = ParseSql("select sum(unit_price) as total from products", "GetTotal");
+        var schema = CreateTestSchema();
+        schema.Dialect = "postgres";
+        var directives = new Directives.DirectiveModel
+        {
+            TypeDirectives = new List<Directives.TypeDirective>
+            {
+                new("total", "double precision")
+            }
+        };
+        var projection = ProjectionBuilder.Build(query, schema, directives);
+
+        Assert.Single(projection.Columns);
+        // A -- @type declared column is nullable by default (no NOT NULL
+        // shape inference here), so the mapped CLR type is nullable too.
+        Assert.Equal("double?", projection.Columns[0].Type);
+    }
+
+    [Fact]
     public void Build_CaseExpression_WithTypeDirective_MapsToNullable()
     {
         // Regression: the parser's shape inference used to mistake the "> 0"
