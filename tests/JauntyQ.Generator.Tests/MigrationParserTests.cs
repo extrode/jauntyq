@@ -44,6 +44,33 @@ create table gadgets (
         Assert.Equal(-1, notes.MaxLength);
     }
 
+    [Theory]
+    [InlineData("serial")]
+    [InlineData("bigserial")]
+    [InlineData("smallserial")]
+    public void CreateTable_SerialColumn_RecognizedAsIdentity(string serialType)
+    {
+        // Postgres SERIAL/BIGSERIAL/SMALLSERIAL are sugar for an integer
+        // column with a nextval() sequence default -- the type name IS the
+        // identity signal, unlike SQL Server's "int IDENTITY" (a separate
+        // trailing keyword after the type). ParseColumnDef's flag-scanning
+        // loop already checked for a literal "SERIAL" token, but that can
+        // never match here: "serial" is consumed as def[1] (the column's
+        // DbType itself) at position 1, never revisited by the pos=2+ flag
+        // loop. The live PostgresExtractor detects this correctly (its
+        // is_identity check matches column_default LIKE 'nextval(%'), so a
+        // hand-authored migration disagreed with a live pull of the same
+        // schema -- AutoCrud's synthesized Insert would then wrongly include
+        // the serial column instead of leaving it database-assigned.
+        var statements = MigrationParser.Parse($"create table widgets (id {serialType} primary key, name varchar(40) not null)");
+
+        var stmt = Assert.Single(statements);
+        var id = stmt.Columns.Single(c => c.Name == "id");
+        Assert.Equal(serialType, id.DbType);
+        Assert.True(id.IsIdentity);
+        Assert.True(id.IsPrimaryKey);
+    }
+
     [Fact]
     public void CreateTable_TableLevelPrimaryKey_MarksColumns()
     {

@@ -307,6 +307,18 @@ public static class MigrationParser
             IsNullable = true
         };
 
+        // Postgres SERIAL/BIGSERIAL/SMALLSERIAL are sugar for an integer
+        // column with a nextval() sequence default -- the type name itself
+        // IS the identity signal (unlike SQL Server's "int IDENTITY", a
+        // separate trailing keyword). The flag-scanning loop below also
+        // checks for a literal "SERIAL" token, but that can never match
+        // here: "serial" was just consumed above as the column's DbType
+        // (def[1]), not seen again at pos 2+. Matches the live
+        // PostgresExtractor, whose is_identity check is column_default LIKE
+        // 'nextval(%'.
+        if (column.DbType is "serial" or "bigserial" or "smallserial")
+            column.IsIdentity = true;
+
         int pos = 2;
 
         // (facets): (40), (10,2), (max)
