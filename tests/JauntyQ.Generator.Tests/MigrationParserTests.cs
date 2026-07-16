@@ -512,6 +512,26 @@ public class SchemaSimulatorTests
     }
 
     [Fact]
+    public void Real_NormalizedToDouble_OnlyOnMySql()
+    {
+        // MySQL parses REAL as a pure synonym for DOUBLE (unless the rare,
+        // non-default REAL_AS_FLOAT sql_mode is active) -- a live re-pull of
+        // a migration-declared "REAL" column reports DbType "double", not
+        // "real". Left unnormalized, DialectMapper would map it to C# float
+        // (4-byte) instead of double (8-byte), silently losing precision.
+        // Postgres/SQL Server's REAL genuinely is a 4-byte float and must
+        // stay untouched.
+        var (mysqlSchema, errors) = Apply(new DatabaseSchema { Dialect = "mysql" },
+            "create table sensors (id int not null primary key, reading real not null)");
+        Assert.Empty(errors);
+        Assert.Equal("double", mysqlSchema.Tables["sensors"].Columns["reading"].DbType);
+
+        var (pgSchema, _) = Apply(new DatabaseSchema { Dialect = "postgres" },
+            "create table sensors (id int not null primary key, reading real not null)");
+        Assert.Equal("real", pgSchema.Tables["sensors"].Columns["reading"].DbType);
+    }
+
+    [Fact]
     public void MixedAddDropAdd_AppliesAllThreeActions()
     {
         var (schema, errors) = Apply(BaseSchema(),

@@ -383,6 +383,22 @@ public static class SchemaSimulator
             col.IsRowVersion = true;
             col.IsNullable = false;
         }
+
+        // MySQL parses REAL as a pure synonym for DOUBLE (unless the rare,
+        // non-default REAL_AS_FLOAT sql_mode is active, which nothing else
+        // in this codebase accounts for either) -- a migration-declared
+        // "id amount REAL" column comes back from a live re-pull with
+        // DbType "double", not "real". Left as "real" here, the simulated
+        // post-migration schema would disagree: DialectMapper maps
+        // "real"/"float4" to C# float (4-byte) but "double"/"float8" to
+        // double (8-byte), so the column would generate as float and
+        // silently lose precision reading back an 8-byte value.
+        if (string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(col.DbType, "real", StringComparison.OrdinalIgnoreCase))
+        {
+            col.DbType = "double";
+        }
+
         return col;
     }
 
