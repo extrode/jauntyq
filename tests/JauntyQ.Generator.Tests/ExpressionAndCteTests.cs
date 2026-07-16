@@ -390,6 +390,32 @@ public class ExpressionAndCteTests
     }
 
     [Fact]
+    public void CteColumn_OuterLeftJoinOptionalSide_IsNullable()
+    {
+        // ResolveColumn used to report resolvedTableKey=null whenever
+        // resolution went through a CTE, so the outer-join nullability
+        // check (forceNullable = resolvedTableKey != null &&
+        // outerJoinedKeys.Contains(resolvedTableKey)) could never see a
+        // CTE reference sitting on the optional side of a LEFT/RIGHT/FULL
+        // JOIN. A schema-declared-NOT-NULL column projected through the CTE
+        // then stayed non-nullable even though the join can legitimately
+        // produce an all-NULL row for it -- the generated reader's
+        // non-null GetString/GetInt32 call would throw at runtime on
+        // exactly the row the join exists to allow. The control (a real
+        // table on the optional side, no CTE involved) already widens
+        // correctly; this CTE case now must match it.
+        var sql =
+            "with c as (select id, first_name from users) " +
+            "select u.id, c.first_name from users u left join c on c.id = u.id";
+        var (result, _) = Run(sql, "db/Users/GetWithOptionalCte.sql");
+
+        AssertNoErrors(result);
+        var source = GetSource(result, "Users.GetWithOptionalCte.g.cs");
+        Assert.Contains("string? FirstName", source);
+        Assert.DoesNotContain("string FirstName", source);
+    }
+
+    [Fact]
     public void CteDeclaredColumnList_MapsPositionally()
     {
         var sql =

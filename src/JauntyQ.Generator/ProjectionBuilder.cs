@@ -139,8 +139,16 @@ public static class ProjectionBuilder
                 resolvedTableKey = tableAlias;
                 return schemaColumn;
             }
-            // Not a schema table: the FROM source may be a CTE's virtual table.
-            return ResolveThroughCtes(tableName, columnName, query.Ctes, schema, depth: 0);
+            // Not a schema table: the FROM source may be a CTE's virtual
+            // table. The CTE's alias (tableAlias) -- not the underlying real
+            // table names inside its body -- is the key an outer join in
+            // THIS (outer) query would have marked optional, so that's what
+            // must land in resolvedTableKey for the caller's outer-join
+            // nullability check to see it.
+            var viaCte = ResolveThroughCtes(tableName, columnName, query.Ctes, schema, depth: 0);
+            if (viaCte != null)
+                resolvedTableKey = tableAlias;
+            return viaCte;
         }
 
         // Unqualified — search all referenced tables
@@ -154,12 +162,19 @@ public static class ProjectionBuilder
             }
         }
 
-        // Unqualified and not in any schema table: the query may read FROM a CTE.
+        // Unqualified and not in any schema table: the query may read FROM a
+        // CTE. Same reasoning as the qualified branch above: resolvedTableKey
+        // must be the outer query's own alias/table-name for this CTE
+        // reference, not null, or an outer-joined CTE's columns never get
+        // widened to nullable.
         foreach (var table in query.Tables)
         {
-            var viaCte = ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
-            if (viaCte != null)
-                return viaCte;
+            var viaCte2 = ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
+            if (viaCte2 != null)
+            {
+                resolvedTableKey = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+                return viaCte2;
+            }
         }
 
         return null;
