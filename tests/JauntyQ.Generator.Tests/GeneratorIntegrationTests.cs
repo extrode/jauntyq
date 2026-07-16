@@ -408,6 +408,25 @@ where p.product_name = @name";
     }
 
     [Fact]
+    public void ParameterType_BetweenOperator_BothBoundsInferredFromColumn_NotObject()
+    {
+        // category_id is int in schema -- both the lower and upper BETWEEN
+        // bounds should be inferred as int?, not fall back to "object" (the
+        // upper bound previously never got a BoundColumnName at all).
+        var sql = @"select p.product_id, p.product_name
+from products p
+where p.category_id between @minCategoryId and @maxCategoryId";
+
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("int? minCategoryId", source);
+        Assert.Contains("int? maxCategoryId", source);
+        Assert.DoesNotContain("object minCategoryId", source);
+        Assert.DoesNotContain("object maxCategoryId", source);
+    }
+
+    [Fact]
     public void UnresolvableParameter_EmitsJNT4003Error_AndEmitsNoSource()
     {
         // @limit has no column binding — should emit JNT4003 as an error and
