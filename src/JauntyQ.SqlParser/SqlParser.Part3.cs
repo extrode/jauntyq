@@ -80,7 +80,11 @@ public static partial class SqlParser
             }
         }
 
-        // Also scan for: identifier BETWEEN @param AND ...
+        // Also scan for: identifier BETWEEN @lower AND @upper. Both bounds
+        // are compared against the same column, so both get the same
+        // binding -- previously only @lower was bound, leaving @upper's
+        // BoundColumnName empty and making CodeEmitter.InferCrudParameterType
+        // fall back to "object" for it instead of the column's real type.
         for (int i = 0; i < tokens.Count - 2; i++)
         {
             if (tokens[i].Type == TokenType.Identifier &&
@@ -88,12 +92,26 @@ public static partial class SqlParser
                 tokens[i + 2].Type == TokenType.Parameter)
             {
                 var (tableAlias, columnName) = SplitQualifiedName(tokens[i].Value);
-                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 2].Value);
-                if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
+
+                var lowerParam = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 2].Value);
+                if (lowerParam != null && string.IsNullOrEmpty(lowerParam.BoundColumnName))
                 {
-                    paramRef.BoundTableAlias = tableAlias;
-                    paramRef.BoundColumnName = columnName;
-                    paramRef.ComparisonOp = "BETWEEN";
+                    lowerParam.BoundTableAlias = tableAlias;
+                    lowerParam.BoundColumnName = columnName;
+                    lowerParam.ComparisonOp = "BETWEEN";
+                }
+
+                if (i + 4 < tokens.Count &&
+                    tokens[i + 3].Type == TokenType.Keyword && tokens[i + 3].Value == "AND" &&
+                    tokens[i + 4].Type == TokenType.Parameter)
+                {
+                    var upperParam = model.Parameters.FirstOrDefault(p => p.Name == tokens[i + 4].Value);
+                    if (upperParam != null && string.IsNullOrEmpty(upperParam.BoundColumnName))
+                    {
+                        upperParam.BoundTableAlias = tableAlias;
+                        upperParam.BoundColumnName = columnName;
+                        upperParam.ComparisonOp = "BETWEEN";
+                    }
                 }
             }
         }

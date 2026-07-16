@@ -278,6 +278,23 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
     }
 
     [Fact]
+    public void ParameterBinding_BetweenOperator_BindsBothLowerAndUpperBound()
+    {
+        // "col BETWEEN @lo AND @hi" previously only bound @lo -- @hi's
+        // BoundColumnName stayed empty, which made
+        // CodeEmitter.InferCrudParameterType fall back to "object" for the
+        // upper-bound parameter instead of the column's real C# type.
+        var sql = "select product_id from products where unit_price between @minPrice and @maxPrice";
+        var model = ParseSql(sql);
+
+        Assert.Equal(2, model.Parameters.Count);
+        Assert.Equal("unit_price", model.Parameters[0].BoundColumnName);
+        Assert.Equal("BETWEEN", model.Parameters[0].ComparisonOp);
+        Assert.Equal("unit_price", model.Parameters[1].BoundColumnName);
+        Assert.Equal("BETWEEN", model.Parameters[1].ComparisonOp);
+    }
+
+    [Fact]
     public void UnsupportedConstructs_UnionDetected()
     {
         var sql = "select product_id from products union select category_id from categories";
