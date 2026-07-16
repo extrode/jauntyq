@@ -264,16 +264,35 @@ public static partial class QueryValidator
 
             if (sub.Kind == SubqueryKind.In)
             {
-                int projected = 0;
-                bool hasStar = false;
+                // A `*` (optionally table-qualified, e.g. `t.*`) item does not
+                // by itself tell us how many columns it expands to -- resolve
+                // it against the schema/virtual-table scope (round-7 audit
+                // fix: previously any `*` item short-circuited this check
+                // entirely, so `IN (SELECT * FROM t)` against a real
+                // multi-column table silently escaped JNT3007 and would only
+                // fail at runtime once the database rejected the multi-column
+                // subquery).
+                int? projected = 0;
                 foreach (var c in sub.Body.Columns)
                 {
                     if (c.ColumnName != "*")
+                    {
                         projected++;
-                    else
-                        hasStar = true;
+                        continue;
+                    }
+                    int? starCount = CountStarColumns(sub.Body, c.TableAlias, schema, virtualTables);
+                    if (starCount == null)
+                    {
+                        // Could not resolve (unknown alias/table -- already
+                        // reported elsewhere via JNT2001/JNT2002). Don't guess
+                        // a column count here; skip the JNT3007 check for this
+                        // subquery rather than risk a false positive.
+                        projected = null;
+                        break;
+                    }
+                    projected += starCount.Value;
                 }
-                if (!hasStar && projected != 1)
+                if (projected != null && projected != 1)
                 {
                     errors.Add(new ValidationError(JauntyDiagnostics.JNT3007,
                         $"An IN-subquery must project exactly one column, but it projects {projected}. Reduce the subquery's SELECT list to a single column."));
