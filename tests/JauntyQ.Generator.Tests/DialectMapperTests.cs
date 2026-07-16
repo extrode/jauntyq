@@ -218,4 +218,46 @@ public class DialectMapperTests
         Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp("tinyint", isNullable, dialect: dialect));
         Assert.False(DialectMapper.IsUnmappedDbType("tinyint", isNullable));
     }
+
+    /// <summary>
+    /// MySQL's UNSIGNED modifier widens int/bigint/smallint's positive range
+    /// beyond the equivalent signed CLR type's max (e.g. INT UNSIGNED's
+    /// 4294967295 overflows System.Int32) -- MySqlConnector reports these as
+    /// System.UInt32/UInt64/UInt16 on the wire. Regression for the bug where
+    /// the extractor dropped the modifier entirely and everything mapped to
+    /// the signed type, silently failing at read time above the signed max
+    /// with zero build-time signal.
+    /// </summary>
+    [Theory]
+    [InlineData("int unsigned", false, "uint")]
+    [InlineData("int unsigned", true, "uint?")]
+    [InlineData("INT UNSIGNED", false, "uint")]
+    [InlineData("integer unsigned", false, "uint")]
+    [InlineData("bigint unsigned", false, "ulong")]
+    [InlineData("bigint unsigned", true, "ulong?")]
+    [InlineData("smallint unsigned", false, "ushort")]
+    [InlineData("smallint unsigned", true, "ushort?")]
+    public void UnsignedIntegerColumn_MapsToWideningClrType(string dbType, bool isNullable, string expected)
+    {
+        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp(dbType, isNullable));
+        Assert.False(DialectMapper.IsUnmappedDbType(dbType, isNullable));
+    }
+
+    [Theory]
+    [InlineData("tinyint unsigned", false, "short")]
+    [InlineData("mediumint unsigned", false, "int")]
+    public void UnsignedIntegerColumn_AlreadyFitsSignedMapping_Unchanged(string dbType, bool isNullable, string expected)
+    {
+        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp(dbType, isNullable));
+    }
+
+    [Fact]
+    public void UnsignedIntegerColumn_WithLengthFacet_StillMapsToWideningClrType()
+    {
+        // The DbType format the extractor actually produces has no "(n)"
+        // facet for MySQL (that only appears in COLUMN_TYPE, not DATA_TYPE),
+        // but NormalizeDbType must handle either order robustly.
+        Assert.Equal("uint", DialectMapper.MapDbTypeToCSharp("int(10) unsigned", false));
+        Assert.Equal("uint", DialectMapper.MapDbTypeToCSharp("int(10) unsigned zerofill", false));
+    }
 }

@@ -50,6 +50,16 @@ public static partial class CodeEmitter
             // dedicated IDataReader.Get* method either -- same CS0266 hazard as
             // TimeSpan/IPAddress above if left as bare GetValue.
             "System.DateTimeOffset" => $"(System.DateTimeOffset)reader.GetValue({ordinal})",
+            // DialectMapper maps MySQL's UNSIGNED int/bigint/smallint to
+            // uint/ulong/ushort (their signed CLR counterparts can't hold the
+            // full unsigned range) -- MySqlConnector's GetValue returns
+            // exactly these CLR types for such columns (confirmed live), so
+            // the same explicit-cast pattern as TimeSpan/IPAddress above
+            // applies; none of these three have a dedicated IDataReader.Get*
+            // method either.
+            "uint" => $"(uint)reader.GetValue({ordinal})",
+            "ulong" => $"(ulong)reader.GetValue({ordinal})",
+            "ushort" => $"(ushort)reader.GetValue({ordinal})",
             "byte[]" => $"(byte[])reader.GetValue({ordinal})",
             _ when baseType.EndsWith("[]") => $"({baseType})reader.GetValue({ordinal})",
             _ => $"reader.GetValue({ordinal})"
