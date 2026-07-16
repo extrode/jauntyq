@@ -381,6 +381,28 @@ public static class MigrationParser
             }
         }
 
+        // PostgreSQL identity toggle: "ALTER COLUMN c ADD GENERATED [ALWAYS|
+        // BY DEFAULT] AS IDENTITY [(...)]", "... DROP IDENTITY [IF EXISTS]",
+        // "... SET GENERATED ...". Like SET/DROP NOT NULL/DEFAULT above,
+        // these have no type token at all -- falling through to
+        // ParseColumnDef below used to misparse the literal "ADD"/"DROP"/
+        // "SET" keyword itself as the column's new DbType (corrupting its
+        // real type/facets down to e.g. DbType "drop"), and for "DROP
+        // IDENTITY" specifically, the literal "IDENTITY" keyword landed on
+        // ParseColumnDef's IDENTITY-flag check and set IsIdentity=true --
+        // the opposite of what DROP means. ApplyAlterColumn already can't
+        // represent an identity toggle via AlterColumn for any non-MySQL
+        // dialect (see its comment: Postgres identity stays pinned to the
+        // pre-migration value regardless of what's parsed here), so there's
+        // no correct way to model this; report it as unmodeled instead of
+        // silently corrupting the column's type and facets.
+        if (isAlterColumn && p < body.Count && body[p].Type == TokenType.Identifier &&
+            (Is(body, p + 1, "ADD") || Is(body, p + 1, "DROP") || Is(body, p + 1, "SET")) &&
+            (Is(body, p + 2, "GENERATED") || Is(body, p + 2, "IDENTITY")))
+        {
+            return Unsupported(raw);
+        }
+
         var def = new List<Token>();
         for (int i = p; i < body.Count; i++)
         {
@@ -452,20 +474,6 @@ public static class MigrationParser
             column.DbType += " varying";
             pos++;
         }
-        else if (column.DbType is "timestamp" or "time")
-        {
-            if (Is(def, pos, "WITHOUT") && Is(def, pos + 1, "TIME") && Is(def, pos + 2, "ZONE"))
-            {
-                column.DbType += " without time zone";
-                pos += 3;
-            }
-            else if (Is(def, pos, "WITH") && Is(def, pos + 1, "TIME") && Is(def, pos + 2, "ZONE"))
-            {
-                column.DbType += " with time zone";
-                pos += 3;
-            }
-        }
-
         // (facets): (40), (10,2), (max)
         int? first = null, second = null;
         bool isMax = false;
@@ -490,6 +498,30 @@ public static class MigrationParser
             }
             if (IsSymbol(def, pos, ")"))
                 pos++;
+        }
+
+        // "time"/"timestamp" WITH/WITHOUT TIME ZONE comes after the optional
+        // precision facet ("TIME(6) WITH TIME ZONE"), not before it -- must
+        // run after the facet-paren above is consumed, or a faceted column
+        // never matches WITH/WITHOUT here (pos still sits on "(") and DbType
+        // stays bare "time"/"timestamp". For "time" that's not just a lost
+        // dbType string: DialectMapper.MapDbTypeToCSharp maps bare "time" to
+        // TimeSpan but "time with time zone" to DateTimeOffset, so a
+        // migration-declared "TIME(6) WITH TIME ZONE" column silently
+        // generated as TimeSpan instead of DateTimeOffset -- disagreeing with
+        // a live pull of the same column.
+        if (column.DbType is "timestamp" or "time")
+        {
+            if (Is(def, pos, "WITHOUT") && Is(def, pos + 1, "TIME") && Is(def, pos + 2, "ZONE"))
+            {
+                column.DbType += " without time zone";
+                pos += 3;
+            }
+            else if (Is(def, pos, "WITH") && Is(def, pos + 1, "TIME") && Is(def, pos + 2, "ZONE"))
+            {
+                column.DbType += " with time zone";
+                pos += 3;
+            }
         }
 
         ApplyFacets(column, first, second, isMax);
