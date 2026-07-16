@@ -52,6 +52,16 @@ public class AutoCrudTests
       ""indexes"": [
         { ""name"": ""ux_mail_queue_idempotency_key"", ""columns"": [""idempotency_key""], ""isUnique"": true }
       ]
+    },
+    ""seen_token"": {
+      ""name"": ""seen_token"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""token"": { ""name"": ""token"", ""dbType"": ""varchar"", ""isNullable"": false }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_seen_token_token"", ""columns"": [""token""], ""isUnique"": true }
+      ]
     }
   },
   ""foreignKeys"": [
@@ -259,6 +269,23 @@ public class AutoCrudTests
         var poco = TryGetSource(result, "MailQueue.Poco.auto.g.cs");
         Assert.NotNull(poco);
         Assert.Contains("public int Upsert(MailQueueRow row) => Upsert(row.IdempotencyKey, row.Payload);", poco);
+    }
+
+    [Fact]
+    public void Upsert_IdentityOnlyKey_WithNoColumnsBesidesTheKey_SkipsUpsertEntirely()
+    {
+        // seen_token: identity-only PK ("id") + a secondary UNIQUE index
+        // ("token") that is the ONLY other column. Once EmitUpsert drops the
+        // identity column (it's database-assigned, never caller-supplied) and
+        // the key column itself (it's matched on, not updated), there is
+        // nothing left to SET -- AutoCrud's own gate must recognize this and
+        // skip synthesizing Upsert, instead of emitting a call to EmitUpsert
+        // that produces a dangling "update set" / "do update set" with no
+        // columns after it.
+        var (result, compilation) = RunAutoCrud();
+
+        Assert.Null(TryGetSource(result, "SeenToken.Upsert.auto.g.cs"));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
     [Fact]

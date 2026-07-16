@@ -147,8 +147,21 @@ public static class AutoCrud
             // columns are excluded inside EmitUpsert; upsert is deliberately
             // last-writer-wins (documented).
             var upsertKey = UpsertKeyResolver.Resolve(table);
+            // Must mirror EmitUpsert's own column filtering exactly (CodeEmitter.
+            // Part6.cs): when the key is a secondary UNIQUE index rather than the
+            // PK (identity-only PK case), EmitUpsert additionally drops every
+            // identity column from its column set -- an identity value can't be
+            // supplied by the caller before the row exists. Without the same
+            // exclusion here, a table whose only non-key column is that identity
+            // PK (e.g. an identity id + a single idempotency-key unique column)
+            // looked like it had a non-key column to update, but EmitUpsert would
+            // then compute an empty setCols and emit invalid SQL with a dangling
+            // "update set" / "do update set" and nothing after it.
+            bool usesAlternateKey = upsertKey != null && upsertKey.Exists(c => !c.IsPrimaryKey);
             bool hasNonKeyColumns = upsertKey != null &&
-                columns.Any(c => !c.IsRowVersion && !c.IsComputed && !upsertKey.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
+                columns.Any(c => !c.IsRowVersion && !c.IsComputed
+                    && !(usesAlternateKey && c.IsIdentity)
+                    && !upsertKey.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
             if (upsertKey != null && hasNonKeyColumns && !string.IsNullOrEmpty(schema.Dialect))
             {
                 result.Add(new SyntheticQuery(entityName, "Upsert", "", table.Name, isUpsert: true));
