@@ -81,6 +81,66 @@ join categories c on p.category_id = c.category_id";
     }
 
     [Fact]
+    public void JoinUsing_NoExplicitAlias_TableAliasNotCorruptedByUsingKeyword()
+    {
+        // "USING" is not a tokenizer keyword, so it tokenizes as a plain
+        // Identifier just like a real alias. Without excluding it, the
+        // table's alias-detection swallowed the literal word "USING" as
+        // this table's alias, corrupting later unqualified references.
+        var sql = @"
+select p.product_id, categories.category_name
+from products p
+join categories using (category_id)";
+
+        var model = ParseSql(sql);
+
+        Assert.Equal(2, model.Tables.Count);
+        Assert.Equal("categories", model.Tables[1].TableName);
+        Assert.Equal(string.Empty, model.Tables[1].Alias);
+
+        Assert.Single(model.Joins);
+        Assert.Equal("p", model.Joins[0].LeftTable);
+        Assert.Equal("category_id", model.Joins[0].LeftColumn);
+        Assert.Equal("categories", model.Joins[0].RightTable);
+        Assert.Equal("category_id", model.Joins[0].RightColumn);
+    }
+
+    [Fact]
+    public void JoinUsing_WithExplicitAlias_ParsesJoinKey()
+    {
+        var sql = @"
+select p.product_id, c.category_name
+from products p
+join categories c using (category_id)";
+
+        var model = ParseSql(sql);
+
+        Assert.Equal(2, model.Tables.Count);
+        Assert.Equal("c", model.Tables[1].Alias);
+
+        Assert.Single(model.Joins);
+        Assert.Equal("p", model.Joins[0].LeftTable);
+        Assert.Equal("category_id", model.Joins[0].LeftColumn);
+        Assert.Equal("c", model.Joins[0].RightTable);
+        Assert.Equal("category_id", model.Joins[0].RightColumn);
+    }
+
+    [Fact]
+    public void JoinUsing_MultipleColumns_ParsesOneJoinPerColumn()
+    {
+        var sql = @"
+select o.id
+from order_items oi
+join orders o using (order_id, tenant_id)";
+
+        var model = ParseSql(sql);
+
+        Assert.Equal(2, model.Joins.Count);
+        Assert.Equal("order_id", model.Joins[0].LeftColumn);
+        Assert.Equal("tenant_id", model.Joins[1].LeftColumn);
+    }
+
+    [Fact]
     public void MultipleParameters_AllExtracted()
     {
         var sql = @"

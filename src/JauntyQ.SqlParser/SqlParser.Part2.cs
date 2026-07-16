@@ -73,8 +73,17 @@ public static partial class SqlParser
             string alias = string.Empty;
             pos++;
 
-            // Check for alias
-            if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
+            // Check for alias. "USING" is not a tokenizer keyword (see
+            // SqlTokenizer's Keywords set), so it tokenizes as a plain
+            // Identifier just like a real alias -- without excluding it here,
+            // "JOIN customers USING (customer_id)" (no real alias given)
+            // swallowed the literal word "USING" as this table's alias,
+            // corrupting any later unqualified/bare-name reference to it,
+            // and left the "(customer_id)" column list to be silently
+            // skipped token-by-token by ParseStatement's main loop with no
+            // join key ever recorded.
+            if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
+                !string.Equals(tokens[pos].Value, "USING", StringComparison.OrdinalIgnoreCase))
             {
                 alias = tokens[pos].Value;
                 pos++;
@@ -97,6 +106,54 @@ public static partial class SqlParser
                 pos++; // skip ON
                 pos = ParseJoinCondition(tokens, pos, model);
             }
+            else if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
+                     string.Equals(tokens[pos].Value, "USING", StringComparison.OrdinalIgnoreCase))
+            {
+                pos++; // skip USING
+                pos = ParseUsingClause(tokens, pos, model);
+            }
+        }
+
+        return pos;
+    }
+
+    /// <summary>
+    /// <c>USING (col1 [, col2 ...])</c> is sugar for <c>ON left.col1 = right.col1
+    /// [AND left.col2 = right.col2 ...]</c>, matching same-named columns between
+    /// the just-joined table (the last entry in model.Tables) and the table
+    /// immediately preceding it in the FROM/JOIN chain. <paramref name="pos"/>
+    /// points just past the USING keyword.
+    /// </summary>
+    private static int ParseUsingClause(List<Token> tokens, int pos, QueryModel model)
+    {
+        if (model.Tables.Count < 2 || !(pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "("))
+            return pos;
+        pos++; // skip (
+
+        var right = model.Tables[model.Tables.Count - 1];
+        var left = model.Tables[model.Tables.Count - 2];
+        string rightKey = !string.IsNullOrEmpty(right.Alias) ? right.Alias : right.TableName;
+        string leftKey = !string.IsNullOrEmpty(left.Alias) ? left.Alias : left.TableName;
+
+        while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
+        {
+            if (tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")")
+            {
+                pos++;
+                break;
+            }
+            if (tokens[pos].Type == TokenType.Identifier)
+            {
+                string col = StripQualifier(tokens[pos].Value);
+                model.Joins.Add(new JoinRef
+                {
+                    LeftTable = leftKey,
+                    LeftColumn = col,
+                    RightTable = rightKey,
+                    RightColumn = col
+                });
+            }
+            pos++; // identifier or ","
         }
 
         return pos;
