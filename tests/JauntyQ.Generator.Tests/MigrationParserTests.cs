@@ -110,6 +110,42 @@ create table order_items (
     }
 
     [Theory]
+    [InlineData("alter table products alter column product_name drop not null", true)]
+    [InlineData("alter table products alter column product_name set not null", false)]
+    public void AlterColumnNullability_PostgresSetDropNotNull(string sql, bool expectedNullableAfter)
+    {
+        // DROP tokenizes as a plain Identifier and SET as a Keyword in this
+        // tokenizer, so these two forms used to be misparsed in opposite
+        // ways by falling through to ParseColumnDef's "name type ..." shape:
+        // DROP NOT NULL was read as DbType "drop" narrowed to NOT NULL (the
+        // reverse of dropping the constraint), and SET NOT NULL failed
+        // outright since "SET" is never an identifier. Neither form has a
+        // type token at all, so they get their own statement kind.
+        var statements = MigrationParser.Parse(sql);
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.AlterColumnNullability, stmt.Kind);
+        Assert.Equal("product_name", Assert.Single(stmt.ColumnNames));
+        Assert.Equal(expectedNullableAfter, stmt.NullableAfter);
+        Assert.Empty(stmt.Columns);
+    }
+
+    [Theory]
+    [InlineData("alter table products alter column product_name drop default")]
+    [InlineData("alter table products alter column product_name set default 'n/a'")]
+    public void AlterColumnDefault_Postgres_IgnoredNotMisparsed(string sql)
+    {
+        // ColumnSchema tracks no default-value field, so these are a true
+        // no-op for the effective schema -- but they still need to be
+        // recognized directly rather than falling through to the same
+        // misparse as the NOT NULL forms above.
+        var statements = MigrationParser.Parse(sql);
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Ignored, stmt.Kind);
+    }
+
+    [Theory]
     [InlineData("alter table products add constraint pk_products primary key (product_id)")]
     [InlineData("alter table products add primary key (product_id)")]
     public void AddConstraintPrimaryKey_ParsesAsAddPrimaryKey(string sql)
@@ -283,6 +319,39 @@ alter table products add supplier_note nvarchar(50) null;
         Assert.Equal("bigint", id.DbType);
         Assert.True(id.IsPrimaryKey);   // key status survives the type change
         Assert.True(id.IsIdentity);
+    }
+
+    [Theory]
+    [InlineData("alter table products alter column product_name drop not null", true)]
+    [InlineData("alter table products alter column product_name set not null", false)]
+    public void AlterColumnNullability_ChangesOnlyNullability_PreservesTypeAndFacets(string sql, bool expectedNullable)
+    {
+        var (schema, errors) = Apply(BaseSchema(), sql);
+
+        Assert.Empty(errors);
+        var col = schema.Tables["products"].Columns["product_name"];
+        Assert.Equal(expectedNullable, col.IsNullable);
+        // Unlike AlterColumn's wholesale replace, there is no freshly-parsed
+        // (and here, misparsed) replacement column to merge from -- the
+        // existing column is mutated in place, so type/facets survive.
+        Assert.Equal("nvarchar", col.DbType);
+        Assert.Equal(40, col.MaxLength);
+        Assert.True(col.IsUnicode);
+        Assert.False(col.IsPrimaryKey);
+    }
+
+    [Theory]
+    [InlineData("alter table products alter column product_name drop default")]
+    [InlineData("alter table products alter column product_name set default 'n/a'")]
+    public void AlterColumnDefault_NoSchemaShapeImpact(string sql)
+    {
+        var (schema, errors) = Apply(BaseSchema(), sql);
+
+        Assert.Empty(errors);
+        var col = schema.Tables["products"].Columns["product_name"];
+        Assert.Equal("nvarchar", col.DbType);
+        Assert.Equal(40, col.MaxLength);
+        Assert.False(col.IsNullable);
     }
 
     [Fact]

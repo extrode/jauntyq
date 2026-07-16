@@ -52,6 +52,10 @@ public static class SchemaSimulator
                         ApplyAlterColumn(schema, stmt, fileName, errors);
                         break;
 
+                    case MigrationStatementKind.AlterColumnNullability:
+                        ApplyAlterColumnNullability(schema, stmt, fileName, errors);
+                        break;
+
                     case MigrationStatementKind.AddPrimaryKey:
                         ApplyAddPrimaryKey(schema, stmt, fileName, errors);
                         break;
@@ -177,6 +181,33 @@ public static class SchemaSimulator
             updated.IsIdentity = existing.IsIdentity;
             table.Columns[col.Name] = updated; // in-place value swap keeps order
         }
+    }
+
+    /// <summary>
+    /// PostgreSQL ALTER COLUMN c SET/DROP NOT NULL: a nullability-only
+    /// change. Unlike ApplyAlterColumn, this mutates the existing column in
+    /// place rather than replacing it, so DbType/facets/identity/etc. are
+    /// completely untouched -- there is no freshly-(mis)parsed replacement
+    /// column to merge fields from or forget to preserve.
+    /// </summary>
+    private static void ApplyAlterColumnNullability(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
+    {
+        if (!schema.Tables.TryGetValue(stmt.TableName, out var table))
+        {
+            errors.Add(AnalysisDiagnostic.Error("JNT9002",
+                $"{fileName}: cannot alter column on '{stmt.TableName}': table does not exist in the effective schema."));
+            return;
+        }
+
+        string colName = stmt.ColumnNames.Count > 0 ? stmt.ColumnNames[0] : string.Empty;
+        if (!table.Columns.TryGetValue(colName, out var existing))
+        {
+            errors.Add(AnalysisDiagnostic.Error("JNT9002",
+                $"{fileName}: cannot alter column '{stmt.TableName}.{colName}': it does not exist in the effective schema."));
+            return;
+        }
+
+        existing.IsNullable = stmt.NullableAfter;
     }
 
     private static void ApplyAddPrimaryKey(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
