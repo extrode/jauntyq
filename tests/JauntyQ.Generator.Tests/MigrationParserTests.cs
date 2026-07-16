@@ -383,6 +383,32 @@ drop table if exists c
         Assert.Equal(expectedMaxLength, col.MaxLength);
     }
 
+    [Theory]
+    [InlineData("qty int unsigned not null", "int unsigned")]
+    [InlineData("qty bigint(20) unsigned not null", "bigint unsigned")]
+    [InlineData("qty int(10) unsigned zerofill not null", "int unsigned")]
+    [InlineData("qty smallint unsigned null", "smallint unsigned")]
+    public void MySqlUnsigned_LandsInDbType_MatchingLivePullFormat(string columnDef, string expectedDbType)
+    {
+        // DialectMapper.MapDbTypeToCSharp only widens to uint/ulong/ushort
+        // when dbType.Contains("unsigned") -- exactly the format
+        // MySqlExtractor's live pull already produces (dataType + "
+        // unsigned"). Before this fix, UNSIGNED fell through to the
+        // generic "unknown flag, skip token" case and never reached
+        // DbType, so a migration-declared "int unsigned" column simulated
+        // here silently disagreed with the same column live-pulled after
+        // the migration: the simulated schema mapped it to plain (signed)
+        // int, reintroducing the overflow bug the unsigned mapping fix
+        // exists to prevent. ZEROFILL always rides with UNSIGNED and is
+        // consumed but not appended, matching MySqlExtractor's format
+        // exactly (it never captures ZEROFILL either).
+        var statements = MigrationParser.Parse($"alter table t add {columnDef}");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal(expectedDbType, col.DbType);
+    }
+
     [Fact]
     public void DefaultExpressions_Skipped()
     {
