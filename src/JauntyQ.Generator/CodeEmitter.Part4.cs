@@ -30,15 +30,7 @@ public static partial class CodeEmitter
         if (!SchemaLookup.TryGetTable(schema, query.TargetTable, out var tableSchema))
             return null;
 
-        ColumnSchema? identityCol = null;
-        foreach (var col in tableSchema!.Columns.Values)
-        {
-            if (!col.IsIdentity)
-                continue;
-            if (identityCol != null)
-                return null; // multiple identity columns: unsupported
-            identityCol = col;
-        }
+        var identityCol = JauntyQ.Analysis.CrudColumnRules.SingleIdentityColumn(tableSchema!.Columns.Values);
         if (identityCol == null)
             return null;
 

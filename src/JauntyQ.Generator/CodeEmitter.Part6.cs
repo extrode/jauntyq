@@ -5,23 +5,8 @@ namespace JauntyQ.Generator;
 public static partial class CodeEmitter
 {
     /// <summary>
-    /// Manual replacement for Dictionary&lt;,&gt;.Values.Where(...).ToList() --
+    /// Manual replacement for string.Join(sep, cols.Select(selector)) --
     /// product code stays System.Linq-free for NativeAOT compatibility.
-    /// </summary>
-    private static List<ColumnSchema> FilterColumns(Dictionary<string, ColumnSchema>.ValueCollection values, System.Func<ColumnSchema, bool> predicate)
-    {
-        var result = new List<ColumnSchema>();
-        foreach (var c in values)
-        {
-            if (predicate(c))
-                result.Add(c);
-        }
-        return result;
-    }
-
-    /// <summary>
-    /// Manual replacement for string.Join(sep, cols.Select(selector)) -- same
-    /// LINQ-free rationale as FilterColumns.
     /// </summary>
     private static string JoinColumns(List<ColumnSchema> cols, string separator, System.Func<ColumnSchema, string> selector)
     {
@@ -54,30 +39,17 @@ public static partial class CodeEmitter
     /// </summary>
     public static string EmitUpsert(string entityName, TableSchema tableSchema, string dialect)
     {
-        // Rowversion tokens and computed/generated columns are both
-        // database-assigned: excluded from the upsert column set entirely
-        // (a database rejects an INSERT/UPDATE that targets either). Upsert
-        // is documented last-writer-wins.
-        var allColumns = FilterColumns(tableSchema.Columns.Values, c => !c.IsRowVersion && !c.IsComputed);
         var keyCols = ResolveUpsertKey(tableSchema)
             ?? throw new System.InvalidOperationException(
                 $"Table '{tableSchema.Name}' has no usable upsert key: no primary key, or an " +
                 "identity-only primary key with no secondary UNIQUE index to match on instead.");
 
-        // No identity column can ever be supplied by the caller before the
-        // row exists -- true of the PK's own identity column when a
-        // secondary UNIQUE index is the match key instead (an identity-only
-        // PK case), but equally true of any OTHER identity column on a table
-        // whose PK is a natural (non-identity) key: an identity column stays
-        // excluded from both the insert list and the update SET regardless
-        // of which key resolved. The only exception is an identity column
-        // that is itself part of keyCols (a composite PK with one identity
-        // member, matched on directly) -- it must stay in `columns` so the
-        // SQL Server MERGE src-select/on-clause and the Postgres/MySQL
-        // conflict-column references still have a value to bind.
-        var columns = allColumns.FindAll(c =>
-            !c.IsIdentity || keyCols.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
-        var setCols = columns.FindAll(c => !keyCols.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
+        // CrudColumnRules.UpsertColumns/UpsertSetColumns (JauntyQ.Analysis) is
+        // the single source of truth for this filtering -- AutoCrud.cs's
+        // Upsert-synthesis gate and CodeEmitter.Part7.cs's EmitPocoOverloads
+        // must both agree with the SQL built here byte-for-byte.
+        var columns = CrudColumnRules.UpsertColumns(tableSchema.Columns.Values, keyCols);
+        var setCols = CrudColumnRules.UpsertSetColumns(columns, keyCols);
 
         string colList = JoinColumns(columns, ", ", c => c.Name);
         string paramList = JoinColumns(columns, ", ", c => $"@{c.Name}");
