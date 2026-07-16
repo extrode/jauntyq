@@ -23,12 +23,30 @@ public static class ProjectionBuilder
             Name = query.Name
         };
 
-        // Build alias-to-table map
+        // Build alias-to-table map, plus which tables sit on the optional
+        // side of an outer join: LEFT JOIN makes the newly-joined table
+        // optional; RIGHT/FULL JOIN instead (or also) makes every table
+        // already in the FROM/JOIN chain optional, since the preserved side
+        // flips. Once a table is marked, it stays marked even if it's the
+        // preserved side of a later join in the same chain -- the projected
+        // row can still be all-NULL for it.
         var aliasToTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var outerJoinedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var keysSoFar = new List<string>();
         foreach (var table in query.Tables)
         {
             string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
             aliasToTable[key] = table.TableName;
+
+            if (table.Join == JoinKind.Left || table.Join == JoinKind.Full)
+                outerJoinedKeys.Add(key);
+            if (table.Join == JoinKind.Right || table.Join == JoinKind.Full)
+            {
+                foreach (var earlierKey in keysSoFar)
+                    outerJoinedKeys.Add(earlierKey);
+            }
+
+            keysSoFar.Add(key);
         }
 
         int ordinal = 0;
@@ -48,12 +66,14 @@ public static class ProjectionBuilder
                 {
                     if (schema.Tables.TryGetValue(table.TableName, out var tableSchema))
                     {
+                        string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+                        bool starForceNullable = outerJoinedKeys.Contains(key);
                         foreach (var schemaCol in tableSchema.Columns.Values)
                         {
                             projection.Columns.Add(new ProjectionColumn
                             {
                                 Name = DialectMapper.ToPascalCase(schemaCol.Name),
-                                Type = DialectMapper.MapColumnToCSharp(schemaCol, dialect),
+                                Type = MapProjectedColumnType(schemaCol, dialect, starForceNullable),
                                 Ordinal = ordinal++,
                                 SourceName = schemaCol.Name
                             });
@@ -64,7 +84,8 @@ public static class ProjectionBuilder
             }
 
             // Resolve column to schema
-            ColumnSchema? schemaColumn = ResolveColumn(col.TableAlias, col.ColumnName, query, schema, aliasToTable);
+            ColumnSchema? schemaColumn = ResolveColumn(col.TableAlias, col.ColumnName, query, schema, aliasToTable, out string? resolvedTableKey);
+            bool forceNullable = resolvedTableKey != null && outerJoinedKeys.Contains(resolvedTableKey);
 
             // Determine property name
             string propName = !string.IsNullOrEmpty(col.OutputAlias)
@@ -73,7 +94,7 @@ public static class ProjectionBuilder
 
             // Determine C# type
             string csharpType = schemaColumn != null
-                ? DialectMapper.MapColumnToCSharp(schemaColumn, dialect)
+                ? MapProjectedColumnType(schemaColumn, dialect, forceNullable)
                 : "object";
 
             projection.Columns.Add(new ProjectionColumn
@@ -94,7 +115,20 @@ public static class ProjectionBuilder
     /// </summary>
     private static ColumnSchema? ResolveColumn(string tableAlias, string columnName,
         QueryModel query, DatabaseSchema schema, Dictionary<string, string> aliasToTable)
+        => ResolveColumn(tableAlias, columnName, query, schema, aliasToTable, out _);
+
+    /// <summary>
+    /// Same resolution as above, but also reports the alias-or-table-name key
+    /// of the table the column was resolved against (null when resolved
+    /// through a CTE, or unresolved) so the caller can check it against the
+    /// outer-join nullability set.
+    /// </summary>
+    private static ColumnSchema? ResolveColumn(string tableAlias, string columnName,
+        QueryModel query, DatabaseSchema schema, Dictionary<string, string> aliasToTable,
+        out string? resolvedTableKey)
     {
+        resolvedTableKey = null;
+
         if (!string.IsNullOrEmpty(tableAlias))
         {
             if (!aliasToTable.TryGetValue(tableAlias, out var tableName))
@@ -102,6 +136,7 @@ public static class ProjectionBuilder
             if (schema.Tables.TryGetValue(tableName, out var tableSchema) &&
                 tableSchema.Columns.TryGetValue(columnName, out var schemaColumn))
             {
+                resolvedTableKey = tableAlias;
                 return schemaColumn;
             }
             // Not a schema table: the FROM source may be a CTE's virtual table.
@@ -114,6 +149,7 @@ public static class ProjectionBuilder
             if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
                 tableSchema.Columns.TryGetValue(columnName, out var schemaColumn))
             {
+                resolvedTableKey = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
                 return schemaColumn;
             }
         }
@@ -127,6 +163,22 @@ public static class ProjectionBuilder
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Maps a resolved column's C# type for projection, forcing nullable when
+    /// the column's table sits on the optional side of an outer join. The
+    /// schema's own NOT NULL constraint doesn't survive a LEFT/RIGHT/FULL JOIN
+    /// with no match, so a projected non-nullable read would throw at runtime
+    /// on a NULL value the join legitimately produces.
+    /// </summary>
+    private static string MapProjectedColumnType(ColumnSchema column, string? dialect, bool forceNullable)
+    {
+        if (!forceNullable || column.IsRowVersion)
+            return DialectMapper.MapColumnToCSharp(column, dialect);
+
+        return DialectMapper.MapDbTypeToCSharp(column.DbType, isNullable: true,
+            length: column.Precision ?? column.MaxLength, dialect: dialect);
     }
 
     /// <summary>

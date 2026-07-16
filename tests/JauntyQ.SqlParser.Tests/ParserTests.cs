@@ -74,6 +74,10 @@ join categories c on p.category_id = c.category_id";
         Assert.Equal("category_id", model.Joins[0].LeftColumn);
         Assert.Equal("c", model.Joins[0].RightTable);
         Assert.Equal("category_id", model.Joins[0].RightColumn);
+
+        // A plain (INNER) JOIN doesn't put either side on the optional half
+        // of the row -- both tables are required for a match.
+        Assert.Equal(JoinKind.None, model.Tables[1].Join);
     }
 
     [Fact]
@@ -134,6 +138,55 @@ left join categories c on p.category_id = c.category_id";
         Assert.Single(model.Joins);
         Assert.Equal("p", model.Joins[0].LeftTable);
         Assert.Equal("c", model.Joins[0].RightTable);
+
+        // The joined table (categories) is the one that can be all-NULL.
+        Assert.Equal(JoinKind.None, model.Tables[0].Join);
+        Assert.Equal(JoinKind.Left, model.Tables[1].Join);
+    }
+
+    [Fact]
+    public void LeftOuterJoin_ParsedAsLeft()
+    {
+        var model = ParseSql(@"
+select p.product_id, c.category_name
+from products p
+left outer join categories c on p.category_id = c.category_id");
+
+        Assert.Equal(JoinKind.Left, model.Tables[1].Join);
+    }
+
+    [Fact]
+    public void RightJoin_ParsedCorrectly()
+    {
+        var model = ParseSql(@"
+select p.product_id, c.category_name
+from products p
+right join categories c on p.category_id = c.category_id");
+
+        Assert.Equal(JoinKind.None, model.Tables[0].Join);
+        Assert.Equal(JoinKind.Right, model.Tables[1].Join);
+    }
+
+    [Fact]
+    public void FullJoin_ParsedCorrectly()
+    {
+        var model = ParseSql(@"
+select p.product_id, c.category_name
+from products p
+full join categories c on p.category_id = c.category_id");
+
+        Assert.Equal(JoinKind.Full, model.Tables[1].Join);
+    }
+
+    [Fact]
+    public void FullOuterJoin_ParsedAsFull()
+    {
+        var model = ParseSql(@"
+select p.product_id, c.category_name
+from products p
+full outer join categories c on p.category_id = c.category_id");
+
+        Assert.Equal(JoinKind.Full, model.Tables[1].Join);
     }
 
     [Fact]

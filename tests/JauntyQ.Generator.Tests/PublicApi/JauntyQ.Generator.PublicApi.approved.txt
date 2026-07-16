@@ -338,6 +338,11 @@ class JauntyQ.SqlParser.IR.CteRef
     prop DeclaredColumns:List<String>
     prop Name:String
     prop VirtualColumns:List<String>
+enum JauntyQ.SqlParser.IR.JoinKind
+    field Full:JoinKind
+    field Left:JoinKind
+    field None:JoinKind
+    field Right:JoinKind
 class JauntyQ.SqlParser.IR.JoinRef
     ctor .ctor()
     prop LeftColumn:String
@@ -415,6 +420,7 @@ class JauntyQ.SqlParser.IR.SubqueryRef
 class JauntyQ.SqlParser.IR.TableRef
     ctor .ctor()
     prop Alias:String
+    prop Join:JoinKind
     prop TableName:String
 class JauntyQ.SqlParser.SqlParser
     method Parse(List<Token>,String):QueryModel
