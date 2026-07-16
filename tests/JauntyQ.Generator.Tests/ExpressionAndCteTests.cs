@@ -319,7 +319,10 @@ public class ExpressionAndCteTests
     public void DataModifyingCteUnderMySql_JNT7002()
     {
         // MySQL/MariaDB CTE bodies can only be a SELECT; a modifying CTE body
-        // (INSERT/UPDATE/DELETE) is a postgres/sqlite-only construct.
+        // (INSERT/UPDATE/DELETE) is a postgres-only construct among the four
+        // dialects here (see DataModifyingCteUnderSqlite_JNT7002 below --
+        // sqlite requires every CTE body to be a SELECT too, same as
+        // sqlserver/mysql, despite sqlite otherwise supporting RETURNING).
         var mySqlSchema = SchemaJson.Replace("\"dialect\": \"postgres\"", "\"dialect\": \"mysql\"");
         var sql =
             "with d1 as (delete from email_addresses where user_id = @userId) " +
@@ -329,18 +332,62 @@ public class ExpressionAndCteTests
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT7002");
     }
 
+    [Fact]
+    public void DataModifyingCteUnderSqlite_JNT7002()
+    {
+        // AUD-R11: SQLite's WITH-clause grammar (https://www.sqlite.org/lang_with.html,
+        // "common-table-expression") requires every CTE body to be a
+        // select-stmt -- SQLite has never supported a CTE whose own body is
+        // INSERT/UPDATE/DELETE (the "writable CTE" feature is a Postgres
+        // extension, not part of standard SQL, and none of sqlserver/mysql/
+        // sqlite implement it). ValidateDialectConstructs used to only gate
+        // this check for sqlserver/mysql (`if (!isSqlServer && !isMySql)
+        // return;`), so a sqlite schema fell through ungated -- the
+        // generator would emit this exact verbatim SQL, which fails with a
+        // syntax error against a real SQLite connection. sqlite legitimately
+        // is exempt from the *separate* RETURNING check (see
+        // ReturningUnderSqlite_NotFlaggedAsJNT7002 below); the two
+        // constructs are gated independently, not as a single "postgres or
+        // sqlite, anything goes" bucket.
+        var sqliteSchema = SchemaJson.Replace("\"dialect\": \"postgres\"", "\"dialect\": \"sqlite\"");
+        var sql =
+            "with d1 as (delete from email_addresses where user_id = @userId) " +
+            "delete from users where id = @userId";
+        var (result, _) = Run(sql, "db/Users/PurgeUser.sql", sqliteSchema);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT7002");
+    }
+
+    [Fact]
+    public void ReturningUnderSqlite_NotFlaggedAsJNT7002()
+    {
+        // AUD-R11: sqlite added RETURNING in 3.35.0 (2021); unlike the
+        // writable-CTE construct above, this one really is shared with
+        // postgres and must stay ungated for both.
+        var sqliteSchema = SchemaJson.Replace("\"dialect\": \"postgres\"", "\"dialect\": \"sqlite\"");
+        var sql = "insert into users (first_name, username, created_at) values (@firstName, @username, @createdAt) returning id";
+        var (result, _) = Run(sql, "db/Users/Create.sql", sqliteSchema);
+
+        AssertNoErrors(result);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT7002");
+    }
+
     [Theory]
     [InlineData("sqlserver")]
     [InlineData("mysql")]
-    public void ReadOnlyCteUnderSqlServerOrMySql_NotFlaggedAsJNT7002(string dialect)
+    [InlineData("sqlite")]
+    public void ReadOnlyCteUnderGatedDialects_NotFlaggedAsJNT7002(string dialect)
     {
         // Only a CTE whose own body is INSERT/UPDATE/DELETE (see
-        // DataModifyingCteUnderMySql_JNT7002 above) is the unsupported
-        // "writable CTE" construct JNT7002 describes. A plain read-only
-        // "WITH cte AS (SELECT ...) SELECT ..." is ordinary SQL every
-        // dialect here supports -- ValidateDialectConstructs used to gate
-        // on "any CTE present at all", which flagged this extremely common,
-        // fully-supported form as unsupported under sqlserver/mysql.
+        // DataModifyingCteUnderMySql_JNT7002/DataModifyingCteUnderSqlite_JNT7002
+        // above) is the unsupported "writable CTE" construct JNT7002
+        // describes. A plain read-only "WITH cte AS (SELECT ...) SELECT ..."
+        // is ordinary SQL every dialect here supports -- ValidateDialectConstructs
+        // used to gate on "any CTE present at all", which flagged this
+        // extremely common, fully-supported form as unsupported under
+        // sqlserver/mysql (and, before AUD-R11's fix made sqlite subject to
+        // the writable-CTE gate at all, this same case needed re-confirming
+        // for sqlite too).
         var dialectSchema = SchemaJson.Replace("\"dialect\": \"postgres\"", $"\"dialect\": \"{dialect}\"");
         var sql =
             "with active_users as (select id, username from users where disabled_at is null) " +
