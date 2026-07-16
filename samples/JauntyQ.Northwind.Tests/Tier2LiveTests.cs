@@ -13,12 +13,15 @@ namespace JauntyQ.Northwind.Tests;
 [Collection("Northwind")]
 public class Tier2LiveTests
 {
+    private readonly NorthwindFixture _fixture;
+    public Tier2LiveTests(NorthwindFixture fixture) => _fixture = fixture;
+
     private static JauntyDb FreshDb() => new(new SqlConnection(NorthwindFixture.ConnectionString));
 
-    [Fact]
+    [SkippableFact]
     public void OversizeWriteValue_ThrowsClientSide_WithColumnAndLimit()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
         string tooLong = new string('X', 41);
 
@@ -30,10 +33,10 @@ public class Tier2LiveTests
         Assert.Equal("CompanyName", ex.ParamName);
     }
 
-    [Fact]
+    [SkippableFact]
     public void OversizeWriteValue_PocoUpdate_AlsoThrows()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
         var shipper = db.Shippers.GetById(1);
         Assert.NotNull(shipper);
@@ -43,10 +46,10 @@ public class Tier2LiveTests
         Assert.Contains("Shippers.CompanyName", ex.Message);
     }
 
-    [Fact]
+    [SkippableFact]
     public void ExactLimitValue_WritesAndReadsBack()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
         string exact40 = new string('Z', 40);
 
@@ -58,10 +61,10 @@ public class Tier2LiveTests
         // dispose without commit rolls back
     }
 
-    [Fact]
+    [SkippableFact]
     public void OversizeComparisonValue_MatchesNothing_NoThrow()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
 
         // Read path must never truncate (a truncated key could match the
