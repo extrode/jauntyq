@@ -55,7 +55,13 @@ public static partial class CodeEmitter
         string paramList = JoinColumns(columns, ", ", c => $"@{c.Name}");
 
         string sql;
-        switch (dialect)
+        // AUD-R10-03: schema.Dialect is a bare, unnormalized string straight
+        // from the JSON snapshot, and JNT7003 accepts any casing via
+        // DialectMapper.IsKnownDialect's OrdinalIgnoreCase check -- so a
+        // JNT7003-accepted "dialect": "SqlServer" must not fall through to
+        // default and crash the generator. ToLowerInvariant matches
+        // OrdinalIgnoreCase semantics for these ASCII-only case labels.
+        switch (dialect.ToLowerInvariant())
         {
             case "sqlserver":
             {
@@ -91,6 +97,8 @@ public static partial class CodeEmitter
                 break;
             }
             default:
+                // JNT7003 rejects an unrecognized schema.Dialect (case-insensitively)
+                // before emission ever reaches here; defensive only.
                 throw new System.InvalidOperationException($"Upsert synthesis requires a known dialect (got '{dialect}').");
         }
 
