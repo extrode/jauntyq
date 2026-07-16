@@ -538,6 +538,54 @@ public class AutoCrudTests
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
+    // ── Non-PK identity column ──────────────────────────────────
+
+    // A table can have an identity/auto-increment column that isn't the
+    // primary key (e.g. a natural-key PK plus a separate audit sequence).
+    // Confirmed live (Testcontainers SQL Server): "update widgets set seq =
+    // @seq, ... where pk_code = @pk_code" throws "Cannot update identity
+    // column 'seq'." -- the synthetic Update must exclude it from SET the
+    // same way Insert already excludes every identity column.
+    private const string NonPkIdentitySchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""widgets"": {
+      ""name"": ""widgets"",
+      ""columns"": {
+        ""pk_code"": { ""name"": ""pk_code"", ""dbType"": ""varchar"", ""isNullable"": false, ""isPrimaryKey"": true, ""maxLength"": 20 },
+        ""seq"": { ""name"": ""seq"", ""dbType"": ""int"", ""isNullable"": false, ""isIdentity"": true },
+        ""name"": { ""name"": ""name"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 100 }
+      }
+    }
+  }
+}";
+
+    [Fact]
+    public void NonPkIdentityColumn_ExcludedFromSynthesizedUpdateSet()
+    {
+        var schema = JauntyQ.Schema.SchemaLoader.Load(NonPkIdentitySchemaJson);
+
+        var update = AutoCrud.Synthesize(schema).Single(q => q.MethodName == "Update");
+        Assert.DoesNotContain("seq = @seq", update.Sql);
+        Assert.Contains("set name = @name", update.Sql);
+        Assert.Contains("where pk_code = @pk_code", update.Sql);
+    }
+
+    [Fact]
+    public void NonPkIdentityColumn_AutoCrud_CompilesClean_PocoUpdateOverloadOmitsIdentityArg()
+    {
+        var (result, compilation) = RunAutoCrudWithSchema(NonPkIdentitySchemaJson);
+
+        // A mismatch between AutoCrud's synthesized SQL @parameter list and
+        // EmitPocoOverloads' own setCols filter (CodeEmitter.Part7.cs) shows
+        // up here as a compile error in the forwarding Update(row) overload.
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        string? poco = TryGetSource(result, "Widgets.Poco.auto.g.cs");
+        Assert.NotNull(poco);
+        Assert.Contains("public int Update(Widget row) => Update(row.Name, row.PkCode);", poco);
+    }
+
     [Fact]
     public void TypoDirective_ReportsJNT3008_AndStillEmits()
     {
