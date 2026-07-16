@@ -447,6 +447,25 @@ where p.category_id = @categoryId";
     }
 
     [Fact]
+    public void ImplicitCommaJoin_SecondTableColumnResolves_NotObject()
+    {
+        // Old-style "FROM a, b" implicit join: the parser previously dropped
+        // every table after the first from QueryModel.Tables entirely, so a
+        // qualified reference to the second table's column had no schema
+        // table to resolve against and degraded to "object".
+        var sql = @"select p.product_name, c.category_name
+from products p, categories c
+where p.category_id = c.category_id and c.category_name = @categoryName";
+
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("string categoryName", source);
+        Assert.DoesNotContain("object categoryName", source);
+        Assert.Contains("CategoryName", source);
+    }
+
+    [Fact]
     public void UnresolvableParameter_EmitsJNT4003Error_AndEmitsNoSource()
     {
         // @limit has no column binding — should emit JNT4003 as an error and

@@ -6,8 +6,12 @@ public static partial class SqlParser
 {
     private static int ParseFrom(List<Token> tokens, int pos, QueryModel model)
     {
-        // Expect table name, optionally followed by alias
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
+        // Expect table name, optionally followed by alias, then zero or more
+        // old-style comma-separated tables (an implicit join: "FROM a, b").
+        // Each comma-joined table is registered exactly like the first —
+        // skipping this loop would silently drop every table after the first
+        // one from model.Tables, breaking any qualified reference to it.
+        while (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
         {
             string tableName = StripQualifier(tokens[pos].Value);
             string alias = string.Empty;
@@ -30,6 +34,13 @@ public static partial class SqlParser
             }
 
             model.Tables.Add(new TableRef { TableName = tableName, Alias = alias });
+
+            if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ",")
+            {
+                pos++; // skip comma, loop parses the next table
+                continue;
+            }
+            break;
         }
 
         return pos;

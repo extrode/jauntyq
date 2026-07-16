@@ -295,6 +295,36 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
     }
 
     [Fact]
+    public void ImplicitCommaJoin_RegistersAllTables_NotJustTheFirst()
+    {
+        // Old-style "FROM a, b" implicit join: ParseFrom previously stopped
+        // after the first table + optional alias and never checked for a
+        // following comma, so "categories c" was silently dropped from
+        // model.Tables entirely -- any qualified reference to it (c.category_name)
+        // would then fail to resolve against the schema at all.
+        var sql = "select p.product_name, c.category_name from products p, categories c where p.category_id = c.category_id";
+        var model = ParseSql(sql);
+
+        Assert.Equal(2, model.Tables.Count);
+        Assert.Equal("products", model.Tables[0].TableName);
+        Assert.Equal("p", model.Tables[0].Alias);
+        Assert.Equal("categories", model.Tables[1].TableName);
+        Assert.Equal("c", model.Tables[1].Alias);
+    }
+
+    [Fact]
+    public void ImplicitCommaJoin_ThreeTables_AllRegistered()
+    {
+        var sql = "select a.x, b.y, c.z from t1 a, t2 b, t3 c";
+        var model = ParseSql(sql);
+
+        Assert.Equal(3, model.Tables.Count);
+        Assert.Equal("t1", model.Tables[0].TableName);
+        Assert.Equal("t2", model.Tables[1].TableName);
+        Assert.Equal("t3", model.Tables[2].TableName);
+    }
+
+    [Fact]
     public void UnsupportedConstructs_UnionDetected()
     {
         var sql = "select product_id from products union select category_id from categories";
