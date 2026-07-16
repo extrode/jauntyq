@@ -24,6 +24,21 @@ namespace JauntyQ.Generator;
 internal static class NPlusOneAnalyzer
 {
     /// <summary>
+    /// Manual replacement for Enumerable.Contains(list, value, comparer) --
+    /// List&lt;T&gt; has no native overload taking a comparer, and product code
+    /// stays System.Linq-free for NativeAOT compatibility.
+    /// </summary>
+    private static bool Contains(List<string> list, string value, IEqualityComparer<string> comparer)
+    {
+        foreach (var item in list)
+        {
+            if (comparer.Equals(item, value))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Analyzes the whole query corpus against the snapshot's FK graph and
     /// returns the JNT8008 diagnostics. <paramref name="corpus"/> entries with
     /// a null query (files that failed validation, @call procs, empty files)
@@ -316,7 +331,7 @@ internal static class NPlusOneAnalyzer
         {
             if (!fact.EqualityFilterColumns.Contains(group.ChildTableKey + "|" + column.ToLowerInvariant()))
                 return false; // key not fully constrained: not single-row by it
-            if (!group.ChildColumns.Contains(column, StringComparer.OrdinalIgnoreCase))
+            if (!Contains(group.ChildColumns, column, StringComparer.OrdinalIgnoreCase))
                 hasColumnBeyondFk = true;
         }
         return hasColumnBeyondFk;
@@ -378,7 +393,7 @@ internal static class NPlusOneAnalyzer
                 group = new FkGroup(fk.FromTable, childKey, fk.ToTable, parentKey);
                 byPair[pairKey] = group;
             }
-            if (!group.ChildColumns.Contains(fk.FromColumn, StringComparer.OrdinalIgnoreCase))
+            if (!Contains(group.ChildColumns, fk.FromColumn, StringComparer.OrdinalIgnoreCase))
                 group.ChildColumns.Add(fk.FromColumn);
         }
 
