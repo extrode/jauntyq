@@ -198,6 +198,22 @@ public static class SqlTokenizer
                 continue;
             }
 
+            // National string literal prefix: N'text' or n'text' (SQL Server/
+            // ANSI SQL Unicode string constant -- ordinary, extremely common
+            // T-SQL syntax). Without this, "N" falls through to the
+            // identifier branch far below as Identifier("N") and the
+            // following '...' becomes a wholly separate Literal token,
+            // corrupting the stream for valid SQL: "SELECT N'Active' AS
+            // Status" then fails type inference (JNT3005 "unresolved
+            // expression alias"), and a WHERE clause's N'...' operand isn't
+            // recognized as a Literal by ExtractLiteralBindings, so it
+            // silently bypasses JNT5001/JNT5002 value-safety validation
+            // entirely. Only consumes the prefix letter -- the '...' itself
+            // is tokenized by the ordinary string-literal branch immediately
+            // below.
+            if ((sql[pos] == 'N' || sql[pos] == 'n') && pos + 1 < len && sql[pos + 1] == '\'')
+                pos++;
+
             // String literal: 'text'
             if (sql[pos] == '\'')
             {
