@@ -149,9 +149,9 @@ public static partial class QueryValidator
             var column = ResolveColumn(query, orderBy.BoundTableAlias, orderBy.BoundColumnName, aliasToTable, schema, out string? tableName);
             if (column == null || tableName == null)
                 continue;
-            if (!schema.Tables.TryGetValue(tableName, out var tableSchema))
+            if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
                 continue;
-            if (IsColumnIndexSupported(column, tableName, tableSchema, filterColumns))
+            if (IsColumnIndexSupported(column, tableName, tableSchema!, filterColumns))
                 continue;
 
             string message = $"ORDER BY {tableName}.{column.Name} has no supporting index: this query sorts at runtime. " +
@@ -170,9 +170,9 @@ public static partial class QueryValidator
         var column = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
         if (column == null || tableName == null)
             return;
-        if (!schema.Tables.TryGetValue(tableName, out var tableSchema))
+        if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
             return;
-        if (IsColumnIndexSupported(column, tableName, tableSchema, filterColumns))
+        if (IsColumnIndexSupported(column, tableName, tableSchema!, filterColumns))
             return;
 
         string message = $"No index covers {tableName}.{column.Name} used as a filter/join key: " +

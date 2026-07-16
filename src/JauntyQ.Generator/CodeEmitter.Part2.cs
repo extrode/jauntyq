@@ -23,8 +23,8 @@ public static partial class CodeEmitter
         {
             string? resolved = ResolveAlias(param.BoundTableAlias, query);
             if (resolved != null &&
-                schema.Tables.TryGetValue(resolved, out var aliased) &&
-                aliased.Columns.TryGetValue(param.BoundColumnName, out var aliasedCol))
+                SchemaLookup.TryGetTable(schema, resolved, out var aliased) &&
+                SchemaLookup.TryGetColumn(aliased!, param.BoundColumnName, out var aliasedCol))
             {
                 tableName = resolved;
                 return aliasedCol;
@@ -33,8 +33,8 @@ public static partial class CodeEmitter
         }
 
         if (query.TargetTable != null &&
-            schema.Tables.TryGetValue(query.TargetTable, out var target) &&
-            target.Columns.TryGetValue(param.BoundColumnName, out var targetCol))
+            SchemaLookup.TryGetTable(schema, query.TargetTable, out var target) &&
+            SchemaLookup.TryGetColumn(target!, param.BoundColumnName, out var targetCol))
         {
             tableName = query.TargetTable;
             return targetCol;
@@ -42,8 +42,8 @@ public static partial class CodeEmitter
 
         foreach (var table in query.Tables)
         {
-            if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
-                tableSchema.Columns.TryGetValue(param.BoundColumnName, out var col))
+            if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema) &&
+                SchemaLookup.TryGetColumn(tableSchema!, param.BoundColumnName, out var col))
             {
                 tableName = table.TableName;
                 return col;

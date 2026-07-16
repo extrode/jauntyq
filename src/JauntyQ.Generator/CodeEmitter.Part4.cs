@@ -27,11 +27,11 @@ public static partial class CodeEmitter
             return null;
         if (query.StatementType != StatementType.Insert || query.TargetTable == null)
             return null;
-        if (!schema.Tables.TryGetValue(query.TargetTable, out var tableSchema))
+        if (!SchemaLookup.TryGetTable(schema, query.TargetTable, out var tableSchema))
             return null;
 
         ColumnSchema? identityCol = null;
-        foreach (var col in tableSchema.Columns.Values)
+        foreach (var col in tableSchema!.Columns.Values)
         {
             if (!col.IsIdentity)
                 continue;
@@ -202,18 +202,18 @@ public static partial class CodeEmitter
     {
         foreach (var table in query.Tables)
         {
-            if (schema.Tables.TryGetValue(table.TableName, out var ts) &&
-                ts.Columns.TryGetValue(columnName, out var col))
-                return DialectMapper.MapColumnToCSharp(col, schema.Dialect);
+            if (SchemaLookup.TryGetTable(schema, table.TableName, out var ts) &&
+                SchemaLookup.TryGetColumn(ts!, columnName, out var col))
+                return DialectMapper.MapColumnToCSharp(col!, schema.Dialect);
         }
 
         foreach (var cte in query.Ctes)
         {
             foreach (var table in cte.Body.Tables)
             {
-                if (schema.Tables.TryGetValue(table.TableName, out var ts) &&
-                    ts.Columns.TryGetValue(columnName, out var col))
-                    return DialectMapper.MapColumnToCSharp(col, schema.Dialect);
+                if (SchemaLookup.TryGetTable(schema, table.TableName, out var ts) &&
+                    SchemaLookup.TryGetColumn(ts!, columnName, out var col))
+                    return DialectMapper.MapColumnToCSharp(col!, schema.Dialect);
             }
         }
 

@@ -129,10 +129,10 @@ public static partial class CodeEmitter
             string? tableName = ResolveAlias(tableAlias, query);
             if (tableName != null)
             {
-                if (schema.Tables.TryGetValue(tableName, out var tableSchema) &&
-                    tableSchema.Columns.TryGetValue(columnName, out var colSchema))
+                if (SchemaLookup.TryGetTable(schema, tableName, out var tableSchema) &&
+                    SchemaLookup.TryGetColumn(tableSchema!, columnName, out var colSchema))
                 {
-                    return DialectMapper.MapColumnToCSharp(colSchema, schema.Dialect);
+                    return DialectMapper.MapColumnToCSharp(colSchema!, schema.Dialect);
                 }
                 // Not a schema table: the qualifier may name a CTE whose
                 // virtual column traces back to a real one.
@@ -146,10 +146,10 @@ public static partial class CodeEmitter
             // Unqualified — search all referenced tables
             foreach (var table in query.Tables)
             {
-                if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
-                    tableSchema.Columns.TryGetValue(columnName, out var colSchema))
+                if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema) &&
+                    SchemaLookup.TryGetColumn(tableSchema!, columnName, out var colSchema))
                 {
-                    return DialectMapper.MapColumnToCSharp(colSchema, schema.Dialect);
+                    return DialectMapper.MapColumnToCSharp(colSchema!, schema.Dialect);
                 }
             }
 

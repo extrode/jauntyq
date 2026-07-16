@@ -42,8 +42,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             return null;
         if (queryModel.Tables.Count != 1)
             return null;
-        if (!schema.Tables.TryGetValue(queryModel.Tables[0].TableName, out var tableSchema))
+        if (!SchemaLookup.TryGetTable(schema, queryModel.Tables[0].TableName, out var resolvedTableSchema))
             return null;
+        var tableSchema = resolvedTableSchema!;
         if (projection.Columns.Count != tableSchema.Columns.Count)
             return null;
 

@@ -131,21 +131,22 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             foreach (var kvp in syntheticWrites)
             {
-                if (!schema.Tables.TryGetValue(kvp.Key, out var tableSchema))
+                if (!SchemaLookup.TryGetTable(schema, kvp.Key, out var tableSchema))
                     continue;
+                var table = tableSchema!;
                 var info = kvp.Value;
-                string rowType = Inflector.RowTypeName(DialectMapper.ToPascalCase(tableSchema.Name));
+                string rowType = Inflector.RowTypeName(DialectMapper.ToPascalCase(table.Name));
                 string overloadSource = CodeEmitter.EmitPocoOverloads(
-                    info.Entity, rowType, tableSchema, schema.Dialect,
+                    info.Entity, rowType, table, schema.Dialect,
                     info.Insert, info.Update, info.Delete, info.Upsert);
                 context.AddSource($"{info.Entity}.Poco.auto.g.cs", SourceText.From(overloadSource, Encoding.UTF8));
-                neededRowTables.Add(tableSchema.Name);
+                neededRowTables.Add(table.Name);
 
                 // BulkInsert(IEnumerable<Row>): a dialect-native set-based insert
                 // for tables that have a synthetic Insert (and thus a row POCO).
                 if (info.Insert && !string.IsNullOrEmpty(schema.Dialect))
                 {
-                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, tableSchema, schema.Dialect);
+                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, table, schema.Dialect);
                     context.AddSource($"{info.Entity}.BulkInsert.auto.g.cs", SourceText.From(bulkSource, Encoding.UTF8));
                 }
             }
@@ -156,8 +157,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             foreach (var tableName in neededRowTables)
             {
-                if (!schema.Tables.TryGetValue(tableName, out var tableSchema))
+                if (!SchemaLookup.TryGetTable(schema, tableName, out var resolvedTableSchema))
                     continue;
+                var tableSchema = resolvedTableSchema!;
 
                 // JNT2004 (C2): row-POCO member names come from schema-JSON
                 // column names via ToPascalCase. That transform sanitizes
