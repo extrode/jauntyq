@@ -5,6 +5,21 @@ namespace JauntyQ.Generator;
 
 public static partial class QueryValidator
 {
+    /// <summary>
+    /// Manual replacement for Enumerable.Contains(list, value, comparer) --
+    /// List&lt;T&gt; has no native overload taking a comparer, and product code
+    /// stays System.Linq-free for NativeAOT compatibility.
+    /// </summary>
+    private static bool Contains(List<string> list, string value, IEqualityComparer<string> comparer)
+    {
+        foreach (var item in list)
+        {
+            if (comparer.Equals(item, value))
+                return true;
+        }
+        return false;
+    }
+
     public static List<ValidationError> Validate(QueryModel query, DatabaseSchema? schema)
     {
         var errors = new List<ValidationError>();
@@ -174,7 +189,7 @@ public static partial class QueryValidator
                 {
                     if (virtualTables.TryGetValue(tableName, out var vcols))
                     {
-                        if (!vcols.Contains(col.ColumnName, StringComparer.OrdinalIgnoreCase))
+                        if (!Contains(vcols, col.ColumnName, StringComparer.OrdinalIgnoreCase))
                             errors.Add(new ValidationError(JauntyDiagnostics.JNT2002,
                                 $"Column '{col.ColumnName}' does not exist in CTE '{tableName}'"));
                     }
@@ -202,7 +217,7 @@ public static partial class QueryValidator
                 {
                     if (virtualTables.TryGetValue(table.TableName, out var vcols))
                     {
-                        if (vcols.Contains(col.ColumnName, StringComparer.OrdinalIgnoreCase))
+                        if (Contains(vcols, col.ColumnName, StringComparer.OrdinalIgnoreCase))
                             matchingTables.Add(table.TableName);
                     }
                     else if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema) &&
