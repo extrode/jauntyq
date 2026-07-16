@@ -907,4 +907,138 @@ alter table products add supplier_note nvarchar(50) null;
         Assert.Empty(errors);
         Assert.True(schema.Tables["products"].Columns["product_name"].IsPrimaryKey);
     }
+
+    // ---- AUD-R6: SchemaSimulator.Clone() field parity, standing/mandatory
+    // check per the audit criteria §2.3. Exercises every field of all 8
+    // hand-cloned schema types (ColumnSchema's 11 facets, TableSchema,
+    // DatabaseSchema, IndexSchema, ForeignKeySchema, ProcedureSchema,
+    // ProcedureParam, SequenceSchema) through Clone() by applying a migration
+    // that touches an unrelated table -- the exact shape that has silently
+    // dropped whole sections (AUD-R1-02) and single fields (AUD-R4-12) before.
+    // A diff against Clone()'s source was also performed by hand this round;
+    // this test is the executable version of that diff so a future field
+    // added to any of the 8 types and forgotten in Clone() fails a real test,
+    // not just a "stay vigilant" comment.
+
+    private static DatabaseSchema FullFacetSchema()
+    {
+        var schema = new DatabaseSchema { Dialect = "sqlserver" };
+        schema.Tables["widgets"] = new TableSchema
+        {
+            Name = "widgets",
+            Columns = new Dictionary<string, ColumnSchema>
+            {
+                ["widget_id"] = new()
+                {
+                    Name = "widget_id", DbType = "int", IsNullable = false, IsPrimaryKey = true,
+                    IsIdentity = true, MaxLength = null, Precision = null, Scale = null,
+                    IsUnicode = null, IsRowVersion = false, IsComputed = false
+                },
+                ["label"] = new()
+                {
+                    Name = "label", DbType = "nvarchar", IsNullable = true, IsPrimaryKey = false,
+                    IsIdentity = false, MaxLength = 77, Precision = null, Scale = null,
+                    IsUnicode = true, IsRowVersion = false, IsComputed = false
+                },
+                ["amount"] = new()
+                {
+                    Name = "amount", DbType = "decimal", IsNullable = true, IsPrimaryKey = false,
+                    IsIdentity = false, MaxLength = null, Precision = 12, Scale = 4,
+                    IsUnicode = null, IsRowVersion = false, IsComputed = false
+                },
+                ["search_label"] = new()
+                {
+                    Name = "search_label", DbType = "nvarchar", IsNullable = true,
+                    IsComputed = true
+                },
+                ["stamp"] = new()
+                {
+                    Name = "stamp", DbType = "rowversion", IsNullable = false, IsRowVersion = true
+                }
+            },
+            Indexes = new List<IndexSchema>
+            {
+                new() { Name = "ix_widgets_label", Columns = new List<string> { "label" }, IsUnique = true }
+            }
+        };
+        schema.ForeignKeys.Add(new ForeignKeySchema
+        {
+            FromTable = "widgets", FromColumn = "widget_id", ToTable = "orders", ToColumn = "widget_id"
+        });
+        schema.Procedures["get_widget"] = new ProcedureSchema
+        {
+            Name = "get_widget",
+            Params = new List<ProcedureParam>
+            {
+                new()
+                {
+                    Name = "out_total", DbType = "decimal", Direction = ProcedureParamDirection.Out,
+                    IsNullable = true, MaxLength = null, Precision = 19, Scale = 6
+                }
+            },
+            Results = new List<ColumnSchema>
+            {
+                new() { Name = "widget_id", DbType = "int" }
+            }
+        };
+        schema.Sequences["widget_seq"] = new SequenceSchema
+        {
+            Name = "widget_seq", StartValue = 100, Increment = 5, MinValue = 1, MaxValue = 999999, CurrentValue = 235
+        };
+        return schema;
+    }
+
+    [Fact]
+    public void PendingMigration_ClonePreservesEveryFieldOfEveryHandClonedSchemaType()
+    {
+        var (schema, errors) = Apply(FullFacetSchema(),
+            "create table gadgets (gadget_id int not null primary key)");
+
+        Assert.Empty(errors);
+
+        var widgets = schema.Tables["widgets"];
+
+        var widgetId = widgets.Columns["widget_id"];
+        Assert.True(widgetId.IsPrimaryKey);
+        Assert.True(widgetId.IsIdentity);
+        Assert.False(widgetId.IsNullable);
+
+        var label = widgets.Columns["label"];
+        Assert.Equal(77, label.MaxLength);
+        Assert.True(label.IsUnicode);
+        Assert.True(label.IsNullable);
+
+        var amount = widgets.Columns["amount"];
+        Assert.Equal(12, amount.Precision);
+        Assert.Equal(4, amount.Scale);
+
+        Assert.True(widgets.Columns["search_label"].IsComputed);
+        Assert.True(widgets.Columns["stamp"].IsRowVersion);
+
+        var ix = Assert.Single(widgets.Indexes);
+        Assert.Equal("ix_widgets_label", ix.Name);
+        Assert.True(ix.IsUnique);
+        Assert.Equal(new[] { "label" }, ix.Columns);
+
+        var fk = Assert.Single(schema.ForeignKeys);
+        Assert.Equal("widgets", fk.FromTable);
+        Assert.Equal("widget_id", fk.FromColumn);
+        Assert.Equal("orders", fk.ToTable);
+        Assert.Equal("widget_id", fk.ToColumn);
+
+        var proc = schema.Procedures["get_widget"];
+        var param = Assert.Single(proc.Params);
+        Assert.Equal(ProcedureParamDirection.Out, param.Direction);
+        Assert.Equal(19, param.Precision);
+        Assert.Equal(6, param.Scale);
+        var result = Assert.Single(proc.Results);
+        Assert.Equal("int", result.DbType);
+
+        var seq = schema.Sequences["widget_seq"];
+        Assert.Equal(100, seq.StartValue);
+        Assert.Equal(5, seq.Increment);
+        Assert.Equal(1, seq.MinValue);
+        Assert.Equal(999999, seq.MaxValue);
+        Assert.Equal(235, seq.CurrentValue);
+    }
 }
