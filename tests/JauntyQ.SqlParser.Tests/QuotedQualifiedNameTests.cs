@@ -56,6 +56,57 @@ public class QuotedQualifiedNameTests
         Assert.Equal("first_name", col.ColumnName);
     }
 
+    /// <summary>
+    /// AUD-R11 (§2.1-r18 sibling-sweep): every prior case here has at least
+    /// one dot -- either a two-part "u"."col" alias-qualified reference or a
+    /// three/four-part catalog-qualified one. A bare, wholly-unqualified
+    /// quoted/bracketed identifier with NO dot at all (e.g. a single-table
+    /// query with no alias, or a WHERE-clause predicate column) was never
+    /// independently probed. The tokenizer emits the same TokenType.Identifier
+    /// regardless of whether the source used no quoting, "double quotes",
+    /// `backticks`, or [brackets] -- so the select-list/WHERE-clause parsers,
+    /// which only branch on TokenType and never re-inspect the source
+    /// spelling, should treat all four forms identically. Confirmed correct:
+    /// no fix needed, this proves the design's "quoting is a tokenizer-only
+    /// concern" invariant actually holds for the trivial unqualified case.
+    /// </summary>
+    [Theory]
+    [InlineData("select \"first_name\" from users")]
+    [InlineData("select [first_name] from users")]
+    [InlineData("select `first_name` from users")]
+    [InlineData("select first_name from users")]
+    public void UnqualifiedQuotedColumn_IsPlainColumn_NotExpression(string sql)
+    {
+        var model = ParseSql(sql);
+
+        Assert.Empty(model.ExpressionsMissingAlias);
+        var col = Assert.Single(model.Columns);
+        Assert.False(col.IsExpression);
+        Assert.Equal(string.Empty, col.TableAlias);
+        Assert.Equal("first_name", col.ColumnName);
+    }
+
+    /// <summary>
+    /// Same as above but in a WHERE-clause predicate position rather than
+    /// the SELECT list, binding a parameter to an unqualified quoted/bracketed
+    /// column -- WHERE-clause binding (ParameterRef.BoundTableAlias/
+    /// BoundColumnName) is a completely separate code path from the
+    /// projection-list parsing above, so this needed its own probe rather
+    /// than assuming the SELECT-list result generalizes.
+    /// </summary>
+    [Theory]
+    [InlineData("select id from users where \"first_name\" = @name")]
+    [InlineData("select id from users where [first_name] = @name")]
+    public void UnqualifiedQuotedWherePredicate_BindsParameterToPlainColumn(string sql)
+    {
+        var model = ParseSql(sql);
+
+        var param = Assert.Single(model.Parameters);
+        Assert.Equal(string.Empty, param.BoundTableAlias);
+        Assert.Equal("first_name", param.BoundColumnName);
+        Assert.Equal("=", param.ComparisonOp);
+    }
+
     [Fact]
     public void QuotedNameContainingLiteralDot_FollowedByFurtherQualifier_IsLeftUnmerged()
     {

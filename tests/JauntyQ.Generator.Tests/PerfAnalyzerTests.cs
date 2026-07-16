@@ -42,14 +42,14 @@ public class PerfAnalyzerTests
   }
 }";
 
-    private static GeneratorDriverRunResult Run(params (string Path, string Text)[] files)
+    private static GeneratorDriverRunResult Run(string schemaJson, params (string Path, string Text)[] files)
     {
         var compilation = CSharpCompilation.Create("PerfTestAssembly",
             new[] { CSharpSyntaxTree.ParseText("") },
             new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var texts = new List<AdditionalText> { new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson) };
+        var texts = new List<AdditionalText> { new InMemoryAdditionalText("schema/jaunty.schema.json", schemaJson) };
         foreach (var (path, text) in files)
             texts.Add(new InMemoryAdditionalText(path, text));
 
@@ -61,8 +61,14 @@ public class PerfAnalyzerTests
         return driver.GetRunResult();
     }
 
+    private static GeneratorDriverRunResult Run(params (string Path, string Text)[] files) =>
+        Run(SchemaJson, files);
+
     private static GeneratorDriverRunResult RunOne(string sql) =>
         Run(("db/Products/TestQuery.sql", sql));
+
+    private static GeneratorDriverRunResult RunOne(string sql, string schemaJson) =>
+        Run(schemaJson, ("db/Products/TestQuery.sql", sql));
 
     // ── JNT8001: cartesian product ──────────────────────────────────────
 
@@ -132,6 +138,38 @@ public class PerfAnalyzerTests
 
         var trailing = RunOne("select product_id\nfrom products\nwhere products.product_name like 'chai%'");
         Assert.DoesNotContain(trailing.Diagnostics, d => d.Id == "JNT8003");
+    }
+
+    // ── AUD-R11 (§2.1-r23/24/25): dialect invariance ────────────────────
+    // ExtractPerfHints (JNT8002 non-sargable), the leading-wildcard LIKE
+    // detector (JNT8003), and the cartesian-join detector (JNT8001) are all
+    // purely token-level/structural: none of them ever branches on
+    // schema.Dialect anywhere in SqlParser.Part4.cs or the perf analyzer.
+    // Every other test in this file runs under the SchemaJson fixture's
+    // hardcoded "sqlserver" dialect, so that invariant was never actually
+    // exercised live under the other three dialects -- only inferred from
+    // reading the source. This proves it holds at runtime, across all four
+    // canonical dialects, not just by code trace.
+    [Theory]
+    [InlineData("postgres")]
+    [InlineData("mysql")]
+    [InlineData("sqlite")]
+    [InlineData("sqlserver")]
+    public void CartesianNonSargableAndLeadingWildcard_FireIdenticallyAcrossDialects(string dialect)
+    {
+        string schema = SchemaJson.Replace(@"""dialect"": ""sqlserver""", $@"""dialect"": ""{dialect}""");
+
+        var cartesian = RunOne(
+            "select p.product_id, c.category_name\nfrom products p\ncross join categories c", schema);
+        Assert.Single(cartesian.Diagnostics, d => d.Id == "JNT8001");
+
+        var nonSargable = RunOne(
+            "select product_id\nfrom products\nwhere upper(products.product_name) = @product_name", schema);
+        Assert.Single(nonSargable.Diagnostics, d => d.Id == "JNT8002");
+
+        var leadingWildcard = RunOne(
+            "select product_id\nfrom products\nwhere products.product_name like '%chai'", schema);
+        Assert.Single(leadingWildcard.Diagnostics, d => d.Id == "JNT8003");
     }
 
     // ── JNT8004: unindexed filter column ────────────────────────────────

@@ -369,6 +369,63 @@ exec sp_rename 'products.old_name', 'new_name', 'COLUMN';
         Assert.Equal(MigrationStatementKind.Unsupported, statements[1].Kind);
     }
 
+    /// <summary>
+    /// AUD-R11 (§2.4-Ignored-statement-list-scope-check): locks in the exact
+    /// membership of MigrationParser's top-level "cannot affect the
+    /// table/column model" bucket (the block right after ALTER TABLE in
+    /// ParseStatement) -- CREATE INDEX/UNIQUE INDEX, DROP INDEX, SET, USE,
+    /// BEGIN/COMMIT/ROLLBACK, GRANT/REVOKE/DENY. Each is provably incapable
+    /// of changing a column/table's shape (index DDL, session-scoped
+    /// settings, transaction control, permissions), so classifying them
+    /// Ignored rather than the loud Unsupported/JNT9001 fallback is correct
+    /// -- but nothing previously asserted this whole set in one place, so a
+    /// future edit that widened one of these conditions (e.g. broadening
+    /// the CREATE/UNIQUE check to also swallow CREATE VIEW or CREATE
+    /// SEQUENCE, which DO need modeling -- see JauntyQGenerator.Part7.cs's
+    /// own disclosed-limitation comment about indexes specifically) could
+    /// silently start dropping something real with no test catching it.
+    /// Also confirms constructs that are NOT in this list (CREATE SEQUENCE/
+    /// PROCEDURE/VIEW/TRIGGER, entirely unhandled by MigrationParser) fall
+    /// through to the loud Unsupported/JNT9001 path instead of being
+    /// silently swallowed -- the safe direction if this list ever needs to
+    /// grow.
+    /// </summary>
+    [Theory]
+    [InlineData("create index ix_products_name on products (product_name)")]
+    [InlineData("create unique index ix_products_sku on products (sku)")]
+    [InlineData("drop index ix_products_name")]
+    [InlineData("drop index ix_products_name on products")]
+    [InlineData("set foreign_key_checks = 0")]
+    [InlineData("use jauntyqdb")]
+    [InlineData("begin transaction")]
+    [InlineData("begin")]
+    [InlineData("commit")]
+    [InlineData("commit transaction")]
+    [InlineData("rollback")]
+    [InlineData("grant select on products to app_user")]
+    [InlineData("revoke select on products from app_user")]
+    [InlineData("deny select on products to app_user")]
+    public void TopLevelIgnoredStatementList_ExactMembership(string sql)
+    {
+        var statements = MigrationParser.Parse(sql);
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Ignored, stmt.Kind);
+    }
+
+    [Theory]
+    [InlineData("create sequence products_seq start with 1 increment by 1")]
+    [InlineData("create procedure get_products as select * from products")]
+    [InlineData("create view active_products as select * from products where active = 1")]
+    [InlineData("create trigger trg_products_audit on products after insert as select 1")]
+    public void ConstructsOutsideIgnoredList_FallThroughToLoudUnsupported_NotSilentlySwallowed(string sql)
+    {
+        var statements = MigrationParser.Parse(sql);
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
+
     [Fact]
     public void GoAndSemicolons_SplitStatements()
     {

@@ -323,6 +323,26 @@ select null from products p");
     }
 
     [Fact]
+    public void DerivedTableInFrom_JNT1007_Error()
+    {
+        // AUD-R11 (§2.1-r4-derived-table): SqlParser.Part6.cs's own doc
+        // comment on the "SELECT preceded by '('" check explicitly names
+        // "a derived table in FROM" as one of the two shapes this is meant
+        // to catch (the other being a scalar subquery in the projection
+        // list, already covered by ScalarSubqueryInProjection_JNT1007_Error
+        // above) -- but nothing had ever actually exercised the FROM-clause
+        // half of that claim through the real parser + validator pipeline.
+        var query = ParseSql(
+            "select x.category_id from (select category_id from products) x");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT1007");
+        Assert.DoesNotContain(errors, e => e.Code == "JNT1001");
+        Assert.Equal(ValidationSeverity.Error, errors.First(e => e.Code == "JNT1007").Severity);
+    }
+
+    [Fact]
     public void InsertSelect_RowSource_IsNotFlaggedAsUnsupportedSubquery()
     {
         // The fix for the above must not regress this: INSERT...SELECT's row

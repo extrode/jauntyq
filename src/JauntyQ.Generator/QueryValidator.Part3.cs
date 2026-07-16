@@ -116,22 +116,31 @@ public static partial class QueryValidator
     /// <summary>
     /// JNT7002: verbatim SQL emission has no dialect rewrite, so a RETURNING
     /// clause or a data-modifying CTE fails under dialects that don't support
-    /// them as written:
-    ///   - sqlserver: no RETURNING/OUTPUT-rewrite and no writable CTEs at all.
-    ///   - mysql: no writable CTEs (a CTE body can only be a SELECT), and
-    ///     stock MySQL has no RETURNING clause on any DML statement. MariaDB
+    /// them as written. The two constructs are gated independently -- they
+    /// do NOT share the same dialect set:
+    ///   - Writable (data-modifying) CTEs, i.e. a CTE whose own body is
+    ///     INSERT/UPDATE/DELETE, are a postgres-only extension among the
+    ///     four dialects here. sqlserver, mysql, AND sqlite all require
+    ///     every CTE body to be a SELECT: sqlite's own WITH-clause grammar
+    ///     (https://www.sqlite.org/lang_with.html, "common-table-expression")
+    ///     defines the CTE body as a select-stmt, full stop -- sqlite has
+    ///     never supported writable CTEs despite otherwise being close to
+    ///     postgres in feature coverage (AUD-R11: this dialect used to be
+    ///     lumped in with postgres and fell through this check entirely).
+    ///   - RETURNING itself: sqlserver has no rewrite (must use OUTPUT).
+    ///     Stock MySQL has no RETURNING clause on any DML statement; MariaDB
     ///     (which shares the "mysql" dialect string — see DialectMapper)
     ///     added RETURNING for INSERT/DELETE in 10.5 and UPDATE in 13.0, so
     ///     this intentionally over-flags valid MariaDB RETURNING usage in
     ///     exchange for catching it on stock MySQL, where it always fails.
-    /// postgres/sqlite support both constructs and are never gated here.
+    ///     postgres and sqlite (3.35.0+) both support RETURNING and are
+    ///     never gated on this construct.
     /// </summary>
     private static void ValidateDialectConstructs(QueryModel query, DatabaseSchema schema, List<ValidationError> errors)
     {
         bool isSqlServer = string.Equals(schema.Dialect, "sqlserver", StringComparison.OrdinalIgnoreCase);
         bool isMySql = string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase);
-        if (!isSqlServer && !isMySql)
-            return;
+        bool isSqlite = string.Equals(schema.Dialect, "sqlite", StringComparison.OrdinalIgnoreCase);
 
         // Only a CTE whose own body is INSERT/UPDATE/DELETE is the
         // unsupported "writable CTE" construct the message describes -- a
@@ -139,24 +148,34 @@ public static partial class QueryValidator
         // universally-supported SQL under every dialect here. Gating on
         // query.Ctes.Count > 0 alone (any CTE at all) used to flag that
         // ordinary, extremely common form as unsupported under sqlserver/
-        // mysql, even though nothing about it is dialect-specific.
-        foreach (var cte in query.Ctes)
+        // mysql/sqlite, even though nothing about it is dialect-specific.
+        if (isSqlServer || isMySql || isSqlite)
         {
-            if (cte.Body.StatementType != StatementType.Select)
+            foreach (var cte in query.Ctes)
             {
-                errors.Add(new ValidationError(JauntyDiagnostics.JNT7002,
-                    $"Data-modifying CTEs (WITH ... INSERT/UPDATE/DELETE) are not supported under the {schema.Dialect} dialect; the SQL is emitted verbatim with no rewrite."));
-                break;
+                if (cte.Body.StatementType != StatementType.Select)
+                {
+                    errors.Add(new ValidationError(JauntyDiagnostics.JNT7002,
+                        $"Data-modifying CTEs (WITH ... INSERT/UPDATE/DELETE) are not supported under the {schema.Dialect} dialect; the SQL is emitted verbatim with no rewrite."));
+                    break;
+                }
             }
         }
 
-        if (query.HasReturning || query.Returning.Count > 0)
+        // RETURNING is a separate construct from writable CTEs above: sqlite
+        // supports RETURNING (3.35.0+) even though it doesn't support
+        // writable CTEs, so it must NOT be folded into the same dialect
+        // check as the loop above.
+        if (isSqlServer || isMySql)
         {
-            string advice = isSqlServer
-                ? "use OUTPUT"
-                : "use LAST_INSERT_ID()/a follow-up SELECT, or MariaDB 10.5+/13.0 if RETURNING is actually available on your server";
-            errors.Add(new ValidationError(JauntyDiagnostics.JNT7002,
-                $"RETURNING is not supported under the {schema.Dialect} dialect ({advice}); the SQL is emitted verbatim so it cannot be rewritten."));
+            if (query.HasReturning || query.Returning.Count > 0)
+            {
+                string advice = isSqlServer
+                    ? "use OUTPUT"
+                    : "use LAST_INSERT_ID()/a follow-up SELECT, or MariaDB 10.5+/13.0 if RETURNING is actually available on your server";
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT7002,
+                    $"RETURNING is not supported under the {schema.Dialect} dialect ({advice}); the SQL is emitted verbatim so it cannot be rewritten."));
+            }
         }
     }
 
