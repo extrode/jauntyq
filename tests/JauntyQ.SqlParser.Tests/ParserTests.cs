@@ -205,6 +205,26 @@ left join categories c on p.category_id = c.category_id";
     }
 
     [Fact]
+    public void InnerJoin_ExplicitKeyword_ParsedSameAsPlainJoin()
+    {
+        // AUD-R11 (§2.1-r10-join-forms): every existing plain-JOIN test uses
+        // bare "join", never the explicit "inner join" spelling. The
+        // join-modifier skip loop (SqlParser.Part2.cs) recognizes "INNER"
+        // as a keyword to skip over but never sets any of sawLeft/sawRight/
+        // sawFull for it, so it should fall through to JoinKind.None
+        // exactly like a bare JOIN -- confirmed live rather than just by
+        // reading the flag logic.
+        var model = ParseSql(@"
+select p.product_id, c.category_name
+from products p
+inner join categories c on p.category_id = c.category_id");
+
+        Assert.Single(model.Joins);
+        Assert.Equal(JoinKind.None, model.Tables[0].Join);
+        Assert.Equal(JoinKind.None, model.Tables[1].Join);
+    }
+
+    [Fact]
     public void LeftOuterJoin_ParsedAsLeft()
     {
         var model = ParseSql(@"
@@ -678,6 +698,40 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
         Assert.True(model.Columns[0].IsExpression);
         Assert.Empty(model.Columns[0].InferredDbType);
         Assert.False(model.Columns[0].InferredNotNull);
+    }
+
+    [Fact]
+    public void CaseExpression_ThreeWhenBranchesPlusElse_IsOneExpressionItem_NotSplitOrTruncated()
+    {
+        // AUD-R11 (§2.1-r9-multi-branch-case): every prior CASE test here has
+        // exactly one WHEN branch. ParseExpressionItem's token-consumption
+        // loop (SqlParser.cs) breaks on a top-level (paren-depth 0) comma or
+        // IsClauseKeyword hit -- CASE/WHEN/THEN/ELSE/END are deliberately
+        // NOT in IsClauseKeyword's set (confirmed by reading
+        // SqlParser.Part2.cs), so nothing should truncate the scan partway
+        // through a longer branch chain, but this was never actually
+        // exercised with more than one branch. Also covers the "searched
+        // CASE" form (CASE <expr> WHEN <value> THEN ...) rather than the
+        // boolean-WHEN form the existing two tests use.
+        var model = ParseSql(
+            "select case category_id " +
+            "when 1 then 'Beverages' " +
+            "when 2 then 'Condiments' " +
+            "when 3 then 'Produce' " +
+            "else 'Other' end as category_label " +
+            "from products");
+
+        var col = Assert.Single(model.Columns);
+        Assert.True(col.IsExpression);
+        Assert.Equal("category_label", col.OutputAlias);
+        Assert.Empty(model.ExpressionsMissingAlias);
+        // The whole CASE...END run must be captured, not truncated at the
+        // first WHEN/THEN/ELSE: the rendered SQL must contain every branch.
+        Assert.Contains("Beverages", col.ExpressionSql);
+        Assert.Contains("Condiments", col.ExpressionSql);
+        Assert.Contains("Produce", col.ExpressionSql);
+        Assert.Contains("Other", col.ExpressionSql);
+        Assert.Contains("END", col.ExpressionSql);
     }
 
     [Fact]
