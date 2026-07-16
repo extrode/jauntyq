@@ -7,7 +7,7 @@ public static partial class CodeEmitter
     private static void EmitBulkInsertBody(
         System.Text.StringBuilder sb, string rowType, string tableName,
         System.Collections.Generic.List<ColumnSchema> cols,
-        string connVar, bool isStatic, bool isAsync)
+        string connVar, bool isStatic, bool isAsync, string dialect)
     {
         string modifier = isStatic ? "public static" : "public";
         string asyncModifier = isAsync ? " async" : "";
@@ -61,7 +61,7 @@ public static partial class CodeEmitter
         for (int i = 0; i < cols.Count; i++)
         {
             var c = cols[i];
-            string ct = DialectMapper.MapColumnToCSharp(c);
+            string ct = DialectMapper.MapColumnToCSharp(c, dialect);
             sb.AppendLine($"                    var p{i} = cmd.CreateParameter();");
             sb.AppendLine($"                    p{i}.ParameterName = \"@{c.Name}\";");
             string? ado = MapCSharpTypeToAdoDbType(ct);
@@ -74,7 +74,7 @@ public static partial class CodeEmitter
         for (int i = 0; i < cols.Count; i++)
         {
             var c = cols[i];
-            string ct = DialectMapper.MapColumnToCSharp(c);
+            string ct = DialectMapper.MapColumnToCSharp(c, dialect);
             string prop = IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name));
             sb.AppendLine(IsNonNullableValueType(ct)
                 ? $"                        p{i}.Value = row.{prop};"
