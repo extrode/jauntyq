@@ -427,6 +427,26 @@ where p.category_id between @minCategoryId and @maxCategoryId";
     }
 
     [Fact]
+    public void ParameterType_TableNameCasingDiffersFromSchema_StillResolvesFromCatalog()
+    {
+        // The schema snapshot's table key is lowercase "products" (typical of
+        // a live pull), but the .sql file spells the table "Products" in the
+        // FROM clause. Alias resolution already matches case-insensitively;
+        // the subsequent schema.Tables lookup must too, or category_id's type
+        // silently degrades to "object" (and, if unbound, JNT4003 blocks the
+        // whole file -- see the BETWEEN test above for that failure mode).
+        var sql = @"select p.product_id, p.product_name
+from Products p
+where p.category_id = @categoryId";
+
+        var (result, _) = RunGenerator(sql);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("int? categoryId", source);
+        Assert.DoesNotContain("object categoryId", source);
+    }
+
+    [Fact]
     public void UnresolvableParameter_EmitsJNT4003Error_AndEmitsNoSource()
     {
         // @limit has no column binding — should emit JNT4003 as an error and

@@ -137,7 +137,7 @@ public static partial class QueryValidator
                         $"CTE '{table.TableName}' returns no columns (its body has no RETURNING or SELECT projection); it cannot be used as a FROM source."));
                 continue;
             }
-            if (!schema.Tables.ContainsKey(table.TableName))
+            if (!SchemaLookup.ContainsTable(schema, table.TableName))
             {
                 errors.Add(new ValidationError(JauntyDiagnostics.JNT2001,
                     $"Table '{table.TableName}' does not exist in schema"));
@@ -178,9 +178,9 @@ public static partial class QueryValidator
                             errors.Add(new ValidationError(JauntyDiagnostics.JNT2002,
                                 $"Column '{col.ColumnName}' does not exist in CTE '{tableName}'"));
                     }
-                    else if (schema.Tables.TryGetValue(tableName, out var tableSchema))
+                    else if (SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
                     {
-                        if (!tableSchema.Columns.ContainsKey(col.ColumnName))
+                        if (!SchemaLookup.ContainsColumn(tableSchema!, col.ColumnName))
                         {
                             errors.Add(new ValidationError(JauntyDiagnostics.JNT2002,
                                 $"Column '{col.ColumnName}' does not exist in table '{tableName}'"));
@@ -205,8 +205,8 @@ public static partial class QueryValidator
                         if (vcols.Contains(col.ColumnName, StringComparer.OrdinalIgnoreCase))
                             matchingTables.Add(table.TableName);
                     }
-                    else if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
-                             tableSchema.Columns.ContainsKey(col.ColumnName))
+                    else if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema) &&
+                             SchemaLookup.ContainsColumn(tableSchema!, col.ColumnName))
                     {
                         matchingTables.Add(table.TableName);
                     }

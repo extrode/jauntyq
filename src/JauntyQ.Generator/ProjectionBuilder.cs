@@ -64,11 +64,11 @@ public static class ProjectionBuilder
                 // Expand star to all columns from referenced tables
                 foreach (var table in query.Tables)
                 {
-                    if (schema.Tables.TryGetValue(table.TableName, out var tableSchema))
+                    if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema))
                     {
                         string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
                         bool starForceNullable = outerJoinedKeys.Contains(key);
-                        foreach (var schemaCol in tableSchema.Columns.Values)
+                        foreach (var schemaCol in tableSchema!.Columns.Values)
                         {
                             projection.Columns.Add(new ProjectionColumn
                             {
@@ -133,8 +133,8 @@ public static class ProjectionBuilder
         {
             if (!aliasToTable.TryGetValue(tableAlias, out var tableName))
                 return null;
-            if (schema.Tables.TryGetValue(tableName, out var tableSchema) &&
-                tableSchema.Columns.TryGetValue(columnName, out var schemaColumn))
+            if (SchemaLookup.TryGetTable(schema, tableName, out var tableSchema) &&
+                SchemaLookup.TryGetColumn(tableSchema!, columnName, out var schemaColumn))
             {
                 resolvedTableKey = tableAlias;
                 return schemaColumn;
@@ -146,8 +146,8 @@ public static class ProjectionBuilder
         // Unqualified — search all referenced tables
         foreach (var table in query.Tables)
         {
-            if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
-                tableSchema.Columns.TryGetValue(columnName, out var schemaColumn))
+            if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema) &&
+                SchemaLookup.TryGetColumn(tableSchema!, columnName, out var schemaColumn))
             {
                 resolvedTableKey = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
                 return schemaColumn;
@@ -260,8 +260,8 @@ public static class ProjectionBuilder
                     if (!string.Equals(key, source.TableAlias, StringComparison.OrdinalIgnoreCase))
                         continue;
                 }
-                if (schema.Tables.TryGetValue(table.TableName, out var ts) &&
-                    ts.Columns.TryGetValue(source.ColumnName, out var schemaColumn))
+                if (SchemaLookup.TryGetTable(schema, table.TableName, out var ts) &&
+                    SchemaLookup.TryGetColumn(ts!, source.ColumnName, out var schemaColumn))
                 {
                     return schemaColumn;
                 }

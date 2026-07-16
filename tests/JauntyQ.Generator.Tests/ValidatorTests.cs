@@ -65,6 +65,26 @@ where p.category_id = @categoryId");
     }
 
     [Fact]
+    public void TableNameCasingDiffersFromSchema_NoFalseJNT2001OrJNT2002()
+    {
+        // The schema snapshot's key is lowercase "products" (CreateTestSchema),
+        // but the query spells it "Products". Alias resolution already matches
+        // case-insensitively; the schema.Tables/Columns lookups QueryValidator
+        // does afterward must too, or this legitimately valid query would be
+        // rejected with a spurious "table does not exist" / "column does not
+        // exist" error.
+        var query = ParseSql(@"
+select p.product_id, p.product_name
+from Products p
+where p.category_id = @categoryId");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.DoesNotContain(errors, e => e.Code == "JNT2001");
+        Assert.DoesNotContain(errors, e => e.Code == "JNT2002");
+    }
+
+    [Fact]
     public void SchemaQualifiedTable_NoErrors()
     {
         // dbo.products must resolve against the bare "products" table in the

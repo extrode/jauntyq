@@ -22,8 +22,8 @@ public static partial class QueryValidator
         if (!string.IsNullOrEmpty(tableAlias))
         {
             if (aliasToTable.TryGetValue(tableAlias, out string? resolved) &&
-                schema.Tables.TryGetValue(resolved, out var aliasedTable) &&
-                aliasedTable.Columns.TryGetValue(columnName, out var aliasedColumn))
+                SchemaLookup.TryGetTable(schema, resolved, out var aliasedTable) &&
+                SchemaLookup.TryGetColumn(aliasedTable!, columnName, out var aliasedColumn))
             {
                 tableName = resolved;
                 return aliasedColumn;
@@ -34,8 +34,8 @@ public static partial class QueryValidator
         ColumnSchema? match = null;
         foreach (var table in query.Tables)
         {
-            if (schema.Tables.TryGetValue(table.TableName, out var tableSchema) &&
-                tableSchema.Columns.TryGetValue(columnName, out var column))
+            if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema) &&
+                SchemaLookup.TryGetColumn(tableSchema!, columnName, out var column))
             {
                 if (match != null)
                     return null; // ambiguous — JNT2003 territory, skip the value check
@@ -71,9 +71,9 @@ public static partial class QueryValidator
             // already scoped for projection resolution; skip existence here.
             if (virtualTables != null && virtualTables.ContainsKey(tableName))
                 return;
-            if (schema.Tables.TryGetValue(tableName, out var tableSchema))
+            if (SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
             {
-                if (!tableSchema.Columns.ContainsKey(columnName))
+                if (!SchemaLookup.ContainsColumn(tableSchema!, columnName))
                 {
                     errors.Add(new ValidationError(JauntyDiagnostics.JNT2002,
                         $"Column '{columnName}' does not exist in table '{tableName}'"));
@@ -126,10 +126,10 @@ public static partial class QueryValidator
         bool qualify = query.Tables.Count > 1;
         foreach (var table in query.Tables)
         {
-            if (!schema.Tables.TryGetValue(table.TableName, out var tableSchema))
+            if (!SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema))
                 continue; // JNT2001 already reported
             string prefix = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
-            foreach (var col in tableSchema.Columns.Values)
+            foreach (var col in tableSchema!.Columns.Values)
             {
                 cols.Add(qualify ? $"{prefix}.{col.Name}" : col.Name);
             }
