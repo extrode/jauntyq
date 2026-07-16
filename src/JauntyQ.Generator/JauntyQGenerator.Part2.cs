@@ -267,6 +267,22 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
         }
 
+        // JNT7002: -- @proc emits a "CREATE OR ALTER PROCEDURE ... AS BEGIN
+        // ... END" DDL script (EmitProcScript) with T-SQL-only parameter
+        // types from CSharpToSqlTypeMapper (nvarchar(MAX), uniqueidentifier,
+        // datetime2, varbinary(MAX), bit). Postgres and MySQL have no
+        // "CREATE OR ALTER" syntax and no "uniqueidentifier" type, and
+        // SQLite has no stored procedures at all -- without this gate, a
+        // non-SQL-Server project's -- @proc file silently generated a
+        // non-functional SQL string constant with zero diagnostic anywhere
+        // in the pipeline.
+        if (directives.IsProc && !string.Equals(schema.Dialect, "sqlserver", StringComparison.OrdinalIgnoreCase))
+        {
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT7002,
+                $"-- @proc generates SQL Server-only T-SQL (CREATE OR ALTER PROCEDURE, T-SQL parameter types) and is not supported under the '{schema.Dialect}' dialect."));
+            return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+        }
+
         // JNT2004: an explicit -- @proc <name> becomes the CommandText string
         // literal emitted for the StoredProcedure call. Reject anything that is
         // not a bare identifier so a hostile name cannot break out of the C#

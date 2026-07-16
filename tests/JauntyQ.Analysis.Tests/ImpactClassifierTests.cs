@@ -25,8 +25,8 @@ public class ImpactClassifierTests
         return t;
     }
 
-    private static ColumnSchema Col(string name, string dbType = "int", int? maxLen = null) =>
-        new() { Name = name, DbType = dbType, MaxLength = maxLen };
+    private static ColumnSchema Col(string name, string dbType = "int", int? maxLen = null, bool isComputed = false) =>
+        new() { Name = name, DbType = dbType, MaxLength = maxLen, IsComputed = isComputed };
 
     // ── query builders ────────────────────────────────────
     private static QueryModel Select(string table, params string[] columns)
@@ -97,6 +97,24 @@ public class ImpactClassifierTests
         var entry = Assert.Single(report.Entries);
         Assert.Equal(Classification.Risky, entry.Classification);
         Assert.Contains(entry.Reasons, r => r.SchemaObject == "users.name" && r.ChangeKind == "maxLength");
+    }
+
+    [Fact]
+    public void Risky_WhenReferencedColumnBecomesComputed()
+    {
+        // Before this fix, IsComputed was never compared by StructuralSchemaDiff
+        // at all, so a migration turning "total" into a GENERATED column
+        // produced zero delta for it and any query referencing it was
+        // classified Safe -- even though a write to that column would now be
+        // rejected by the database at runtime.
+        var baseline = Schema(Table("orders", Col("id"), Col("total", "decimal")));
+        var effective = Schema(Table("orders", Col("id"), Col("total", "decimal", isComputed: true)));
+
+        var report = Run(Delta(baseline, effective), Input("Order.Get", Select("orders", "id", "total")));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Risky, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "orders.total" && r.ChangeKind == "computed");
     }
 
     [Fact]

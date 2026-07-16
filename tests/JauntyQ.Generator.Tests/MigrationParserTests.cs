@@ -458,6 +458,80 @@ drop table if exists c
         Assert.Equal("created_at", col.Name);
         Assert.False(col.IsNullable);
     }
+
+    [Fact]
+    public void SqlServerComputedColumn_AsExprShorthand_EntersSchemaAsComputed()
+    {
+        // "Total AS (Qty*Price)" has no declared type -- "AS" tokenizes as a
+        // Keyword, not an Identifier, so before this fix ParseColumnDef's
+        // "def[1] must be an Identifier" guard rejected it and returned
+        // null, and ParseCreateTable silently dropped the column from the
+        // effective schema with no diagnostic. A later query selecting Total
+        // would then falsely fail JNT2002 "column does not exist" even
+        // though the column is real and live.
+        var statements = MigrationParser.Parse(
+            "create table orders (id int primary key, qty int, price decimal(10,2), total as (qty*price) persisted not null)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.CreateTable, stmt.Kind);
+        Assert.Equal(4, stmt.Columns.Count);
+
+        var total = stmt.Columns[3];
+        Assert.Equal("total", total.Name);
+        Assert.True(total.IsComputed);
+        Assert.False(total.IsNullable);
+    }
+
+    [Fact]
+    public void SqlServerComputedColumn_WithoutPersisted_DefaultsNullable()
+    {
+        var statements = MigrationParser.Parse(
+            "create table orders (id int primary key, qty int, price decimal(10,2), total as (qty*price))");
+
+        var stmt = Assert.Single(statements);
+        var total = stmt.Columns[3];
+        Assert.True(total.IsComputed);
+        Assert.True(total.IsNullable);
+    }
+
+    [Theory]
+    [InlineData("alter table orders add column total numeric generated always as (qty*price) stored", "stored")]
+    [InlineData("alter table orders add column total numeric generated always as (qty*price) virtual", "virtual")]
+    public void GeneratedColumn_PostgresMySqlStyle_MarkedComputed_NotOrdinaryWritableColumn(string sql, string mode)
+    {
+        // Before this fix, GENERATED/ALWAYS/AS/the parenthesized expression/
+        // STORED|VIRTUAL were each eaten one-at-a-time by the flags loop's
+        // generic unknown-flag skip, and IsComputed was never set. The
+        // simulated effective schema then reported "total" as an ordinary
+        // writable column, so CrudColumnRules.InsertableColumns/
+        // UpdatableColumns included it in a generated INSERT/UPDATE --
+        // compiles clean, fails at runtime ("cannot insert into generated
+        // column").
+        var statements = MigrationParser.Parse(sql);
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.AddColumn, stmt.Kind);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal("total", col.Name);
+        Assert.True(col.IsComputed, $"expected IsComputed=true for GENERATED ... {mode}");
+    }
+
+    [Fact]
+    public void GeneratedAsIdentity_Postgres_StillRecognizedAsIdentity_NotComputed()
+    {
+        // Guards against the new GENERATED handling accidentally swallowing
+        // the pre-existing "GENERATED ALWAYS AS IDENTITY" column-level
+        // identity form (distinct from the ALTER COLUMN identity-TOGGLE
+        // form already covered elsewhere) -- AS IDENTITY must set
+        // IsIdentity, not IsComputed.
+        var statements = MigrationParser.Parse(
+            "create table orders (id int generated always as identity primary key, name text)");
+
+        var stmt = Assert.Single(statements);
+        var id = stmt.Columns[0];
+        Assert.True(id.IsIdentity);
+        Assert.False(id.IsComputed);
+    }
 }
 
 public class SchemaSimulatorTests

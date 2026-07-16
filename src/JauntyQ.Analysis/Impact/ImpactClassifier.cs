@@ -106,6 +106,7 @@ public static class ImpactClassifier
         ColumnChangeKind.PrimaryKey => "primaryKey",
         ColumnChangeKind.Identity => "identity",
         ColumnChangeKind.RowVersion => "rowVersion",
+        ColumnChangeKind.Computed => "computed",
         _ => "changed"
     };
 
@@ -141,6 +142,11 @@ public static class ImpactClassifier
                     break;
                 case ColumnChangeKind.RowVersion:
                     parts.Add("rowversion changed");
+                    break;
+                case ColumnChangeKind.Computed:
+                    parts.Add(change.Effective.IsComputed
+                        ? "became a computed/generated column (writes will be rejected)"
+                        : "no longer computed/generated");
                     break;
             }
         }

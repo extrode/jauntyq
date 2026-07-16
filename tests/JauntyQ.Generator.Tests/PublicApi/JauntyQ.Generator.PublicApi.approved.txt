@@ -39,6 +39,7 @@ class JauntyQ.Analysis.Diff.ColumnChange
     prop Effective:ColumnSchema
     prop Kinds:IReadOnlyList<ColumnChangeKind>
 enum JauntyQ.Analysis.Diff.ColumnChangeKind
+    field Computed:ColumnChangeKind
     field Identity:ColumnChangeKind
     field MaxLength:ColumnChangeKind
     field Nullability:ColumnChangeKind

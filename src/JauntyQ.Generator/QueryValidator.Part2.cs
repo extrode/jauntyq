@@ -333,6 +333,20 @@ public static partial class QueryValidator
                 unsigned ? (0m, 65535m) : (short.MinValue, short.MaxValue),
             "tinyint" =>
                 mysqlDialect && !unsigned ? (-128m, 127m) : (0m, 255m),
+            // MySQL-only types with no case here at all before this fix:
+            // DialectMapper.MapDbTypeToCSharp already maps both to
+            // System.Int32 (a safe superset for storage), but that C#-side
+            // safety doesn't mean the value fits the DATABASE column.
+            // mediumint's true range (-8388608..8388607 signed,
+            // 0..16777215 unsigned) is narrower than int32, so a literal
+            // like 99999999 fit the mapped C# type and silently compiled
+            // with no warning, then the database itself rejected it at
+            // runtime ("Out of range value"). year's valid literal range is
+            // 1901..2155 (MySQL's 4-digit YEAR); anything else round-trips
+            // as 0000 at the server.
+            "mediumint" =>
+                unsigned ? (0m, 16777215m) : (-8388608m, 8388607m),
+            "year" => (1901m, 2155m),
             _ => ((decimal, decimal)?)null
         };
 

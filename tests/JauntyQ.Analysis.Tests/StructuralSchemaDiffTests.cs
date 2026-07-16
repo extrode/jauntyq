@@ -95,6 +95,7 @@ public class StructuralSchemaDiffTests
     [InlineData("primarykey")]
     [InlineData("identity")]
     [InlineData("rowversion")]
+    [InlineData("computed")]
     public void ModifiedColumn_ChangeKindDetected(string kind)
     {
         var before = new ColumnSchema { Name = "c", DbType = "varchar", MaxLength = 100, Precision = 10, Scale = 2 };
@@ -110,6 +111,7 @@ public class StructuralSchemaDiffTests
             case "unicode": after.IsUnicode = true; expected = ColumnChangeKind.Unicode; break;
             case "primarykey": after.IsPrimaryKey = true; expected = ColumnChangeKind.PrimaryKey; break;
             case "identity": after.IsIdentity = true; expected = ColumnChangeKind.Identity; break;
+            case "computed": after.IsComputed = true; expected = ColumnChangeKind.Computed; break;
             default: after.IsRowVersion = true; expected = ColumnChangeKind.RowVersion; break;
         }
 

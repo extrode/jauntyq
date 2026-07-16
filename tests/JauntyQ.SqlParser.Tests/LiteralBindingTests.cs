@@ -22,6 +22,23 @@ public class LiteralBindingTests
     }
 
     [Fact]
+    public void WhereComparison_NationalStringLiteral_BindsToColumn()
+    {
+        // Before the tokenizer fix, N'abc' tokenized as Identifier("N") +
+        // Literal("abc") -- two unrelated tokens -- so the operand next to
+        // "=" wasn't a Literal at all and no LiteralBinding was ever
+        // recorded here, silently bypassing JNT5001/JNT5002 value-safety
+        // validation for any N-prefixed literal.
+        var model = Parse("select name from t where t.name = N'abc'");
+
+        var lit = Assert.Single(model.Literals);
+        Assert.Equal(LiteralKind.String, lit.Kind);
+        Assert.Equal("abc", lit.Value);
+        Assert.Equal("t", lit.BoundTableAlias);
+        Assert.Equal("name", lit.BoundColumnName);
+    }
+
+    [Fact]
     public void WhereComparison_NumericLiteral_BindsToColumn()
     {
         var model = Parse("select id from t where t.price >= 19.99");

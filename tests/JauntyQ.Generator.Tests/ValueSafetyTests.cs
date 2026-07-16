@@ -228,6 +228,59 @@ public class ValueSafetyTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
     }
 
+    // ── MySQL mediumint/year: previously missing from the range switch ──
+
+    [Fact]
+    public void MySqlMediumint_99999999_OutOfRange_JNT5002()
+    {
+        // DialectMapper maps mediumint to System.Int32 (a safe superset for
+        // storage), but mediumint's true database range (-8388608..8388607
+        // signed) is far narrower than int32. 99999999 fits int32 -- before
+        // this fix, mediumint had no case in the range switch at all, so
+        // this compiled with zero warning and the database itself rejected
+        // it at runtime ("Out of range value").
+        var result = RunTinyint("mysql", "mediumint",
+            "insert into flags (flag_id, level) values (@flagId, 99999999)");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlMediumint_8000000_Fits_NoJNT5002()
+    {
+        var result = RunTinyint("mysql", "mediumint",
+            "insert into flags (flag_id, level) values (@flagId, 8000000)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlMediumintUnsigned_16000000_Fits_NoJNT5002()
+    {
+        var result = RunTinyint("mysql", "mediumint unsigned",
+            "insert into flags (flag_id, level) values (@flagId, 16000000)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlYear_9999_OutOfRange_JNT5002()
+    {
+        var result = RunTinyint("mysql", "year",
+            "insert into flags (flag_id, level) values (@flagId, 9999)");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlYear_2026_Fits_NoJNT5002()
+    {
+        var result = RunTinyint("mysql", "year",
+            "insert into flags (flag_id, level) values (@flagId, 2026)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
     // ── Guards and DbParameter sizing ───────────────────────────────────
 
     [Fact]

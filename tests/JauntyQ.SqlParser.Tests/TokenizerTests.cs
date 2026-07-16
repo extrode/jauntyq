@@ -468,6 +468,42 @@ select product_id /* inline comment */ from products");
         Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "x");
     }
 
+    // ── National string literals ──
+
+    [Theory]
+    [InlineData("N")]
+    [InlineData("n")]
+    public void NationalStringLiteral_TokenizesAsSingleLiteral_NotIdentifierPlusLiteral(string prefix)
+    {
+        // Without a dedicated N-prefix check, "N" falls through to the
+        // identifier branch as Identifier("N") and the following '...'
+        // becomes a wholly separate Literal token -- two unrelated tokens
+        // instead of the one Unicode string constant this ordinary,
+        // extremely common T-SQL syntax actually writes.
+        var tokens = SqlTokenizer.Tokenize($"select {prefix}'Active' as val from t");
+        Assert.Contains(tokens, t => t.Type == TokenType.Literal && t.Value == "Active");
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Identifier &&
+            string.Equals(t.Value, prefix, System.StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void NationalStringLiteral_EscapedQuote_StillTerminatesCorrectly()
+    {
+        var tokens = SqlTokenizer.Tokenize("select N'o''brien' as val from t");
+        Assert.Contains(tokens, t => t.Type == TokenType.Literal && t.Value == "o''brien");
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unterminated);
+    }
+
+    [Fact]
+    public void BareUppercaseN_NotFollowedByQuote_StaysAnIdentifier()
+    {
+        // Guards against the N-prefix check swallowing a genuine identifier
+        // named "N" (or starting with it) that merely happens to be
+        // followed by something other than a string literal.
+        var tokens = SqlTokenizer.Tokenize("select N from t");
+        Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "N");
+    }
+
     // ── Quoted qualified names merge like bare ones ──
 
     [Theory]
