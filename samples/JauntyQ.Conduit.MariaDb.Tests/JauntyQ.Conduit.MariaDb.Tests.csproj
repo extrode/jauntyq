@@ -27,6 +27,8 @@
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
     <PackageReference Include="Testcontainers.MariaDb" Version="3.10.0" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.2" />
+    <!-- Pin transitive System.Text.Json past CVE-2024-30105 (fixed in 8.0.4+); Mvc.Testing 8.0.2 pulls 8.0.0. -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.1" />
   </ItemGroup>
   <ItemGroup>
