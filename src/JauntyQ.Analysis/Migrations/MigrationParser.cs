@@ -531,6 +531,27 @@ public static class MigrationParser
                 }
                 continue;
             }
+            // MySQL's UNSIGNED modifier ("int unsigned", "int(10) unsigned
+            // zerofill"): must land in DbType, not be dropped as an unknown
+            // flag, since DialectMapper.MapDbTypeToCSharp only widens to
+            // uint/ulong/ushort when dbType.Contains("unsigned") -- exactly
+            // the format MySqlExtractor's live-pull path already produces
+            // (dataType + " unsigned"). Without this, a migration-declared
+            // "int unsigned" column simulated here silently disagreed with
+            // the same column live-pulled post-migration: the simulated
+            // schema mapped it to plain (signed) "int", reintroducing the
+            // overflow bug the unsigned mapping fix exists to prevent.
+            // ZEROFILL always rides with UNSIGNED and never appears alone;
+            // skipped rather than appended, to match MySqlExtractor's format
+            // exactly (it never captures ZEROFILL either).
+            if (Is(def, pos, "UNSIGNED"))
+            {
+                column.DbType += " unsigned";
+                pos++;
+                if (Is(def, pos, "ZEROFILL"))
+                    pos++;
+                continue;
+            }
             if (Is(def, pos, "DEFAULT"))
             {
                 // skip the default expression (single token or parenthesized)
