@@ -34,7 +34,19 @@ public static partial class CodeEmitter
             "string" => $"reader.GetString({ordinal})",
             "System.DateTime" => $"reader.GetDateTime({ordinal})",
             "System.Guid" => $"reader.GetGuid({ordinal})",
+            // TimeSpan (Postgres "time"), IPAddress ("inet"/"cidr"), and every
+            // array type (Postgres "int[]", "text[]", "uuid[]", ...) fell
+            // through to the bare reader.GetValue(ordinal) below, which is
+            // typed `object` -- an implicit object-to-T assignment at the
+            // property initializer is CS0266. Confirmed live against Npgsql
+            // that GetValue already returns the exact target runtime type in
+            // every case (System.Net.IPAddress, System.TimeSpan, int[],
+            // string[], Guid[]), so an explicit cast (matching the existing
+            // "byte[]" case just below) is all that's missing.
+            "System.TimeSpan" => $"(System.TimeSpan)reader.GetValue({ordinal})",
+            "System.Net.IPAddress" => $"(System.Net.IPAddress)reader.GetValue({ordinal})",
             "byte[]" => $"(byte[])reader.GetValue({ordinal})",
+            _ when baseType.EndsWith("[]") => $"({baseType})reader.GetValue({ordinal})",
             _ => $"reader.GetValue({ordinal})"
         };
 
