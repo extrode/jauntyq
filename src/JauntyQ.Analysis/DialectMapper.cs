@@ -78,6 +78,15 @@ public static class DialectMapper
     /// </summary>
     public static string MapDbTypeToCSharp(string dbType, bool isNullable, int? length = null, string? dialect = null)
     {
+        // MySQL's UNSIGNED modifier widens int/bigint/smallint's positive
+        // range beyond what the equivalent signed CLR type holds (e.g. INT
+        // UNSIGNED's max, 4294967295, overflows System.Int32) --
+        // MySqlConnector reports these as System.UInt32/UInt64/UInt16 on the
+        // wire, so the mapping must follow or any value above the signed max
+        // fails at read time with zero build-time signal. Checked on the raw
+        // string first since NormalizeDbType strips the modifier (it's not
+        // part of the base type name any other dialect ever produces).
+        bool unsigned = dbType.Contains("unsigned", StringComparison.OrdinalIgnoreCase);
         string normalized = NormalizeDbType(dbType.ToLowerInvariant());
 
         // Postgres array types (e.g. "text[]", "integer[]"): recurse on the
@@ -87,6 +96,22 @@ public static class DialectMapper
         {
             string elementType = MapDbTypeToCSharp(normalized.Substring(0, normalized.Length - 2), isNullable: false, length, dialect);
             return isNullable ? $"{elementType}[]?" : $"{elementType}[]";
+        }
+
+        if (unsigned)
+        {
+            switch (normalized)
+            {
+                case "int": case "int4": case "integer": case "serial":
+                    return isNullable ? "uint?" : "uint";
+                case "bigint": case "int8": case "bigserial":
+                    return isNullable ? "ulong?" : "ulong";
+                case "smallint": case "int2":
+                    return isNullable ? "ushort?" : "ushort";
+                    // "tinyint unsigned" (0..255) and "mediumint unsigned"
+                    // (0..16777215) both already fit their signed mapping's
+                    // range (short, int respectively) — no override needed.
+            }
         }
 
         bool isSqlServer = string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase);
@@ -175,8 +200,21 @@ public static class DialectMapper
 
     private static string NormalizeDbType(string dbType)
     {
+        string s = dbType.Trim();
+
+        // Strip MySQL's "unsigned" (and any trailing "zerofill" that rides
+        // along with it, e.g. "int(10) unsigned zerofill") before the paren
+        // strip below — it's a modifier word, not part of the base type name,
+        // and (unlike the "(n)" facet) can appear with no parens at all
+        // ("int unsigned"). Must not use a blind first-space cut here: several
+        // base type names are themselves multi-word ("double precision",
+        // "character varying", "timestamp without time zone").
+        int unsignedIndex = s.IndexOf("unsigned", StringComparison.OrdinalIgnoreCase);
+        if (unsignedIndex >= 0)
+            s = s.Substring(0, unsignedIndex).Trim();
+
         // Strip length/precision specifiers: varchar(255) -> varchar, decimal(10,2) -> decimal
-        int parenIndex = dbType.IndexOf('(');
-        return parenIndex >= 0 ? dbType.Substring(0, parenIndex).Trim() : dbType.Trim();
+        int parenIndex = s.IndexOf('(');
+        return parenIndex >= 0 ? s.Substring(0, parenIndex).Trim() : s.Trim();
     }
 }

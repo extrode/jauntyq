@@ -49,8 +49,12 @@ public class PublicApiSurfaceTests
     /// <summary>Locates the source-tree folder that holds the approved baseline.</summary>
     private static string ApprovedDir()
     {
+        // A git worktree's ".git" is a file (a gitlink to the main repo's git
+        // dir), not a directory, so this must accept either form to find the
+        // repo root when tests run inside a worktree.
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !(Directory.Exists(Path.Combine(dir.FullName, ".git"))))
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, ".git")) &&
+               !Directory.Exists(Path.Combine(dir.FullName, ".git")))
             dir = dir.Parent;
         Assert.True(dir != null, "Could not locate repository root (no .git found walking up).");
         string target = Path.Combine(dir!.FullName, "tests", "JauntyQ.Generator.Tests", "PublicApi");

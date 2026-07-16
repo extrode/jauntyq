@@ -196,6 +196,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT1003:DiagnosticDescriptor
     field JNT1004:DiagnosticDescriptor
     field JNT1005:DiagnosticDescriptor
+    field JNT1006:DiagnosticDescriptor
     field JNT2001:DiagnosticDescriptor
     field JNT2002:DiagnosticDescriptor
     field JNT2003:DiagnosticDescriptor

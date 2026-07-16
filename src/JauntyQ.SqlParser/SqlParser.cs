@@ -318,6 +318,24 @@ public static partial class SqlParser
                 continue;
             }
 
+            // Qualified star-select: "alias.*". The tokenizer reads a
+            // dot-qualified identifier's embedded '.' as part of the
+            // identifier itself (so "u.name" is one Identifier token), but
+            // '*' isn't an identifier char, so "u.*" tokenizes as the two
+            // separate tokens Identifier("u.") + Symbol("*") rather than
+            // merging. Without this check it falls through to the expression
+            // path below and demands a nonsensical explicit alias (JNT3004)
+            // instead of the purpose-built star-select rejection (JNT3002)
+            // plain '*' already gets.
+            if (token.Type == TokenType.Identifier && token.Value.EndsWith(".", StringComparison.Ordinal) &&
+                pos + 1 < tokens.Count && tokens[pos + 1].Type == TokenType.Symbol && tokens[pos + 1].Value == "*")
+            {
+                string tableAlias = token.Value.Substring(0, token.Value.Length - 1);
+                target.Add(new ColumnRef { TableAlias = tableAlias, ColumnName = "*" });
+                pos += 2;
+                continue;
+            }
+
             // A plain column reference is a lone identifier whose next token
             // ends the item (comma / clause keyword / End) or begins an alias
             // (AS or an implicit-alias identifier). Anything else — a function
@@ -475,26 +493,41 @@ public static partial class SqlParser
     {
         // Strip a single fully-enclosing paren pair so a wrapped predicate like
         // "( x IS NOT NULL )" exposes its top-level operator. Repeats while the
-        // outermost parens enclose the whole run.
+        // outermost parens enclose the whole run. Never unwraps a parenthesized
+        // SELECT (scalar subquery): its result type can't be inferred from
+        // shape, and unwrapping would expose the subquery's own internal
+        // predicates (e.g. a WHERE clause's "=") as if they were top-level
+        // comparisons on the outer expression.
         int lo = 0, hi = count;
         while (hi - lo >= 2 &&
                run[lo].Type == TokenType.Symbol && run[lo].Value == "(" &&
                run[hi - 1].Type == TokenType.Symbol && run[hi - 1].Value == ")" &&
                EnclosesWholeRun(run, lo, hi))
         {
+            if (lo + 1 < hi && run[lo + 1].Type == TokenType.Keyword && run[lo + 1].Value == "SELECT")
+                break;
+
             lo++;
             hi--;
         }
 
         // A top-level comparison or IS [NOT] NULL yields boolean — checked
         // before count/exists heads so "count(*) > 0" infers boolean, not bigint.
+        // CASE...END is tracked as its own nesting level alongside parens so a
+        // comparison inside a WHEN clause (e.g. "CASE WHEN status = 1 THEN ...
+        // END") is not mistaken for the enclosing expression's own top-level
+        // operator — a CASE's result type is its THEN/ELSE branch type, not
+        // boolean, and can't be inferred from shape at all.
         int depth = 0;
+        int caseDepth = 0;
         for (int i = lo; i < hi; i++)
         {
             var t = run[i];
             if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; continue; }
             if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; continue; }
-            if (depth != 0)
+            if (t.Type == TokenType.Keyword && t.Value == "CASE") { caseDepth++; continue; }
+            if (t.Type == TokenType.Keyword && t.Value == "END") { caseDepth--; continue; }
+            if (depth != 0 || caseDepth != 0)
                 continue;
 
             if (t.Type == TokenType.Keyword && t.Value == "IS")

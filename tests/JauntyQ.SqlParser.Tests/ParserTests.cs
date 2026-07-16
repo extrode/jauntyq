@@ -524,6 +524,23 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
     }
 
     [Fact]
+    public void QualifiedStar_ParsesAsStarColumn_WithTableAlias()
+    {
+        // Regression: the tokenizer reads "u.*"'s embedded '.' as part of the
+        // Identifier token itself (so it comes through as Identifier("u.") +
+        // Symbol("*") rather than merging), which used to fall through to the
+        // expression-item path and demand a nonsensical explicit alias
+        // instead of being recognized as a qualified star-select.
+        var model = ParseSql("select u.* from users u");
+
+        Assert.Single(model.Columns);
+        Assert.False(model.Columns[0].IsExpression);
+        Assert.Equal("*", model.Columns[0].ColumnName);
+        Assert.Equal("u", model.Columns[0].TableAlias);
+        Assert.Empty(model.ExpressionsMissingAlias);
+    }
+
+    [Fact]
     public void CountStar_InferredBigint_NotStarSelect()
     {
         var model = ParseSql("select count(*) as n from users");
@@ -575,6 +592,47 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
         Assert.True(model.Columns[0].IsExpression);
         Assert.Equal("full_name", model.Columns[0].OutputAlias);
         Assert.Empty(model.Columns[0].InferredDbType);
+    }
+
+    [Fact]
+    public void CaseExpression_ComparisonInWhenClause_NotInferredAsBoolean()
+    {
+        // The CASE's own result type is its THEN/ELSE branch type (a string
+        // here), not the boolean shape of the comparison inside its WHEN
+        // clause. Must stay unresolved so the generator requires -- @type.
+        var model = ParseSql(
+            "select case when status = 1 then 'active' else 'inactive' end as label from users");
+
+        Assert.True(model.Columns[0].IsExpression);
+        Assert.Equal("label", model.Columns[0].OutputAlias);
+        Assert.Empty(model.Columns[0].InferredDbType);
+        Assert.False(model.Columns[0].InferredNotNull);
+    }
+
+    [Fact]
+    public void CaseExpression_IsNullInWhenClause_NotInferredAsBoolean()
+    {
+        var model = ParseSql(
+            "select case when deleted_at is null then 0 else 1 end as active_flag from users");
+
+        Assert.True(model.Columns[0].IsExpression);
+        Assert.Empty(model.Columns[0].InferredDbType);
+        Assert.False(model.Columns[0].InferredNotNull);
+    }
+
+    [Fact]
+    public void ScalarSubqueryExpression_NotInferredAsBoolean()
+    {
+        // The WHERE clause's "=" inside the subquery is not a top-level
+        // comparison on the outer expression; the subquery's own result type
+        // (bigint here, from count(*)) can't be inferred from shape alone.
+        var model = ParseSql(
+            "select (select count(*) from orders o where o.user_id = u.id) as order_count from users u");
+
+        Assert.True(model.Columns[0].IsExpression);
+        Assert.Equal("order_count", model.Columns[0].OutputAlias);
+        Assert.Empty(model.Columns[0].InferredDbType);
+        Assert.False(model.Columns[0].InferredNotNull);
     }
 
     // ── Feature B: CTEs, RETURNING, INSERT...SELECT ───────

@@ -208,6 +208,30 @@ join categories c on p.category_id = c.category_id", "GetProductsByCategory");
     }
 
     [Fact]
+    public void Build_CaseExpression_WithTypeDirective_MapsToNullable()
+    {
+        // Regression: the parser's shape inference used to mistake the "> 0"
+        // inside the WHEN clause for a top-level comparison on the whole
+        // expression, poisoning InferredNotNull=true even though an explicit
+        // -- @type directive was present and the ELSE arm can be NULL. That
+        // must map to a nullable type, not "int" with an unguarded reader
+        // call that throws on the NULL arm.
+        var query = ParseSql(
+            "select case when unit_price > 0 then 1 else null end as label from products", "GetLabel");
+        var directives = new Directives.DirectiveModel
+        {
+            TypeDirectives = new List<Directives.TypeDirective>
+            {
+                new("label", "int")
+            }
+        };
+        var projection = ProjectionBuilder.Build(query, CreateTestSchema(), directives);
+
+        Assert.Single(projection.Columns);
+        Assert.Equal("int?", projection.Columns[0].Type);
+    }
+
+    [Fact]
     public void Build_SumExpression_DecimalArgument_MapsToNullableDecimal()
     {
         var query = ParseSql("select sum(unit_price) as total from products", "GetTotal");

@@ -99,6 +99,27 @@ public static class SqlTokenizer
                 return tokens;
             }
 
+            // T-SQL server variable: @@IDENTITY, @@ROWCOUNT, etc. Not a bindable
+            // parameter -- without this check, the '@' handling below treats
+            // the second '@' as "not an identifier char", producing a garbage
+            // empty-named Parameter token immediately followed by a second,
+            // unrelated Parameter("IDENTITY") token. Emitted as Unknown (like
+            // any other unsupported construct the tokenizer recognizes but
+            // can't model) so the generator's existing JNT1004 refusal covers
+            // it with a clear message, instead of the misleading "Parameter
+            // '@' is not a valid C# identifier" that fell out of the garbage
+            // empty-named token.
+            if (sql[pos] == '@' && pos + 1 < len && sql[pos + 1] == '@')
+            {
+                int start = pos;
+                pos += 2;
+                while (pos < len && IsIdentifierChar(sql[pos]))
+                    pos++;
+                tokens.Add(new Token(TokenType.Unknown,
+                    $"'{sql.Substring(start, pos - start)}' (T-SQL server variables are not supported)"));
+                continue;
+            }
+
             // Parameter: @name
             if (sql[pos] == '@')
             {
