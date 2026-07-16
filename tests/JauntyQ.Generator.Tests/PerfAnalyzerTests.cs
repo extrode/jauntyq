@@ -273,6 +273,40 @@ public class PerfAnalyzerTests
         Assert.Single(matches);
     }
 
+    [Fact]
+    public void SelfJoin_OtherAliasUnfiltered_StillWarns()
+    {
+        // AUD-R8-02: a self-join gives two aliases (p1/p2) of the SAME table.
+        // filterColumns used to be keyed only by canonical table name, so
+        // filtering p1.launched_at (the composite index's leading column)
+        // wrongly made p2.product_name look "covered" too, even though p2's
+        // own row instance was never filtered on launched_at at all -- no
+        // real index can seek p2 that way. Each alias must be judged on its
+        // own bound predicates.
+        var result = RunOne(
+            "select p1.product_id\nfrom products p1\n" +
+            "join products p2 on p1.product_id = p2.product_id\n" +
+            "where p1.launched_at = @launchedAt and p2.product_name = @productName\n" +
+            "-- @params launchedAt:System.DateTime, productName:string");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("products.product_name"));
+    }
+
+    [Fact]
+    public void SelfJoin_SameAliasBothColumnsFiltered_NoWarning()
+    {
+        // Contrast case: when the SAME alias supplies both the leading and
+        // non-leading composite columns, the index genuinely is usable for
+        // that alias's own row instance -- still no warning.
+        var result = RunOne(
+            "select p1.product_id\nfrom products p1\n" +
+            "join products p2 on p1.product_id = p2.product_id\n" +
+            "where p1.launched_at = @launchedAt and p1.product_name = @productName\n" +
+            "-- @params launchedAt:System.DateTime, productName:string");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("product_name"));
+    }
+
     // ── JNT8005: duplicate queries ──────────────────────────────────────
 
     [Fact]
@@ -438,6 +472,22 @@ public class PerfAnalyzerTests
             "-- @params launched_at:System.DateTime");
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8007");
+    }
+
+    [Fact]
+    public void SelfJoin_OrderByOtherAliasUnfiltered_StillWarns()
+    {
+        // AUD-R8-02 sibling (JNT8007 shares IsColumnIndexSupported with
+        // JNT8004): filtering p1.launched_at must not excuse ordering by
+        // p2.product_name -- p2's own row instance was never constrained on
+        // the composite index's leading column.
+        var result = RunOne(
+            "select p1.product_id\nfrom products p1\n" +
+            "join products p2 on p1.product_id = p2.product_id\n" +
+            "where p1.launched_at = @launchedAt\norder by p2.product_name\n" +
+            "-- @params launchedAt:System.DateTime");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8007" && d.GetMessage().Contains("products.product_name"));
     }
 
     [Fact]

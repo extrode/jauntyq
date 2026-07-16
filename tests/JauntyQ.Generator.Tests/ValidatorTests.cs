@@ -236,6 +236,29 @@ select c.category_id from categories c");
     }
 
     [Fact]
+    public void UnionAll_IdenticalShape_StillJNT1006()
+    {
+        // AUD-R8: §2.1 row 6's named false-negative precedent -- branches
+        // differing only in a literal NULL's nullability must still be
+        // caught. Confirmed by reading SqlParser.Part6.cs:111-114: UNION
+        // detection is unconditional (any "UNION" keyword token flags it,
+        // regardless of branch shape), so this is provably not just "the
+        // two branches happened to look different" in the pre-existing
+        // UnionQuery_JNT1006_Error test above -- even UNION ALL over two
+        // branches selecting the exact same column, where one branch's
+        // value is a literal NULL, still fires.
+        var query = ParseSql(@"
+select p.product_id from products p
+union all
+select null from products p");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT1006");
+        Assert.Equal(ValidationSeverity.Error, errors.First(e => e.Code == "JNT1006").Severity);
+    }
+
+    [Fact]
     public void ScalarSubqueryInProjection_JNT1007_Error()
     {
         // SUBQUERY gets its own Error-severity diagnostic, not JNT1001's
@@ -251,6 +274,28 @@ select c.category_id from categories c");
         Assert.Contains(errors, e => e.Code == "JNT1007");
         Assert.DoesNotContain(errors, e => e.Code == "JNT1001");
         Assert.Equal(ValidationSeverity.Error, errors.First(e => e.Code == "JNT1007").Severity);
+    }
+
+    [Fact]
+    public void WithRecursive_JNT1001_Warning()
+    {
+        // AUD-R8: JNT1001 ("Unsupported SQL Construct") is the generic
+        // fallback DetectUnsupportedConstructs reports for any entry in
+        // QueryModel.UnsupportedConstructs that isn't UNION (JNT1006) or
+        // SUBQUERY (JNT1007). Before this test, no test anywhere in the
+        // suite asserted JNT1001 actually fires through the full
+        // QueryValidator.Validate() pipeline (only "DoesNotContain"
+        // false-positive checks existed) -- WITH RECURSIVE is the one
+        // currently-reachable real construct that lands here (see
+        // SqlParser.Part7.cs:23, QueryValidator.cs:53).
+        var query = ParseSql(
+            "with recursive t as (select product_id from products) select product_id from t");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT1001");
+        Assert.Contains(errors, e => e.Message.Contains("WITH RECURSIVE"));
+        Assert.Equal(ValidationSeverity.Warning, errors.First(e => e.Code == "JNT1001").Severity);
     }
 
     [Theory]

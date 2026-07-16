@@ -134,6 +134,68 @@ public class ProcCallTests
     }
 
     [Fact]
+    public void Call_CombinedWithProc_ReportsJNT3003_NotSilentlyDropped()
+    {
+        // AUD-R8: before this guard existed, "-- @call X" + "-- @proc Y" in
+        // the same file emitted ZERO diagnostics: the @call branch returns
+        // early and never looks at IsProc, so @proc was silently discarded
+        // with no signal to the author. Verified live: DIAGS=[] pre-fix.
+        var result = Run(
+            "-- @call GetOrdersByCustomer\n-- @proc SomeOtherProc\n",
+            "db/Orders/Conflict.sql");
+
+        Assert.Contains(result.Results[0].Diagnostics, d => d.Id == "JNT3003");
+        Assert.Contains(result.Results[0].Diagnostics,
+            d => d.GetMessage().Contains("@call") && d.GetMessage().Contains("@proc"));
+        Assert.DoesNotContain(result.Results[0].GeneratedSources,
+            s => s.HintName.Contains("Conflict"));
+    }
+
+    [Fact]
+    public void Call_CombinedWithIdentity_ReportsJNT3003()
+    {
+        // Same gap, different sibling directive (§4.4 sibling-sweep): @call
+        // ignores @identity exactly the same way it ignored @proc.
+        var result = Run(
+            "-- @call GetOrdersByCustomer\n-- @identity\n",
+            "db/Orders/ConflictIdentity.sql");
+
+        Assert.Contains(result.Results[0].Diagnostics, d => d.Id == "JNT3003");
+        Assert.DoesNotContain(result.Results[0].GeneratedSources,
+            s => s.HintName.Contains("Conflict"));
+    }
+
+    [Fact]
+    public void Call_CombinedWithFirst_ReportsJNT3003()
+    {
+        var result = Run(
+            "-- @call GetOrdersByCustomer\n-- @first\n",
+            "db/Orders/ConflictFirst.sql");
+
+        Assert.Contains(result.Results[0].Diagnostics, d => d.Id == "JNT3003");
+        Assert.DoesNotContain(result.Results[0].GeneratedSources,
+            s => s.HintName.Contains("Conflict"));
+    }
+
+    [Theory]
+    [InlineData("-- @stream\n")]
+    [InlineData("-- @each SomeParam\n")]
+    [InlineData("-- @type foo int\n")]
+    [InlineData("-- @params Id:int\n")]
+    [InlineData("-- @result void\n")]
+    public void Call_CombinedWithAnyOtherDirective_ReportsJNT3003(string secondDirectiveLine)
+    {
+        // Sibling-sweep (§4.4) of the row: the same @call-short-circuit gap
+        // applies uniformly to every remaining directive, not just
+        // @proc/@identity/@first covered by the dedicated tests above.
+        var result = Run(
+            "-- @call GetOrdersByCustomer\n" + secondDirectiveLine,
+            "db/Orders/ConflictOther.sql");
+
+        Assert.Contains(result.Results[0].Diagnostics, d => d.Id == "JNT3003");
+    }
+
+    [Fact]
     public void GeneratedProcCallCode_ParsesClean()
     {
         var result = Run("-- @call GetOrdersByCustomer\n", "db/Orders/GetOrdersByCustomer.sql");

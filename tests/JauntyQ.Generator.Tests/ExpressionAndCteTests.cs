@@ -392,6 +392,18 @@ public class ExpressionAndCteTests
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT1002");
     }
 
+    [Fact]
+    public void TerminatedBlockComment_NoJNT1002()
+    {
+        // AUD-R8: JNT1002's false-positive side (§2.6) had no dedicated
+        // near-miss test -- the closest valid input to an unterminated
+        // block comment is the same comment, properly closed.
+        var sql = "select id from users /* where id = @id */ where id = @id";
+        var (result, _) = Run(sql, "db/Users/GetById.sql");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT1002");
+    }
+
     // ── CTE-sourced projection columns must resolve to real types ──
     // Before ResolveThroughCtes they silently typed as object/GetValue.
 
@@ -548,5 +560,23 @@ public class ExpressionAndCteTests
 
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT1003");
         Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains("Users.GetById.g.cs"));
+    }
+
+    [Fact]
+    public void InputAtExactMaxLength_NoJNT1003()
+    {
+        // AUD-R8: JNT1003's false-positive boundary (§2.6) was never probed
+        // at the exact cap -- SqlTokenizer.cs:53 checks `sql.Length >
+        // MaxInputLength`, so a query of exactly MaxInputLength characters
+        // must still be accepted. Pad with trailing spaces (tokenizer
+        // whitespace) to hit the exact length without changing the query's
+        // shape.
+        var baseSql = "select id from users where id = @id";
+        var sql = baseSql + new string(' ', JauntyQ.SqlParser.SqlTokenizer.MaxInputLength - baseSql.Length);
+        Assert.Equal(JauntyQ.SqlParser.SqlTokenizer.MaxInputLength, sql.Length);
+
+        var (result, _) = Run(sql, "db/Users/GetById.sql");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT1003");
     }
 }

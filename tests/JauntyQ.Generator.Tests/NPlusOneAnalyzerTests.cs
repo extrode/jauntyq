@@ -422,4 +422,56 @@ public class NPlusOneAnalyzerTests
         Assert.Contains("Orders.GetAll", diag.GetMessage());
         Assert.DoesNotContain("GetAllWithItems", diag.GetMessage());
     }
+
+    // ── JNT8008 through a WITH-chain child (ledger caveat, round 8) ──────
+
+    [Fact]
+    public void ChildIsWithChainOverRealFkColumn_ComparisonOpSurvives_NoJNT4003()
+    {
+        // AUD-R1-06 (30379cb) fixed the WITH-chain merge dropping a
+        // parameter's ComparisonOp; this is that fix's own regression shape
+        // (`with c as (select ...) select ... from c where col = @p`)
+        // confirming the parameter still resolves a type with no CTE
+        // indirection needed on the caller's part -- ComparisonOp genuinely
+        // does survive the merge into the outer model.
+        var result = Run(SchemaJson,
+            ("db/Orders/GetAll.sql", ParentGetAll),
+            ("db/OrderItems/GetByOrderId.sql",
+                "with items as (select order_item_id, sku, order_id from order_items)\n" +
+                "select order_item_id, sku from items where order_id = @order_id"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT4003");
+    }
+
+    [Fact]
+    public void ChildIsWithChainOverRealFkColumn_JNT8008DoesNotFire_CteOpacityIsByDesign()
+    {
+        // Round 8: independently re-probed the ledger's open JNT8008 caveat
+        // ("underlying ComparisonOp-drop fixed, code itself not
+        // independently re-probed"). Found that even though ComparisonOp
+        // does survive the WITH-chain merge (previous test), this exact
+        // query still does NOT fire JNT8008 -- unlike the plain,
+        // non-CTE-wrapped equivalent (ParentCollectionPlusChildFkLookup_
+        // JNT8008OnChild), which does. Root cause: QueryFacts.Build's
+        // aliasToTable is keyed from query.Tables, which for a WITH-chain
+        // is the CTE's own name ("items"), not the real table it wraps
+        // ("order_items") -- ResolveColumn can never match a real schema
+        // table through a CTE, so the parameter's filter column never
+        // resolves and the FK check silently has nothing to match against.
+        // This is NOT a hidden defect: NPlusOneAnalyzer.cs's own comment at
+        // the aliasToTable build site ("CTE/unknown: never judged") already
+        // discloses that CTE-backed tables are deliberately excluded from
+        // this analysis, consistent with the "never guess through a CTE"
+        // philosophy QueryValidator.ResolveColumn applies everywhere else
+        // in the codebase. Concluded N/A (correct scope boundary, not a
+        // bug) per audit-criteria.md 6's "investigated and found correct"
+        // clause -- recorded here so a future round does not re-litigate.
+        var result = Run(SchemaJson,
+            ("db/Orders/GetAll.sql", ParentGetAll),
+            ("db/OrderItems/GetByOrderId.sql",
+                "with items as (select order_item_id, sku, order_id from order_items)\n" +
+                "select order_item_id, sku from items where order_id = @order_id"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
+    }
 }

@@ -87,17 +87,26 @@ public static partial class QueryValidator
         if (!hasIndexMetadata)
             return;
 
-        // The full set of (table, column) pairs this query filters/joins on
-        // by equality, resolved to their schema-canonical names. Lets a
-        // non-leading index column be recognized as seekable when all of its
-        // more-leading columns are ALSO filtered in this same query -- a
-        // composite index is covered as a whole, not column-by-column.
+        // The full set of (table instance, column) pairs this query filters/joins
+        // on by equality. Keyed by alias when the reference carries one, falling
+        // back to the canonical table name only for unaliased references --
+        // NOT by canonical table name alone, because a self-join gives two
+        // aliases (e.g. p1/p2) that resolve to the SAME table name; keying by
+        // table name would let a filter on p1's column wrongly "cover" p2's
+        // same-named column, even though p2's own predicates never touched it.
+        // Lets a non-leading index column be recognized as seekable when all of
+        // its more-leading columns are ALSO filtered in this same query, on the
+        // SAME table instance -- a composite index is covered as a whole, not
+        // column-by-column, but only for the instance actually filtered.
         var filterColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         void CollectFilterColumn(string tableAlias, string columnName)
         {
             var col = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
             if (col != null && tableName != null)
-                filterColumns.Add(tableName + "|" + col.Name);
+            {
+                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
+                filterColumns.Add(instanceKey + "|" + col.Name);
+            }
         }
 
         foreach (var param in query.Parameters)
@@ -151,7 +160,8 @@ public static partial class QueryValidator
                 continue;
             if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
                 continue;
-            if (IsColumnIndexSupported(column, tableName, tableSchema!, filterColumns))
+            string orderByInstanceKey = !string.IsNullOrEmpty(orderBy.BoundTableAlias) ? orderBy.BoundTableAlias : tableName;
+            if (IsColumnIndexSupported(column, orderByInstanceKey, tableSchema!, filterColumns))
                 continue;
 
             string message = $"ORDER BY {tableName}.{column.Name} has no supporting index: this query sorts at runtime. " +
@@ -172,7 +182,8 @@ public static partial class QueryValidator
             return;
         if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
             return;
-        if (IsColumnIndexSupported(column, tableName, tableSchema!, filterColumns))
+        string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
+        if (IsColumnIndexSupported(column, instanceKey, tableSchema!, filterColumns))
             return;
 
         string message = $"No index covers {tableName}.{column.Name} used as a filter/join key: " +
@@ -189,9 +200,13 @@ public static partial class QueryValidator
     /// also constrained (by an equality filter/join) in this query — so the
     /// composite index can be positioned up to it. Shared by JNT8004 (filter/join
     /// keys) and JNT8007 (ORDER BY columns).
+    /// <paramref name="instanceKey"/> identifies the specific table INSTANCE this
+    /// column belongs to (the alias, or the table name when unaliased) — never
+    /// the bare table name for an aliased reference, so a self-join's two
+    /// aliases of the same table are never conflated with each other.
     /// </summary>
     private static bool IsColumnIndexSupported(
-        ColumnSchema column, string tableName, TableSchema tableSchema, HashSet<string> filterColumns)
+        ColumnSchema column, string instanceKey, TableSchema tableSchema, HashSet<string> filterColumns)
     {
         if (column.IsPrimaryKey)
             return true;
@@ -205,7 +220,7 @@ public static partial class QueryValidator
             bool coveredUpToHere = true;
             for (int i = 0; i < pos; i++)
             {
-                if (!filterColumns.Contains(tableName + "|" + index.Columns[i]))
+                if (!filterColumns.Contains(instanceKey + "|" + index.Columns[i]))
                 {
                     coveredUpToHere = false;
                     break;
