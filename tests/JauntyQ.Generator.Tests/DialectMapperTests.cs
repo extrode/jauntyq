@@ -226,7 +226,9 @@ public class DialectMapperTests
     /// System.UInt32/UInt64/UInt16 on the wire. Regression for the bug where
     /// the extractor dropped the modifier entirely and everything mapped to
     /// the signed type, silently failing at read time above the signed max
-    /// with zero build-time signal.
+    /// with zero build-time signal. Gated on dialect: "mysql" is required,
+    /// mirroring how the extractor is the only source that ever produces this
+    /// DbType shape.
     /// </summary>
     [Theory]
     [InlineData("int unsigned", false, "uint")]
@@ -239,8 +241,8 @@ public class DialectMapperTests
     [InlineData("smallint unsigned", true, "ushort?")]
     public void UnsignedIntegerColumn_MapsToWideningClrType(string dbType, bool isNullable, string expected)
     {
-        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp(dbType, isNullable));
-        Assert.False(DialectMapper.IsUnmappedDbType(dbType, isNullable));
+        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp(dbType, isNullable, dialect: "mysql"));
+        Assert.False(DialectMapper.IsUnmappedDbType(dbType, isNullable, dialect: "mysql"));
     }
 
     [Theory]
@@ -248,7 +250,7 @@ public class DialectMapperTests
     [InlineData("mediumint unsigned", false, "int")]
     public void UnsignedIntegerColumn_AlreadyFitsSignedMapping_Unchanged(string dbType, bool isNullable, string expected)
     {
-        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp(dbType, isNullable));
+        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp(dbType, isNullable, dialect: "mysql"));
     }
 
     [Fact]
@@ -257,7 +259,28 @@ public class DialectMapperTests
         // The DbType format the extractor actually produces has no "(n)"
         // facet for MySQL (that only appears in COLUMN_TYPE, not DATA_TYPE),
         // but NormalizeDbType must handle either order robustly.
-        Assert.Equal("uint", DialectMapper.MapDbTypeToCSharp("int(10) unsigned", false));
-        Assert.Equal("uint", DialectMapper.MapDbTypeToCSharp("int(10) unsigned zerofill", false));
+        Assert.Equal("uint", DialectMapper.MapDbTypeToCSharp("int(10) unsigned", false, dialect: "mysql"));
+        Assert.Equal("uint", DialectMapper.MapDbTypeToCSharp("int(10) unsigned zerofill", false, dialect: "mysql"));
+    }
+
+    /// <summary>
+    /// Regression: the unsigned routing must never fire for a non-MySQL
+    /// dialect, even when the DbType string happens to contain the word
+    /// "unsigned" (e.g. DDL ported verbatim from MySQL into SQLite, which has
+    /// no real UNSIGNED wire semantics). Before this dialect gate, such a
+    /// column silently mapped to uint/ulong/ushort, but Microsoft.Data.Sqlite
+    /// boxes the value as a plain long -- the emitted "(ulong)reader.GetValue(i)"
+    /// cast threw InvalidCastException on every read. It must keep degrading
+    /// to the same "object" + JNT2007 signal any other unrecognized type gets.
+    /// </summary>
+    [Theory]
+    [InlineData("sqlite")]
+    [InlineData("postgres")]
+    [InlineData("sqlserver")]
+    [InlineData(null)]
+    public void UnsignedLookingDbType_NonMySqlDialect_StaysUnmapped(string? dialect)
+    {
+        Assert.Equal("object", DialectMapper.MapDbTypeToCSharp("int unsigned", false, dialect: dialect));
+        Assert.True(DialectMapper.IsUnmappedDbType("int unsigned", false, dialect: dialect));
     }
 }
