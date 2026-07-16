@@ -174,7 +174,10 @@ create table gadgets (id int not null primary key, name nvarchar(20) not null);
   ""procedures"": {
     ""GetTopProducts"": {
       ""name"": ""GetTopProducts"",
-      ""params"": [ { ""name"": ""HowMany"", ""dbType"": ""int"", ""direction"": ""In"", ""isNullable"": false } ],
+      ""params"": [
+        { ""name"": ""HowMany"", ""dbType"": ""int"", ""direction"": ""In"", ""isNullable"": false },
+        { ""name"": ""TotalValue"", ""dbType"": ""decimal"", ""direction"": ""Out"", ""isNullable"": false, ""precision"": 12, ""scale"": 4 }
+      ],
       ""results"": [ { ""name"": ""ProductId"", ""dbType"": ""int"", ""isNullable"": false } ]
     }
   },
@@ -194,6 +197,26 @@ create table gadgets (id int not null primary key, name nvarchar(20) not null);
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2005");
         Assert.True(HasSource(result, "Products.CallTop.g.cs"));
+    }
+
+    [Fact]
+    public void PendingMigration_DoesNotErase_ProcedureParamPrecisionAndScale()
+    {
+        // SchemaSimulator.Clone once copied ProcedureParam without its
+        // Precision/Scale fields: a decimal OUT param, cloned only because
+        // an unrelated migration exists elsewhere, would come back out of
+        // the simulator with both null, and the emitted DbParameter would
+        // carry no Precision/Scale -- the exact silent truncation/rounding
+        // hazard those fields exist to prevent (see ProcCallTests'
+        // no-migration counterpart, which stays green either way since it
+        // never routes through the simulator).
+        var result = Run(autoCrud: false, RichSchemaJson,
+            ("db/Products/CallTop.sql", "-- @call GetTopProducts"),
+            ("db/migrations/0001_unrelated.sql", UnrelatedMigration));
+
+        string src = Source(result, "Products.CallTop.g.cs");
+        Assert.Contains(".Precision = 12;", src);
+        Assert.Contains(".Scale = 4;", src);
     }
 
     [Fact]

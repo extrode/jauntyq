@@ -423,7 +423,9 @@ public static class SchemaSimulator
                     DbType = p.DbType,
                     Direction = p.Direction,
                     IsNullable = p.IsNullable,
-                    MaxLength = p.MaxLength
+                    MaxLength = p.MaxLength,
+                    Precision = p.Precision,
+                    Scale = p.Scale
                 });
             }
             foreach (var rc in proc.Results)
