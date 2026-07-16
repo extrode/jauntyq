@@ -66,7 +66,7 @@ public static class MigrationParser
         string raw = string.Join(" ", tokenValues);
 
         if (Is(tokens, 0, "CREATE") && Is(tokens, 1, "TABLE"))
-            return new List<MigrationStatement> { ParseCreateTable(tokens, raw) };
+            return ParseCreateTable(tokens, raw);
 
         if (Is(tokens, 0, "DROP") && Is(tokens, 1, "TABLE"))
             return new List<MigrationStatement> { ParseDropTable(tokens, raw) };
@@ -92,14 +92,21 @@ public static class MigrationParser
         return new List<MigrationStatement> { new MigrationStatement { Kind = MigrationStatementKind.Unsupported, RawText = raw } };
     }
 
-    private static MigrationStatement ParseCreateTable(List<Token> tokens, string raw)
+    private static List<MigrationStatement> ParseCreateTable(List<Token> tokens, string raw)
     {
         var stmt = new MigrationStatement { Kind = MigrationStatementKind.CreateTable, RawText = raw };
         int pos = 2;
         stmt.TableName = ReadObjectName(tokens, ref pos);
         if (stmt.TableName.Length == 0 || !IsSymbol(tokens, pos, "("))
-            return Unsupported(raw);
+            return new List<MigrationStatement> { Unsupported(raw) };
         pos++; // skip (
+
+        // Table-level UNIQUE/FOREIGN/CHECK constraints aren't modeled (the
+        // simulator has no secondary-index/FK/check population from
+        // migrations) -- each becomes its own sibling Unsupported statement
+        // so JNT9001 fires, matching ALTER TABLE ADD CONSTRAINT's identical
+        // handling, instead of silently vanishing with no diagnostic at all.
+        var unsupported = new List<MigrationStatement>();
 
         foreach (var def in SplitTopLevel(tokens, ref pos))
         {
@@ -125,14 +132,25 @@ public static class MigrationParser
                 continue;
             }
             if (Is(def, c, "UNIQUE") || Is(def, c, "FOREIGN") || Is(def, c, "CHECK"))
+            {
+                var clauseWords = new List<string>(def.Count);
+                foreach (var t in def)
+                    clauseWords.Add(t.Value);
+                unsupported.Add(Unsupported($"{raw} -- table-level constraint dropped: {string.Join(" ", clauseWords)}"));
                 continue;
+            }
 
             var column = ParseColumnDef(def);
             if (column != null)
                 stmt.Columns.Add(column);
         }
 
-        return stmt.Columns.Count > 0 ? stmt : Unsupported(raw);
+        if (stmt.Columns.Count == 0)
+            return new List<MigrationStatement> { Unsupported(raw) };
+
+        var results = new List<MigrationStatement> { stmt };
+        results.AddRange(unsupported);
+        return results;
     }
 
     private static MigrationStatement ParseDropTable(List<Token> tokens, string raw)
