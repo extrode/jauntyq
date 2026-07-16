@@ -283,4 +283,91 @@ public class DialectMapperTests
         Assert.Equal("object", DialectMapper.MapDbTypeToCSharp("int unsigned", false, dialect: dialect));
         Assert.True(DialectMapper.IsUnmappedDbType("int unsigned", false, dialect: dialect));
     }
+
+    // Round 13 (2026-07-17), mandate cell "2.8-remaining DbType families":
+    // §2.8 requires confirming nullable AND non-nullable both map correctly
+    // for every recognized DbType string, not just the 6 integer families
+    // that already get the dedicated 4-boundary-probe JNT5002 treatment.
+    // Every alias below already has a case in MapDbTypeToCSharp's switch --
+    // this theory is the first place asserting BOTH nullability states for
+    // every one of them in a single, exhaustive, discoverable table (several
+    // aliases per family had never been direct-unit-tested at all before;
+    // others had only one nullability state covered elsewhere in this file).
+    [Theory]
+    // --- signed int family (non-unsigned; "tinyint" excluded here --
+    // it's dialect-conditional and already fully covered by
+    // TinyintColumn_MapsByDialect above) ---
+    [InlineData("int", false, "int")] [InlineData("int", true, "int?")]
+    [InlineData("int4", false, "int")] [InlineData("int4", true, "int?")]
+    [InlineData("integer", false, "int")] [InlineData("integer", true, "int?")]
+    [InlineData("serial", false, "int")] [InlineData("serial", true, "int?")]
+    [InlineData("mediumint", false, "int")] [InlineData("mediumint", true, "int?")]
+    [InlineData("year", false, "int")] [InlineData("year", true, "int?")]
+    [InlineData("bigint", false, "long")] [InlineData("bigint", true, "long?")]
+    [InlineData("int8", false, "long")] [InlineData("int8", true, "long?")]
+    [InlineData("bigserial", false, "long")] [InlineData("bigserial", true, "long?")]
+    [InlineData("smallint", false, "short")] [InlineData("smallint", true, "short?")]
+    [InlineData("int2", false, "short")] [InlineData("int2", true, "short?")]
+    // --- string family ---
+    [InlineData("varchar", false, "string")] [InlineData("varchar", true, "string?")]
+    [InlineData("text", false, "string")] [InlineData("text", true, "string?")]
+    [InlineData("nvarchar", false, "string")] [InlineData("nvarchar", true, "string?")]
+    [InlineData("ntext", false, "string")] [InlineData("ntext", true, "string?")]
+    [InlineData("character varying", false, "string")] [InlineData("character varying", true, "string?")]
+    [InlineData("char", false, "string")] [InlineData("char", true, "string?")]
+    [InlineData("nchar", false, "string")] [InlineData("nchar", true, "string?")]
+    [InlineData("character", false, "string")] [InlineData("character", true, "string?")]
+    [InlineData("citext", false, "string")] [InlineData("citext", true, "string?")]
+    [InlineData("tinytext", false, "string")] // nullable=true for the 3 *text variants already covered by PreviouslyUnmappedMySqlTypes_MapToRealClrType
+    [InlineData("mediumtext", false, "string")]
+    [InlineData("longtext", false, "string")]
+    [InlineData("enum", true, "string?")] // nullable=false for enum/set already covered above
+    [InlineData("set", true, "string?")]
+    // --- bool family (bit(<=1) already covered by SingleBitColumn_MapsToBool) ---
+    [InlineData("bool", false, "bool")] [InlineData("bool", true, "bool?")]
+    [InlineData("boolean", false, "bool")] [InlineData("boolean", true, "bool?")]
+    // --- fixed-point / money family ---
+    [InlineData("decimal", false, "decimal")] [InlineData("decimal", true, "decimal?")]
+    [InlineData("numeric", false, "decimal")] [InlineData("numeric", true, "decimal?")]
+    [InlineData("money", false, "decimal")] [InlineData("money", true, "decimal?")]
+    [InlineData("smallmoney", false, "decimal")] [InlineData("smallmoney", true, "decimal?")]
+    // --- double-precision floating point family ---
+    [InlineData("float", false, "double")] [InlineData("float", true, "double?")]
+    [InlineData("double precision", false, "double")] [InlineData("double precision", true, "double?")]
+    [InlineData("float8", false, "double")] [InlineData("float8", true, "double?")]
+    [InlineData("double", true, "double?")] // nullable=false for "double" already covered above
+    // --- single-precision floating point family ---
+    [InlineData("real", false, "float")] [InlineData("real", true, "float?")]
+    [InlineData("float4", false, "float")] [InlineData("float4", true, "float?")]
+    // --- date/time-without-offset family (datetimeoffset / time with time
+    // zone already fully covered by OffsetAwareTemporalTypes_...) ---
+    [InlineData("datetime", false, "System.DateTime")] [InlineData("datetime", true, "System.DateTime?")]
+    [InlineData("timestamp", false, "System.DateTime")] [InlineData("timestamp", true, "System.DateTime?")]
+    [InlineData("datetime2", false, "System.DateTime")] [InlineData("datetime2", true, "System.DateTime?")]
+    [InlineData("date", false, "System.DateTime")] [InlineData("date", true, "System.DateTime?")]
+    [InlineData("timestamp without time zone", false, "System.DateTime")] [InlineData("timestamp without time zone", true, "System.DateTime?")]
+    [InlineData("timestamp with time zone", false, "System.DateTime")] [InlineData("timestamp with time zone", true, "System.DateTime?")]
+    [InlineData("smalldatetime", false, "System.DateTime")] [InlineData("smalldatetime", true, "System.DateTime?")]
+    [InlineData("time", false, "System.TimeSpan")] [InlineData("time", true, "System.TimeSpan?")]
+    [InlineData("time without time zone", false, "System.TimeSpan")] [InlineData("time without time zone", true, "System.TimeSpan?")]
+    // --- GUID family ---
+    [InlineData("uniqueidentifier", false, "System.Guid")] [InlineData("uniqueidentifier", true, "System.Guid?")]
+    [InlineData("uuid", false, "System.Guid")] [InlineData("uuid", true, "System.Guid?")]
+    // --- binary family (blob/tinyblob/mediumblob/longblob nullable=true
+    // already covered by PreviouslyUnmappedMySqlTypes_MapToRealClrType) ---
+    [InlineData("bytea", false, "byte[]")] [InlineData("bytea", true, "byte[]?")]
+    [InlineData("varbinary", false, "byte[]")] [InlineData("varbinary", true, "byte[]?")]
+    [InlineData("binary", false, "byte[]")] [InlineData("binary", true, "byte[]?")]
+    [InlineData("image", false, "byte[]")] [InlineData("image", true, "byte[]?")]
+    [InlineData("blob", false, "byte[]")]
+    [InlineData("tinyblob", false, "byte[]")]
+    [InlineData("mediumblob", false, "byte[]")]
+    [InlineData("longblob", false, "byte[]")]
+    public void AllRecognizedDbTypeFamilies_MapNullableAndNonNullableCorrectly(string dbType, bool isNullable, string expected)
+    {
+        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp(dbType, isNullable));
+        // Every one of these has a real case in the switch -- none should
+        // ever be flagged as an unmapped/fallback type.
+        Assert.False(DialectMapper.IsUnmappedDbType(dbType, isNullable));
+    }
 }

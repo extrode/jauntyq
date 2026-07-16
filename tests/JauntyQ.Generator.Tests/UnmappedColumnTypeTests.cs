@@ -42,6 +42,19 @@ public class UnmappedColumnTypeTests
   }
 }";
 
+    private const string NullableUnmappedColumnSchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""employee"": {
+      ""name"": ""employee"",
+      ""columns"": {
+        ""business_entity_id"": { ""name"": ""business_entity_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""organization_node"": { ""name"": ""organization_node"", ""dbType"": ""hierarchyid"", ""isNullable"": true }
+      }
+    }
+  }
+}";
+
     private const string RowVersionSchemaJson = @"{
   ""dialect"": ""sqlserver"",
   ""tables"": {
@@ -119,5 +132,52 @@ public class UnmappedColumnTypeTests
             ("db/tables/Widget/GetById.sql", "select widget_id, row_version from widgets where widget_id = @widget_id"));
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2007");
+    }
+
+    // Round 13 (2026-07-17), AUD-R13-01: a NULLABLE column of an unrecognized
+    // db type -- e.g. SQL Server "hierarchyid", which really is used, live,
+    // by AdventureWorksLite's HumanResources.Employee.OrganizationNode
+    // (samples/JauntyQ.AdventureWorksLite.SqlServer.Tests/db/schema/jaunty.schema.json)
+    // -- used to generate a non-nullable-annotated `object` property AND skip
+    // the `reader.IsDBNull(...)` guard entirely (CodeEmitter.Part9's
+    // GetReaderCall infers "is this nullable" from whether the type string
+    // ends in "?", which the unconditional `_ => "object"` fallback in
+    // DialectMapper.MapDbTypeToCSharp never did). A genuine SQL NULL for such
+    // a column therefore came through as the raw `System.DBNull.Value`
+    // sentinel instead of C# `null`, silently breaking the null-means-no-value
+    // contract every other nullable column honors -- with no diagnostic,
+    // since JNT2007 only warns about the type itself being unmapped, not
+    // about this null-handling asymmetry. Fixed by making the fallback arm
+    // append "?" for a nullable column, same as every other arm.
+    [Fact]
+    public void NullableUnmappedColumn_PropertyIsNullableObject_AndReaderGuardsIsDBNull()
+    {
+        var result = RunGenerator(NullableUnmappedColumnSchemaJson,
+            ("db/tables/Employee/GetById.sql", "select business_entity_id, organization_node from employee where business_entity_id = @business_entity_id"));
+
+        var rowSource = Assert.Single(result.Results[0].GeneratedSources,
+            s => s.SourceText.ToString().Contains("class EmployeeRow")).SourceText.ToString();
+
+        Assert.Contains("public object? OrganizationNode { get; set; }", rowSource);
+        Assert.Contains("OrganizationNode = reader.IsDBNull(1) ? default(object?) : reader.GetValue(1)", rowSource);
+        // The old, buggy shape (non-nullable property, unguarded GetValue) must not reappear.
+        Assert.DoesNotContain("public object OrganizationNode { get; set; }", rowSource);
+    }
+
+    [Fact]
+    public void NullableUnmappedColumn_StillReportsJnt2007()
+    {
+        // Regression guard for the companion IsUnmappedDbType fix: once the
+        // mapper's fallback started returning "object?" (not just "object")
+        // for nullable columns, the JNT2007 detector's `== "object"` string
+        // comparison would otherwise stop matching and silently swallow the
+        // diagnostic for every nullable unmapped-type column.
+        var result = RunGenerator(NullableUnmappedColumnSchemaJson,
+            ("db/tables/Employee/GetById.sql", "select business_entity_id, organization_node from employee where business_entity_id = @business_entity_id"));
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT2007");
+        Assert.Equal(DiagnosticSeverity.Warning, diag.Severity);
+        Assert.Contains("employee.organization_node", diag.GetMessage());
+        Assert.Contains("hierarchyid", diag.GetMessage());
     }
 }
