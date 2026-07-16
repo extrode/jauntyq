@@ -282,13 +282,13 @@ public static partial class CodeEmitter
         void EmitOne(string connVar, bool isStatic, bool isAsync)
         {
             if (isPostgres)
-                EmitBulkInsertBodyPostgres(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync);
+                EmitBulkInsertBodyPostgres(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect);
             else if (isSqlServer)
                 EmitBulkInsertBodySqlServer(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync);
             else if (isMySql)
                 EmitBulkInsertBodyMySql(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync);
             else
-                EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync);
+                EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect);
         }
 
         EmitOne("_conn", isStatic: false, isAsync: false);
@@ -304,7 +304,7 @@ public static partial class CodeEmitter
         if (isSqlServer || isMySql)
         {
             sb.AppendLine();
-            EmitBulkReaderAdapter(sb, rowType, cols);
+            EmitBulkReaderAdapter(sb, rowType, cols, dialect);
         }
 
         sb.AppendLine("    }");

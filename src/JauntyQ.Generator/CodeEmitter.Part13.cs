@@ -45,7 +45,7 @@ public static partial class CodeEmitter
     private static void EmitBulkInsertBodyPostgres(
         System.Text.StringBuilder sb, string rowType, string tableName,
         System.Collections.Generic.List<ColumnSchema> cols,
-        string connVar, bool isStatic, bool isAsync)
+        string connVar, bool isStatic, bool isAsync, string dialect)
     {
         var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync);
         string colList = JoinColumns(cols, ", ", c => c.Name);
@@ -74,7 +74,7 @@ public static partial class CodeEmitter
         for (int i = 0; i < cols.Count; i++)
         {
             var c = cols[i];
-            string ct = DialectMapper.MapColumnToCSharp(c);
+            string ct = DialectMapper.MapColumnToCSharp(c, dialect);
             string prop = IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name));
             if (IsNonNullableValueType(ct))
             {
@@ -216,7 +216,7 @@ public static partial class CodeEmitter
     /// </summary>
     private static void EmitBulkReaderAdapter(
         System.Text.StringBuilder sb, string rowType,
-        System.Collections.Generic.List<ColumnSchema> cols)
+        System.Collections.Generic.List<ColumnSchema> cols, string dialect)
     {
         string readerType = $"__{rowType}BulkReader";
 
@@ -248,7 +248,7 @@ public static partial class CodeEmitter
         for (int i = 0; i < cols.Count; i++)
         {
             var c = cols[i];
-            string ct = DialectMapper.MapColumnToCSharp(c);
+            string ct = DialectMapper.MapColumnToCSharp(c, dialect);
             string prop = IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name));
             if (IsNonNullableValueType(ct))
                 sb.AppendLine($"                    case {i}: return _current.{prop};");
@@ -285,7 +285,7 @@ public static partial class CodeEmitter
         sb.AppendLine("                {");
         for (int i = 0; i < cols.Count; i++)
         {
-            string ct = DialectMapper.MapColumnToCSharp(cols[i]);
+            string ct = DialectMapper.MapColumnToCSharp(cols[i], dialect);
             string baseType = ct.EndsWith("?") ? ct.Substring(0, ct.Length - 1) : ct;
             sb.AppendLine($"                    case {i}: return typeof({baseType});");
         }

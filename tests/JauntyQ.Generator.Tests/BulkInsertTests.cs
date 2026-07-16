@@ -212,6 +212,47 @@ public class BulkInsertTests
             string.Join("\n", errors.Select(e => e.ToString())));
     }
 
+    // SQL Server tinyint is provider storage type byte (DialectMapper maps it
+    // to "byte" only when dialect == "sqlserver"; every other dialect, and
+    // null, maps it to "short" -- see DialectMapper.MapDbTypeToCSharp). The
+    // shared BulkReaderAdapter (CodeEmitter.Part13.cs, feeding SqlBulkCopy)
+    // and the two portable body emitters (CodeEmitter.Part12/13.cs) each call
+    // DialectMapper.MapColumnToCSharp independently; EmitBulkInsert's EmitOne/
+    // adapter callers (CodeEmitter.Part11.cs) previously omitted the dialect
+    // argument on 5 call sites, so tinyint columns always fell through to
+    // "short" regardless of the schema's actual dialect -- a mismatch against
+    // the row POCO's correctly-dialect-aware "byte" property (CodeEmitter.
+    // Part5.cs) that a syntax-only parse can't catch, since both "short" and
+    // "byte" are valid C#; only GetFieldType's `typeof(...)` argument reveals
+    // the wrong type was selected.
+    private const string SqlServerTinyIntSchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""Widgets"": {
+      ""name"": ""Widgets"",
+      ""columns"": {
+        ""WidgetId"": { ""name"": ""WidgetId"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""Flags"": { ""name"": ""Flags"", ""dbType"": ""tinyint"", ""isNullable"": false }
+      }
+    }
+  }
+}";
+
+    [Fact]
+    public void SqlServer_TinyIntColumn_BulkReaderAdapter_UsesByte_NotShort()
+    {
+        var src = AllSources(Run(SqlServerTinyIntSchemaJson));
+
+        // The row POCO property (CodeEmitter.Part5.cs, always dialect-aware)
+        // must be byte.
+        Assert.Contains("public byte Flags", src);
+
+        // The shared BulkReaderAdapter's GetFieldType must agree: byte, not
+        // the pre-fix default of short.
+        Assert.Contains("return typeof(byte);", src);
+        Assert.DoesNotContain("return typeof(short);", src);
+    }
+
     [Fact]
     public void Sqlite_KeepsPortableLoop_NoProviderTypes()
     {
