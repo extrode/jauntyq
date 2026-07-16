@@ -271,4 +271,27 @@ create table gadgets (id int not null primary key, name nvarchar(20) not null);
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == DiagnosticSeverity.Error);
         Assert.False(HasSource(result, "Gadgets.GetAll.auto.g.cs"));
     }
+
+    [Fact]
+    public void Migrations_UnpaddedFlywayStyleNumbering_AppliesInNumericOrder_NotOrdinal()
+    {
+        // A plain ordinal sort misorders unpadded Flyway-style names: "V10"
+        // and "V11" sort ordinally BEFORE "V2".."V9" (V1, V10, V11, V2, V3,
+        // ...). Here V2 adds a column that V10 then widens -- ordinally,
+        // V10 (widen) would run before V2 (add) even exists, which the
+        // simulator would have to reject as an invalid operation on a
+        // nonexistent column. Numeric order (V1, V2, ..., V9, V10, V11)
+        // applies them correctly and the widened column survives to V11.
+        var result = Run(autoCrud: true,
+            ("db/migrations/V1__create_widgets.sql", "create table widgets (id int not null primary key, name nvarchar(10) not null)"),
+            ("db/migrations/V10__widen_name.sql", "alter table widgets alter column name nvarchar(80) not null"),
+            ("db/migrations/V11__noop.sql", "-- no-op, just to occupy a slot after V10"),
+            ("db/migrations/V2__add_flag.sql", "alter table widgets add column active bit not null"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        Assert.Contains("public required string Name { get; set; }", Source(result, "Widgets.Row.g.cs"));
+        Assert.Contains("public bool Active { get; set; }", Source(result, "Widgets.Row.g.cs"));
+        // Widened by V10 to 80: the value-safety guard reflects the final width.
+        Assert.Contains("if (name.Length > 80)", Source(result, "Widgets.Insert.auto.g.cs"));
+    }
 }
