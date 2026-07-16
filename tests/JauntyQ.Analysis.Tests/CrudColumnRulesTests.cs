@@ -99,6 +99,48 @@ public class CrudColumnRulesTests
         Assert.Null(CrudColumnRules.SingleIdentityColumn(cols));
     }
 
+    // R9 §2.10 mandate (2.10-InsertableColumns/UpdatableColumns/... full
+    // facet-combination matrix): IsPrimaryKey/IsIdentity/IsRowVersion/
+    // IsComputed are 4 independent booleans (16 combinations). Prior rounds
+    // only ever exercised a handful of hand-picked combinations on
+    // different columns of the same table (never the full 2^4 grid), so a
+    // combination like pk+identity+rowVersion+computed all set together —
+    // or rowVersion+computed with neither pk nor identity — was never
+    // actually driven through the filters. Every row is independently
+    // derivable from the documented predicates:
+    //   InsertableColumns keeps: !identity && !rowVersion && !computed
+    //   UpdatableColumns  keeps: !pk && !identity && !rowVersion && !computed
+    [Theory]
+    [InlineData(false, false, false, false, true, true)]
+    [InlineData(true, false, false, false, true, false)]   // pk alone
+    [InlineData(false, true, false, false, false, false)]  // identity alone
+    [InlineData(false, false, true, false, false, false)]  // rowVersion alone
+    [InlineData(false, false, false, true, false, false)]  // computed alone
+    [InlineData(true, true, false, false, false, false)]   // pk+identity
+    [InlineData(true, false, true, false, false, false)]   // pk+rowVersion
+    [InlineData(true, false, false, true, false, false)]   // pk+computed
+    [InlineData(false, true, true, false, false, false)]   // identity+rowVersion
+    [InlineData(false, true, false, true, false, false)]   // identity+computed
+    [InlineData(false, false, true, true, false, false)]   // rowVersion+computed
+    [InlineData(true, true, true, false, false, false)]    // pk+identity+rowVersion
+    [InlineData(true, true, false, true, false, false)]    // pk+identity+computed
+    [InlineData(true, false, true, true, false, false)]    // pk+rowVersion+computed
+    [InlineData(false, true, true, true, false, false)]    // identity+rowVersion+computed
+    [InlineData(true, true, true, true, false, false)]     // all four set
+    public void InsertableAndUpdatableColumns_FullFacetCombinationMatrix(
+        bool pk, bool identity, bool rowVersion, bool computed,
+        bool expectInsertable, bool expectUpdatable)
+    {
+        var col = Col("Facet", pk: pk, identity: identity, rowVersion: rowVersion, computed: computed);
+        var cols = new List<ColumnSchema> { col };
+
+        bool insertable = CrudColumnRules.InsertableColumns(cols).Exists(c => c.Name == "Facet");
+        bool updatable = CrudColumnRules.UpdatableColumns(cols).Exists(c => c.Name == "Facet");
+
+        Assert.Equal(expectInsertable, insertable);
+        Assert.Equal(expectUpdatable, updatable);
+    }
+
     [Fact]
     public void UpsertColumns_ExcludesIdentityUnlessPartOfKey()
     {

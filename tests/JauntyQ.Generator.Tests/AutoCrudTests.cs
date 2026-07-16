@@ -359,6 +359,25 @@ public class AutoCrudTests
     }
 
     [Fact]
+    public void SyntheticInsert_Sqlite_UsesReturning()
+    {
+        // R9 §2.5 mandate (2.5-@identity-jnt7001-per-dialect): CodeEmitter
+        // .BuildIdentityInsertSql shares its "returning <col>" branch between
+        // "postgres" and "sqlite" (a single switch case, two labels) -- this
+        // had never actually been driven end-to-end for sqlite specifically,
+        // only assumed identical to the postgres case tested above. Real
+        // execution here catches a future refactor that accidentally splits
+        // the two labels apart with divergent behavior.
+        var (result, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"sqlite\""));
+
+        var source = TryGetSource(result, "Products.Insert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("returning product_id", source);
+        Assert.DoesNotContain("output inserted", source);
+        Assert.DoesNotContain("last_insert_id()", source);
+    }
+
+    [Fact]
     public void SyntheticInsert_MySql_UsesLastInsertId_WithCheckedNarrowing()
     {
         var (result, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"mysql\""));
@@ -391,6 +410,46 @@ public class AutoCrudTests
         Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
         Assert.Contains("only valid on INSERT", diag.GetMessage());
         Assert.Null(TryGetSource(result, "Products.Rename.g.cs"));
+    }
+
+    [Theory]
+    [InlineData("sqlserver")]
+    [InlineData("postgres")]
+    [InlineData("mysql")]
+    [InlineData("sqlite")]
+    public void IdentityDirective_NoIdentityColumnOnTable_ReportsJNT7001_EveryDialect(string dialect)
+    {
+        // R9 §2.5 mandate (2.5-@identity-jnt7001-per-dialect): the final
+        // ResolveIdentityInfo==null branch of the JNT7001 gate -- "table has
+        // zero (or more than one) identity columns" -- had never been driven
+        // by any existing test, on any dialect. "customers" has a plain
+        // (non-identity) primary key. This also confirms the gate is
+        // genuinely dialect-invariant (same schema-shape check regardless of
+        // the dialect string), rather than assuming it from reading the code.
+        var (result, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", $"\"{dialect}\""),
+            autoCrud: false,
+            ("db/Customers/Insert.sql", "-- @identity\ninsert into customers (customer_id, company_name) values (@customer_id, @company_name)"));
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT7001");
+        Assert.Contains("requires exactly one identity column on the target table 'customers'", diag.GetMessage());
+        Assert.Null(TryGetSource(result, "Customers.Insert.g.cs"));
+    }
+
+    [Fact]
+    public void IdentityDirective_WithProc_ReportsJNT7001()
+    {
+        // R9 §2.5 mandate (2.5-directive-combinations-jnt3003), sibling-sweep
+        // of the row: @identity's own precondition gate (JauntyQGenerator
+        // .Part2.cs) rejects combination with @proc via JNT7001 (not
+        // JNT3003 -- a deliberately different diagnostic code for this one
+        // pairing), never previously exercised.
+        var (result, _) = RunAutoCrud(autoCrud: false,
+            ("db/Products/InsertViaProc.sql",
+             "-- @identity\n-- @proc\ninsert into products (product_name) values (@product_name)"));
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT7001");
+        Assert.Contains("cannot be combined with -- @proc", diag.GetMessage());
+        Assert.Null(TryGetSource(result, "Products.InsertViaProc.g.cs"));
     }
 
     [Fact]

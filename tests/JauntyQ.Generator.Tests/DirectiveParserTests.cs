@@ -253,6 +253,51 @@ WHERE p.CategoryId = @CategoryId";
         Assert.Contains("SELECT", cleaned);
     }
 
+    // ── @type ─────────────────────────────────────────────
+
+    [Fact]
+    public void Type_SingleWordDbType_ParsesAliasAndDbType()
+    {
+        var sql = "-- @type total int\nSELECT SUM(Amount) AS total FROM Orders";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.NotNull(directives.TypeDirectives);
+        Assert.Single(directives.TypeDirectives!);
+        Assert.Equal("total", directives.TypeDirectives![0].Alias);
+        Assert.Equal("int", directives.TypeDirectives[0].DbType);
+        Assert.DoesNotContain("@type", cleaned);
+    }
+
+    [Fact]
+    public void Type_MultiWordDbType_KeepsFullDbTypeIntact()
+    {
+        // R9 §2.5 mandate (2.5-@type-multiword-dbtype): the alias is the
+        // first whitespace token; everything after it -- which may itself
+        // contain spaces, e.g. Postgres's "double precision" -- is the
+        // db type. A naive "split on any space" would truncate this to just
+        // "double". ParseTypeDirective uses value.IndexOf(' ') (the FIRST
+        // space only), so the multi-word remainder must survive whole.
+        var sql = "-- @type total double precision\nSELECT SUM(Amount) AS total FROM Orders";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.NotNull(directives.TypeDirectives);
+        Assert.Single(directives.TypeDirectives!);
+        Assert.Equal("total", directives.TypeDirectives![0].Alias);
+        Assert.Equal("double precision", directives.TypeDirectives[0].DbType);
+    }
+
+    [Fact]
+    public void Type_MultiWordDbType_ThreeWords_KeepsFullDbTypeIntact()
+    {
+        // Same guard against a deeper multi-word type, e.g. MySQL's
+        // "int unsigned zerofill" -- must not be truncated to "int" or
+        // "int unsigned".
+        var sql = "-- @type total int unsigned zerofill\nSELECT SUM(Amount) AS total FROM Orders";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.Equal("int unsigned zerofill", directives.TypeDirectives![0].DbType);
+    }
+
     // ── @each ─────────────────────────────────────────────
 
     [Fact]
@@ -453,5 +498,57 @@ SELECT ProductId FROM Products";
         Assert.Null(directives.SuspiciousDirectives);
         Assert.Contains("@author", cleaned);
         Assert.Contains("@firstborn", cleaned);
+    }
+
+    // ── R9 §2.5 mandate: JNT3008 one-edit-away coverage across all 9
+    // known directive names (2.5-near-miss-typos-jnt3008). Round 8 and
+    // earlier only ever exercised "@frist" (one substitution/transposition
+    // typo of @first) plus a bare value-taking directive (@each). Every
+    // other directive name (result, params, type, identity, stream, call,
+    // proc) had never been driven through CheckSuspiciousDirective /
+    // IsOneEditAway at all. One representative typo per edit kind
+    // (substitution, adjacent transposition, single insertion/deletion) is
+    // exercised below for every directive name.
+    [Theory]
+    [InlineData("resalt", "result")]   // substitution (u->a)
+    [InlineData("parems", "params")]   // substitution (a->e)
+    [InlineData("tybe", "type")]       // substitution (p->b)
+    [InlineData("eech", "each")]       // substitution (a->e)
+    [InlineData("frist", "first")]     // adjacent transposition (i/r)
+    [InlineData("indentity", "identity")] // single insertion ('n')
+    [InlineData("straem", "stream")]   // adjacent transposition (e/a)
+    [InlineData("clal", "call")]       // adjacent transposition (a/l)
+    [InlineData("prco", "proc")]       // adjacent transposition (o/c)
+    public void OneEditTypo_OfEveryDirectiveName_RegistersSuspiciousWithCorrectSuggestion(
+        string typo, string realDirective)
+    {
+        var sql = $"-- @{typo}\nselect product_id from products";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        var msg = Assert.Single(directives.SuspiciousDirectives!);
+        Assert.Contains($"did you mean '-- @{realDirective}'", msg);
+        // Not treated as the real directive: none of its side effects fired.
+        Assert.False(directives.IsFirst);
+        Assert.False(directives.IsProc);
+        Assert.False(directives.IsStream);
+        Assert.Null(directives.CallProcName);
+        Assert.Null(directives.ResultTypeName);
+        Assert.Null(directives.ExplicitParams);
+        Assert.Null(directives.TypeDirectives);
+        Assert.Null(directives.EachParams);
+        Assert.False(directives.ReturnsIdentity);
+        Assert.Contains($"@{typo}", cleaned); // stays a plain comment
+    }
+
+    [Fact]
+    public void TwoEditsAway_StaysSilent_NotFlaggedAsNearMiss()
+    {
+        // "cvxl" is edit-distance 2 from "call" (two substitutions, not an
+        // adjacent transposition) -- must NOT be treated as a near-miss.
+        var sql = "-- @cvxl\nselect product_id from products";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.Null(directives.SuspiciousDirectives);
+        Assert.Contains("@cvxl", cleaned);
     }
 }

@@ -81,6 +81,20 @@ public class StreamDirectiveTests
     }
 
     [Fact]
+    public void Stream_WithProc_ReportsJNT3003()
+    {
+        // R9 §2.5 mandate (2.5-directive-combinations-jnt3003), sibling-sweep
+        // of the row: @stream's own precondition gate (JauntyQGenerator
+        // .Part2.cs) also rejects @proc, alongside the already-tested
+        // @first combo -- never previously exercised.
+        string sql = "-- @stream\n-- @proc\nselect product_id, product_name from products";
+        var result = Run(sql);
+        Assert.Contains(result.Results[0].Diagnostics, d => d.Id == "JNT3003");
+        Assert.Contains(result.Results[0].Diagnostics,
+            d => d.Id == "JNT3003" && d.GetMessage().Contains("cannot be combined with -- @proc"));
+    }
+
+    [Fact]
     public void GeneratedStreamCode_ParsesClean()
     {
         string sql = "-- @stream\nselect product_id, product_name from products";
