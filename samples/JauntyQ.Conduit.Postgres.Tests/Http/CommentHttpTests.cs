@@ -41,20 +41,20 @@ public sealed class CommentHttpTests : IClassFixture<ConduitWebAppFixture>
         return created!.Article.Slug;
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ListComments_UnknownSlug_Returns404()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         var response = await _client.GetAsync("/api/articles/no-such-slug/comments");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ListComments_NoComments_ReturnsEmptyBareArray()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("carl", "carl@example.com");
         string slug = await CreateArticle(token, "Carl Article");
@@ -66,10 +66,10 @@ public sealed class CommentHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Empty(body!.Comments);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task AddComment_Valid_Returns201WithComment()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("dana", "dana@example.com");
         string slug = await CreateArticle(token, "Dana Article");
@@ -83,10 +83,10 @@ public sealed class CommentHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal("dana", created.Comment.Author.Username);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task AddComment_WithoutToken_Returns401()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("earl", "earl@example.com");
         string slug = await CreateArticle(token, "Earl Article");
@@ -97,10 +97,10 @@ public sealed class CommentHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task AddComment_UnknownSlug_Returns404()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("fran", "fran@example.com");
 
@@ -110,10 +110,10 @@ public sealed class CommentHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ListComments_AfterAdd_ReturnsBareArrayWithComment()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("greg", "greg@example.com");
         string slug = await CreateArticle(token, "Greg Article");
@@ -128,10 +128,10 @@ public sealed class CommentHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal("First!", body.Comments[0].Body);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeleteComment_ByAuthor_RemovesComment()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("hana", "hana@example.com");
         string slug = await CreateArticle(token, "Hana Article");
@@ -147,10 +147,10 @@ public sealed class CommentHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Empty(list!.Comments);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeleteComment_ByNonAuthor_Returns403()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("ian", "ian@example.com");
         string slug = await CreateArticle(token, "Ian Article");
@@ -164,10 +164,10 @@ public sealed class CommentHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeleteComment_UnknownCommentId_Returns404()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("kyle", "kyle@example.com");
         string slug = await CreateArticle(token, "Kyle Article");
@@ -177,10 +177,10 @@ public sealed class CommentHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeleteComment_UnknownArticleSlug_Returns404()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("lena", "lena@example.com");
 

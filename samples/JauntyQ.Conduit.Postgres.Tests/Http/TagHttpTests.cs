@@ -16,10 +16,10 @@ public sealed class TagHttpTests : IClassFixture<ConduitWebAppFixture>
         _client = fixture.CreateClient();
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetTags_ReturnsBareArray_NoAuthRequired()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         var response = await _client.GetAsync("/api/tags");
 

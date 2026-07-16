@@ -10,4 +10,13 @@
          of CI's pinned 8.0.x) instead of aborting with "You must install .NET". -->
     <RollForward>LatestMajor</RollForward>
   </PropertyGroup>
+
+  <!-- Test-only test-infra, scoped to the *.Tests sample suites so the AOT
+       smoke app and the plain JauntyQ.Sample stay dependency-free. -->
+  <ItemGroup Condition="$(MSBuildProjectName.EndsWith('Tests'))">
+    <!-- Docker/Testcontainers soft-skip -> real xUnit SKIP (see tests/Directory.Build.props). -->
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
+    <!-- Shared CI-strictness gate for Docker-gated fixtures, compiled once per suite. -->
+    <Compile Include="$(MSBuildThisFileDirectory)../test-infra/FixtureGate.cs" Link="TestInfra/FixtureGate.cs" />
+  </ItemGroup>
 </Project>

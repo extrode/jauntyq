@@ -9,10 +9,10 @@ public class RegionTests
     private readonly NorthwindFixture _fixture;
     public RegionTests(NorthwindFixture fixture) => _fixture = fixture;
 
-    [Fact]
+    [SkippableFact]
     public void GetAll_Returns4Regions()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = _fixture.Db.Region.GetAll();
         Assert.Equal(4, results.Count);
     }

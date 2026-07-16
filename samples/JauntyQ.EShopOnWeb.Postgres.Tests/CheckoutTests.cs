@@ -32,10 +32,10 @@ public class CheckoutTests : IClassFixture<EShopOnWebPostgresFixture>
         return (int)(long)cmd.ExecuteScalar()!;
     }
 
-    [Fact]
+    [SkippableFact]
     public void CreateOrder_HappyPath_RoundTripsAddressAndItems()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var basketId = SeedBasketWithItem("buyer-checkout-1", catalogItemId: 1, unitPrice: 19.5m, quantity: 3);
         var address = new Address("1 Microsoft Way", "Redmond", "WA", "USA", "98052");
@@ -58,10 +58,10 @@ public class CheckoutTests : IClassFixture<EShopOnWebPostgresFixture>
         Assert.NotNull(_fx.Db.Basket.GetById(basketId));
     }
 
-    [Fact]
+    [SkippableFact]
     public void CreateOrder_SnapshotImmune_ToLaterCatalogItemEdits()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var basketId = SeedBasketWithItem("buyer-checkout-2", catalogItemId: 2, unitPrice: 8.5m, quantity: 1);
         var address = new Address("2 Microsoft Way", "Redmond", "WA", "USA", "98052");
@@ -81,10 +81,10 @@ public class CheckoutTests : IClassFixture<EShopOnWebPostgresFixture>
         Assert.Equal(".NET Black & White Mug", order!.OrderItems[0].ItemOrdered.ProductName);
     }
 
-    [Fact]
+    [SkippableFact]
     public void CreateOrder_RollsBackFully_OnConstraintViolationMidInsert()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var ordersBefore = CountRows("orders");
         var orderItemsBefore = CountRows("order_item");

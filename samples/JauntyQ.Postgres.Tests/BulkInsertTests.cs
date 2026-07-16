@@ -13,10 +13,10 @@ public class BulkInsertTests : IClassFixture<PostgresFixture>
     private readonly PostgresFixture _fx;
     public BulkInsertTests(PostgresFixture fx) => _fx = fx;
 
-    [Fact]
+    [SkippableFact]
     public void BulkInsert_InsertsAllRows_ViaBinaryCopy()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         int before = _fx.Db.Suppliers.GetAll().Count;
         var rows = new[]
@@ -35,10 +35,10 @@ public class BulkInsertTests : IClassFixture<PostgresFixture>
         Assert.Contains(after, s => s.CompanyName == "Pg Bulk C" && s.City == null);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task BulkInsertAsync_Works()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         int before = _fx.Db.Shippers.GetAll().Count;
         var rows = new[]
@@ -52,10 +52,10 @@ public class BulkInsertTests : IClassFixture<PostgresFixture>
         Assert.Equal(before + 2, _fx.Db.Shippers.GetAll().Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public void BulkInsert_Empty_ReturnsZero()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
         Assert.Equal(0, _fx.Db.Suppliers.BulkInsert(System.Array.Empty<Supplier>()));
     }
 }

@@ -54,10 +54,10 @@ public class OrderTests : IClassFixture<EShopOnWebSqliteFixture>
     }
 
     // Specs 6/7: CustomerOrdersSpecification / CustomerOrdersWithItemsSpecification
-    [Fact]
+    [SkippableFact]
     public void GetByBuyerId_ReturnsOrdersAndItems()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var buyerId = "buyer-6-7";
         var orderDate = new DateTimeOffset(2026, 1, 15, 10, 30, 0, TimeSpan.Zero);
@@ -74,10 +74,10 @@ public class OrderTests : IClassFixture<EShopOnWebSqliteFixture>
         Assert.Equal(".NET Bot Black Sweatshirt", items[0].OrderedProductName);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetByBuyerId_NoOrders_ReturnsEmpty()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var orders = _fx.Db.Orders.GetByBuyerId("nonexistent-buyer");
 
@@ -85,10 +85,10 @@ public class OrderTests : IClassFixture<EShopOnWebSqliteFixture>
     }
 
     // Spec 8: OrderWithItemsByIdSpec
-    [Fact]
+    [SkippableFact]
     public void GetById_ReturnsOrderAndItems()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var buyerId = "buyer-8";
         var orderDate = new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero);
@@ -105,10 +105,10 @@ public class OrderTests : IClassFixture<EShopOnWebSqliteFixture>
         Assert.Equal("Roslyn Red Sheet", items[0].OrderedProductName);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetById_NoMatch_ReturnsNull()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var order = _fx.Db.Orders.GetById(999999);
 

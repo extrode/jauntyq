@@ -19,10 +19,10 @@ public class CommentTests : IClassFixture<ConduitMariaDbFixture>
         _repo = new CommentRepository(fx.Db);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetByArticleId_ReturnsSeededCommentsInChronologicalOrder()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var comments = _repo.GetByArticleId(articleId: 1, viewerId: null);
 
@@ -30,10 +30,10 @@ public class CommentTests : IClassFixture<ConduitMariaDbFixture>
         Assert.Equal(new[] { "jane", "carol" }, comments.Select(c => c.Author.Username));
     }
 
-    [Fact]
+    [SkippableFact]
     public void Add_ThenGetByArticleId_IncludesNewComment()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         int commentId = _repo.Add(articleId: 2, authorId: 1, body: "Nice tips!", nowIso: "2026-02-05T00:00:00Z");
 
@@ -43,10 +43,10 @@ public class CommentTests : IClassFixture<ConduitMariaDbFixture>
         _repo.Delete(commentId);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Delete_RemovesComment()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         int commentId = _repo.Add(articleId: 3, authorId: 1, body: "Temp comment", nowIso: "2026-02-06T00:00:00Z");
 

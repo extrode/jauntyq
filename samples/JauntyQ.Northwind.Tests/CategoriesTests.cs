@@ -9,27 +9,27 @@ public class CategoriesTests
     private readonly NorthwindFixture _fixture;
     public CategoriesTests(NorthwindFixture fixture) => _fixture = fixture;
 
-    [Fact]
+    [SkippableFact]
     public void GetAll_Returns8Categories()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var results = _fixture.Db.Categories.GetAll();
         Assert.Equal(8, results.Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetById_ReturnsBeverages()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var category = _fixture.Db.Categories.GetById(1);
         Assert.NotNull(category);
         Assert.Equal("Beverages", category.CategoryName);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetById_NonExistent_ReturnsEmpty()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var category = _fixture.Db.Categories.GetById(999);
         Assert.Null(category);
     }

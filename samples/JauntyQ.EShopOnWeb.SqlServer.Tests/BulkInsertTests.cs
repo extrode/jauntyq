@@ -15,10 +15,10 @@ public class BulkInsertTests : IClassFixture<EShopOnWebSqlServerFixture>
     private readonly EShopOnWebSqlServerFixture _fx;
     public BulkInsertTests(EShopOnWebSqlServerFixture fx) => _fx = fx;
 
-    [Fact]
+    [SkippableFact]
     public void BulkInsert_InsertsAllRows_ViaSqlBulkCopy()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         int before = _fx.Db.CatalogBrand.GetAll().Count;
         var rows = new[]
@@ -36,10 +36,10 @@ public class BulkInsertTests : IClassFixture<EShopOnWebSqlServerFixture>
         Assert.Contains(after, b => b.Brand == "Bulk Brand B");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task BulkInsertAsync_Works()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         int before = _fx.Db.CatalogType.GetAll().Count;
         var rows = new[]
@@ -53,10 +53,10 @@ public class BulkInsertTests : IClassFixture<EShopOnWebSqlServerFixture>
         Assert.Equal(before + 2, _fx.Db.CatalogType.GetAll().Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public void BulkInsert_Empty_ReturnsZero()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
         Assert.Equal(0, _fx.Db.CatalogBrand.BulkInsert(System.Array.Empty<CatalogBrandRow>()));
     }
 }

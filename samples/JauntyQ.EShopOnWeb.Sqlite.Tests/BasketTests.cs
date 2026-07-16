@@ -14,10 +14,10 @@ public class BasketTests : IClassFixture<EShopOnWebSqliteFixture>
     public BasketTests(EShopOnWebSqliteFixture fx) => _fx = fx;
 
     // Spec 1a: BasketWithItemsSpecification(basketId)
-    [Fact]
+    [SkippableFact]
     public void GetById_ReturnsBasketAndItems()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var basketId = _fx.Db.Basket.Insert("buyer-1a");
         _fx.Db.BasketItem.Insert(basketId, CatalogItemId: 1, UnitPrice: 8.5m, Quantity: 2);
@@ -33,10 +33,10 @@ public class BasketTests : IClassFixture<EShopOnWebSqliteFixture>
         Assert.Equal(2, items[1].CatalogItemId);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetById_NoMatch_ReturnsNull()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var basket = _fx.Db.Basket.GetById(999999);
 
@@ -44,10 +44,10 @@ public class BasketTests : IClassFixture<EShopOnWebSqliteFixture>
     }
 
     // Spec 1b: BasketWithItemsSpecification(buyerId)
-    [Fact]
+    [SkippableFact]
     public void GetByBuyerId_ReturnsBasketAndItems()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var basketId = _fx.Db.Basket.Insert("buyer-1b");
         _fx.Db.BasketItem.Insert(basketId, CatalogItemId: 3, UnitPrice: 6.0m, Quantity: 5);
@@ -61,10 +61,10 @@ public class BasketTests : IClassFixture<EShopOnWebSqliteFixture>
         Assert.Equal(5, items[0].Quantity);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetByBuyerId_NoMatch_ReturnsNull()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var basket = _fx.Db.Basket.GetByBuyerId("nonexistent-buyer");
 

@@ -14,28 +14,28 @@ public class AutoCrudLiveTests
     private readonly NorthwindFixture _fixture;
     public AutoCrudLiveTests(NorthwindFixture fixture) => _fixture = fixture;
 
-    [Fact]
+    [SkippableFact]
     public void Shippers_GetById_Synthetic_ReturnsSpeedyExpress()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         // db/tables/Shippers/ only contains GetAll.sql — GetById is synthesized
         var shipper = _fixture.Db.Shippers.GetById(1);
         Assert.NotNull(shipper);
         Assert.Equal("Speedy Express", shipper.CompanyName);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Shippers_GetByIdAsync_Synthetic_NonExistent_ReturnsNull()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var shipper = await _fixture.Db.Shippers.GetByIdAsync(9999);
         Assert.Null(shipper);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Shippers_Update_Synthetic_RollsBack()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         using var scope = new TransactionScope();
         using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
         conn.Open();
@@ -44,10 +44,10 @@ public class AutoCrudLiveTests
         // scope.Dispose() without Complete() -> rollback
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Shippers_DeleteAsync_Synthetic_NonExistent_ReturnsZero()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         using var conn = new SqlConnection(NorthwindFixture.ConnectionString);
         int affected = await JauntyQ.Generated.Shippers.DeleteAsync(conn, 9999);
         Assert.Equal(0, affected);

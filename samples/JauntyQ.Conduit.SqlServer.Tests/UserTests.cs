@@ -21,10 +21,10 @@ public class UserTests : IClassFixture<ConduitSqlServerFixture>
         _repo = new UserRepository(fx.Db);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Register_CreatesUser()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         int id = _repo.Register("erin", "erin@example.com", "Sup3rSecret!", bio: "Erin's bio");
 
@@ -35,28 +35,28 @@ public class UserTests : IClassFixture<ConduitSqlServerFixture>
         Assert.Equal("Erin's bio", user.Bio);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Register_DuplicateUsername_Throws()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         Assert.Throws<SqlException>(() =>
             _repo.Register("jane", "jane2@example.com", "Sup3rSecret!"));
     }
 
-    [Fact]
+    [SkippableFact]
     public void Register_DuplicateEmail_Throws()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         Assert.Throws<SqlException>(() =>
             _repo.Register("jane2", "jane@example.com", "Sup3rSecret!"));
     }
 
-    [Fact]
+    [SkippableFact]
     public void Login_CorrectPassword_ReturnsUser()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var user = _repo.Login("jane@example.com", "Password123!");
 
@@ -64,30 +64,30 @@ public class UserTests : IClassFixture<ConduitSqlServerFixture>
         Assert.Equal("jane", user!.Username);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Login_IncorrectPassword_ReturnsNull()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var user = _repo.Login("jane@example.com", "WrongPassword");
 
         Assert.Null(user);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Login_UnknownEmail_ReturnsNull()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var user = _repo.Login("nobody@example.com", "Password123!");
 
         Assert.Null(user);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetByUsername_ReturnsSeededUser()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var user = _repo.GetByUsername("bob");
 
@@ -95,10 +95,10 @@ public class UserTests : IClassFixture<ConduitSqlServerFixture>
         Assert.Equal("bob@example.com", user!.Email);
     }
 
-    [Fact]
+    [SkippableFact]
     public void UpdateProfile_UpdatesFields()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         int id = _repo.Register("frank", "frank@example.com", "Sup3rSecret!", bio: "old bio");
 

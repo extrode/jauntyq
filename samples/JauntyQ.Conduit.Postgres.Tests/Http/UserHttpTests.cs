@@ -22,10 +22,10 @@ public sealed class UserHttpTests : IClassFixture<ConduitWebAppFixture>
     private static RegisterRequestEnvelope Register(string username, string email, string credential = DefaultTestCredential) =>
         new(new RegisterRequest(username, email, credential));
 
-    [Fact]
+    [SkippableFact]
     public async Task Register_ValidUser_Returns201WithToken()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         var response = await _client.PostAsJsonAsync("/api/users", Register("alice", "alice@example.com"));
 
@@ -37,10 +37,10 @@ public sealed class UserHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.False(string.IsNullOrWhiteSpace(body.User.Token));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Register_DuplicateUsername_Returns422()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         await _client.PostAsJsonAsync("/api/users", Register("bob", "bob1@example.com"));
         var response = await _client.PostAsJsonAsync("/api/users", Register("bob", "bob2@example.com"));
@@ -51,10 +51,10 @@ public sealed class UserHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Contains("username", body!.Errors.Keys);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Register_DuplicateEmail_Returns422()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         await _client.PostAsJsonAsync("/api/users", Register("carol1", "carol@example.com"));
         var response = await _client.PostAsJsonAsync("/api/users", Register("carol2", "carol@example.com"));
@@ -65,10 +65,10 @@ public sealed class UserHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Contains("email", body!.Errors.Keys);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Login_ValidCredentials_Returns200WithToken()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         var registerResponse = await _client.PostAsJsonAsync("/api/users", Register("dave", "dave@example.com", "testcred0002"));
         string registerBody = await registerResponse.Content.ReadAsStringAsync();
@@ -82,10 +82,10 @@ public sealed class UserHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.False(string.IsNullOrWhiteSpace(body!.User.Token));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Login_WrongCredential_Returns401()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         await _client.PostAsJsonAsync("/api/users", Register("erin", "erin@example.com", "testcred0003"));
 
@@ -94,20 +94,20 @@ public sealed class UserHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetCurrentUser_WithoutToken_Returns401()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         var response = await _client.GetAsync("/api/user");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetCurrentUser_WithToken_ReturnsUser()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         var registerResponse = await _client.PostAsJsonAsync("/api/users", Register("frank", "frank@example.com"));
         var registered = await registerResponse.Content.ReadFromJsonAsync<UserResponseEnvelope>();
@@ -121,10 +121,10 @@ public sealed class UserHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal("frank", body!.User.Username);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task UpdateUser_ChangesBioAndPersists()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         var registerResponse = await _client.PostAsJsonAsync("/api/users", Register("grace", "grace@example.com"));
         var registered = await registerResponse.Content.ReadFromJsonAsync<UserResponseEnvelope>();

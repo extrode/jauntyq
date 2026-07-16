@@ -1,3 +1,4 @@
+using JauntyQ.TestInfra;
 using Microsoft.Data.SqlClient;
 using Testcontainers.MsSql;
 using JauntyQ.Generated;
@@ -47,7 +48,7 @@ public sealed class SakilaSqlServerFixture : IAsyncLifetime
         catch (Exception ex)
         {
             Available = false;
-            SkipReason = $"Docker unavailable: {ex.GetType().Name}: {ex.Message}";
+            SkipReason = FixtureGate.SkipReasonOrThrow(ex);
         }
     }
 
