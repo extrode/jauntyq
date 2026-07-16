@@ -30,11 +30,12 @@ public class ProcedureSchema
 
 /// <summary>
 /// Direction of a stored-procedure parameter. Serialized as a string in the
-/// snapshot JSON. This type is consumed only by the CLI (schema pull) and the
-/// source generator (compiler-time) — never by the AOT-published runtime app —
-/// so the string-enum converter's reflection is not on any AOT path.
+/// snapshot JSON via the generic, source-gen/AOT-safe string-enum converter
+/// (the non-generic <c>JsonStringEnumConverter</c> is reflection-based and
+/// rejected by the AOT analyzer once <see cref="DatabaseSchema"/> is read via
+/// <see cref="SchemaJsonContext"/>, which is reachable at app runtime).
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter))]
+[JsonConverter(typeof(JsonStringEnumConverter<ProcedureParamDirection>))]
 public enum ProcedureParamDirection
 {
     In,
