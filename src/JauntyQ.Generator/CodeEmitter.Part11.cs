@@ -167,26 +167,33 @@ public static partial class CodeEmitter
 
         if (hasResults)
         {
+            // OUT/INOUT parameter values are populated by the provider only
+            // once the reader is fully closed -- confirmed live against SQL
+            // Server (Microsoft.Data.SqlClient): reading cmd.Parameters[i].Value
+            // while a DbDataReader from the same command is still open (even
+            // after every row has been read) returns DBNull/unset, not the
+            // procedure's actual OUT value. The read/loop stays inside the
+            // using block; readback and the return happen after it closes.
             string behavior = "System.Data.CommandBehavior.SingleResult";
+            sb.AppendLine($"                var results = new System.Collections.Generic.List<{resultType}>();");
             sb.AppendLine(isAsync
                 ? $"                using (var reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false))"
                 : $"                using (var reader = cmd.ExecuteReader({behavior}))");
             sb.AppendLine("                {");
-            sb.AppendLine($"                    var results = new System.Collections.Generic.List<{resultType}>();");
             string readCall = isAsync ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)" : "reader.Read()";
             sb.AppendLine($"                    while ({readCall})");
             sb.AppendLine($"                        results.Add(__Map{methodName}(reader));");
+            sb.AppendLine("                }");
             if (asyncReturnsTuple)
             {
-                var localNames = EmitProcOutReadback(sb, outReadback, "                    ", declareLocals: true);
-                sb.AppendLine($"                    return (results, {string.Join(", ", localNames)});");
+                var localNames = EmitProcOutReadback(sb, outReadback, "                ", declareLocals: true);
+                sb.AppendLine($"                return (results, {string.Join(", ", localNames)});");
             }
             else
             {
-                EmitProcOutReadback(sb, outReadback, "                    ", declareLocals: false);
-                sb.AppendLine("                    return results;");
+                EmitProcOutReadback(sb, outReadback, "                ", declareLocals: false);
+                sb.AppendLine("                return results;");
             }
-            sb.AppendLine("                }");
         }
         else
         {
