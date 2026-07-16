@@ -49,7 +49,15 @@ public static partial class CodeEmitter
         while (trimmed.EndsWith(";"))
             trimmed = trimmed.Substring(0, trimmed.Length - 1).TrimEnd();
 
-        switch (dialect)
+        // AUD-R10-03: schema.Dialect is a bare, unnormalized string straight
+        // from the JSON snapshot (SchemaLoader.Load does a plain deserialize),
+        // and JNT7003 accepts any casing via DialectMapper.IsKnownDialect's
+        // OrdinalIgnoreCase membership check -- so a perfectly ordinary,
+        // JNT7003-accepted "dialect": "SqlServer" (matching the extractor
+        // class's own PascalCase name) must not silently fall through to
+        // default here. ToLowerInvariant matches OrdinalIgnoreCase semantics
+        // for these ASCII-only case labels.
+        switch (dialect.ToLowerInvariant())
         {
             case "sqlserver":
             {
