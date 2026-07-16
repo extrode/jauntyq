@@ -10,6 +10,12 @@ public enum MigrationStatementKind
     DropColumn,
     AlterColumn,
 
+    /// <summary>PostgreSQL ALTER TABLE t ALTER COLUMN c SET/DROP NOT NULL:
+    /// a nullability-only change, with no type token at all -- distinct from
+    /// <see cref="AlterColumn"/>, which redefines the column's full
+    /// type/facets. See <see cref="MigrationStatement.NullableAfter"/>.</summary>
+    AlterColumnNullability,
+
     /// <summary>ALTER TABLE t ADD [CONSTRAINT name] PRIMARY KEY (a, b, ...):
     /// marks existing columns primary-key/non-nullable without redefining
     /// them. See <see cref="MigrationStatement.ColumnNames"/>.</summary>
@@ -43,6 +49,11 @@ public class MigrationStatement
 
     /// <summary>DROP TABLE IF EXISTS: a missing table is not an error.</summary>
     public bool IfExists { get; set; }
+
+    /// <summary>AlterColumnNullability: the column's nullability after the
+    /// statement (true for DROP NOT NULL, false for SET NOT NULL). The
+    /// target column name is ColumnNames[0].</summary>
+    public bool NullableAfter { get; set; }
 
     /// <summary>Original SQL text, for diagnostics.</summary>
     public string RawText { get; set; } = string.Empty;

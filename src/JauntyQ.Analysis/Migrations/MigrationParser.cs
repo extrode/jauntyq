@@ -229,6 +229,44 @@ public static class MigrationParser
             if (isModify && Is(tokens, pos, "COLUMN"))
                 pos++;
 
+            // PostgreSQL: ALTER COLUMN c SET/DROP NOT NULL and ALTER COLUMN c
+            // SET/DROP DEFAULT [expr] have no type token at all -- unlike
+            // "ALTER COLUMN c TYPE newtype" below, or SQL Server's "ALTER
+            // COLUMN c type NOT NULL" -- so they don't fit ParseColumnDef's
+            // "name type ..." grammar. Falling through to it anyway used to
+            // either misparse the literal keyword as the column's new DbType
+            // and apply the OPPOSITE nullability (DROP NOT NULL: "DROP"
+            // tokenizes as a plain identifier, so it satisfied the name+type
+            // shape with DbType "drop", and the trailing "NOT NULL" tokens
+            // were then read as narrowing to NOT NULL -- the reverse of what
+            // dropping the constraint means) or fail outright (SET NOT NULL/
+            // DEFAULT: "SET" tokenizes as a keyword, never an identifier, so
+            // ParseColumnDef's def[1]-is-identifier check always fails),
+            // reporting a fully-modelable nullability change or no-op as
+            // JNT9001 unmodeled. Recognize the four forms directly instead.
+            if (isAlterColumn && pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
+                (Is(tokens, pos + 1, "SET") || Is(tokens, pos + 1, "DROP")))
+            {
+                bool isDrop = Is(tokens, pos + 1, "DROP");
+                if (Is(tokens, pos + 2, "NOT") && Is(tokens, pos + 3, "NULL"))
+                {
+                    var nullStmt = new MigrationStatement
+                    {
+                        Kind = MigrationStatementKind.AlterColumnNullability,
+                        TableName = tableName,
+                        RawText = raw,
+                        NullableAfter = isDrop
+                    };
+                    nullStmt.ColumnNames.Add(BareName(tokens[pos].Value));
+                    return nullStmt;
+                }
+                if (Is(tokens, pos + 2, "DEFAULT"))
+                {
+                    // No schema-shape impact: ColumnSchema tracks no default value.
+                    return new MigrationStatement { Kind = MigrationStatementKind.Ignored, TableName = tableName, RawText = raw };
+                }
+            }
+
             var def = new List<Token>();
             for (int i = pos; i < tokens.Count; i++)
             {

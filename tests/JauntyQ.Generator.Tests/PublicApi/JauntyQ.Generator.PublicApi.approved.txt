@@ -113,12 +113,14 @@ class JauntyQ.Analysis.Migrations.MigrationStatement
     prop Columns:List<ColumnSchema>
     prop IfExists:Boolean
     prop Kind:MigrationStatementKind
+    prop NullableAfter:Boolean
     prop RawText:String
     prop TableName:String
 enum JauntyQ.Analysis.Migrations.MigrationStatementKind
     field AddColumn:MigrationStatementKind
     field AddPrimaryKey:MigrationStatementKind
     field AlterColumn:MigrationStatementKind
+    field AlterColumnNullability:MigrationStatementKind
     field CreateTable:MigrationStatementKind
     field DropColumn:MigrationStatementKind
     field DropTable:MigrationStatementKind
