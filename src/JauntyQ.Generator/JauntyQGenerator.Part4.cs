@@ -196,9 +196,28 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     // false-positive on a column that's already handled.
                     if (!ucol.IsRowVersion && DialectMapper.IsUnmappedDbType(ucol.DbType, ucol.IsNullable, ucol.Precision ?? ucol.MaxLength, schema.Dialect))
                     {
-                        context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2007, Location.None,
-                            $"Column '{tableSchema.Name}.{ucol.Name}' has db type '{ucol.DbType}', which has no mapping in DialectMapper and degrades to 'object'. " +
-                            $"Add a case for it or accept the untyped column and cast at the call site."));
+                        // Round 14 audit: SQL Server CLR UDT columns
+                        // (hierarchyid, geography, geometry) get a sharper
+                        // message than the generic "degrades to object" —
+                        // confirmed live this round that reading one through
+                        // the fallback's reader.GetValue(i) call THROWS
+                        // (System.IO.FileNotFoundException on
+                        // Microsoft.SqlServer.Types, which JauntyQ never
+                        // references), it doesn't just lose type fidelity.
+                        // See DialectMapper.IsKnownSqlServerClrUdtType.
+                        bool isKnownSqlServerClrUdt =
+                            string.Equals(schema.Dialect, "sqlserver", StringComparison.OrdinalIgnoreCase)
+                            && DialectMapper.IsKnownSqlServerClrUdtType(ucol.DbType);
+
+                        string message = isKnownSqlServerClrUdt
+                            ? $"Column '{tableSchema.Name}.{ucol.Name}' has db type '{ucol.DbType}', a SQL Server CLR user-defined type with no mapping in DialectMapper. " +
+                              $"It degrades to 'object', but reading it at RUNTIME will THROW System.IO.FileNotFoundException for 'Microsoft.SqlServer.Types' " +
+                              $"(intentionally not referenced, to keep JauntyQ's core zero-dependency/NativeAOT) — this is not merely a lost-type-fidelity warning, the query will crash. " +
+                              $"Cast the column to a mapped type in the SQL text instead (e.g. CAST({ucol.Name} AS varbinary(892)) or CAST({ucol.Name} AS nvarchar(4000))) before selecting it."
+                            : $"Column '{tableSchema.Name}.{ucol.Name}' has db type '{ucol.DbType}', which has no mapping in DialectMapper and degrades to 'object'. " +
+                              $"Add a case for it or accept the untyped column and cast at the call site.";
+
+                        context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2007, Location.None, message));
                     }
                 }
 

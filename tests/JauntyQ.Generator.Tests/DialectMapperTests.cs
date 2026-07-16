@@ -370,4 +370,22 @@ public class DialectMapperTests
         // ever be flagged as an unmapped/fallback type.
         Assert.False(DialectMapper.IsUnmappedDbType(dbType, isNullable));
     }
+
+    // Round 14 (AUD-R14-01): direct unit coverage for the new public helper
+    // itself, complementing the generator-level JNT2007-message assertions
+    // in UnmappedColumnTypeTests.cs.
+    [Theory]
+    [InlineData("hierarchyid", true)]
+    [InlineData("HIERARCHYID", true)] // case-insensitive
+    [InlineData("hierarchyid(255)", true)] // parenthesized facet stripped, same as NormalizeDbType does for every other type
+    [InlineData("geography", true)]
+    [InlineData("geometry", true)]
+    [InlineData("int", false)]
+    [InlineData("varchar", false)]
+    [InlineData("sql_variant", false)] // unmapped on SQL Server too, but not a CLR UDT
+    [InlineData("xml", false)]
+    public void IsKnownSqlServerClrUdtType_RecognizesOnlyHierarchyidGeographyGeometry(string dbType, bool expected)
+    {
+        Assert.Equal(expected, DialectMapper.IsKnownSqlServerClrUdtType(dbType));
+    }
 }

@@ -229,6 +229,35 @@ public static class DialectMapper
         return mapped == "object" || mapped == "object?";
     }
 
+    /// <summary>
+    /// True for the SQL Server CLR user-defined types (hierarchyid,
+    /// geography, geometry) that fall through to the "object"/"object?"
+    /// mapping like any other unmapped db type, but — unlike every other
+    /// JNT2007 case — crash at RUNTIME rather than merely losing type
+    /// fidelity: reading such a column through the generated fallback's
+    /// <c>reader.GetValue(i)</c> call requires ADO.NET to materialize the
+    /// CLR UDT via the <c>Microsoft.SqlServer.Types</c> assembly, which
+    /// JauntyQ's zero-dependency/NativeAOT-compatible core never
+    /// references. Confirmed live (round 14 audit) via AdventureWorksLite's
+    /// HumanResources.Employee.OrganizationNode column:
+    /// <c>System.IO.FileNotFoundException</c> on
+    /// "Microsoft.SqlServer.Types, Version=10.0.0.0, ..." thrown from
+    /// <c>SqlDataReader.GetValue</c>'s internal
+    /// <c>CheckGetExtendedUDTInfo</c>. Used only to sharpen JNT2007's
+    /// message text for sqlserver-dialect columns of these types — the
+    /// underlying "object"/"object?" codegen is unchanged, since actually
+    /// fixing the crash would mean either referencing
+    /// <c>Microsoft.SqlServer.Types</c> (violates the zero-dependency/
+    /// NativeAOT mandate) or teaching the reader-call codegen a
+    /// column-type-specific safe read path (a larger redesign than a single
+    /// diagnostic-message fix).
+    /// </summary>
+    public static bool IsKnownSqlServerClrUdtType(string dbType)
+    {
+        string normalized = NormalizeDbType(dbType.ToLowerInvariant());
+        return normalized is "hierarchyid" or "geography" or "geometry";
+    }
+
     private static string NormalizeDbType(string dbType)
     {
         // Strip length/precision specifiers: varchar(255) -> varchar, decimal(10,2) -> decimal
