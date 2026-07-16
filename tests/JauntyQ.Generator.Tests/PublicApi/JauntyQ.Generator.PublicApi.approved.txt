@@ -304,6 +304,8 @@ class JauntyQ.Schema.ProcedureParam
     prop IsNullable:Boolean
     prop MaxLength:Nullable<Int32>
     prop Name:String
+    prop Precision:Nullable<Int32>
+    prop Scale:Nullable<Int32>
 enum JauntyQ.Schema.ProcedureParamDirection
     field In:ProcedureParamDirection
     field InOut:ProcedureParamDirection

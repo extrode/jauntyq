@@ -61,4 +61,20 @@ public class ProcedureParam
     [JsonPropertyName("maxLength")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? MaxLength { get; set; }
+
+    /// <summary>
+    /// Numeric precision (total digits) for decimal/numeric/money parameters.
+    /// Without this, an emitted OUT/INOUT decimal DbParameter carries no
+    /// Precision/Scale at all, which several providers require to correctly
+    /// size the return value -- an unset Precision/Scale can silently
+    /// truncate or round the value the procedure actually returned.
+    /// </summary>
+    [JsonPropertyName("precision")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Precision { get; set; }
+
+    /// <summary>Numeric scale (fraction digits) for decimal/numeric/money parameters.</summary>
+    [JsonPropertyName("scale")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Scale { get; set; }
 }

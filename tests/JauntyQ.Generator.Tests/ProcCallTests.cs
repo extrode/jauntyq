@@ -50,6 +50,14 @@ public class ProcCallTests
       ""name"": ""GetProductsAndCount"",
       ""params"": [ { ""name"": ""Total"", ""dbType"": ""int"", ""direction"": ""Out"", ""isNullable"": false } ],
       ""results"": [ { ""name"": ""ProductId"", ""dbType"": ""int"", ""isNullable"": false } ]
+    },
+    ""GetOrderTotal"": {
+      ""name"": ""GetOrderTotal"",
+      ""params"": [
+        { ""name"": ""OrderId"", ""dbType"": ""int"", ""direction"": ""In"", ""isNullable"": false },
+        { ""name"": ""Total"", ""dbType"": ""decimal"", ""direction"": ""Out"", ""isNullable"": false, ""precision"": 12, ""scale"": 4 }
+      ],
+      ""results"": []
     }
   }
 }";
@@ -102,6 +110,20 @@ public class ProcCallTests
         // No result set -> returns int (affected rows).
         Assert.Contains("int ArchiveCustomer(", src);
         Assert.DoesNotContain("List<Result.ArchiveCustomer>", src);
+    }
+
+    [Fact]
+    public void Call_DecimalOutParam_EmitsPrecisionAndScale()
+    {
+        // Without an explicit Precision/Scale, several providers can
+        // silently truncate or round a decimal OUT parameter's returned
+        // value instead of matching what the procedure actually assigned.
+        var result = Run("-- @call GetOrderTotal\n", "db/Orders/GetOrderTotal.sql");
+        string src = AllSources(result);
+
+        Assert.Contains("out decimal total", src);
+        Assert.Contains(".Precision = 12;", src);
+        Assert.Contains(".Scale = 4;", src);
     }
 
     [Fact]
