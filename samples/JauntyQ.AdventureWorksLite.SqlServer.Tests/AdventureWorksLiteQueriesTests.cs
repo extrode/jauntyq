@@ -88,6 +88,31 @@ public class AdventureWorksLiteQueriesTests : IClassFixture<AdventureWorksLiteSq
     }
 
     [SkippableFact]
+    public async Task GetNullOrganizationNodeRows_LiveNullHierarchyId_RoundTripsAsCSharpNull()
+    {
+        // Round 15 audit: closes the NULL-handling residual that round 14
+        // (AUD-R14-01) explicitly could not reach -- GetOrganizationNodes.sql
+        // throws System.IO.FileNotFoundException on row 1's non-null
+        // hierarchyid value before row 4's NULL is ever read, so the NULL
+        // half of AUD-R13-01's "object?" + reader.IsDBNull guard fix has
+        // never actually been exercised against a live running SQL Server.
+        //
+        // GetNullOrganizationNodeRows.sql filters to `OrganizationNode IS
+        // NULL`, selecting only BusinessEntityID 4 (Gustavo). The generated
+        // reader code checks reader.IsDBNull(i) before ever calling
+        // GetValue/materializing the CLR UDT, so this query reaches and
+        // proves the NULL branch live, without touching the (separately
+        // scoped, still-open) non-null CLR UDT crash.
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
+
+        var rows = await _fx.Db.Employee.GetNullOrganizationNodeRowsAsync();
+
+        Assert.Single(rows);
+        Assert.Equal(4, rows[0].BusinessEntityID);
+        Assert.Null(rows[0].OrganizationNode);
+    }
+
+    [SkippableFact]
     public async Task Product_GetBySubcategory_ReturnsMountainBikes()
     {
         Skip.IfNot(_fx.Available, _fx.SkipReason);
