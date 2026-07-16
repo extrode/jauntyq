@@ -45,6 +45,11 @@ public static partial class CodeEmitter
             // "byte[]" case just below) is all that's missing.
             "System.TimeSpan" => $"(System.TimeSpan)reader.GetValue({ordinal})",
             "System.Net.IPAddress" => $"(System.Net.IPAddress)reader.GetValue({ordinal})",
+            // DialectMapper maps SQL Server "datetimeoffset" and Postgres "time
+            // with time zone" to System.DateTimeOffset (task #26), which has no
+            // dedicated IDataReader.Get* method either -- same CS0266 hazard as
+            // TimeSpan/IPAddress above if left as bare GetValue.
+            "System.DateTimeOffset" => $"(System.DateTimeOffset)reader.GetValue({ordinal})",
             "byte[]" => $"(byte[])reader.GetValue({ordinal})",
             _ when baseType.EndsWith("[]") => $"({baseType})reader.GetValue({ordinal})",
             _ => $"reader.GetValue({ordinal})"
