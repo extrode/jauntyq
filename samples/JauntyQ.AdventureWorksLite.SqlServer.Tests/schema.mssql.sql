@@ -223,10 +223,19 @@ insert into Person.EmailAddress (BusinessEntityID, EmailAddress) values
     (4, 'gustavo0@adventure-works.com'),
     (5, 'catherine0@adventure-works.com');
 
+-- Round 14 audit (§2.11): BusinessEntityID 4 (Gustavo, already in Person.Person
+-- above) is deliberately given a NULL OrganizationNode -- the first live NULL
+-- for this hierarchyid/unmapped-type column anywhere in the sample matrix, so
+-- AdventureWorksLiteQueriesTests can exercise the NULL half of AUD-R13-01's
+-- "object?" + IsDBNull-guard fix end-to-end against a real query result, not
+-- just synthetic reader data (see NullableUnmappedColumn_PropertyIsNullableObject_
+-- AndReaderGuardsIsDBNull in tests/JauntyQ.Generator.Tests/UnmappedColumnTypeTests.cs,
+-- which proves the same shape at the generator level only).
 insert into HumanResources.Employee (BusinessEntityID, NationalIDNumber, JobTitle, HireDate, OrganizationNode) values
     (1, '295847284', 'Chief Executive Officer', '2003-02-15', hierarchyid::GetRoot()),
     (2, '245797967', 'Vice President of Engineering', '2003-02-15', hierarchyid::Parse('/1/')),
-    (3, '509647174', 'Engineering Manager', '2003-02-15', hierarchyid::Parse('/1/1/'));
+    (3, '509647174', 'Engineering Manager', '2003-02-15', hierarchyid::Parse('/1/1/')),
+    (4, '112233445', 'Records Clerk', '2005-06-01', null);
 
 set identity_insert Production.ProductCategory on;
 insert into Production.ProductCategory (ProductCategoryID, Name) values

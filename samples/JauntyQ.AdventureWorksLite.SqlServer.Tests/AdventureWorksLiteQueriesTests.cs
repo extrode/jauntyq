@@ -38,10 +38,39 @@ public class AdventureWorksLiteQueriesTests : IClassFixture<AdventureWorksLiteSq
 
         var rows = await _fx.Db.Employee.GetWithPersonNameAsync();
 
-        Assert.Equal(3, rows.Count);
+        // Round 14 (§2.11): a 4th employee (Gustavo, BusinessEntityID 4) was
+        // added with a NULL OrganizationNode, to exercise the hierarchyid/
+        // NULL round-trip below -- see GetOrganizationNodes_RoundTripsLiveHierarchyIdAndNull.
+        Assert.Equal(4, rows.Count);
         Assert.Equal("Ken", rows[0].FirstName);
         Assert.Equal("Chief Executive Officer", rows[0].JobTitle);
         Assert.Equal("Roberto", rows[2].FirstName);
+        Assert.Equal("Gustavo", rows[3].FirstName);
+    }
+
+    [SkippableFact]
+    public async Task GetOrganizationNodes_RoundTripsLiveHierarchyIdAndNull()
+    {
+        // Round 14 (§2.11 residual, carried forward from round 13): the
+        // exotic hierarchyid/unmapped-type fallback (OrganizationNode ->
+        // "object?" + reader.IsDBNull guard, AUD-R13-01) was only proven at
+        // the generator level, against synthetic in-memory reader data
+        // (UnmappedColumnTypeTests.NullableUnmappedColumn_PropertyIsNullableObject_
+        // AndReaderGuardsIsDBNull). This is the first end-to-end round-trip
+        // against a REAL running SQL Server: a non-null hierarchyid value
+        // read back as a live object (not crashing, not silently coerced),
+        // and a genuine SQL NULL for the same unmapped-type column coming
+        // back as C# null (not the raw DBNull sentinel) -- the exact
+        // null-handling asymmetry AUD-R13-01 fixed.
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
+
+        var rows = await _fx.Db.Employee.GetOrganizationNodesAsync();
+
+        Assert.Equal(4, rows.Count);
+        Assert.NotNull(rows[0].OrganizationNode);
+        Assert.NotNull(rows[1].OrganizationNode);
+        Assert.NotNull(rows[2].OrganizationNode);
+        Assert.Null(rows[3].OrganizationNode);
     }
 
     [SkippableFact]
