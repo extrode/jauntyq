@@ -93,23 +93,42 @@ public static class DialectMapper
 
         string csharpType = normalized switch
         {
-            "int" or "int4" or "integer" or "serial" => isNullable ? "int?" : "int",
+            // "mediumint" (MySQL 24-bit int, -8388608..8388607) and "year"
+            // (MySQL 1-4 digit year) both round-trip through MySqlConnector
+            // as System.Int32 (confirmed live) -- int is a safe superset for
+            // both.
+            "int" or "int4" or "integer" or "serial" or "mediumint" or "year" => isNullable ? "int?" : "int",
             "bigint" or "int8" or "bigserial" => isNullable ? "long?" : "long",
             "tinyint" when isSqlServer => isNullable ? "byte?" : "byte",
             "smallint" or "int2" or "tinyint" => isNullable ? "short?" : "short",
+            // "enum"/"set" (MySQL) materialize as System.String through
+            // MySqlConnector (confirmed live) -- the member/value list itself
+            // isn't captured by the schema extractor, so a C# enum can't be
+            // synthesized; string is the safe, lossless representation.
             "varchar" or "text" or "nvarchar" or "ntext" or "character varying"
-                or "char" or "nchar" or "character" or "citext" => isNullable ? "string?" : "string",
+                or "char" or "nchar" or "character" or "citext"
+                or "tinytext" or "mediumtext" or "longtext"
+                or "enum" or "set" => isNullable ? "string?" : "string",
             "bool" or "boolean" => isNullable ? "bool?" : "bool",
             "bit" when length is null or <= 1 => isNullable ? "bool?" : "bool",
             "decimal" or "numeric" or "money" or "smallmoney" => isNullable ? "decimal?" : "decimal",
-            "float" or "double precision" or "float8" => isNullable ? "double?" : "double",
+            "float" or "double precision" or "float8" or "double" => isNullable ? "double?" : "double",
             "real" or "float4" => isNullable ? "float?" : "float",
             "datetime" or "timestamp" or "datetime2" or "date"
                 or "timestamp without time zone" or "timestamp with time zone"
                 or "smalldatetime" => isNullable ? "System.DateTime?" : "System.DateTime",
             "time" or "time without time zone" => isNullable ? "System.TimeSpan?" : "System.TimeSpan",
+            // SQL Server "datetimeoffset" and Postgres "time with time zone"
+            // both carry a UTC offset the provider materializes as
+            // System.DateTimeOffset (confirmed live: Microsoft.Data.SqlClient
+            // and Npgsql respectively) -- mapping either to plain DateTime/
+            // TimeSpan would silently drop the offset.
+            "datetimeoffset" or "time with time zone" => isNullable ? "System.DateTimeOffset?" : "System.DateTimeOffset",
             "uniqueidentifier" or "uuid" => isNullable ? "System.Guid?" : "System.Guid",
-            "bytea" or "varbinary" or "binary" or "image" => isNullable ? "byte[]?" : "byte[]",
+            // "blob" (MySQL's default-size BLOB) plus the tiny/medium/long
+            // variants all materialize as System.Byte[] (confirmed live).
+            "bytea" or "varbinary" or "binary" or "image"
+                or "blob" or "tinyblob" or "mediumblob" or "longblob" => isNullable ? "byte[]?" : "byte[]",
             "json" or "jsonb" => isNullable ? "string?" : "string",
             "inet" or "cidr" => isNullable ? "System.Net.IPAddress?" : "System.Net.IPAddress",
             _ => "object"
