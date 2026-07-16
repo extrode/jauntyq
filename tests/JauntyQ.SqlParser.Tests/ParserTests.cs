@@ -577,6 +577,47 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
         Assert.Empty(model.Columns[0].InferredDbType);
     }
 
+    [Fact]
+    public void CaseExpression_ComparisonInWhenClause_NotInferredAsBoolean()
+    {
+        // The CASE's own result type is its THEN/ELSE branch type (a string
+        // here), not the boolean shape of the comparison inside its WHEN
+        // clause. Must stay unresolved so the generator requires -- @type.
+        var model = ParseSql(
+            "select case when status = 1 then 'active' else 'inactive' end as label from users");
+
+        Assert.True(model.Columns[0].IsExpression);
+        Assert.Equal("label", model.Columns[0].OutputAlias);
+        Assert.Empty(model.Columns[0].InferredDbType);
+        Assert.False(model.Columns[0].InferredNotNull);
+    }
+
+    [Fact]
+    public void CaseExpression_IsNullInWhenClause_NotInferredAsBoolean()
+    {
+        var model = ParseSql(
+            "select case when deleted_at is null then 0 else 1 end as active_flag from users");
+
+        Assert.True(model.Columns[0].IsExpression);
+        Assert.Empty(model.Columns[0].InferredDbType);
+        Assert.False(model.Columns[0].InferredNotNull);
+    }
+
+    [Fact]
+    public void ScalarSubqueryExpression_NotInferredAsBoolean()
+    {
+        // The WHERE clause's "=" inside the subquery is not a top-level
+        // comparison on the outer expression; the subquery's own result type
+        // (bigint here, from count(*)) can't be inferred from shape alone.
+        var model = ParseSql(
+            "select (select count(*) from orders o where o.user_id = u.id) as order_count from users u");
+
+        Assert.True(model.Columns[0].IsExpression);
+        Assert.Equal("order_count", model.Columns[0].OutputAlias);
+        Assert.Empty(model.Columns[0].InferredDbType);
+        Assert.False(model.Columns[0].InferredNotNull);
+    }
+
     // ── Feature B: CTEs, RETURNING, INSERT...SELECT ───────
 
     [Fact]

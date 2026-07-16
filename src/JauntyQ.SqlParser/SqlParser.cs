@@ -475,26 +475,41 @@ public static partial class SqlParser
     {
         // Strip a single fully-enclosing paren pair so a wrapped predicate like
         // "( x IS NOT NULL )" exposes its top-level operator. Repeats while the
-        // outermost parens enclose the whole run.
+        // outermost parens enclose the whole run. Never unwraps a parenthesized
+        // SELECT (scalar subquery): its result type can't be inferred from
+        // shape, and unwrapping would expose the subquery's own internal
+        // predicates (e.g. a WHERE clause's "=") as if they were top-level
+        // comparisons on the outer expression.
         int lo = 0, hi = count;
         while (hi - lo >= 2 &&
                run[lo].Type == TokenType.Symbol && run[lo].Value == "(" &&
                run[hi - 1].Type == TokenType.Symbol && run[hi - 1].Value == ")" &&
                EnclosesWholeRun(run, lo, hi))
         {
+            if (lo + 1 < hi && run[lo + 1].Type == TokenType.Keyword && run[lo + 1].Value == "SELECT")
+                break;
+
             lo++;
             hi--;
         }
 
         // A top-level comparison or IS [NOT] NULL yields boolean — checked
         // before count/exists heads so "count(*) > 0" infers boolean, not bigint.
+        // CASE...END is tracked as its own nesting level alongside parens so a
+        // comparison inside a WHEN clause (e.g. "CASE WHEN status = 1 THEN ...
+        // END") is not mistaken for the enclosing expression's own top-level
+        // operator — a CASE's result type is its THEN/ELSE branch type, not
+        // boolean, and can't be inferred from shape at all.
         int depth = 0;
+        int caseDepth = 0;
         for (int i = lo; i < hi; i++)
         {
             var t = run[i];
             if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; continue; }
             if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; continue; }
-            if (depth != 0)
+            if (t.Type == TokenType.Keyword && t.Value == "CASE") { caseDepth++; continue; }
+            if (t.Type == TokenType.Keyword && t.Value == "END") { caseDepth--; continue; }
+            if (depth != 0 || caseDepth != 0)
                 continue;
 
             if (t.Type == TokenType.Keyword && t.Value == "IS")
