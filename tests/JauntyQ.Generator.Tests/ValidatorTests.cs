@@ -240,6 +240,44 @@ select c.category_id from categories c");
         Assert.Equal(ValidationSeverity.Error, errors.First(e => e.Code == "JNT1007").Severity);
     }
 
+    [Theory]
+    [InlineData("update products set category_id = (select category_id from categories where category_name = 'Beverages') where product_id = @id")]
+    [InlineData("insert into products (product_id, product_name, category_id) values (@id, @name, (select category_id from categories where category_name = 'Beverages'))")]
+    [InlineData("delete from products where category_id = (select category_id from categories where category_name = 'Beverages')")]
+    public void ScalarSubqueryInNonSelectStatement_JNT1007_Error(string sql)
+    {
+        // DetectUnsupportedConstructs used to count SELECT keywords with a
+        // "seenSelect" flag that assumed the first SELECT in the token stream
+        // is always the enclosing statement's own -- true for a SELECT
+        // statement, but wrong for UPDATE/INSERT/DELETE: there the first (and
+        // here, only) SELECT keyword in the whole statement IS the illegal
+        // subquery, so "seenSelect" was still false when it was reached and
+        // it slipped through with zero diagnostics. Now detected by whether
+        // the SELECT is immediately preceded by an opening paren, which is
+        // true for every one of these nested subqueries and false for a
+        // top-level SELECT statement or an INSERT...SELECT row source.
+        var query = ParseSql(sql);
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT1007");
+        Assert.Equal(ValidationSeverity.Error, errors.First(e => e.Code == "JNT1007").Severity);
+    }
+
+    [Fact]
+    public void InsertSelect_RowSource_IsNotFlaggedAsUnsupportedSubquery()
+    {
+        // The fix for the above must not regress this: INSERT...SELECT's row
+        // source is a legitimate, separately-parsed construct (ParseInsertSelect),
+        // never preceded by an opening paren, so it must stay unflagged.
+        var query = ParseSql(
+            "insert into products (product_id, product_name, category_id) select category_id, category_name, category_id from categories");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.DoesNotContain(errors, e => e.Code == "JNT1007");
+    }
+
     [Fact]
     public void QualifiedStarSelect_RejectedAsJNT3002_NotJNT3004()
     {

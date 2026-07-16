@@ -38,5 +38,17 @@
   <ItemGroup>
     <None Include="schema.mssql.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="schema.mssql.ddl.sql" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Serializes test-class execution: this project's 13 test classes each
+         spin up their own SQL Server Testcontainers instance (6 via
+         ConduitSqlServerFixture, 7 via ConduitWebAppFixture's own container).
+         xUnit parallelizes test classes by default, so all 13 SQL Server
+         containers start concurrently, heavy enough (unlike the Postgres/
+         MySql/MariaDb siblings) to exhaust host memory ("insufficient system
+         memory in resource pool 'default'"), which the fixtures' try/catch
+         correctly reports as an environmental SKIP rather than a false PASS,
+         but leaves this suite's real coverage nondeterministic under load.
+         Serializing class execution keeps only one container alive at a
+         time: slower wall-clock, zero isolation risk, no OOM. -->
+    <None Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -329,6 +329,28 @@ public class ExpressionAndCteTests
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT7002");
     }
 
+    [Theory]
+    [InlineData("sqlserver")]
+    [InlineData("mysql")]
+    public void ReadOnlyCteUnderSqlServerOrMySql_NotFlaggedAsJNT7002(string dialect)
+    {
+        // Only a CTE whose own body is INSERT/UPDATE/DELETE (see
+        // DataModifyingCteUnderMySql_JNT7002 above) is the unsupported
+        // "writable CTE" construct JNT7002 describes. A plain read-only
+        // "WITH cte AS (SELECT ...) SELECT ..." is ordinary SQL every
+        // dialect here supports -- ValidateDialectConstructs used to gate
+        // on "any CTE present at all", which flagged this extremely common,
+        // fully-supported form as unsupported under sqlserver/mysql.
+        var dialectSchema = SchemaJson.Replace("\"dialect\": \"postgres\"", $"\"dialect\": \"{dialect}\"");
+        var sql =
+            "with active_users as (select id, username from users where disabled_at is null) " +
+            "select id, username from active_users";
+        var (result, _) = Run(sql, "db/Users/ListActive.sql", dialectSchema);
+
+        AssertNoErrors(result);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT7002");
+    }
+
     // ── Unrecognized dialect string (JNT7003) ──────────────
 
     [Fact]
@@ -387,6 +409,32 @@ public class ExpressionAndCteTests
         Assert.Contains("string FirstName", source);
         Assert.DoesNotContain("object Id", source);
         Assert.DoesNotContain("object FirstName", source);
+    }
+
+    [Fact]
+    public void CteColumn_OuterLeftJoinOptionalSide_IsNullable()
+    {
+        // ResolveColumn used to report resolvedTableKey=null whenever
+        // resolution went through a CTE, so the outer-join nullability
+        // check (forceNullable = resolvedTableKey != null &&
+        // outerJoinedKeys.Contains(resolvedTableKey)) could never see a
+        // CTE reference sitting on the optional side of a LEFT/RIGHT/FULL
+        // JOIN. A schema-declared-NOT-NULL column projected through the CTE
+        // then stayed non-nullable even though the join can legitimately
+        // produce an all-NULL row for it -- the generated reader's
+        // non-null GetString/GetInt32 call would throw at runtime on
+        // exactly the row the join exists to allow. The control (a real
+        // table on the optional side, no CTE involved) already widens
+        // correctly; this CTE case now must match it.
+        var sql =
+            "with c as (select id, first_name from users) " +
+            "select u.id, c.first_name from users u left join c on c.id = u.id";
+        var (result, _) = Run(sql, "db/Users/GetWithOptionalCte.sql");
+
+        AssertNoErrors(result);
+        var source = GetSource(result, "Users.GetWithOptionalCte.g.cs");
+        Assert.Contains("string? FirstName", source);
+        Assert.DoesNotContain("string FirstName", source);
     }
 
     [Fact]

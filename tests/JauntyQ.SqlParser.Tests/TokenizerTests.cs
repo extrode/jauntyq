@@ -440,6 +440,34 @@ select product_id /* inline comment */ from products");
         Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "e");
     }
 
+    // ── Hex literals ──
+
+    [Theory]
+    [InlineData("0x1F")]
+    [InlineData("0XFF")]
+    [InlineData("0x0")]
+    public void HexLiteral_TokenizesAsOneNumber(string literal)
+    {
+        // Without a dedicated hex path, the digit-scan loop stops at '0'
+        // ('x' is neither a digit nor '.'), splitting this into Number("0")
+        // + Identifier("x1F") -- two unrelated tokens instead of the one
+        // literal a query or migration DEFAULT actually wrote.
+        var tokens = SqlTokenizer.Tokenize($"select {literal} as val from t");
+        Assert.Contains(tokens, t => t.Type == TokenType.Number && t.Value == literal);
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Identifier && t.Value.StartsWith("x", System.StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void BareZeroXWithNoHexDigits_DoesNotConsumeTheIdentifier()
+    {
+        // "0x" with no hex digit following isn't a hex literal at all --
+        // stays Number(0) then Identifier(x), same contract as
+        // DigitFollowedByBareE_DoesNotConsumeTheIdentifier above.
+        var tokens = SqlTokenizer.Tokenize("select 0x from t");
+        Assert.Contains(tokens, t => t.Type == TokenType.Number && t.Value == "0");
+        Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "x");
+    }
+
     // ── Quoted qualified names merge like bare ones ──
 
     [Theory]

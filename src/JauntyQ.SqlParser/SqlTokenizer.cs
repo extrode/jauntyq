@@ -229,6 +229,23 @@ public static class SqlTokenizer
                 continue;
             }
 
+            // Hex literal: 0x1F, 0XFF (SQL Server/MySQL binary literal syntax).
+            // Without this, the digit-scan loop below stops at '0' (the
+            // following 'x' is neither a digit nor '.'), splitting it into a
+            // Number("0") token immediately followed by an Identifier
+            // starting with "x" -- two unrelated tokens instead of the one
+            // literal a query or migration DEFAULT actually wrote.
+            if (sql[pos] == '0' && pos + 2 < len && (sql[pos + 1] == 'x' || sql[pos + 1] == 'X') &&
+                IsHexDigit(sql[pos + 2]))
+            {
+                int hexStart = pos;
+                pos += 2;
+                while (pos < len && IsHexDigit(sql[pos]))
+                    pos++;
+                tokens.Add(new Token(TokenType.Number, sql.Substring(hexStart, pos - hexStart)));
+                continue;
+            }
+
             // Numeric literal (with optional exponent: 1e5, 2.5E-3). A bare
             // 'e' with no exponent digits is not consumed — '1e' stays Number
             // then Identifier.
@@ -419,6 +436,9 @@ public static class SqlTokenizer
             }
         }
     }
+
+    private static bool IsHexDigit(char c) =>
+        (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 
     private static bool IsIdentifierStart(char c) =>
         char.IsLetter(c) || c == '_';

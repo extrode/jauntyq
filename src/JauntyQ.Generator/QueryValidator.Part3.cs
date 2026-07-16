@@ -133,9 +133,22 @@ public static partial class QueryValidator
         if (!isSqlServer && !isMySql)
             return;
 
-        if (query.Ctes.Count > 0)
-            errors.Add(new ValidationError(JauntyDiagnostics.JNT7002,
-                $"Data-modifying CTEs (WITH ... INSERT/UPDATE/DELETE) are not supported under the {schema.Dialect} dialect; the SQL is emitted verbatim with no rewrite."));
+        // Only a CTE whose own body is INSERT/UPDATE/DELETE is the
+        // unsupported "writable CTE" construct the message describes -- a
+        // plain read-only "WITH cte AS (SELECT ...) SELECT ..." is ordinary,
+        // universally-supported SQL under every dialect here. Gating on
+        // query.Ctes.Count > 0 alone (any CTE at all) used to flag that
+        // ordinary, extremely common form as unsupported under sqlserver/
+        // mysql, even though nothing about it is dialect-specific.
+        foreach (var cte in query.Ctes)
+        {
+            if (cte.Body.StatementType != StatementType.Select)
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT7002,
+                    $"Data-modifying CTEs (WITH ... INSERT/UPDATE/DELETE) are not supported under the {schema.Dialect} dialect; the SQL is emitted verbatim with no rewrite."));
+                break;
+            }
+        }
 
         if (query.HasReturning || query.Returning.Count > 0)
         {

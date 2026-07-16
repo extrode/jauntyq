@@ -179,12 +179,24 @@ public static class SchemaSimulator
                 continue;
             }
 
-            // ALTER COLUMN changes type/nullability/facets; key and identity
-            // status stay with the existing column.
+            // ALTER COLUMN changes type/nullability/facets; key status stays
+            // with the existing column always. Identity status also stays
+            // put for SQL Server/Postgres/SQLite, whose ALTER COLUMN cannot
+            // touch identity at all (Postgres needs a separate ADD/DROP
+            // GENERATED ... AS IDENTITY clause). MySQL's MODIFY is different:
+            // it fully REDEFINES the column, so a MODIFY that omits
+            // AUTO_INCREMENT really does drop it, and one that adds it really
+            // does add it -- ParseColumnDef already captured whichever the
+            // statement declared in col.IsIdentity, so honor that verbatim
+            // for MySQL instead of forcing back the pre-migration value
+            // (which previously made a MODIFY ... AUTO_INCREMENT silently
+            // no-op: the simulated schema kept reporting non-identity while
+            // a live re-pull after the same migration would report identity).
             var existing = table.Columns[actualKey];
             var updated = Finalize(col, schema.Dialect);
             updated.IsPrimaryKey = existing.IsPrimaryKey;
-            updated.IsIdentity = existing.IsIdentity;
+            if (!string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
+                updated.IsIdentity = existing.IsIdentity;
             // Reassign under the RESOLVED key, not col.Name: if the migration
             // spells the column differently-cased than the stored key,
             // indexing by col.Name would silently ADD a second, duplicate
@@ -371,6 +383,22 @@ public static class SchemaSimulator
             col.IsRowVersion = true;
             col.IsNullable = false;
         }
+
+        // MySQL parses REAL as a pure synonym for DOUBLE (unless the rare,
+        // non-default REAL_AS_FLOAT sql_mode is active, which nothing else
+        // in this codebase accounts for either) -- a migration-declared
+        // "id amount REAL" column comes back from a live re-pull with
+        // DbType "double", not "real". Left as "real" here, the simulated
+        // post-migration schema would disagree: DialectMapper maps
+        // "real"/"float4" to C# float (4-byte) but "double"/"float8" to
+        // double (8-byte), so the column would generate as float and
+        // silently lose precision reading back an 8-byte value.
+        if (string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(col.DbType, "real", StringComparison.OrdinalIgnoreCase))
+        {
+            col.DbType = "double";
+        }
+
         return col;
     }
 
@@ -423,7 +451,9 @@ public static class SchemaSimulator
                     DbType = p.DbType,
                     Direction = p.Direction,
                     IsNullable = p.IsNullable,
-                    MaxLength = p.MaxLength
+                    MaxLength = p.MaxLength,
+                    Precision = p.Precision,
+                    Scale = p.Scale
                 });
             }
             foreach (var rc in proc.Results)
