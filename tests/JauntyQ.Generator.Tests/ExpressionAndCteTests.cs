@@ -329,6 +329,28 @@ public class ExpressionAndCteTests
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT7002");
     }
 
+    [Theory]
+    [InlineData("sqlserver")]
+    [InlineData("mysql")]
+    public void ReadOnlyCteUnderSqlServerOrMySql_NotFlaggedAsJNT7002(string dialect)
+    {
+        // Only a CTE whose own body is INSERT/UPDATE/DELETE (see
+        // DataModifyingCteUnderMySql_JNT7002 above) is the unsupported
+        // "writable CTE" construct JNT7002 describes. A plain read-only
+        // "WITH cte AS (SELECT ...) SELECT ..." is ordinary SQL every
+        // dialect here supports -- ValidateDialectConstructs used to gate
+        // on "any CTE present at all", which flagged this extremely common,
+        // fully-supported form as unsupported under sqlserver/mysql.
+        var dialectSchema = SchemaJson.Replace("\"dialect\": \"postgres\"", $"\"dialect\": \"{dialect}\"");
+        var sql =
+            "with active_users as (select id, username from users where disabled_at is null) " +
+            "select id, username from active_users";
+        var (result, _) = Run(sql, "db/Users/ListActive.sql", dialectSchema);
+
+        AssertNoErrors(result);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT7002");
+    }
+
     // ── Unrecognized dialect string (JNT7003) ──────────────
 
     [Fact]
