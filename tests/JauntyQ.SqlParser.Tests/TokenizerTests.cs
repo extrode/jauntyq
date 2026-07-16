@@ -485,6 +485,31 @@ select product_id /* inline comment */ from products");
     }
 
     [Fact]
+    public void ServerVariable_EmitsUnknownToken_NotGarbageParameters()
+    {
+        // Regression: "@@" used to fall through to the '@name' parameter
+        // handling, where the second '@' isn't an identifier char -- yielding
+        // a garbage empty-named Parameter token immediately followed by an
+        // unrelated Parameter("IDENTITY") token, both of which look like real
+        // bindable parameters to everything downstream.
+        var tokens = SqlTokenizer.Tokenize("select seq_no from t where seq_no > @@IDENTITY");
+
+        Assert.Contains(tokens, t => t.Type == TokenType.Unknown && t.Value.Contains("@@IDENTITY"));
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Parameter && t.Value == "");
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Parameter && t.Value == "IDENTITY");
+    }
+
+    [Fact]
+    public void ServerVariable_TokenizingContinuesPastIt()
+    {
+        var tokens = SqlTokenizer.Tokenize("select @@ROWCOUNT, id from users");
+
+        Assert.Contains(tokens, t => t.Type == TokenType.Unknown && t.Value.Contains("@@ROWCOUNT"));
+        Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "id");
+        Assert.Contains(tokens, t => t.Type == TokenType.Identifier && t.Value == "users");
+    }
+
+    [Fact]
     public void ParenNestingBeyondCap_EmitsTooDeepSentinel()
     {
         int d = SqlTokenizer.MaxNestingDepth + 5;
