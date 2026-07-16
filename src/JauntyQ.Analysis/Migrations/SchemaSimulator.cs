@@ -152,6 +152,8 @@ public static class SchemaSimulator
                     rebuilt[kvp.Key] = kvp.Value;
             }
             table.Columns = rebuilt;
+
+            RemoveColumnFromIndexes(table, actualKey);
         }
 
         schema.ForeignKeys.RemoveAll(fk =>
@@ -241,6 +243,37 @@ public static class SchemaSimulator
             existing.IsPrimaryKey = true;
             existing.IsNullable = false;
         }
+    }
+
+    /// <summary>
+    /// A dropped column can't linger in the table's index metadata: a real
+    /// database requires an indexed column's index to be dropped or altered
+    /// before/when the column itself goes (or auto-drops it via CASCADE),
+    /// and JNT8004/8006/8007 plus the N+1 analyzer's unique-key checks all
+    /// read TableSchema.Indexes directly. An index that references the
+    /// dropped column is removed entirely if the column was its only key
+    /// column; otherwise the column is stripped from its Columns list and
+    /// the index survives on its remaining columns.
+    /// </summary>
+    private static void RemoveColumnFromIndexes(TableSchema table, string droppedColumnKey)
+    {
+        var updated = new List<IndexSchema>();
+        foreach (var ix in table.Indexes)
+        {
+            var remaining = new List<string>();
+            foreach (var c in ix.Columns)
+            {
+                if (!string.Equals(c, droppedColumnKey, StringComparison.OrdinalIgnoreCase))
+                    remaining.Add(c);
+            }
+            if (remaining.Count == 0)
+                continue;
+            if (remaining.Count != ix.Columns.Count)
+                updated.Add(new IndexSchema { Name = ix.Name, Columns = remaining, IsUnique = ix.IsUnique });
+            else
+                updated.Add(ix);
+        }
+        table.Indexes = updated;
     }
 
     /// <summary>

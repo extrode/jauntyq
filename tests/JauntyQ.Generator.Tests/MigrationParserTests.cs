@@ -476,6 +476,29 @@ alter table products add supplier_note nvarchar(50) null;
     }
 
     [Fact]
+    public void DropColumn_RemovesSingleColumnIndex_AndPrunesDroppedColumnFromComposite()
+    {
+        var snapshot = BaseSchema();
+        snapshot.Tables["products"].Indexes.Add(new IndexSchema { Name = "ix_unit_price", Columns = new List<string> { "unit_price" }, IsUnique = false });
+        snapshot.Tables["products"].Indexes.Add(new IndexSchema { Name = "ix_name_price", Columns = new List<string> { "product_name", "unit_price" }, IsUnique = true });
+        snapshot.Tables["products"].Indexes.Add(new IndexSchema { Name = "ix_name", Columns = new List<string> { "product_name" }, IsUnique = false });
+
+        var (schema, errors) = Apply(snapshot, "alter table products drop column unit_price");
+
+        Assert.Empty(errors);
+        var indexes = schema.Tables["products"].Indexes;
+        // single-column index on the dropped column is gone entirely
+        Assert.DoesNotContain(indexes, ix => ix.Name == "ix_unit_price");
+        // composite index survives, pruned down to its surviving column
+        var composite = Assert.Single(indexes, ix => ix.Name == "ix_name_price");
+        Assert.Equal(new[] { "product_name" }, composite.Columns);
+        Assert.True(composite.IsUnique);
+        // unrelated index is untouched
+        var untouched = Assert.Single(indexes, ix => ix.Name == "ix_name");
+        Assert.Equal(new[] { "product_name" }, untouched.Columns);
+    }
+
+    [Fact]
     public void AlterColumn_ChangesFacets_KeepsKeyAndIdentity()
     {
         var (schema, errors) = Apply(BaseSchema(), "alter table products alter column product_name nvarchar(10) not null");
