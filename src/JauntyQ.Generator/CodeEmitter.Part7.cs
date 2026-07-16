@@ -133,15 +133,16 @@ public static partial class CodeEmitter
 
         if (hasUpsert)
         {
-            // Must match EmitUpsert's own column set exactly: when the PK is
-            // identity-only and a secondary UNIQUE index is the upsert key,
-            // the identity column is database-assigned and never a caller-
-            // supplied argument.
+            // Must match EmitUpsert's own column set exactly (CodeEmitter.
+            // Part6.cs): no identity column is ever a caller-supplied
+            // argument -- true of the PK's own identity column when a
+            // secondary UNIQUE index is the upsert key (identity-only PK),
+            // and equally true of any other identity column on a table with
+            // a natural PK -- except an identity column that is itself part
+            // of the upsert key (a composite PK with one identity member).
             var upsertKey = ResolveUpsertKey(tableSchema);
-            bool upsertUsesAlternateKey = upsertKey != null && upsertKey.Exists(c => !c.IsPrimaryKey);
-            var upsertCols = upsertUsesAlternateKey
-                ? columns.FindAll(c => !c.IsRowVersion && !c.IsIdentity && !c.IsComputed)
-                : columns.FindAll(c => !c.IsRowVersion && !c.IsComputed);
+            var upsertCols = columns.FindAll(c => !c.IsRowVersion && !c.IsComputed
+                && (!c.IsIdentity || (upsertKey?.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)) ?? false)));
             Forward("Upsert", upsertCols);
         }
 

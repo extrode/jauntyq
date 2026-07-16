@@ -587,6 +587,48 @@ public class AutoCrudTests
     }
 
     [Fact]
+    public void NonPkIdentityColumn_ExcludedFromSynthesizedUpsert()
+    {
+        // Same widgets table as the Update fix above (pk_code natural PK,
+        // seq non-PK identity, name plain column). UpsertKeyResolver.Resolve
+        // returns pk_code directly (not all PK columns are identity, so it
+        // never even reaches the secondary-unique-index branch), so
+        // usesAlternateKey is false here -- EmitUpsert's old
+        // "usesAlternateKey ? exclude identity : allColumns" gate let seq
+        // through into both the insert column list and the update SET,
+        // which SQL Server rejects at runtime ("Cannot update identity
+        // column 'seq'"), same failure class as the Update fix above.
+        var schema = JauntyQ.Schema.SchemaLoader.Load(NonPkIdentitySchemaJson);
+        var table = schema.Tables["widgets"];
+
+        string source = CodeEmitter.EmitUpsert("Widget", table, "sqlserver");
+
+        Assert.DoesNotContain("@seq", source);
+        Assert.DoesNotContain("seq = src.seq", source);
+        Assert.Contains("@name", source);
+        Assert.Contains("name = src.name", source);
+        Assert.Contains("@pk_code", source);
+    }
+
+    [Fact]
+    public void NonPkIdentityColumn_AutoCrud_UpsertCompilesClean_PocoOverloadOmitsIdentityArg()
+    {
+        var (result, compilation) = RunAutoCrudWithSchema(NonPkIdentitySchemaJson);
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        string? upsert = TryGetSource(result, "Widgets.Upsert.auto.g.cs");
+        Assert.NotNull(upsert);
+        Assert.DoesNotContain("@seq", upsert);
+
+        string? poco = TryGetSource(result, "Widgets.Poco.auto.g.cs");
+        Assert.NotNull(poco);
+        var upsertForwarder = System.Text.RegularExpressions.Regex.Match(poco, @"public int Upsert\(Widget row\) => Upsert\([^)]*\);");
+        Assert.True(upsertForwarder.Success, "expected a POCO-forwarding Upsert(Widget) overload in:\n" + poco);
+        Assert.DoesNotContain("row.Seq", upsertForwarder.Value);
+    }
+
+    [Fact]
     public void TypoDirective_ReportsJNT3008_AndStillEmits()
     {
         var (result, _) = RunAutoCrud(autoCrud: false, sqlFiles:

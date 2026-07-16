@@ -35,11 +35,19 @@ public static partial class CodeEmitter
                 $"Table '{tableSchema.Name}' has no usable upsert key: no primary key, or an " +
                 "identity-only primary key with no secondary UNIQUE index to match on instead.");
 
-        // An identity-only PK can never be supplied by the caller (its value
-        // doesn't exist before the row does), so it drops out of the insert
-        // column set entirely when a secondary UNIQUE index is the key.
-        bool usesAlternateKey = keyCols.Exists(c => !c.IsPrimaryKey);
-        var columns = usesAlternateKey ? allColumns.FindAll(c => !c.IsIdentity) : allColumns;
+        // No identity column can ever be supplied by the caller before the
+        // row exists -- true of the PK's own identity column when a
+        // secondary UNIQUE index is the match key instead (an identity-only
+        // PK case), but equally true of any OTHER identity column on a table
+        // whose PK is a natural (non-identity) key: an identity column stays
+        // excluded from both the insert list and the update SET regardless
+        // of which key resolved. The only exception is an identity column
+        // that is itself part of keyCols (a composite PK with one identity
+        // member, matched on directly) -- it must stay in `columns` so the
+        // SQL Server MERGE src-select/on-clause and the Postgres/MySQL
+        // conflict-column references still have a value to bind.
+        var columns = allColumns.FindAll(c =>
+            !c.IsIdentity || keyCols.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
         var setCols = columns.FindAll(c => !keyCols.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
 
         string colList = string.Join(", ", columns.Select(c => c.Name));

@@ -157,19 +157,25 @@ public static class AutoCrud
             // last-writer-wins (documented).
             var upsertKey = UpsertKeyResolver.Resolve(table);
             // Must mirror EmitUpsert's own column filtering exactly (CodeEmitter.
-            // Part6.cs): when the key is a secondary UNIQUE index rather than the
-            // PK (identity-only PK case), EmitUpsert additionally drops every
-            // identity column from its column set -- an identity value can't be
-            // supplied by the caller before the row exists. Without the same
-            // exclusion here, a table whose only non-key column is that identity
-            // PK (e.g. an identity id + a single idempotency-key unique column)
-            // looked like it had a non-key column to update, but EmitUpsert would
-            // then compute an empty setCols and emit invalid SQL with a dangling
-            // "update set" / "do update set" and nothing after it.
-            bool usesAlternateKey = upsertKey != null && upsertKey.Exists(c => !c.IsPrimaryKey);
+            // Part6.cs): no identity column can ever be supplied by the caller
+            // before the row exists, whether it's the PK's own identity (the
+            // secondary-UNIQUE-index/identity-only-PK case) or any OTHER
+            // identity column on a table with a natural PK -- both are
+            // excluded from "columns to update" regardless of which key
+            // resolved, except an identity column that is itself part of
+            // upsertKey (a composite PK with one identity member). Without
+            // this exclusion, a table whose only non-key column is such an
+            // identity column (e.g. an identity id + a single idempotency-key
+            // unique column, or a natural-PK table with a lone non-PK
+            // identity column) looked like it had a non-key column to
+            // update, but EmitUpsert would then either emit invalid SQL with
+            // a dangling "update set" / "do update set" and nothing after it
+            // (identity-only-PK case), or SQL that writes to / updates the
+            // identity column directly (natural-PK case) -- the database
+            // rejects both at runtime.
             bool hasNonKeyColumns = upsertKey != null &&
                 columns.Any(c => !c.IsRowVersion && !c.IsComputed
-                    && !(usesAlternateKey && c.IsIdentity)
+                    && !c.IsIdentity
                     && !upsertKey.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
             if (upsertKey != null && hasNonKeyColumns && !string.IsNullOrEmpty(schema.Dialect))
             {
