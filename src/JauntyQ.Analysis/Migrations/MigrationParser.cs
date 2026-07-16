@@ -430,7 +430,40 @@ public static class MigrationParser
     /// </summary>
     private static ColumnSchema? ParseColumnDef(List<Token> def)
     {
-        if (def.Count < 2 || def[0].Type != TokenType.Identifier || def[1].Type != TokenType.Identifier)
+        if (def.Count < 2 || def[0].Type != TokenType.Identifier)
+            return null;
+
+        // SQL Server computed column shorthand has no declared type: "Total
+        // AS (Qty * Price) [PERSISTED] [NOT NULL|NULL]". Must be special-cased
+        // before the "def[1] must be an Identifier" type-name check below --
+        // "AS" tokenizes as a Keyword, not an Identifier, so without this
+        // branch ParseColumnDef returned null and ParseCreateTable silently
+        // dropped the column from the effective schema with no diagnostic,
+        // so a later query selecting it falsely failed JNT2002 "column does
+        // not exist" even though the column is real and live.
+        if (def[1].Type == TokenType.Keyword && string.Equals(def[1].Value, "AS", StringComparison.OrdinalIgnoreCase) &&
+            IsSymbol(def, 2, "("))
+        {
+            var computed = new ColumnSchema
+            {
+                Name = BareName(def[0].Value),
+                DbType = string.Empty, // expression type isn't declared; DialectMapper falls back to "object"
+                IsComputed = true,
+                IsNullable = true
+            };
+            int cp = 2;
+            SkipParenGroup(def, ref cp);
+            while (cp < def.Count)
+            {
+                if (Is(def, cp, "PERSISTED")) { cp++; continue; }
+                if (Is(def, cp, "NOT") && Is(def, cp + 1, "NULL")) { computed.IsNullable = false; cp += 2; continue; }
+                if (Is(def, cp, "NULL")) { computed.IsNullable = true; cp++; continue; }
+                cp++;
+            }
+            return computed;
+        }
+
+        if (def[1].Type != TokenType.Identifier)
             return null;
 
         var column = new ColumnSchema
@@ -604,10 +637,65 @@ public static class MigrationParser
                 }
                 continue;
             }
+            // Postgres identity ("GENERATED ALWAYS|BY DEFAULT AS IDENTITY
+            // [(seq options)]") vs. MySQL/Postgres generated/computed columns
+            // ("GENERATED ALWAYS AS (expr) STORED|VIRTUAL"). Without this,
+            // the generic unknown-flag skip below consumed GENERATED/ALWAYS/
+            // AS/the parenthesized expression/STORED one token at a time and
+            // IsComputed was never set -- CrudColumnRules then included the
+            // column in generated INSERT/UPDATE statements, which compile
+            // clean and fail at runtime ("cannot insert into generated
+            // column").
+            if (Is(def, pos, "GENERATED"))
+            {
+                pos++;
+                if (Is(def, pos, "ALWAYS"))
+                    pos++;
+                else if (Is(def, pos, "BY") && Is(def, pos + 1, "DEFAULT"))
+                    pos += 2;
+                if (Is(def, pos, "AS"))
+                {
+                    pos++;
+                    if (Is(def, pos, "IDENTITY"))
+                    {
+                        column.IsIdentity = true;
+                        pos++;
+                        if (IsSymbol(def, pos, "("))
+                            SkipParenGroup(def, ref pos);
+                    }
+                    else if (IsSymbol(def, pos, "("))
+                    {
+                        column.IsComputed = true;
+                        SkipParenGroup(def, ref pos);
+                        if (Is(def, pos, "STORED") || Is(def, pos, "VIRTUAL"))
+                            pos++;
+                    }
+                }
+                continue;
+            }
             pos++; // unknown flag (COLLATE x, CONSTRAINT inline, ...) — skip token
         }
 
         return column;
+    }
+
+    /// <summary>
+    /// Advances <paramref name="pos"/> past a balanced "(...)" group starting
+    /// at <paramref name="pos"/>, tracking nested parens so a function call
+    /// inside the expression (e.g. "(ROUND(price, 2))") doesn't terminate
+    /// early on its own inner ")". No-op if <paramref name="pos"/> isn't "(".
+    /// </summary>
+    private static void SkipParenGroup(List<Token> def, ref int pos)
+    {
+        if (!IsSymbol(def, pos, "("))
+            return;
+        int depth = 0;
+        while (pos < def.Count)
+        {
+            if (IsSymbol(def, pos, "(")) depth++;
+            if (IsSymbol(def, pos, ")") && --depth == 0) { pos++; break; }
+            pos++;
+        }
     }
 
     private static void ApplyFacets(ColumnSchema column, int? first, int? second, bool isMax)
