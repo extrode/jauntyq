@@ -19,7 +19,13 @@ public sealed class SakilaPostgresFixture : IAsyncLifetime
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
-    public JauntyDb Db { get; private set; } = null!;
+
+    // Throws an informative InvalidOperationException (naming the real
+    // SkipReason) instead of a bare NullReferenceException when the container
+    // never came up -- see FixtureGate.RequireAvailable for why. Does not
+    // change pass/fail outcomes: still fails when unavailable, just legibly.
+    public JauntyDb Db => FixtureGate.RequireAvailable(_db, Available, SkipReason, nameof(SakilaPostgresFixture));
+    private JauntyDb? _db;
     private NpgsqlConnection? _conn;
 
     public async Task InitializeAsync()
@@ -41,7 +47,7 @@ public sealed class SakilaPostgresFixture : IAsyncLifetime
 
             _conn = new NpgsqlConnection(_container.GetConnectionString());
             await _conn.OpenAsync();
-            Db = new JauntyDb(_conn);
+            _db = new JauntyDb(_conn);
             Available = true;
         }
         catch (Exception ex)
