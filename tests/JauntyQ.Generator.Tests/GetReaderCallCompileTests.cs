@@ -29,13 +29,14 @@ public class GetReaderCallCompileTests
         ""addr"": { ""name"": ""addr"", ""dbType"": ""inet"", ""isNullable"": false },
         ""happened_at"": { ""name"": ""happened_at"", ""dbType"": ""time"", ""isNullable"": true },
         ""tags"": { ""name"": ""tags"", ""dbType"": ""text[]"", ""isNullable"": true },
-        ""ids"": { ""name"": ""ids"", ""dbType"": ""integer[]"", ""isNullable"": false }
+        ""ids"": { ""name"": ""ids"", ""dbType"": ""integer[]"", ""isNullable"": false },
+        ""observed_at"": { ""name"": ""observed_at"", ""dbType"": ""time with time zone"", ""isNullable"": true }
       }
     }
   }
 }";
 
-    private const string Sql = "select id, addr, happened_at, tags, ids from network_events where id = @id";
+    private const string Sql = "select id, addr, happened_at, tags, ids, observed_at from network_events where id = @id";
 
     private static GeneratorDriverRunResult Run()
     {
@@ -87,6 +88,11 @@ public class GetReaderCallCompileTests
         Assert.Contains("(System.TimeSpan)reader.GetValue(", querySource);
         Assert.Contains("(string[])reader.GetValue(", querySource);
         Assert.Contains("(int[])reader.GetValue(", querySource);
+        // DialectMapper maps "time with time zone" (Postgres) and SQL Server's
+        // "datetimeoffset" to System.DateTimeOffset (task #26), but GetReaderCall
+        // had no case for it and fell through to the bare, untyped
+        // reader.GetValue(ordinal) -- CS0266 assigning object to DateTimeOffset.
+        Assert.Contains("(System.DateTimeOffset)reader.GetValue(", querySource);
 
         var allTrees = result.Results[0].GeneratedSources
             .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
