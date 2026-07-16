@@ -42,6 +42,45 @@ public class DialectMapperTests
     }
 
     /// <summary>
+    /// Gaps confirmed live against real containers (Testcontainers SQL
+    /// Server/Postgres/MySQL): each of these dbType strings previously fell
+    /// through MapDbTypeToCSharp's switch to "object" despite the provider
+    /// returning a perfectly well-typed CLR value.
+    /// </summary>
+    [Theory]
+    [InlineData("double", false, "double")] // MySQL DOUBLE -> MySqlConnector System.Double
+    [InlineData("mediumint", false, "int")] // MySQL MEDIUMINT (24-bit) -> System.Int32
+    [InlineData("year", false, "int")] // MySQL YEAR -> System.Int32 (not DateTime)
+    [InlineData("tinytext", true, "string?")] // MySQL TINYTEXT/MEDIUMTEXT/LONGTEXT -> System.String
+    [InlineData("mediumtext", true, "string?")]
+    [InlineData("longtext", true, "string?")]
+    [InlineData("blob", true, "byte[]?")] // MySQL BLOB family -> System.Byte[]
+    [InlineData("tinyblob", true, "byte[]?")]
+    [InlineData("mediumblob", true, "byte[]?")]
+    [InlineData("longblob", true, "byte[]?")]
+    [InlineData("enum", false, "string")] // MySQL ENUM/SET -> System.String (member list not captured)
+    [InlineData("set", false, "string")]
+    public void PreviouslyUnmappedMySqlTypes_MapToRealClrType(string dbType, bool isNullable, string expected)
+    {
+        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp(dbType, isNullable));
+    }
+
+    [Theory]
+    [InlineData("datetimeoffset", false, "System.DateTimeOffset")] // SQL Server
+    [InlineData("datetimeoffset", true, "System.DateTimeOffset?")]
+    [InlineData("time with time zone", false, "System.DateTimeOffset")] // Postgres
+    [InlineData("time with time zone", true, "System.DateTimeOffset?")]
+    public void OffsetAwareTemporalTypes_MapToDateTimeOffset_NotDateTimeOrTimeSpan(string dbType, bool isNullable, string expected)
+    {
+        // Confirmed live: Microsoft.Data.SqlClient hands back DateTimeOffset
+        // for datetimeoffset, and Npgsql hands back DateTimeOffset for "time
+        // with time zone" too (distinct from plain "time", which stays
+        // TimeSpan) -- mapping either to DateTime/TimeSpan would silently
+        // drop the UTC offset the column actually carries.
+        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp(dbType, isNullable));
+    }
+
+    /// <summary>
     /// Torture-test finding: MariaDB is intentionally absent -- it declares
     /// "dialect": "mysql" since it's wire/SQL-compatible with MySQL for
     /// everything the generator emits. Any other unrecognized string (typo,
