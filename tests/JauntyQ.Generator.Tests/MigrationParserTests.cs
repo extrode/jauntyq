@@ -1,3 +1,4 @@
+using System;
 using JauntyQ.Analysis;
 using JauntyQ.Analysis.Migrations;
 using JauntyQ.Schema;
@@ -86,6 +87,56 @@ create table order_items (
         Assert.True(stmt.Columns.Single(c => c.Name == "order_id").IsPrimaryKey);
         Assert.True(stmt.Columns.Single(c => c.Name == "item_no").IsPrimaryKey);
         Assert.False(stmt.Columns.Single(c => c.Name == "qty").IsPrimaryKey);
+    }
+
+    [Fact]
+    public void CreateTable_TableLevelUniqueForeignCheck_EachSurfacesAsSiblingUnsupported()
+    {
+        // AUD-R4-18: table-level UNIQUE/FOREIGN KEY/CHECK constraints used to
+        // be silently dropped with no diagnostic at all, unlike the identical
+        // constructs added later via ALTER TABLE ADD CONSTRAINT (correctly
+        // Unsupported/JNT9001). Each must now surface as its own sibling
+        // Unsupported statement alongside the CreateTable statement, so the
+        // effective schema's incompleteness isn't silent.
+        var statements = MigrationParser.Parse(@"
+create table products (
+    product_id int not null primary key,
+    category_id int not null,
+    product_name varchar(40) not null,
+    unit_price decimal(10,2) not null,
+    constraint uq_products_name unique (product_name),
+    constraint fk_products_category foreign key (category_id) references categories (category_id),
+    constraint chk_products_price check (unit_price > 0)
+)");
+
+        Assert.Equal(4, statements.Count);
+
+        var createStmt = statements[0];
+        Assert.Equal(MigrationStatementKind.CreateTable, createStmt.Kind);
+        Assert.Equal("products", createStmt.TableName);
+        Assert.Equal(4, createStmt.Columns.Count);
+
+        for (int i = 1; i < 4; i++)
+            Assert.Equal(MigrationStatementKind.Unsupported, statements[i].Kind);
+
+        Assert.Contains("unique", statements[1].RawText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("foreign", statements[2].RawText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("check", statements[3].RawText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CreateTable_NoTableLevelConstraints_StillSingleStatement()
+    {
+        // Guards against a regression where every CreateTable now
+        // unconditionally carries trailing Unsupported siblings.
+        var statements = MigrationParser.Parse(@"
+create table widgets (
+    widget_id int not null primary key,
+    name varchar(40) not null
+)");
+
+        Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.CreateTable, statements[0].Kind);
     }
 
     [Fact]
@@ -790,6 +841,29 @@ alter table products add supplier_note nvarchar(50) null;
     {
         var (_, errors) = Apply(BaseSchema(),
             "alter table products add constraint uq_products_name unique (product_name)");
+
+        var error = Assert.Single(errors);
+        Assert.Equal("JNT9001", error.Code);
+        Assert.Equal(AnalysisSeverity.Warning, error.Severity);
+    }
+
+    [Fact]
+    public void CreateTable_OtherConstraint_JNT9001Warning_NotSilentlyDropped_AndTableStillCreated()
+    {
+        // AUD-R4-18 end-to-end: a table-level constraint dropped during
+        // CREATE TABLE parsing must both (a) still create the table with its
+        // columns, and (b) surface JNT9001 for the unmodeled constraint --
+        // not lose the diagnostic just because it rode along with a
+        // CreateTable statement instead of a standalone ALTER TABLE.
+        var (schema, errors) = Apply(BaseSchema(), @"
+create table widgets (
+    widget_id int not null primary key,
+    name varchar(40) not null,
+    constraint uq_widgets_name unique (name)
+)");
+
+        Assert.True(schema.Tables.ContainsKey("widgets"));
+        Assert.Equal(2, schema.Tables["widgets"].Columns.Count);
 
         var error = Assert.Single(errors);
         Assert.Equal("JNT9001", error.Code);
