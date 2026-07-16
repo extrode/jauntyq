@@ -23,12 +23,14 @@ create table JQ_Gadgets (
     row_version rowversion not null
 )";
 
+    private readonly NorthwindFixture _fixture;
     private readonly SqlConnection _conn = null!;
     private readonly JauntyDb _db = null!;
 
-    public Tier3LiveTests()
+    public Tier3LiveTests(NorthwindFixture fixture)
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        _fixture = fixture;
+        if (!fixture.Available) return;
         _conn = new SqlConnection(NorthwindFixture.ConnectionString);
         _conn.Open();
         Execute("drop table if exists JQ_Gadgets");
@@ -38,7 +40,7 @@ create table JQ_Gadgets (
 
     public void Dispose()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        if (!_fixture.Available) return;
         Execute("drop table if exists JQ_Gadgets");
         _conn.Dispose();
     }
@@ -50,10 +52,10 @@ create table JQ_Gadgets (
         cmd.ExecuteNonQuery();
     }
 
-    [Fact]
+    [SkippableFact]
     public void MigrationGeneratedApi_FullCrudRoundTrip()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         int id = _db.JQGadgets.Insert("Widget", 19.99m);
         Assert.True(id > 0);
 
@@ -73,10 +75,10 @@ create table JQ_Gadgets (
         Assert.Null(_db.JQGadgets.GetById(id));
     }
 
-    [Fact]
+    [SkippableFact]
     public void OptimisticConcurrency_StaleUpdateAndDelete_Conflict()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         int id = _db.JQGadgets.Insert("Contested", null);
 
         var first = _db.JQGadgets.GetById(id);
@@ -102,10 +104,10 @@ create table JQ_Gadgets (
         Assert.Equal(1, _db.JQGadgets.Update(current));
     }
 
-    [Fact]
+    [SkippableFact]
     public void ValueSafety_AppliesToMigrationDefinedColumns()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var ex = Assert.Throws<ArgumentException>(
             () => _db.JQGadgets.Insert(new string('X', 41), null));
 

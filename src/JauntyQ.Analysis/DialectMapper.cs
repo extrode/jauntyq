@@ -78,16 +78,26 @@ public static class DialectMapper
     /// </summary>
     public static string MapDbTypeToCSharp(string dbType, bool isNullable, int? length = null, string? dialect = null)
     {
+        bool isMySql = string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase);
+
         // MySQL's UNSIGNED modifier widens int/bigint/smallint's positive
         // range beyond what the equivalent signed CLR type holds (e.g. INT
         // UNSIGNED's max, 4294967295, overflows System.Int32) --
         // MySqlConnector reports these as System.UInt32/UInt64/UInt16 on the
         // wire, so the mapping must follow or any value above the signed max
-        // fails at read time with zero build-time signal. Checked on the raw
-        // string first since NormalizeDbType strips the modifier (it's not
-        // part of the base type name any other dialect ever produces).
-        bool unsigned = dbType.Contains("unsigned", StringComparison.OrdinalIgnoreCase);
-        string normalized = NormalizeDbType(dbType.ToLowerInvariant());
+        // fails at read time with zero build-time signal. Gated on the mysql
+        // dialect specifically: "unsigned" is a MySQL-only wire concept, and
+        // a SQLite/Postgres/SQL Server DbType string that happens to contain
+        // the word (e.g. DDL ported verbatim from MySQL into SQLite, which
+        // has no real UNSIGNED semantics) must keep degrading to "object" +
+        // JNT2007 exactly as before — those providers never box a
+        // uint/ulong/ushort for such a column, so routing them there the
+        // same way MySQL is routed throws InvalidCastException at read time
+        // instead of surfacing the (correct, diagnosed) unmapped-type gap.
+        bool unsigned = isMySql && dbType.Contains("unsigned", StringComparison.OrdinalIgnoreCase);
+        string normalized = unsigned
+            ? NormalizeDbType(StripMySqlUnsignedModifier(dbType.ToLowerInvariant()))
+            : NormalizeDbType(dbType.ToLowerInvariant());
 
         // Postgres array types (e.g. "text[]", "integer[]"): recurse on the
         // element type (as non-nullable — nullability describes the array
@@ -110,7 +120,10 @@ public static class DialectMapper
                     return isNullable ? "ushort?" : "ushort";
                     // "tinyint unsigned" (0..255) and "mediumint unsigned"
                     // (0..16777215) both already fit their signed mapping's
-                    // range (short, int respectively) — no override needed.
+                    // range (short, int respectively) — falls through to the
+                    // main switch below using the already-unsigned-stripped
+                    // `normalized`, so it still matches "tinyint"/"mediumint"
+                    // there instead of missing and degrading to "object".
             }
         }
 
@@ -200,21 +213,31 @@ public static class DialectMapper
 
     private static string NormalizeDbType(string dbType)
     {
-        string s = dbType.Trim();
-
-        // Strip MySQL's "unsigned" (and any trailing "zerofill" that rides
-        // along with it, e.g. "int(10) unsigned zerofill") before the paren
-        // strip below — it's a modifier word, not part of the base type name,
-        // and (unlike the "(n)" facet) can appear with no parens at all
-        // ("int unsigned"). Must not use a blind first-space cut here: several
-        // base type names are themselves multi-word ("double precision",
-        // "character varying", "timestamp without time zone").
-        int unsignedIndex = s.IndexOf("unsigned", StringComparison.OrdinalIgnoreCase);
-        if (unsignedIndex >= 0)
-            s = s.Substring(0, unsignedIndex).Trim();
-
         // Strip length/precision specifiers: varchar(255) -> varchar, decimal(10,2) -> decimal
-        int parenIndex = s.IndexOf('(');
-        return parenIndex >= 0 ? s.Substring(0, parenIndex).Trim() : s.Trim();
+        int parenIndex = dbType.IndexOf('(');
+        return parenIndex >= 0 ? dbType.Substring(0, parenIndex).Trim() : dbType.Trim();
+    }
+
+    /// <summary>
+    /// Strips MySQL's "unsigned" (and any trailing "zerofill" that rides
+    /// along with it, e.g. "int(10) unsigned zerofill") before the paren
+    /// strip in <see cref="NormalizeDbType"/> — it's a modifier word, not
+    /// part of the base type name, and (unlike the "(n)" facet) can appear
+    /// with no parens at all ("int unsigned"). Must not use a blind
+    /// first-space cut here: several base type names are themselves
+    /// multi-word ("double precision", "character varying"). Deliberately
+    /// separate from <see cref="NormalizeDbType"/> (used by every dialect)
+    /// so it is only ever applied on the MySQL-only path in
+    /// <see cref="MapDbTypeToCSharp"/> — a SQLite/Postgres/SQL Server column
+    /// whose declared type happens to contain the word "unsigned" (e.g. DDL
+    /// ported verbatim from MySQL into SQLite, which has no real UNSIGNED
+    /// semantics) must keep falling through to the same "object" + JNT2007
+    /// degradation it always has, not silently match a signed/unsigned CLR
+    /// type meant for a wire format that engine doesn't use.
+    /// </summary>
+    private static string StripMySqlUnsignedModifier(string dbType)
+    {
+        int unsignedIndex = dbType.IndexOf("unsigned", StringComparison.OrdinalIgnoreCase);
+        return unsignedIndex >= 0 ? dbType.Substring(0, unsignedIndex).Trim() : dbType;
     }
 }

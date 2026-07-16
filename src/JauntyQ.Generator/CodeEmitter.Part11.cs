@@ -144,12 +144,25 @@ public static partial class CodeEmitter
                     sb.AppendLine($"                {varName}.Direction = System.Data.ParameterDirection.Output;");
                     if (p.MaxLength is int ml && ml != 0)
                         sb.AppendLine($"                {varName}.Size = {ml};");
+                    // Decimal/numeric OUT parameters: several providers need
+                    // Precision/Scale set explicitly to correctly size the
+                    // return value -- left unset, the returned value can be
+                    // silently truncated or rounded instead of matching what
+                    // the procedure actually assigned.
+                    if (p.Precision is int prec)
+                        sb.AppendLine($"                {varName}.Precision = {prec};");
+                    if (p.Scale is int scl)
+                        sb.AppendLine($"                {varName}.Scale = {scl};");
                     outReadback.Add((varName, pname, ct, p.IsNullable || !IsNonNullableValueType(ct)));
                     break;
                 case JauntyQ.Schema.ProcedureParamDirection.InOut:
                     sb.AppendLine($"                {varName}.Direction = System.Data.ParameterDirection.InputOutput;");
                     if (p.MaxLength is int ml2 && ml2 != 0)
                         sb.AppendLine($"                {varName}.Size = {ml2};");
+                    if (p.Precision is int prec2)
+                        sb.AppendLine($"                {varName}.Precision = {prec2};");
+                    if (p.Scale is int scl2)
+                        sb.AppendLine($"                {varName}.Scale = {scl2};");
                     sb.AppendLine(IsNonNullableValueType(ct)
                         ? $"                {varName}.Value = {pname};"
                         : $"                {varName}.Value = (object?){pname} ?? System.DBNull.Value;");

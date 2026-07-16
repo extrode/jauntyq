@@ -35,6 +35,25 @@ public sealed class ReferencedObjects
 
     public static ReferencedObjects Resolve(QueryModel model)
     {
+        var tables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var columns = new HashSet<ReferencedColumn>(ReferencedColumnComparer.Instance);
+        ResolveInto(model, tables, columns);
+        return new ReferencedObjects(tables, columns);
+    }
+
+    /// <summary>
+    /// Resolves one statement's own scope (its FROM/JOIN tables and everything
+    /// bound within it) into the shared accumulator sets, then recurses into
+    /// every nested statement scope it carries — WHERE-clause predicate
+    /// subqueries (<see cref="QueryModel.Subqueries"/>) and CTE bodies
+    /// (<see cref="QueryModel.Ctes"/>) — each resolved against its own alias
+    /// map, not the outer statement's. Without this, a migration that only
+    /// touched a column referenced inside a subquery/CTE body, a WHERE/SET
+    /// predicate, or an ORDER BY clause produced a false SAFE verdict: the
+    /// query's dependency on that column was never recorded at all.
+    /// </summary>
+    private static void ResolveInto(QueryModel model, HashSet<string> tables, HashSet<ReferencedColumn> columns)
+    {
         // alias -> real table name; also every real table name maps to itself.
         var aliasToTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var inScope = new List<string>();
@@ -53,8 +72,8 @@ public sealed class ReferencedObjects
             inScope.Add(model.TargetTable!);
         }
 
-        var tables = new HashSet<string>(inScope, StringComparer.OrdinalIgnoreCase);
-        var columns = new HashSet<ReferencedColumn>(ReferencedColumnComparer.Instance);
+        foreach (var table in inScope)
+            tables.Add(table);
 
         void AddColumn(string alias, string column)
         {
@@ -93,7 +112,28 @@ public sealed class ReferencedObjects
             AddColumn(j.RightTable, j.RightColumn);
         }
 
-        return new ReferencedObjects(tables, columns);
+        // WHERE-bound predicate parameters and literals, and SET/VALUES write
+        // targets: a query that only compares/writes a column (never
+        // projects, joins or returns it) still depends on that column's shape.
+        foreach (var p in model.Parameters)
+            AddColumn(p.BoundTableAlias, p.BoundColumnName);
+
+        foreach (var l in model.Literals)
+            AddColumn(l.BoundTableAlias, l.BoundColumnName);
+
+        // ORDER BY: only PlainColumn items carry a bound alias/column; the
+        // others (Expression/Ordinal/ProjectedAlias) leave it empty, which
+        // AddColumn already no-ops on.
+        foreach (var o in model.OrderBy)
+            AddColumn(o.BoundTableAlias, o.BoundColumnName);
+
+        // Nested statement scopes: each resolved against its own FROM/JOIN
+        // tables, not this statement's aliasToTable/inScope.
+        foreach (var sq in model.Subqueries)
+            ResolveInto(sq.Body, tables, columns);
+
+        foreach (var cte in model.Ctes)
+            ResolveInto(cte.Body, tables, columns);
     }
 
     private sealed class ReferencedColumnComparer : IEqualityComparer<ReferencedColumn>

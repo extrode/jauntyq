@@ -510,6 +510,20 @@ select product_id /* inline comment */ from products");
     }
 
     [Fact]
+    public void BareDoubleAt_MessageDoesNotAssertTSql()
+    {
+        // "@@" is also PostgreSQL's full-text-search match operator
+        // (tsvector @@ tsquery), so a bare "@@" with no dialect context
+        // must not claim it's specifically a T-SQL server variable -- that
+        // was simply wrong for a Postgres file.
+        var tokens = SqlTokenizer.Tokenize("select id from docs where body @@ query");
+
+        var unknown = Assert.Single(tokens, t => t.Type == TokenType.Unknown);
+        Assert.DoesNotContain("T-SQL server variables are not supported", unknown.Value);
+        Assert.Contains("full-text-search", unknown.Value);
+    }
+
+    [Fact]
     public void ParenNestingBeyondCap_EmitsTooDeepSentinel()
     {
         int d = SqlTokenizer.MaxNestingDepth + 5;

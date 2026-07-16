@@ -65,6 +65,22 @@ public static partial class QueryValidator
                 continue;
             }
 
+            // SUBQUERY gets its own Error-severity diagnostic (JNT1007) for
+            // the same reason as UNION above: a nested SELECT that isn't a
+            // WHERE-clause IN/EXISTS predicate falls through to the enclosing
+            // statement's ordinary parsing instead of being lifted as its own
+            // scope, so the outer query's shape may already be misparsed.
+            if (construct == "SUBQUERY")
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT1007,
+                    "This subquery form is not supported: only WHERE-clause '[NOT] IN (SELECT ...)' and " +
+                    "'[NOT] EXISTS (SELECT ...)' predicates are modeled as their own scope. A scalar " +
+                    "subquery in the projection list or a derived table in FROM falls through to the " +
+                    "enclosing statement's ordinary parsing, which can misread the outer query's shape. " +
+                    "Rewrite using a JOIN, a WHERE-clause IN/EXISTS predicate, or a CTE."));
+                continue;
+            }
+
             errors.Add(new ValidationError(JauntyDiagnostics.JNT1001,
                 $"Unsupported SQL construct: {construct}"));
         }

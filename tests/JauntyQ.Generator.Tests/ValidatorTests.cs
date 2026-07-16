@@ -223,6 +223,24 @@ select c.category_id from categories c");
     }
 
     [Fact]
+    public void ScalarSubqueryInProjection_JNT1007_Error()
+    {
+        // SUBQUERY gets its own Error-severity diagnostic, not JNT1001's
+        // Warning: a nested SELECT that isn't a WHERE-clause IN/EXISTS
+        // predicate falls through to the enclosing statement's ordinary
+        // parsing instead of being lifted as its own scope, so the outer
+        // query's shape may already be misparsed.
+        var query = ParseSql(
+            "select p.product_id, (select c.category_id from categories c) as cat from products p");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT1007");
+        Assert.DoesNotContain(errors, e => e.Code == "JNT1001");
+        Assert.Equal(ValidationSeverity.Error, errors.First(e => e.Code == "JNT1007").Severity);
+    }
+
+    [Fact]
     public void QualifiedStarSelect_RejectedAsJNT3002_NotJNT3004()
     {
         // Regression: "p.*" used to be misparsed as an alias-less expression

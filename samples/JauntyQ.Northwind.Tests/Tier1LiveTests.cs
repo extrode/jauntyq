@@ -12,12 +12,15 @@ namespace JauntyQ.Northwind.Tests;
 [Collection("Northwind")]
 public class Tier1LiveTests
 {
+    private readonly NorthwindFixture _fixture;
+    public Tier1LiveTests(NorthwindFixture fixture) => _fixture = fixture;
+
     private static JauntyDb FreshDb() => new(new SqlConnection(NorthwindFixture.ConnectionString));
 
-    [Fact]
+    [SkippableFact]
     public void IdentityInsert_InsideTransaction_ReturnsNewId_RollbackDiscards()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
         int before = db.Shippers.GetAll().Count;
 
@@ -37,10 +40,10 @@ public class Tier1LiveTests
         Assert.Equal(before, db.Shippers.GetAll().Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Transaction_DisposeWithoutCommit_RollsBack()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
         int before = db.Shippers.GetAll().Count;
 
@@ -53,10 +56,10 @@ public class Tier1LiveTests
         Assert.Equal(before, db.Shippers.GetAll().Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Transaction_Commit_Persists()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
         int newId;
 
@@ -81,10 +84,10 @@ public class Tier1LiveTests
         Assert.Null(db.Shippers.GetById(newId));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task TransactionAsync_IdentityInsertAsync_Rollback()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
         int before = (await db.Shippers.GetAllAsync()).Count;
 
@@ -98,10 +101,10 @@ public class Tier1LiveTests
         Assert.Equal(before, (await db.Shippers.GetAllAsync()).Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public void BeginTransaction_WhileActive_Throws()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
         using var tx = db.BeginTransaction();
         Assert.Throws<InvalidOperationException>(() => db.BeginTransaction());
@@ -110,10 +113,10 @@ public class Tier1LiveTests
 
     // ── Tier 1.5: canonical POCOs, FK loaders, Upsert ──────
 
-    [Fact]
+    [SkippableFact]
     public void CanonicalPocoTypes_AreTheApi()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
 
         // explicit types: full-row queries return the singular POCO
@@ -129,10 +132,10 @@ public class Tier1LiveTests
         Assert.NotNull(region);
     }
 
-    [Fact]
+    [SkippableFact]
     public void FkLoader_GetByCategoryId_ReturnsCategoryProducts()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
 
         List<Product> beverages = db.Products.GetByCategoryId(1);
@@ -141,10 +144,10 @@ public class Tier1LiveTests
         Assert.Contains(beverages, p => p.ProductName == "Chai");
     }
 
-    [Fact]
+    [SkippableFact]
     public void PocoOverloads_ReadModifyWrite_UpdateAndUpsert()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
 
         using (var tx = db.BeginTransaction())
@@ -173,10 +176,10 @@ public class Tier1LiveTests
         Assert.Equal("Alfreds Futterkiste", db.Customers.GetById("ALFKI")!.CompanyName);
     }
 
-    [Fact]
+    [SkippableFact]
     public void PocoInsert_WritesIdentityBack()
     {
-        if (!NorthwindFixture.IsAvailable) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
         var db = FreshDb();
 
         using (var tx = db.BeginTransaction())

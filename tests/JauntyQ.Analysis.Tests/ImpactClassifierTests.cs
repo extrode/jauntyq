@@ -174,4 +174,118 @@ public class ImpactClassifierTests
 
         Assert.Equal(Classification.Risky, report.Highest);
     }
+
+    // ── ReferencedObjects.Resolve: WHERE/ORDER BY/subquery/CTE coverage ────
+    // A query that only compares/sorts/joins-inside-a-nested-scope a column
+    // (never projects or returns it) used to be resolved with NO dependency
+    // on that column at all, so a migration that changed it produced a false
+    // SAFE verdict instead of BREAKING/RISKY.
+
+    [Fact]
+    public void NotSafe_WhenOnlyWhereClauseReferencesRemovedColumn()
+    {
+        var baseline = Schema(Table("users", Col("id"), Col("status", "varchar")));
+        var effective = Schema(Table("users", Col("id")));
+
+        var m = Select("users", "id");
+        m.Parameters.Add(new ParameterRef { BoundTableAlias = "users", BoundColumnName = "status", ComparisonOp = "=" });
+
+        var report = Run(Delta(baseline, effective), Input("User.Get", m));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Breaking, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "users.status" && r.ChangeKind == "removed");
+    }
+
+    [Fact]
+    public void NotSafe_WhenOnlyLiteralBindingReferencesModifiedColumn()
+    {
+        var baseline = Schema(Table("users", Col("id"), Col("name", "varchar", 100)));
+        var effective = Schema(Table("users", Col("id"), Col("name", "varchar", 50)));
+
+        var m = Select("users", "id");
+        m.Literals.Add(new LiteralBinding { Kind = LiteralKind.String, Value = "'x'", BoundTableAlias = "users", BoundColumnName = "name" });
+
+        var report = Run(Delta(baseline, effective), Input("User.Get", m));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Risky, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "users.name" && r.ChangeKind == "maxLength");
+    }
+
+    [Fact]
+    public void NotSafe_WhenOnlyOrderByReferencesModifiedColumn()
+    {
+        var baseline = Schema(Table("users", Col("id"), Col("name", "varchar", 100)));
+        var effective = Schema(Table("users", Col("id"), Col("name", "varchar", 50)));
+
+        var m = Select("users", "id");
+        m.OrderBy.Add(new OrderByRef { BoundTableAlias = "users", BoundColumnName = "name", Kind = OrderByItemKind.PlainColumn });
+
+        var report = Run(Delta(baseline, effective), Input("User.Get", m));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Risky, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "users.name" && r.ChangeKind == "maxLength");
+    }
+
+    [Fact]
+    public void OrderBy_NonPlainColumnKinds_LeaveNoDanglingDependency()
+    {
+        // Expression/Ordinal/ProjectedAlias items carry an empty bound
+        // alias/column; AddColumn must no-op on them rather than attributing
+        // the sort to every in-scope table.
+        var baseline = Schema(Table("users", Col("id"), Col("name", "varchar")));
+        var effective = Schema(Table("users", Col("id"), Col("name", "varchar", 999)));
+
+        var m = Select("users", "id");
+        m.OrderBy.Add(new OrderByRef { Kind = OrderByItemKind.Ordinal });
+        m.OrderBy.Add(new OrderByRef { Kind = OrderByItemKind.Expression });
+        m.OrderBy.Add(new OrderByRef { Kind = OrderByItemKind.ProjectedAlias });
+
+        var report = Run(Delta(baseline, effective), Input("User.Get", m));
+
+        Assert.Equal(Classification.Safe, Assert.Single(report.Entries).Classification);
+    }
+
+    [Fact]
+    public void NotSafe_WhenOnlyWhereInSubqueryReferencesRemovedColumn()
+    {
+        var baseline = Schema(Table("users", Col("id")), Table("orders", Col("id"), Col("user_id"), Col("discontinued", "bit")));
+        var effective = Schema(Table("users", Col("id")), Table("orders", Col("id"), Col("user_id")));
+
+        var m = Select("users", "id");
+        var subquery = Select("orders", "user_id");
+        subquery.Parameters.Add(new ParameterRef { BoundTableAlias = "orders", BoundColumnName = "discontinued", ComparisonOp = "=" });
+        m.Subqueries.Add(new SubqueryRef { Kind = SubqueryKind.In, Body = subquery });
+
+        var report = Run(Delta(baseline, effective), Input("User.Get", m));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Breaking, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "orders.discontinued" && r.ChangeKind == "removed");
+    }
+
+    [Fact]
+    public void NotSafe_WhenOnlyCteBodyReferencesModifiedColumn()
+    {
+        var baseline = Schema(Table("orders", Col("id"), Col("total", "decimal", null)));
+        var effective = Schema(Table("orders", Col("id"), Col("total", "decimal", null)));
+        baseline.Tables["orders"].Columns["total"].Precision = 10;
+        baseline.Tables["orders"].Columns["total"].Scale = 2;
+        effective.Tables["orders"].Columns["total"].Precision = 8;
+        effective.Tables["orders"].Columns["total"].Scale = 2;
+
+        var cteBody = Select("orders", "id", "total");
+        var outer = new QueryModel { Name = "q", StatementType = StatementType.Select };
+        outer.Ctes.Add(new CteRef { Name = "recent", Body = cteBody });
+        outer.Tables.Add(new TableRef { TableName = "recent" });
+        outer.Columns.Add(new ColumnRef { ColumnName = "id" }); // outer only projects id, never total
+
+        var report = Run(Delta(baseline, effective), Input("Recent.Get", outer));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Risky, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "orders.total" && r.ChangeKind == "precisionScale");
+    }
 }

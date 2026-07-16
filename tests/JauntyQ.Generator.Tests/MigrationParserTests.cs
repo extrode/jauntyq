@@ -121,6 +121,72 @@ create table order_items (
         Assert.Equal("reorder_level", Assert.Single(stmt.ColumnNames));
     }
 
+    [Fact]
+    public void AlterDropColumn_MultipleNames_CommaSeparated()
+    {
+        var statements = MigrationParser.Parse("alter table products drop column reorder_level, discontinued");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.DropColumn, stmt.Kind);
+        Assert.Equal(new[] { "reorder_level", "discontinued" }, stmt.ColumnNames);
+    }
+
+    [Fact]
+    public void AlterTable_MixedAddDropAdd_SplitsIntoThreeActions()
+    {
+        // ADD/DROP/COLUMN aren't tokenizer keywords (they tokenize as plain
+        // identifiers), so a second action clause used to satisfy
+        // ParseColumnDef's "identifier identifier" shape and get misparsed
+        // as a phantom column (e.g. "DROP COLUMN b" read as a column named
+        // "DROP" of type "column") instead of its own DropColumn action.
+        var statements = MigrationParser.Parse(
+            "alter table products add discontinued_at datetime null, drop column reorder_level, add note nvarchar(50)");
+
+        Assert.Equal(3, statements.Count);
+
+        Assert.Equal(MigrationStatementKind.AddColumn, statements[0].Kind);
+        var added1 = Assert.Single(statements[0].Columns);
+        Assert.Equal("discontinued_at", added1.Name);
+        Assert.Equal("datetime", added1.DbType);
+
+        Assert.Equal(MigrationStatementKind.DropColumn, statements[1].Kind);
+        Assert.Equal("reorder_level", Assert.Single(statements[1].ColumnNames));
+
+        Assert.Equal(MigrationStatementKind.AddColumn, statements[2].Kind);
+        var added2 = Assert.Single(statements[2].Columns);
+        Assert.Equal("note", added2.Name);
+        Assert.Equal(50, added2.MaxLength);
+
+        foreach (var stmt in statements)
+            Assert.Equal("products", stmt.TableName);
+    }
+
+    [Fact]
+    public void AlterTable_RepeatedAddColumnClauses_EachOwnAction()
+    {
+        var statements = MigrationParser.Parse(
+            "alter table products add column a int, add column b varchar(10)");
+
+        Assert.Equal(2, statements.Count);
+        Assert.Equal(MigrationStatementKind.AddColumn, statements[0].Kind);
+        Assert.Equal("a", Assert.Single(statements[0].Columns).Name);
+        Assert.Equal(MigrationStatementKind.AddColumn, statements[1].Kind);
+        Assert.Equal("b", Assert.Single(statements[1].Columns).Name);
+    }
+
+    [Fact]
+    public void AlterTable_MultipleAlterColumnClauses_EachOwnAction()
+    {
+        var statements = MigrationParser.Parse(
+            "alter table products alter column product_name nvarchar(20) not null, alter column unit_price decimal(12,4) null");
+
+        Assert.Equal(2, statements.Count);
+        Assert.Equal(MigrationStatementKind.AlterColumn, statements[0].Kind);
+        Assert.Equal("product_name", Assert.Single(statements[0].Columns).Name);
+        Assert.Equal(MigrationStatementKind.AlterColumn, statements[1].Kind);
+        Assert.Equal("unit_price", Assert.Single(statements[1].Columns).Name);
+    }
+
     [Theory]
     [InlineData("alter table products alter column product_name nvarchar(10) not null")] // sqlserver
     [InlineData("alter table products modify column product_name nvarchar(10) not null")] // mysql
@@ -253,6 +319,70 @@ drop table if exists c
         Assert.Equal("Gadgets", stmt.TableName);
     }
 
+    [Theory]
+    [InlineData("amount double precision not null", "double precision")]
+    [InlineData("created_at timestamp with time zone not null", "timestamp with time zone")]
+    [InlineData("created_at timestamp without time zone not null", "timestamp without time zone")]
+    [InlineData("start_time time with time zone not null", "time with time zone")]
+    [InlineData("start_time time without time zone not null", "time without time zone")]
+    public void MultiWordType_CapturedInFull_NotTruncatedToFirstWord(string columnDef, string expectedDbType)
+    {
+        var statements = MigrationParser.Parse($"alter table t add {columnDef}");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.AddColumn, stmt.Kind);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal(expectedDbType, col.DbType);
+    }
+
+    [Fact]
+    public void CharacterVarying_CapturesMaxLength_NotLostBehindTheContinuationWord()
+    {
+        // The facet paren follows "varying", not "character" -- without
+        // absorbing "varying" into DbType first, the parser looked for "("
+        // immediately after "character" and never found "(40)", silently
+        // losing the length entirely (a live pull of the same column
+        // reports MaxLength=40).
+        var statements = MigrationParser.Parse("alter table t add name character varying(40) not null");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal("character varying", col.DbType);
+        Assert.Equal(40, col.MaxLength);
+    }
+
+    [Fact]
+    public void BitVarying_CapturesMaxLength()
+    {
+        var statements = MigrationParser.Parse("alter table t add flags bit varying(10) not null");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal("bit varying", col.DbType);
+        Assert.Equal(10, col.MaxLength);
+    }
+
+    [Theory]
+    [InlineData("flag bit not null", null)]
+    [InlineData("flags bit(1) not null", 1)]
+    [InlineData("flags bit(5) not null", 5)]
+    public void Bit_CapturesLengthFacet_NotAlwaysNull(string columnDef, int? expectedMaxLength)
+    {
+        // Bare "bit" or "bit(1)" (bool-shaped) vs. "bit(5)" (a genuine
+        // multi-bit string DialectMapper must NOT mistype as bool) are
+        // distinguished only by this MaxLength value -- before this fix
+        // ApplyFacets had no case for "bit" at all, so every migration-
+        // declared bit column always reported MaxLength null regardless of
+        // its actual declared length, incorrectly satisfying DialectMapper's
+        // "length is null" bool guard for bit(5) too.
+        var statements = MigrationParser.Parse($"alter table t add {columnDef}");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal("bit", col.DbType);
+        Assert.Equal(expectedMaxLength, col.MaxLength);
+    }
+
     [Fact]
     public void DefaultExpressions_Skipped()
     {
@@ -318,6 +448,21 @@ public class SchemaSimulatorTests
     }
 
     [Fact]
+    public void MixedAddDropAdd_AppliesAllThreeActions()
+    {
+        var (schema, errors) = Apply(BaseSchema(),
+            "alter table products add discontinued_at datetime null, drop column unit_price, add note nvarchar(50)");
+
+        Assert.Empty(errors);
+        var table = schema.Tables["products"];
+        Assert.True(table.Columns.ContainsKey("discontinued_at"));
+        Assert.False(table.Columns.ContainsKey("unit_price"));
+        Assert.True(table.Columns.ContainsKey("note"));
+        // the untouched column survives all three actions
+        Assert.True(table.Columns.ContainsKey("product_name"));
+    }
+
+    [Fact]
     public void DropColumn_PreservesRemainingOrder_EvenAfterLaterAdd()
     {
         var (schema, errors) = Apply(BaseSchema(), @"
@@ -328,6 +473,29 @@ alter table products add supplier_note nvarchar(50) null;
         Assert.Empty(errors);
         var names = schema.Tables["products"].Columns.Values.Select(c => c.Name).ToList();
         Assert.Equal(new[] { "product_id", "unit_price", "supplier_note" }, names);
+    }
+
+    [Fact]
+    public void DropColumn_RemovesSingleColumnIndex_AndPrunesDroppedColumnFromComposite()
+    {
+        var snapshot = BaseSchema();
+        snapshot.Tables["products"].Indexes.Add(new IndexSchema { Name = "ix_unit_price", Columns = new List<string> { "unit_price" }, IsUnique = false });
+        snapshot.Tables["products"].Indexes.Add(new IndexSchema { Name = "ix_name_price", Columns = new List<string> { "product_name", "unit_price" }, IsUnique = true });
+        snapshot.Tables["products"].Indexes.Add(new IndexSchema { Name = "ix_name", Columns = new List<string> { "product_name" }, IsUnique = false });
+
+        var (schema, errors) = Apply(snapshot, "alter table products drop column unit_price");
+
+        Assert.Empty(errors);
+        var indexes = schema.Tables["products"].Indexes;
+        // single-column index on the dropped column is gone entirely
+        Assert.DoesNotContain(indexes, ix => ix.Name == "ix_unit_price");
+        // composite index survives, pruned down to its surviving column
+        var composite = Assert.Single(indexes, ix => ix.Name == "ix_name_price");
+        Assert.Equal(new[] { "product_name" }, composite.Columns);
+        Assert.True(composite.IsUnique);
+        // unrelated index is untouched
+        var untouched = Assert.Single(indexes, ix => ix.Name == "ix_name");
+        Assert.Equal(new[] { "product_name" }, untouched.Columns);
     }
 
     [Fact]
@@ -475,5 +643,75 @@ alter table products add supplier_note nvarchar(50) null;
 
         Assert.True(snapshot.Tables.ContainsKey("products"));
         Assert.True(snapshot.Tables["products"].Columns.ContainsKey("product_name"));
+    }
+
+    // ── Case-insensitivity: SQL Server/MySQL identifiers are effectively
+    // case-insensitive under their default collations, so a migration
+    // written with different casing than the snapshot's stored casing must
+    // still resolve -- not report a false JNT9002 "does not exist".
+
+    [Fact]
+    public void AddColumn_TableNameDifferentCase_Resolves()
+    {
+        var (schema, errors) = Apply(BaseSchema(), "alter table Products add supplier_note nvarchar(50) null");
+
+        Assert.Empty(errors);
+        Assert.True(schema.Tables["products"].Columns.ContainsKey("supplier_note"));
+    }
+
+    [Fact]
+    public void DropColumn_ColumnNameDifferentCase_Resolves_PreservesOtherColumns()
+    {
+        var (schema, errors) = Apply(BaseSchema(), "alter table products drop column PRODUCT_NAME");
+
+        Assert.Empty(errors);
+        var remaining = schema.Tables["products"].Columns.Values.Select(c => c.Name).ToList();
+        Assert.Equal(new[] { "product_id", "unit_price" }, remaining);
+    }
+
+    [Fact]
+    public void AlterColumn_DifferentCase_ReplacesInPlace_NoDuplicateEntry()
+    {
+        // Indexing by the migration's own casing instead of the resolved
+        // key would silently ADD a second, differently-cased column entry
+        // (Dictionary key equality is case-sensitive) rather than replacing
+        // the existing one.
+        var (schema, errors) = Apply(BaseSchema(), "alter table products alter column Product_Name nvarchar(10) not null");
+
+        Assert.Empty(errors);
+        var table = schema.Tables["products"];
+        Assert.Equal(3, table.Columns.Count); // no phantom duplicate
+        Assert.True(table.Columns.ContainsKey("product_name"));
+        Assert.False(table.Columns.ContainsKey("Product_Name"));
+        Assert.Equal(10, table.Columns["product_name"].MaxLength);
+    }
+
+    [Fact]
+    public void DropTable_DifferentCase_Resolves()
+    {
+        var (schema, errors) = Apply(BaseSchema(), "drop table Products");
+
+        Assert.Empty(errors);
+        Assert.False(schema.Tables.ContainsKey("products"));
+    }
+
+    [Fact]
+    public void CreateTable_DifferentCase_DuplicateDetected()
+    {
+        var (_, errors) = Apply(BaseSchema(),
+            "create table PRODUCTS (id int not null primary key)");
+
+        var error = Assert.Single(errors);
+        Assert.Equal("JNT9002", error.Code);
+    }
+
+    [Fact]
+    public void AddPrimaryKey_ColumnNameDifferentCase_Resolves()
+    {
+        var (schema, errors) = Apply(BaseSchema(),
+            "alter table products add constraint pk_x primary key (PRODUCT_NAME)");
+
+        Assert.Empty(errors);
+        Assert.True(schema.Tables["products"].Columns["product_name"].IsPrimaryKey);
     }
 }

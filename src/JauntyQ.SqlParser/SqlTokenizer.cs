@@ -99,16 +99,21 @@ public static class SqlTokenizer
                 return tokens;
             }
 
-            // T-SQL server variable: @@IDENTITY, @@ROWCOUNT, etc. Not a bindable
-            // parameter -- without this check, the '@' handling below treats
-            // the second '@' as "not an identifier char", producing a garbage
-            // empty-named Parameter token immediately followed by a second,
-            // unrelated Parameter("IDENTITY") token. Emitted as Unknown (like
-            // any other unsupported construct the tokenizer recognizes but
-            // can't model) so the generator's existing JNT1004 refusal covers
-            // it with a clear message, instead of the misleading "Parameter
+            // "@@": T-SQL server variables (@@IDENTITY, @@ROWCOUNT, etc.) or
+            // PostgreSQL's full-text-search match operator (tsvector @@
+            // tsquery) -- the tokenizer has no dialect context to tell which,
+            // and neither is a bindable parameter. Without this check, the
+            // '@' handling below treats the second '@' as "not an identifier
+            // char", producing a garbage empty-named Parameter token (T-SQL
+            // form: immediately followed by a second, unrelated
+            // Parameter("IDENTITY") token). Emitted as Unknown (like any
+            // other unsupported construct the tokenizer recognizes but can't
+            // model) so the generator's existing JNT1004 refusal covers it
+            // with a clear message, instead of the misleading "Parameter
             // '@' is not a valid C# identifier" that fell out of the garbage
-            // empty-named token.
+            // empty-named token. The message names both possibilities rather
+            // than asserting T-SQL, since asserting it is simply wrong for a
+            // Postgres file.
             if (sql[pos] == '@' && pos + 1 < len && sql[pos + 1] == '@')
             {
                 int start = pos;
@@ -116,7 +121,8 @@ public static class SqlTokenizer
                 while (pos < len && IsIdentifierChar(sql[pos]))
                     pos++;
                 tokens.Add(new Token(TokenType.Unknown,
-                    $"'{sql.Substring(start, pos - start)}' (T-SQL server variables are not supported)"));
+                    $"'{sql.Substring(start, pos - start)}' (not supported: either a T-SQL server variable " +
+                    "such as @@IDENTITY/@@ROWCOUNT, or PostgreSQL's full-text-search @@ match operator)"));
                 continue;
             }
 

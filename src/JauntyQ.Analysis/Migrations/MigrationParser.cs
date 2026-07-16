@@ -54,11 +54,11 @@ public static class MigrationParser
     {
         if (tokens.Count == 0)
             return;
-        statements.Add(ParseStatement(tokens));
+        statements.AddRange(ParseStatement(tokens));
         tokens.Clear();
     }
 
-    private static MigrationStatement ParseStatement(List<Token> tokens)
+    private static List<MigrationStatement> ParseStatement(List<Token> tokens)
     {
         var tokenValues = new List<string>(tokens.Count);
         foreach (var t in tokens)
@@ -66,11 +66,16 @@ public static class MigrationParser
         string raw = string.Join(" ", tokenValues);
 
         if (Is(tokens, 0, "CREATE") && Is(tokens, 1, "TABLE"))
-            return ParseCreateTable(tokens, raw);
+            return new List<MigrationStatement> { ParseCreateTable(tokens, raw) };
 
         if (Is(tokens, 0, "DROP") && Is(tokens, 1, "TABLE"))
-            return ParseDropTable(tokens, raw);
+            return new List<MigrationStatement> { ParseDropTable(tokens, raw) };
 
+        // A single ALTER TABLE can carry several comma-separated actions
+        // (ALTER TABLE t ADD a int, DROP COLUMN b, ADD c varchar(10)), each
+        // independently applicable to the effective schema -- so this
+        // expands into one MigrationStatement per action instead of one for
+        // the whole clause.
         if (Is(tokens, 0, "ALTER") && Is(tokens, 1, "TABLE"))
             return ParseAlterTable(tokens, raw);
 
@@ -81,10 +86,10 @@ public static class MigrationParser
             Is(tokens, 0, "BEGIN") || Is(tokens, 0, "COMMIT") || Is(tokens, 0, "ROLLBACK") ||
             Is(tokens, 0, "GRANT") || Is(tokens, 0, "REVOKE") || Is(tokens, 0, "DENY"))
         {
-            return new MigrationStatement { Kind = MigrationStatementKind.Ignored, RawText = raw };
+            return new List<MigrationStatement> { new MigrationStatement { Kind = MigrationStatementKind.Ignored, RawText = raw } };
         }
 
-        return new MigrationStatement { Kind = MigrationStatementKind.Unsupported, RawText = raw };
+        return new List<MigrationStatement> { new MigrationStatement { Kind = MigrationStatementKind.Unsupported, RawText = raw } };
     }
 
     private static MigrationStatement ParseCreateTable(List<Token> tokens, string raw)
@@ -151,145 +156,248 @@ public static class MigrationParser
         };
     }
 
-    private static MigrationStatement ParseAlterTable(List<Token> tokens, string raw)
+    /// <summary>One comma-separated action clause within an ALTER TABLE
+    /// statement (ADD/DROP/ALTER/MODIFY), plus its column-def bodies. Bodies
+    /// after the first are bare continuations (e.g. the "b int" in
+    /// "ADD a int, b int") that belong to the same action rather than
+    /// starting a new one.</summary>
+    private sealed class AlterActionGroup
+    {
+        public string Action = string.Empty;
+        public List<List<Token>> Bodies { get; } = new();
+    }
+
+    private static List<MigrationStatement> ParseAlterTable(List<Token> tokens, string raw)
     {
         int pos = 2;
         string tableName = ReadObjectName(tokens, ref pos);
         if (tableName.Length == 0)
+            return new List<MigrationStatement> { Unsupported(raw) };
+
+        var groups = GroupAlterActions(tokens, pos);
+        if (groups == null || groups.Count == 0)
+            return new List<MigrationStatement> { Unsupported(raw) };
+
+        var results = new List<MigrationStatement>(groups.Count);
+        foreach (var group in groups)
+        {
+            results.Add(group.Action switch
+            {
+                "ADD" => ParseAddAction(group.Bodies, tableName, raw),
+                "DROP" => ParseDropAction(group.Bodies, tableName, raw),
+                _ => ParseAlterOrModifyAction(group.Action, group.Bodies, tableName, raw)
+            });
+        }
+        return results;
+    }
+
+    /// <summary>
+    /// Splits the tokens after the table name on top-level commas, then
+    /// groups those comma-separated clauses by which one opens a new action
+    /// (ADD/DROP/ALTER/MODIFY) versus which is a bare continuation of the
+    /// action before it. ADD/DROP/COLUMN aren't tokenizer keywords (they
+    /// tokenize as plain identifiers), so without this grouping a second
+    /// action in the same statement (e.g. "ADD a int, DROP COLUMN b") used
+    /// to satisfy ParseColumnDef's "identifier identifier" shape and get
+    /// misparsed as a phantom column instead of its own action.
+    /// </summary>
+    private static List<AlterActionGroup>? GroupAlterActions(List<Token> tokens, int pos)
+    {
+        var segments = SplitRemaining(tokens, pos);
+        if (segments.Count == 0)
+            return null;
+
+        var groups = new List<AlterActionGroup>();
+        foreach (var segment in segments)
+        {
+            if (segment.Count == 0)
+                continue;
+
+            string? action = Is(segment, 0, "ADD") ? "ADD"
+                : Is(segment, 0, "DROP") ? "DROP"
+                : Is(segment, 0, "ALTER") ? "ALTER"
+                : Is(segment, 0, "MODIFY") ? "MODIFY"
+                : null;
+
+            if (action != null)
+            {
+                var group = new AlterActionGroup { Action = action };
+                group.Bodies.Add(segment.GetRange(1, segment.Count - 1));
+                groups.Add(group);
+            }
+            else if (groups.Count > 0)
+            {
+                groups[groups.Count - 1].Bodies.Add(segment);
+            }
+            else
+            {
+                // First clause has no recognizable action verb: malformed.
+                return null;
+            }
+        }
+        return groups;
+    }
+
+    // ALTER TABLE t ADD [COLUMN] <coldef> [, <coldef> ...]
+    private static MigrationStatement ParseAddAction(List<List<Token>> bodies, string tableName, string raw)
+    {
+        var first = bodies[0];
+        int p = 0;
+        if (Is(first, p, "COLUMN"))
+            p++;
+
+        if (Is(first, p, "CONSTRAINT") || Is(first, p, "PRIMARY") ||
+            Is(first, p, "UNIQUE") || Is(first, p, "FOREIGN") || Is(first, p, "CHECK"))
+        {
+            int constraintPos = p;
+            if (Is(first, constraintPos, "CONSTRAINT"))
+                constraintPos += 2; // skip CONSTRAINT <name>
+
+            // ADD [CONSTRAINT name] PRIMARY KEY (a, b): the common
+            // create-then-constrain pattern (a table created without an
+            // inline PK, keyed later). Mirrors ParseCreateTable's
+            // table-level PRIMARY KEY (...) handling instead of silently
+            // dropping it — a table keyed only this way used to never
+            // get IsPrimaryKey set, so UpsertKeyResolver silently skipped
+            // auto-CRUD Upsert synthesis for it with no diagnostic at all.
+            if (Is(first, constraintPos, "PRIMARY") && Is(first, constraintPos + 1, "KEY"))
+            {
+                var pkColumns = ReadParenNameList(first, constraintPos + 2);
+                if (pkColumns.Count > 0)
+                {
+                    var pkStmt = new MigrationStatement { Kind = MigrationStatementKind.AddPrimaryKey, TableName = tableName, RawText = raw };
+                    pkStmt.ColumnNames.AddRange(pkColumns);
+                    return pkStmt;
+                }
+            }
+
+            // UNIQUE/FOREIGN/CHECK constraints (and an unparseable ADD
+            // PRIMARY KEY) aren't modeled — the simulator has no
+            // secondary-index or FK population from migrations. Unsupported
+            // means JNT9001 fires so the developer knows the effective
+            // schema may be incomplete, instead of the change silently
+            // vanishing, matching ALTER TABLE ... DROP CONSTRAINT below.
             return Unsupported(raw);
-
-        // ALTER TABLE t ADD [COLUMN] <coldef> [, <coldef> ...]
-        if (Is(tokens, pos, "ADD"))
-        {
-            pos++;
-            if (Is(tokens, pos, "COLUMN"))
-                pos++;
-            if (Is(tokens, pos, "CONSTRAINT") || Is(tokens, pos, "PRIMARY") ||
-                Is(tokens, pos, "UNIQUE") || Is(tokens, pos, "FOREIGN") || Is(tokens, pos, "CHECK"))
-            {
-                int constraintPos = pos;
-                if (Is(tokens, constraintPos, "CONSTRAINT"))
-                    constraintPos += 2; // skip CONSTRAINT <name>
-
-                // ADD [CONSTRAINT name] PRIMARY KEY (a, b): the common
-                // create-then-constrain pattern (a table created without an
-                // inline PK, keyed later). Mirrors ParseCreateTable's
-                // table-level PRIMARY KEY (...) handling instead of silently
-                // dropping it — a table keyed only this way used to never
-                // get IsPrimaryKey set, so UpsertKeyResolver silently skipped
-                // auto-CRUD Upsert synthesis for it with no diagnostic at all.
-                if (Is(tokens, constraintPos, "PRIMARY") && Is(tokens, constraintPos + 1, "KEY"))
-                {
-                    var pkColumns = ReadParenNameList(tokens, constraintPos + 2);
-                    if (pkColumns.Count > 0)
-                    {
-                        var pkStmt = new MigrationStatement { Kind = MigrationStatementKind.AddPrimaryKey, TableName = tableName, RawText = raw };
-                        pkStmt.ColumnNames.AddRange(pkColumns);
-                        return pkStmt;
-                    }
-                }
-
-                // UNIQUE/FOREIGN/CHECK constraints (and an unparseable ADD
-                // PRIMARY KEY) aren't modeled — the simulator has no
-                // secondary-index or FK population from migrations. Unsupported
-                // means JNT9001 fires so the developer knows the effective
-                // schema may be incomplete, instead of the change silently
-                // vanishing, matching ALTER TABLE ... DROP CONSTRAINT below.
-                return Unsupported(raw);
-            }
-
-            var stmt = new MigrationStatement { Kind = MigrationStatementKind.AddColumn, TableName = tableName, RawText = raw };
-            foreach (var def in SplitRemaining(tokens, pos))
-            {
-                var column = ParseColumnDef(def);
-                if (column == null)
-                    return Unsupported(raw);
-                stmt.Columns.Add(column);
-            }
-            return stmt.Columns.Count > 0 ? stmt : Unsupported(raw);
         }
 
-        // ALTER TABLE t DROP COLUMN a [, b ...]
-        if (Is(tokens, pos, "DROP") && Is(tokens, pos + 1, "COLUMN"))
+        var stmt = new MigrationStatement { Kind = MigrationStatementKind.AddColumn, TableName = tableName, RawText = raw };
+        var defs = new List<List<Token>> { first.GetRange(p, first.Count - p) };
+        for (int i = 1; i < bodies.Count; i++)
+            defs.Add(bodies[i]);
+
+        foreach (var def in defs)
         {
-            var stmt = new MigrationStatement { Kind = MigrationStatementKind.DropColumn, TableName = tableName, RawText = raw };
-            for (int i = pos + 2; i < tokens.Count; i++)
-            {
-                if (tokens[i].Type == TokenType.Identifier)
-                    stmt.ColumnNames.Add(BareName(tokens[i].Value));
-            }
-            return stmt.ColumnNames.Count > 0 ? stmt : Unsupported(raw);
-        }
-
-        // ALTER TABLE t ALTER COLUMN <coldef>            (SQL Server)
-        // ALTER TABLE t ALTER COLUMN c TYPE <type>       (PostgreSQL)
-        // ALTER TABLE t MODIFY [COLUMN] <coldef>         (MySQL)
-        bool isAlterColumn = Is(tokens, pos, "ALTER") && Is(tokens, pos + 1, "COLUMN");
-        bool isModify = Is(tokens, pos, "MODIFY");
-        if (isAlterColumn || isModify)
-        {
-            pos += isAlterColumn ? 2 : 1;
-            if (isModify && Is(tokens, pos, "COLUMN"))
-                pos++;
-
-            // PostgreSQL: ALTER COLUMN c SET/DROP NOT NULL and ALTER COLUMN c
-            // SET/DROP DEFAULT [expr] have no type token at all -- unlike
-            // "ALTER COLUMN c TYPE newtype" below, or SQL Server's "ALTER
-            // COLUMN c type NOT NULL" -- so they don't fit ParseColumnDef's
-            // "name type ..." grammar. Falling through to it anyway used to
-            // either misparse the literal keyword as the column's new DbType
-            // and apply the OPPOSITE nullability (DROP NOT NULL: "DROP"
-            // tokenizes as a plain identifier, so it satisfied the name+type
-            // shape with DbType "drop", and the trailing "NOT NULL" tokens
-            // were then read as narrowing to NOT NULL -- the reverse of what
-            // dropping the constraint means) or fail outright (SET NOT NULL/
-            // DEFAULT: "SET" tokenizes as a keyword, never an identifier, so
-            // ParseColumnDef's def[1]-is-identifier check always fails),
-            // reporting a fully-modelable nullability change or no-op as
-            // JNT9001 unmodeled. Recognize the four forms directly instead.
-            if (isAlterColumn && pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
-                (Is(tokens, pos + 1, "SET") || Is(tokens, pos + 1, "DROP")))
-            {
-                bool isDrop = Is(tokens, pos + 1, "DROP");
-                if (Is(tokens, pos + 2, "NOT") && Is(tokens, pos + 3, "NULL"))
-                {
-                    var nullStmt = new MigrationStatement
-                    {
-                        Kind = MigrationStatementKind.AlterColumnNullability,
-                        TableName = tableName,
-                        RawText = raw,
-                        NullableAfter = isDrop
-                    };
-                    nullStmt.ColumnNames.Add(BareName(tokens[pos].Value));
-                    return nullStmt;
-                }
-                if (Is(tokens, pos + 2, "DEFAULT"))
-                {
-                    // No schema-shape impact: ColumnSchema tracks no default value.
-                    return new MigrationStatement { Kind = MigrationStatementKind.Ignored, TableName = tableName, RawText = raw };
-                }
-            }
-
-            var def = new List<Token>();
-            for (int i = pos; i < tokens.Count; i++)
-            {
-                // PostgreSQL: drop the TYPE keyword so the def reads name+type
-                if (tokens[i].Type == TokenType.Identifier &&
-                    string.Equals(tokens[i].Value, "TYPE", StringComparison.OrdinalIgnoreCase) &&
-                    def.Count == 1)
-                    continue;
-                def.Add(tokens[i]);
-            }
-
             var column = ParseColumnDef(def);
             if (column == null)
                 return Unsupported(raw);
-            var stmt = new MigrationStatement { Kind = MigrationStatementKind.AlterColumn, TableName = tableName, RawText = raw };
             stmt.Columns.Add(column);
-            return stmt;
+        }
+        return stmt.Columns.Count > 0 ? stmt : Unsupported(raw);
+    }
+
+    // ALTER TABLE t DROP COLUMN a [, b ...]
+    private static MigrationStatement ParseDropAction(List<List<Token>> bodies, string tableName, string raw)
+    {
+        var first = bodies[0];
+        if (!Is(first, 0, "COLUMN"))
+            return Unsupported(raw); // e.g. DROP CONSTRAINT — not modeled
+
+        var stmt = new MigrationStatement { Kind = MigrationStatementKind.DropColumn, TableName = tableName, RawText = raw };
+        for (int i = 1; i < first.Count; i++)
+        {
+            if (first[i].Type == TokenType.Identifier)
+                stmt.ColumnNames.Add(BareName(first[i].Value));
+        }
+        for (int i = 1; i < bodies.Count; i++)
+        {
+            foreach (var t in bodies[i])
+            {
+                if (t.Type == TokenType.Identifier)
+                    stmt.ColumnNames.Add(BareName(t.Value));
+            }
+        }
+        return stmt.ColumnNames.Count > 0 ? stmt : Unsupported(raw);
+    }
+
+    // ALTER TABLE t ALTER COLUMN <coldef>            (SQL Server)
+    // ALTER TABLE t ALTER COLUMN c TYPE <type>       (PostgreSQL)
+    // ALTER TABLE t MODIFY [COLUMN] <coldef>         (MySQL)
+    private static MigrationStatement ParseAlterOrModifyAction(string action, List<List<Token>> bodies, string tableName, string raw)
+    {
+        // Neither form supports comma-continuation in any dialect — each
+        // additional column repeats "ALTER COLUMN"/"MODIFY" (its own group).
+        if (bodies.Count != 1)
+            return Unsupported(raw);
+
+        var body = bodies[0];
+        bool isAlterColumn = action == "ALTER";
+        int p = 0;
+        if (isAlterColumn)
+        {
+            if (!Is(body, p, "COLUMN"))
+                return Unsupported(raw); // "ALTER TABLE t ALTER x" without COLUMN isn't modeled
+            p++;
+        }
+        else if (Is(body, p, "COLUMN"))
+        {
+            p++;
         }
 
-        return Unsupported(raw);
+        // PostgreSQL: ALTER COLUMN c SET/DROP NOT NULL and ALTER COLUMN c
+        // SET/DROP DEFAULT [expr] have no type token at all -- unlike
+        // "ALTER COLUMN c TYPE newtype" below, or SQL Server's "ALTER
+        // COLUMN c type NOT NULL" -- so they don't fit ParseColumnDef's
+        // "name type ..." grammar. Falling through to it anyway used to
+        // either misparse the literal keyword as the column's new DbType
+        // and apply the OPPOSITE nullability (DROP NOT NULL: "DROP"
+        // tokenizes as a plain identifier, so it satisfied the name+type
+        // shape with DbType "drop", and the trailing "NOT NULL" tokens
+        // were then read as narrowing to NOT NULL -- the reverse of what
+        // dropping the constraint means) or fail outright (SET NOT NULL/
+        // DEFAULT: "SET" tokenizes as a keyword, never an identifier, so
+        // ParseColumnDef's def[1]-is-identifier check always fails),
+        // reporting a fully-modelable nullability change or no-op as
+        // JNT9001 unmodeled. Recognize the four forms directly instead.
+        if (isAlterColumn && p < body.Count && body[p].Type == TokenType.Identifier &&
+            (Is(body, p + 1, "SET") || Is(body, p + 1, "DROP")))
+        {
+            bool isDrop = Is(body, p + 1, "DROP");
+            if (Is(body, p + 2, "NOT") && Is(body, p + 3, "NULL"))
+            {
+                var nullStmt = new MigrationStatement
+                {
+                    Kind = MigrationStatementKind.AlterColumnNullability,
+                    TableName = tableName,
+                    RawText = raw,
+                    NullableAfter = isDrop
+                };
+                nullStmt.ColumnNames.Add(BareName(body[p].Value));
+                return nullStmt;
+            }
+            if (Is(body, p + 2, "DEFAULT"))
+            {
+                // No schema-shape impact: ColumnSchema tracks no default value.
+                return new MigrationStatement { Kind = MigrationStatementKind.Ignored, TableName = tableName, RawText = raw };
+            }
+        }
+
+        var def = new List<Token>();
+        for (int i = p; i < body.Count; i++)
+        {
+            // PostgreSQL: drop the TYPE keyword so the def reads name+type
+            if (body[i].Type == TokenType.Identifier &&
+                string.Equals(body[i].Value, "TYPE", StringComparison.OrdinalIgnoreCase) &&
+                def.Count == 1)
+                continue;
+            def.Add(body[i]);
+        }
+
+        var column = ParseColumnDef(def);
+        if (column == null)
+            return Unsupported(raw);
+        var stmt = new MigrationStatement { Kind = MigrationStatementKind.AlterColumn, TableName = tableName, RawText = raw };
+        stmt.Columns.Add(column);
+        return stmt;
     }
 
     /// <summary>
@@ -323,6 +431,40 @@ public static class MigrationParser
             column.IsIdentity = true;
 
         int pos = 2;
+
+        // Some Postgres base types are multi-word ("double precision",
+        // "character varying", "bit varying", "timestamp/time [with|without]
+        // time zone"), matching DialectMapper.MapDbTypeToCSharp's own
+        // multi-word case-arm strings. The facet paren for these (if any)
+        // follows the LAST word, not the first, so the continuation words
+        // must be absorbed into DbType before the "(facets)" check below --
+        // otherwise it looks for "(" immediately after the first word and
+        // silently never finds "character varying(255)"'s "(255)", losing
+        // the facet entirely (a live pull of the same column would still
+        // report MaxLength=255).
+        if (column.DbType == "double" && Is(def, pos, "PRECISION"))
+        {
+            column.DbType += " precision";
+            pos++;
+        }
+        else if ((column.DbType == "character" || column.DbType == "bit") && Is(def, pos, "VARYING"))
+        {
+            column.DbType += " varying";
+            pos++;
+        }
+        else if (column.DbType is "timestamp" or "time")
+        {
+            if (Is(def, pos, "WITHOUT") && Is(def, pos + 1, "TIME") && Is(def, pos + 2, "ZONE"))
+            {
+                column.DbType += " without time zone";
+                pos += 3;
+            }
+            else if (Is(def, pos, "WITH") && Is(def, pos + 1, "TIME") && Is(def, pos + 2, "ZONE"))
+            {
+                column.DbType += " with time zone";
+                pos += 3;
+            }
+        }
 
         // (facets): (40), (10,2), (max)
         int? first = null, second = null;
@@ -421,6 +563,15 @@ public static class MigrationParser
         bool isText = t.Contains("char") || t.Contains("text") || t.Contains("clob");
         bool isBinary = t.Contains("binary") || t == "bytea" || t.Contains("blob") || t == "image";
         bool isDecimal = t is "decimal" or "numeric" or "money" or "smallmoney";
+        // Postgres "bit"/"bit varying": the (n) facet is the bit length, not
+        // a byte count, but DialectMapper.MapDbTypeToCSharp's "bit" case only
+        // needs a length vs. null distinction (bare/length<=1 -> bool,
+        // otherwise falls through to the unmapped "object" case) -- without
+        // capturing it here, a migration-declared "bit(5)" always parsed as
+        // MaxLength null, which wrongly satisfies that "length is null"
+        // guard and mistyped a 5-bit bitstring as bool. A live pull of the
+        // same column reports MaxLength=5 and correctly leaves it unmapped.
+        bool isBitString = t is "bit" or "bit varying";
 
         if (isText || isBinary)
         {
@@ -432,6 +583,10 @@ public static class MigrationParser
         {
             column.Precision = first;
             column.Scale = second ?? 0;
+        }
+        else if (isBitString)
+        {
+            column.MaxLength = first;
         }
     }
 
