@@ -32,6 +32,19 @@ public class ValidatorTests
                         ["category_id"] = new ColumnSchema { Name = "category_id", DbType = "int", IsNullable = false },
                         ["category_name"] = new ColumnSchema { Name = "category_name", DbType = "varchar", IsNullable = false }
                     }
+                },
+                ["tags"] = new TableSchema
+                {
+                    // Deliberately single-column: used to prove the JNT3007
+                    // star-resolution path does NOT fire on a `SELECT *`
+                    // subquery whose real, resolved shape is exactly one
+                    // column (round 7 audit — see InSubquery_StarSelect_*
+                    // tests below).
+                    Name = "tags",
+                    Columns = new Dictionary<string, ColumnSchema>
+                    {
+                        ["tag_id"] = new ColumnSchema { Name = "tag_id", DbType = "int", IsNullable = false }
+                    }
                 }
             },
             ForeignKeys = new List<ForeignKeySchema>
@@ -318,6 +331,77 @@ where p.category_id in (select c.category_id, c.category_name from categories c)
 
         Assert.Contains(errors, e => e.Code == "JNT3007");
         Assert.DoesNotContain(errors, e => e.Code == "JNT1001");
+    }
+
+    [Fact]
+    public void InSubquery_StarSelect_MultiColumnTable_JNT3007()
+    {
+        // Round 7 audit fix: previously the JNT3007 "hasStar" shortcut
+        // exempted ANY `*` projection item from the single-column check,
+        // regardless of how many real columns it expanded to. `categories`
+        // has 2 columns in CreateTestSchema, so `IN (SELECT * FROM
+        // categories)` must be flagged exactly like the 2-column explicit
+        // list case above (InSubquery_TwoColumns_JNT3007) — it would
+        // otherwise reach the database as a real multi-column IN-subquery
+        // and fail there instead of at generator time.
+        var query = ParseSql(@"
+select p.product_id from products p
+where p.category_id in (select * from categories)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT3007");
+    }
+
+    [Fact]
+    public void InSubquery_QualifiedStarSelect_MultiColumnTable_JNT3007()
+    {
+        // Same as above but with a table-qualified `c.*` star item, which
+        // is resolved through the subquery's own alias map (not the outer
+        // query's), exercising the `tableAliasQualifier` branch of
+        // CountStarColumns.
+        var query = ParseSql(@"
+select p.product_id from products p
+where p.category_id in (select c.* from categories c)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT3007");
+    }
+
+    [Fact]
+    public void InSubquery_StarSelect_SingleColumnTable_NoErrors()
+    {
+        // Negative case for the round 7 fix: a `SELECT *` subquery whose
+        // real, resolved shape is exactly one column must NOT be flagged --
+        // `tags` has only `tag_id`, so this is a legitimate single-column
+        // IN-subquery and JNT3007 must stay silent.
+        var query = ParseSql(@"
+select p.product_id from products p
+where p.category_id in (select * from tags)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.DoesNotContain(errors, e => e.Code == "JNT3007");
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void InSubquery_StarSelect_UnresolvableTable_NoJNT3007FalsePositive()
+    {
+        // When the star's source table can't be resolved at all (typo /
+        // unknown table), CountStarColumns must return null and skip the
+        // JNT3007 check rather than guess a column count -- the unknown
+        // table is already reported on its own via JNT2001 from the
+        // recursive ValidateStatement(sub.Body, ...) call.
+        var query = ParseSql(@"
+select p.product_id from products p
+where p.category_id in (select * from nonexistent_table)");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT2001");
+        Assert.DoesNotContain(errors, e => e.Code == "JNT3007");
     }
 
     [Fact]

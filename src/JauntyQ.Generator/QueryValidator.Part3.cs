@@ -184,4 +184,58 @@ public static partial class QueryValidator
                "result type is deterministic and schema drift fails this build instead of " +
                $"failing at runtime. Replace * with: {list}";
     }
+
+    /// <summary>
+    /// Resolves how many columns a `*` (optionally table-qualified, e.g.
+    /// <c>t.*</c>) projection item in <paramref name="body"/> actually expands
+    /// to, against real schema tables and in-scope CTE virtual tables --
+    /// mirroring <see cref="BuildSelectStarMessage"/>'s resolution but
+    /// returning a count instead of a message. Used by the JNT3007
+    /// IN-subquery single-column check so a real multi-column
+    /// <c>SELECT * FROM t</c> subquery isn't silently exempted just because
+    /// its shape wasn't spelled out as an explicit column list. Returns null
+    /// when a referenced table/alias can't be resolved (already reported
+    /// separately via JNT2001/JNT2002) rather than guess a count.
+    /// </summary>
+    private static int? CountStarColumns(QueryModel body, string tableAliasQualifier,
+        DatabaseSchema schema, Dictionary<string, List<string>> virtualTables)
+    {
+        var localAliasToTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var t in body.Tables)
+        {
+            string key = !string.IsNullOrEmpty(t.Alias) ? t.Alias : t.TableName;
+            localAliasToTable[key] = t.TableName;
+        }
+
+        var tableNames = new List<string>();
+        if (!string.IsNullOrEmpty(tableAliasQualifier))
+        {
+            if (!localAliasToTable.TryGetValue(tableAliasQualifier, out var resolved))
+                return null;
+            tableNames.Add(resolved);
+        }
+        else
+        {
+            foreach (var t in body.Tables)
+                tableNames.Add(t.TableName);
+        }
+
+        int total = 0;
+        foreach (var tableName in tableNames)
+        {
+            if (virtualTables.TryGetValue(tableName, out var vcols))
+            {
+                total += vcols.Count;
+            }
+            else if (SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
+            {
+                total += tableSchema!.Columns.Count;
+            }
+            else
+            {
+                return null;
+            }
+        }
+        return total;
+    }
 }
