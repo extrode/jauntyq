@@ -170,6 +170,28 @@ public class DialectMapperTests
         Assert.True(DialectMapper.IsUnmappedDbType("bit varying", false, 10));
     }
 
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(64)]
+    public void MultiBitArrayColumn_DegradesToObjectArray_NotBoolArray(int length)
+    {
+        // The array-element recursion (MapDbTypeToCSharp's "[]" branch) must
+        // forward `length` (and `dialect`) to the recursive call on the
+        // element type, not drop them. Before this fix, a Postgres
+        // "bit(n>1)[]" column recursed with length=null, which matches
+        // SingleBitColumn_MapsToBool's null-length case -- silently mapping
+        // a multi-bit array to bool[] instead of degrading to object[] the
+        // same way a bare (non-array) bit(n>1) column already correctly does
+        // (see MultiBitColumn_DegradesToObject_InsteadOfWrongBool). bool[]
+        // would have been wrong the same way plain "bool" was wrong for a
+        // multi-bit column: Npgsql hands back a BitArray for bit(n>1), not a
+        // bool, so the generated (bool[])reader.GetValue(...) cast would
+        // throw at read time.
+        Assert.Equal("object[]", DialectMapper.MapDbTypeToCSharp("bit[]", false, length));
+        Assert.True(DialectMapper.IsUnmappedDbType("bit[]", false, length));
+    }
+
     /// <summary>
     /// SQL Server's tinyint is unsigned 0-255, stored on the wire as
     /// System.Byte -- confirmed empirically against a real SQL Server 2022

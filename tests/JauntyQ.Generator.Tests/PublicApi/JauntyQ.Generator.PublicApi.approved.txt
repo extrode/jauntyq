@@ -28,7 +28,7 @@ class JauntyQ.Analysis.CrudColumnRules
     method UpsertSetColumns(List<ColumnSchema>,List<ColumnSchema>):List<ColumnSchema>
 class JauntyQ.Analysis.DialectMapper
     method IsKnownDialect(String):Boolean
-    method IsUnmappedDbType(String,Boolean,Nullable<Int32>):Boolean
+    method IsUnmappedDbType(String,Boolean,Nullable<Int32>,String):Boolean
     method MapColumnToCSharp(ColumnSchema,String):String
     method MapDbTypeToCSharp(String,Boolean,Nullable<Int32>,String):String
     method ToPascalCase(String):String

@@ -194,7 +194,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     // switch entirely (MapColumnToCSharp special-cases them to
                     // byte[]?); checking the raw dbType here would otherwise
                     // false-positive on a column that's already handled.
-                    if (!ucol.IsRowVersion && DialectMapper.IsUnmappedDbType(ucol.DbType, ucol.IsNullable, ucol.Precision ?? ucol.MaxLength))
+                    if (!ucol.IsRowVersion && DialectMapper.IsUnmappedDbType(ucol.DbType, ucol.IsNullable, ucol.Precision ?? ucol.MaxLength, schema.Dialect))
                     {
                         context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2007, Location.None,
                             $"Column '{tableSchema.Name}.{ucol.Name}' has db type '{ucol.DbType}', which has no mapping in DialectMapper and degrades to 'object'. " +
