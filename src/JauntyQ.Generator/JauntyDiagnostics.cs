@@ -81,6 +81,29 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    /// <summary>
+    /// SUBQUERY gets its own Error-severity diagnostic for the same reason as
+    /// JNT1006/UNION rather than sharing JNT1001's Warning severity: a nested
+    /// SELECT (a scalar subquery in the projection list, or a derived table in
+    /// FROM) is not lifted and parsed as its own scope the way a WHERE-clause
+    /// [NOT] IN/EXISTS predicate subquery is — its tokens fall straight
+    /// through the enclosing statement's ordinary FROM/SELECT/JOIN parsing,
+    /// which was never written to expect a nested SELECT there. This isn't
+    /// "an unusual construct we noticed", it's "the outer query's shape may
+    /// already be misparsed."
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT1007 = new(
+        "JNT1007",
+        "Unsupported Subquery",
+        "This subquery form is not supported: only WHERE-clause '[NOT] IN (SELECT ...)' and " +
+        "'[NOT] EXISTS (SELECT ...)' predicates are modeled as their own scope. A scalar " +
+        "subquery in the projection list or a derived table in FROM falls through to the " +
+        "enclosing statement's ordinary parsing, which can misread the outer query's shape. " +
+        "Rewrite using a JOIN, a WHERE-clause IN/EXISTS predicate, or a CTE.",
+        "JauntyQ.Parsing",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 2xxx: Schema Validation ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT2001 = new(

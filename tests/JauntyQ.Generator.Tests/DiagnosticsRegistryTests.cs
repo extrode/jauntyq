@@ -59,6 +59,8 @@ public class DiagnosticsRegistryTests
     [InlineData("JNT1003", DiagnosticSeverity.Error, "JauntyQ.Parsing")]
     [InlineData("JNT1004", DiagnosticSeverity.Error, "JauntyQ.Parsing")]
     [InlineData("JNT1005", DiagnosticSeverity.Error, "JauntyQ.Parsing")]
+    [InlineData("JNT1006", DiagnosticSeverity.Error, "JauntyQ.Parsing")]
+    [InlineData("JNT1007", DiagnosticSeverity.Error, "JauntyQ.Parsing")]
     [InlineData("JNT2001", DiagnosticSeverity.Error, "JauntyQ.Schema")]
     [InlineData("JNT2002", DiagnosticSeverity.Error, "JauntyQ.Schema")]
     [InlineData("JNT2003", DiagnosticSeverity.Error, "JauntyQ.Schema")]
@@ -104,6 +106,6 @@ public class DiagnosticsRegistryTests
     [Fact]
     public void Registry_ContainsExpectedCount()
     {
-        Assert.Equal(44, DiagnosticFields.Length); // +JNT1006 unsupported UNION (2026-07-16); +JNT1005 nesting too deep, +JNT2008 duplicate generated file, +JNT3009 duplicate result column (2026-07-11 round-2 audit); +JNT1004 unsupported character (2026-07-11); +JNT3008 unrecognized directive (2026-07-10); +JNT8001..8005 performance (2026-07-05); +JNT2004 illegal identifier (2026-07-05); +JNT3003 invalid directive combination (2026-07-05); +JNT2005 stored procedure not found (2026-07-05); +JNT3004/3005/3006 expression projections + JNT7002 dialect gating (2026-07-06); +JNT3007 IN-subquery column count (2026-07-06); +JNT2006 entity/row POCO name collision (2026-07-08); +JNT2007 unmapped column type (2026-07-08); +JNT7003 unknown dialect (2026-07-09); +JNT1002 unterminated token (2026-07-09); +JNT1003 input too large (2026-07-09); +JNT9003 missing/unknown dialect for DDL schema source (2026-07-09); +JNT9004 migration risky impact (2026-07-10); +JNT8006 join not a foreign key + JNT8007 unindexed order by (2026-07-10); +JNT8008 N+1 heuristic (2026-07-10); +JNT6002 multiple schema snapshots (2026-07-10)
+        Assert.Equal(45, DiagnosticFields.Length); // +JNT1007 unsupported subquery, +JNT1006 unsupported UNION (2026-07-16); +JNT1005 nesting too deep, +JNT2008 duplicate generated file, +JNT3009 duplicate result column (2026-07-11 round-2 audit); +JNT1004 unsupported character (2026-07-11); +JNT3008 unrecognized directive (2026-07-10); +JNT8001..8005 performance (2026-07-05); +JNT2004 illegal identifier (2026-07-05); +JNT3003 invalid directive combination (2026-07-05); +JNT2005 stored procedure not found (2026-07-05); +JNT3004/3005/3006 expression projections + JNT7002 dialect gating (2026-07-06); +JNT3007 IN-subquery column count (2026-07-06); +JNT2006 entity/row POCO name collision (2026-07-08); +JNT2007 unmapped column type (2026-07-08); +JNT7003 unknown dialect (2026-07-09); +JNT1002 unterminated token (2026-07-09); +JNT1003 input too large (2026-07-09); +JNT9003 missing/unknown dialect for DDL schema source (2026-07-09); +JNT9004 migration risky impact (2026-07-10); +JNT8006 join not a foreign key + JNT8007 unindexed order by (2026-07-10); +JNT8008 N+1 heuristic (2026-07-10); +JNT6002 multiple schema snapshots (2026-07-10)
     }
 }
