@@ -438,7 +438,10 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             var impact = ImpactClassifier.ClassifySingle(schemaState.MigrationDelta, impactInput);
             if (impact.Classification == Classification.Risky)
             {
-                var reasons = string.Join("; ", impact.Reasons.Select(r => $"{r.SchemaObject} {r.Effect}"));
+                var reasonTexts = new System.Collections.Generic.List<string>(impact.Reasons.Count);
+                foreach (var r in impact.Reasons)
+                    reasonTexts.Add($"{r.SchemaObject} {r.Effect}");
+                var reasons = string.Join("; ", reasonTexts);
                 diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT9004,
                     $"{entityName}.{methodName}: {reasons}"));
             }

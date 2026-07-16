@@ -222,7 +222,7 @@ public static partial class SqlParser
             // registered the ParameterRef by name; carry the binding if unbound.
             foreach (var p in body.Parameters)
             {
-                var existing = model.Parameters.FirstOrDefault(x => x.Name == p.Name);
+                var existing = model.Parameters.Find(x => x.Name == p.Name);
                 if (existing == null)
                 {
                     model.Parameters.Add(new ParameterRef

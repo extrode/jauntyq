@@ -15,7 +15,7 @@ public static partial class SqlParser
         {
             if (token.Type == TokenType.Parameter)
             {
-                if (!model.Parameters.Any(p => p.Name == token.Value))
+                if (!model.Parameters.Exists(p => p.Name == token.Value))
                 {
                     model.Parameters.Add(new ParameterRef { Name = token.Value });
                 }

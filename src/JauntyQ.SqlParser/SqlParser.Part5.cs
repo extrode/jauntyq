@@ -173,7 +173,7 @@ public static partial class SqlParser
         {
             if (slot.Count == 1 && slot[0].Type == TokenType.Parameter && colIndex < insertColumns.Count)
             {
-                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == slot[0].Value);
+                var paramRef = model.Parameters.Find(p => p.Name == slot[0].Value);
                 if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
                 {
                     paramRef.BoundColumnName = insertColumns[colIndex];
@@ -214,7 +214,7 @@ public static partial class SqlParser
 
         if (slot.Count == 1 && slot[0].Type == TokenType.Parameter)
         {
-            var paramRef = model.Parameters.FirstOrDefault(p => p.Name == slot[0].Value);
+            var paramRef = model.Parameters.Find(p => p.Name == slot[0].Value);
             if (paramRef != null && string.IsNullOrEmpty(paramRef.BoundColumnName))
             {
                 paramRef.BoundColumnName = insertColumns[colIndex];
@@ -285,7 +285,7 @@ public static partial class SqlParser
                 tokens[i - 1].Type == TokenType.Symbol && tokens[i - 1].Value == "=" &&
                 tokens[i - 2].Type == TokenType.Identifier)
             {
-                var paramRef = model.Parameters.FirstOrDefault(p => p.Name == tokens[i].Value);
+                var paramRef = model.Parameters.Find(p => p.Name == tokens[i].Value);
                 if (paramRef != null)
                     paramRef.IsWriteTarget = true;
             }

@@ -5,6 +5,35 @@ namespace JauntyQ.Generator;
 public static partial class CodeEmitter
 {
     /// <summary>
+    /// Manual replacement for Dictionary&lt;,&gt;.Values.Where(...).ToList() --
+    /// product code stays System.Linq-free for NativeAOT compatibility.
+    /// </summary>
+    private static List<ColumnSchema> FilterColumns(Dictionary<string, ColumnSchema>.ValueCollection values, System.Func<ColumnSchema, bool> predicate)
+    {
+        var result = new List<ColumnSchema>();
+        foreach (var c in values)
+        {
+            if (predicate(c))
+                result.Add(c);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Manual replacement for string.Join(sep, cols.Select(selector)) -- same
+    /// LINQ-free rationale as FilterColumns.
+    /// </summary>
+    private static string JoinColumns(List<ColumnSchema> cols, string separator, System.Func<ColumnSchema, string> selector)
+    {
+        if (cols.Count == 0)
+            return "";
+        var parts = new List<string>(cols.Count);
+        foreach (var c in cols)
+            parts.Add(selector(c));
+        return string.Join(separator, parts);
+    }
+
+    /// <summary>
     /// Resolves the column set an auto-CRUD Upsert matches on before deciding
     /// insert-vs-update: the primary key when at least one PK column is not
     /// database-assigned, otherwise the first secondary UNIQUE index whose
@@ -29,7 +58,7 @@ public static partial class CodeEmitter
         // database-assigned: excluded from the upsert column set entirely
         // (a database rejects an INSERT/UPDATE that targets either). Upsert
         // is documented last-writer-wins.
-        var allColumns = tableSchema.Columns.Values.Where(c => !c.IsRowVersion && !c.IsComputed).ToList();
+        var allColumns = FilterColumns(tableSchema.Columns.Values, c => !c.IsRowVersion && !c.IsComputed);
         var keyCols = ResolveUpsertKey(tableSchema)
             ?? throw new System.InvalidOperationException(
                 $"Table '{tableSchema.Name}' has no usable upsert key: no primary key, or an " +
@@ -50,18 +79,18 @@ public static partial class CodeEmitter
             !c.IsIdentity || keyCols.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
         var setCols = columns.FindAll(c => !keyCols.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
 
-        string colList = string.Join(", ", columns.Select(c => c.Name));
-        string paramList = string.Join(", ", columns.Select(c => $"@{c.Name}"));
+        string colList = JoinColumns(columns, ", ", c => c.Name);
+        string paramList = JoinColumns(columns, ", ", c => $"@{c.Name}");
 
         string sql;
         switch (dialect)
         {
             case "sqlserver":
             {
-                string srcSelect = string.Join(", ", columns.Select(c => $"@{c.Name} as {c.Name}"));
-                string onClause = string.Join(" and ", keyCols.Select(c => $"target.{c.Name} = src.{c.Name}"));
-                string updateSet = string.Join(", ", setCols.Select(c => $"{c.Name} = src.{c.Name}"));
-                string insertVals = string.Join(", ", columns.Select(c => $"src.{c.Name}"));
+                string srcSelect = JoinColumns(columns, ", ", c => $"@{c.Name} as {c.Name}");
+                string onClause = JoinColumns(keyCols, " and ", c => $"target.{c.Name} = src.{c.Name}");
+                string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = src.{c.Name}");
+                string insertVals = JoinColumns(columns, ", ", c => $"src.{c.Name}");
                 sql = $"merge into {tableSchema.Name} with (holdlock) as target\n" +
                       $"using (select {srcSelect}) as src\n" +
                       $"on {onClause}\n" +
@@ -72,8 +101,8 @@ public static partial class CodeEmitter
             case "postgres":
             case "sqlite":
             {
-                string conflictCols = string.Join(", ", keyCols.Select(c => c.Name));
-                string updateSet = string.Join(", ", setCols.Select(c => $"{c.Name} = excluded.{c.Name}"));
+                string conflictCols = JoinColumns(keyCols, ", ", c => c.Name);
+                string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = excluded.{c.Name}");
                 sql = $"insert into {tableSchema.Name} ({colList})\nvalues ({paramList})\n" +
                       $"on conflict ({conflictCols}) do update set {updateSet}";
                 break;
@@ -84,7 +113,7 @@ public static partial class CodeEmitter
                 // alias form is not MariaDB-compatible). ON DUPLICATE KEY
                 // does not name the conflicting key: MySQL/MariaDB detect it
                 // from whichever UNIQUE constraint the insert violates.
-                string updateSet = string.Join(", ", setCols.Select(c => $"{c.Name} = values({c.Name})"));
+                string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = values({c.Name})");
                 sql = $"insert into {tableSchema.Name} ({colList})\nvalues ({paramList})\n" +
                       $"on duplicate key update {updateSet}";
                 break;

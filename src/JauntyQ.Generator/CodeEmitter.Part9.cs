@@ -95,7 +95,7 @@ public static partial class CodeEmitter
     private static string InferScalarParameterType(string paramName, QueryModel query, ProjectionModel projection, DatabaseSchema? schema)
     {
         // 1. Try binding-based inference (col = @param parsed by ExtractParameterBindings)
-        var paramRef = query.Parameters.FirstOrDefault(p => p.Name == paramName);
+        var paramRef = query.Parameters.Find(p => p.Name == paramName);
         if (paramRef != null && !string.IsNullOrEmpty(paramRef.BoundColumnName) && schema != null)
         {
             var resolved = ResolveColumnType(paramRef.BoundTableAlias, paramRef.BoundColumnName, query, schema);

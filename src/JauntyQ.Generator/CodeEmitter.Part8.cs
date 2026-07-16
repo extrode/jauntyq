@@ -253,7 +253,7 @@ public static partial class CodeEmitter
     /// </summary>
     private static void EmitCommandText(System.Text.StringBuilder sb, string sql, System.Collections.Generic.List<EmittedParam> paramInfos)
     {
-        var eachParams = paramInfos.Where(p => p.IsEach).ToList();
+        var eachParams = paramInfos.FindAll(p => p.IsEach);
         if (eachParams.Count == 0)
         {
             sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(sql)}\";");
@@ -345,7 +345,7 @@ public static partial class CodeEmitter
                 while (j < sql.Length && (char.IsLetterOrDigit(sql[j]) || sql[j] == '_'))
                     j++;
                 string token = sql.Substring(start, j - start);
-                var matched = eachParams.FirstOrDefault(p => string.Equals(p.Name, token, StringComparison.OrdinalIgnoreCase));
+                var matched = eachParams.Find(p => string.Equals(p.Name, token, StringComparison.OrdinalIgnoreCase));
                 if (token.Length > 0 && matched.Name != null)
                 {
                     if (literal.Length > 0)

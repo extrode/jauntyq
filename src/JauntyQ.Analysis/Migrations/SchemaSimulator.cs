@@ -153,7 +153,7 @@ public static class SchemaSimulator
 
         schema.ForeignKeys.RemoveAll(fk =>
             string.Equals(fk.FromTable, stmt.TableName, StringComparison.OrdinalIgnoreCase) &&
-            stmt.ColumnNames.Any(n => string.Equals(fk.FromColumn, n, StringComparison.OrdinalIgnoreCase)));
+            stmt.ColumnNames.Exists(n => string.Equals(fk.FromColumn, n, StringComparison.OrdinalIgnoreCase)));
     }
 
     private static void ApplyAlterColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)

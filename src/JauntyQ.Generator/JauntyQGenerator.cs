@@ -189,9 +189,12 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 if (group.Value.Count < 2)
                     continue;
                 group.Value.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
+                var memberNames = new System.Collections.Generic.List<string>(group.Value.Count);
+                foreach (var m in group.Value)
+                    memberNames.Add(m.Name);
                 // Anchor to the first member's .sql file so the IDE can navigate.
                 ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT8005, FileLocation(group.Value[0].Path),
-                    $"Queries {string.Join(", ", group.Value.Select(m => m.Name))} compile to identical SQL; consolidate them to keep one plan and one maintenance point."));
+                    $"Queries {string.Join(", ", memberNames)} compile to identical SQL; consolidate them to keep one plan and one maintenance point."));
             }
         });
 
@@ -262,7 +265,10 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             if (list.Count < 2)
                 continue;
             list.Sort(static (a, b) => string.CompareOrdinal(a.Path, b.Path));
-            string paths = string.Join(", ", list.Select(m => m.Path));
+            var listPaths = new System.Collections.Generic.List<string>(list.Count);
+            foreach (var m in list)
+                listPaths.Add(m.Path);
+            string paths = string.Join(", ", listPaths);
             string message =
                 $"SQL files [{paths}] all generate the file '{list[0].Hint}'. Generated file names are compared case-insensitively, so these collide and would abort code generation. Rename one so the generated names differ by more than case.";
             foreach (var m in list)
