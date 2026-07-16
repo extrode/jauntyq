@@ -318,6 +318,24 @@ public static partial class SqlParser
                 continue;
             }
 
+            // Qualified star-select: "alias.*". The tokenizer reads a
+            // dot-qualified identifier's embedded '.' as part of the
+            // identifier itself (so "u.name" is one Identifier token), but
+            // '*' isn't an identifier char, so "u.*" tokenizes as the two
+            // separate tokens Identifier("u.") + Symbol("*") rather than
+            // merging. Without this check it falls through to the expression
+            // path below and demands a nonsensical explicit alias (JNT3004)
+            // instead of the purpose-built star-select rejection (JNT3002)
+            // plain '*' already gets.
+            if (token.Type == TokenType.Identifier && token.Value.EndsWith(".", StringComparison.Ordinal) &&
+                pos + 1 < tokens.Count && tokens[pos + 1].Type == TokenType.Symbol && tokens[pos + 1].Value == "*")
+            {
+                string tableAlias = token.Value.Substring(0, token.Value.Length - 1);
+                target.Add(new ColumnRef { TableAlias = tableAlias, ColumnName = "*" });
+                pos += 2;
+                continue;
+            }
+
             // A plain column reference is a lone identifier whose next token
             // ends the item (comma / clause keyword / End) or begins an alias
             // (AS or an implicit-alias identifier). Anything else — a function

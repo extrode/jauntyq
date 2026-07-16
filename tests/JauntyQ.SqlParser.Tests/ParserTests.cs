@@ -524,6 +524,23 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
     }
 
     [Fact]
+    public void QualifiedStar_ParsesAsStarColumn_WithTableAlias()
+    {
+        // Regression: the tokenizer reads "u.*"'s embedded '.' as part of the
+        // Identifier token itself (so it comes through as Identifier("u.") +
+        // Symbol("*") rather than merging), which used to fall through to the
+        // expression-item path and demand a nonsensical explicit alias
+        // instead of being recognized as a qualified star-select.
+        var model = ParseSql("select u.* from users u");
+
+        Assert.Single(model.Columns);
+        Assert.False(model.Columns[0].IsExpression);
+        Assert.Equal("*", model.Columns[0].ColumnName);
+        Assert.Equal("u", model.Columns[0].TableAlias);
+        Assert.Empty(model.ExpressionsMissingAlias);
+    }
+
+    [Fact]
     public void CountStar_InferredBigint_NotStarSelect()
     {
         var model = ParseSql("select count(*) as n from users");

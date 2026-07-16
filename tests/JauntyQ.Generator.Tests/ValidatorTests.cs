@@ -223,6 +223,20 @@ select c.category_id from categories c");
     }
 
     [Fact]
+    public void QualifiedStarSelect_RejectedAsJNT3002_NotJNT3004()
+    {
+        // Regression: "p.*" used to be misparsed as an alias-less expression
+        // item, raising the nonsensical "requires an explicit alias" (JNT3004)
+        // instead of the purpose-built star-select rejection plain '*' gets.
+        var query = ParseSql("select p.* from products p");
+
+        var errors = QueryValidator.Validate(query, CreateTestSchema());
+
+        Assert.Contains(errors, e => e.Code == "JNT3002");
+        Assert.DoesNotContain(errors, e => e.Code == "JNT3004");
+    }
+
+    [Fact]
     public void InSubquery_SingleColumn_NoErrors()
     {
         // A WHERE-clause IN (SELECT ...) predicate with a single-column inner
