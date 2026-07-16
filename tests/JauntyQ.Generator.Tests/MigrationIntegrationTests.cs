@@ -163,7 +163,8 @@ create table gadgets (id int not null primary key, name nvarchar(20) not null);
       ""columns"": {
         ""product_id"": { ""name"": ""product_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
         ""product_name"": { ""name"": ""product_name"", ""dbType"": ""nvarchar"", ""isNullable"": false, ""maxLength"": 40 },
-        ""category_id"": { ""name"": ""category_id"", ""dbType"": ""int"", ""isNullable"": true }
+        ""category_id"": { ""name"": ""category_id"", ""dbType"": ""int"", ""isNullable"": true },
+        ""search_label"": { ""name"": ""search_label"", ""dbType"": ""nvarchar"", ""isNullable"": true, ""maxLength"": 80, ""isComputed"": true }
       },
       ""indexes"": [
         { ""name"": ""ix_products_category"", ""columns"": [""category_id""], ""isUnique"": false }
@@ -217,6 +218,22 @@ create table gadgets (id int not null primary key, name nvarchar(20) not null);
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8004");
         Assert.True(HasSource(result, "Products.GetByCategory.g.cs"));
+    }
+
+    [Fact]
+    public void PendingMigration_DoesNotErase_ComputedColumnFlag()
+    {
+        // SchemaSimulator.Clone once dropped IsComputed too: a table with a
+        // computed column, cloned only because an unrelated migration exists
+        // elsewhere, would come back out of the simulator with that column
+        // looking like an ordinary writable one -- AutoCrud would then target
+        // it in Insert/Update, which the database rejects at runtime.
+        var result = Run(autoCrud: true, RichSchemaJson,
+            ("db/migrations/0001_unrelated.sql", UnrelatedMigration));
+
+        Assert.Contains("string product_name", Source(result, "Products.Insert.auto.g.cs"));
+        Assert.DoesNotContain("search_label", Source(result, "Products.Insert.auto.g.cs"));
+        Assert.DoesNotContain("search_label", Source(result, "Products.Update.auto.g.cs"));
     }
 
     [Fact]

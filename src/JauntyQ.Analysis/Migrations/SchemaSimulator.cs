@@ -300,7 +300,8 @@ public static class SchemaSimulator
         Precision = col.Precision,
         Scale = col.Scale,
         IsUnicode = col.IsUnicode,
-        IsRowVersion = col.IsRowVersion
+        IsRowVersion = col.IsRowVersion,
+        IsComputed = col.IsComputed
     };
 
     private static string Truncate(string text) =>
