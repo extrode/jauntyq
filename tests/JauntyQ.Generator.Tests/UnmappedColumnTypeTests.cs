@@ -55,6 +55,19 @@ public class UnmappedColumnTypeTests
   }
 }";
 
+    private const string SqlServerNonUdtUnmappedSchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""widgets"": {
+      ""name"": ""widgets"",
+      ""columns"": {
+        ""widget_id"": { ""name"": ""widget_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""payload"": { ""name"": ""payload"", ""dbType"": ""sql_variant"", ""isNullable"": true }
+      }
+    }
+  }
+}";
+
     private const string RowVersionSchemaJson = @"{
   ""dialect"": ""sqlserver"",
   ""tables"": {
@@ -179,5 +192,65 @@ public class UnmappedColumnTypeTests
         Assert.Equal(DiagnosticSeverity.Warning, diag.Severity);
         Assert.Contains("employee.organization_node", diag.GetMessage());
         Assert.Contains("hierarchyid", diag.GetMessage());
+    }
+
+    // Round 14 (2026-07-17): hierarchyid (and geography/geometry) are SQL
+    // Server CLR UDT columns that fall through to the same "object"/
+    // "object?" JNT2007 path as any other unmapped type, but reading one at
+    // RUNTIME via the generated fallback's reader.GetValue(i) call actually
+    // THROWS (System.IO.FileNotFoundException on Microsoft.SqlServer.Types)
+    // -- confirmed live this round against AdventureWorksLite's real
+    // HumanResources.Employee.OrganizationNode column
+    // (samples/JauntyQ.AdventureWorksLite.SqlServer.Tests). The old generic
+    // "degrades to object... cast at the call site" message didn't warn
+    // about this; a call-site cast can't fix a reader-level crash. This
+    // locks the sharpened message content in place.
+    [Fact]
+    public void SqlServerClrUdtColumn_Jnt2007MessageWarnsAboutRuntimeCrashRisk()
+    {
+        var result = RunGenerator(NullableUnmappedColumnSchemaJson,
+            ("db/tables/Employee/GetById.sql", "select business_entity_id, organization_node from employee where business_entity_id = @business_entity_id"));
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT2007");
+        var message = diag.GetMessage();
+        Assert.Contains("CLR user-defined type", message);
+        Assert.Contains("FileNotFoundException", message);
+        Assert.Contains("Microsoft.SqlServer.Types", message);
+        Assert.Contains("CAST", message);
+    }
+
+    [Fact]
+    public void NonSqlServerUnmappedColumn_Jnt2007MessageDoesNotMentionClrUdtCrash()
+    {
+        // Sibling guard, first half: the CLR-UDT-specific message text must
+        // only appear for sqlserver-dialect columns matching a known CLR UDT
+        // type name -- postgres's widget_status_enum (or any other
+        // dialect's unmapped type) must keep the original generic message
+        // unchanged.
+        var result = RunGenerator(UnmappedColumnSchemaJson,
+            ("db/tables/Widget/GetById.sql", "select widget_id, status from widgets where widget_id = @widget_id"));
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT2007");
+        var message = diag.GetMessage();
+        Assert.DoesNotContain("Microsoft.SqlServer.Types", message);
+        Assert.Contains("Add a case for it or accept the untyped column and cast at the call site.", message);
+    }
+
+    [Fact]
+    public void SqlServerNonClrUdtUnmappedColumn_Jnt2007MessageStaysGeneric()
+    {
+        // Sibling guard, second half: sqlserver dialect alone isn't enough
+        // to trigger the CLR-UDT-specific message -- only a column whose
+        // dbType is one of the known CLR UDT names (hierarchyid/geography/
+        // geometry) does. sql_variant is unmapped on SQL Server too, but is
+        // not a CLR UDT and does not crash the same way, so it keeps the
+        // original generic text.
+        var result = RunGenerator(SqlServerNonUdtUnmappedSchemaJson,
+            ("db/tables/Widget/GetById.sql", "select widget_id, payload from widgets where widget_id = @widget_id"));
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT2007");
+        var message = diag.GetMessage();
+        Assert.DoesNotContain("Microsoft.SqlServer.Types", message);
+        Assert.Contains("Add a case for it or accept the untyped column and cast at the call site.", message);
     }
 }
