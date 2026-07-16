@@ -27,10 +27,10 @@ public class ConcurrencyTests : IClassFixture<EShopOnWebPostgresFixture>
         return (conn, new JauntyDb(conn));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ConcurrentUpdates_NoTransaction_NeverCorruptOrDeadlock()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var basketId = _fx.Db.Basket.Insert("buyer-concurrency-1");
         var itemId = _fx.Db.BasketItem.Insert(basketId, CatalogItemId: 1, UnitPrice: 8.5m, Quantity: 1);
@@ -51,10 +51,10 @@ public class ConcurrencyTests : IClassFixture<EShopOnWebPostgresFixture>
             $"Expected quantity to be exactly one writer's value (10 or 20), got corrupted value {items[0].Quantity}.");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ConcurrentUpdates_UnderTransactions_DoNotDeadlock()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var basketId = _fx.Db.Basket.Insert("buyer-concurrency-2");
         var itemId = _fx.Db.BasketItem.Insert(basketId, CatalogItemId: 1, UnitPrice: 8.5m, Quantity: 1);

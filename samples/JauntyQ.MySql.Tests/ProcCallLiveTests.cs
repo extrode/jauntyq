@@ -12,10 +12,10 @@ public class ProcCallLiveTests : IClassFixture<MySqlFixture>
     private readonly MySqlFixture _fx;
     public ProcCallLiveTests(MySqlFixture fx) => _fx = fx;
 
-    [Fact]
+    [SkippableFact]
     public void CallStoredProcedure_ReturnsTypedRows()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         // Category 1 (Beverages) has Chai and Chang seeded.
         var rows = _fx.Db.Products.GetProductsByCategoryProc(1);

@@ -14,10 +14,10 @@ public class TagTests : IClassFixture<ConduitPostgresFixture>
 
     public TagTests(ConduitPostgresFixture fx) => _fx = fx;
 
-    [Fact]
+    [SkippableFact]
     public void GetAll_ReturnsAllSeededTagsOnce()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var tags = _fx.Db.Tags.GetAll();
 

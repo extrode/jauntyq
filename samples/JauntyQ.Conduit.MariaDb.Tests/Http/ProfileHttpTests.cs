@@ -34,20 +34,20 @@ public sealed class ProfileHttpTests : IClassFixture<ConduitWebAppFixture>
         return request;
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetProfile_UnknownUser_Returns404()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         var response = await _client.GetAsync("/api/profiles/nobody");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetProfile_WithoutAuth_ReturnsNotFollowing()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         await RegisterAndGetToken("henry", "henry@example.com");
 
@@ -59,10 +59,10 @@ public sealed class ProfileHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.False(body.Profile.Following);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Follow_Then_Unfollow_TogglesFollowing()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string ivyToken = await RegisterAndGetToken("ivy", "ivy@example.com");
         await RegisterAndGetToken("jack", "jack@example.com");
@@ -78,10 +78,10 @@ public sealed class ProfileHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.False(unfollowed!.Profile.Following);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Follow_WithoutToken_Returns401()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         await RegisterAndGetToken("kim", "kim@example.com");
 
@@ -90,10 +90,10 @@ public sealed class ProfileHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Follow_UnknownUser_Returns404()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("liam", "liam@example.com");
 

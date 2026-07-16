@@ -1,3 +1,4 @@
+using JauntyQ.TestInfra;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -72,7 +73,7 @@ public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyn
         catch (Exception ex)
         {
             Available = false;
-            SkipReason = $"Docker unavailable: {ex.GetType().Name}: {ex.Message}";
+            SkipReason = FixtureGate.SkipReasonOrThrow(ex);
         }
     }
 

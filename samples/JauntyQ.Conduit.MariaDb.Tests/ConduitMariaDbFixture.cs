@@ -1,3 +1,4 @@
+using JauntyQ.TestInfra;
 using MySqlConnector;
 using Testcontainers.MariaDb;
 using JauntyQ.Generated;
@@ -55,7 +56,7 @@ public sealed class ConduitMariaDbFixture : IAsyncLifetime
         catch (Exception ex)
         {
             Available = false;
-            SkipReason = $"Docker unavailable: {ex.GetType().Name}: {ex.Message}";
+            SkipReason = FixtureGate.SkipReasonOrThrow(ex);
         }
     }
 

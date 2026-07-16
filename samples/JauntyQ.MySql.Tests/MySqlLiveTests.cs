@@ -14,47 +14,47 @@ public class MySqlLiveTests : IClassFixture<MySqlFixture>
     private readonly MySqlFixture _fx;
     public MySqlLiveTests(MySqlFixture fx) => _fx = fx;
 
-    [Fact]
+    [SkippableFact]
     public void GetAll_ReturnsSeededRows()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
         var categories = _fx.Db.Categories.GetAll();
         Assert.Equal(3, categories.Count);
         Assert.Contains(categories, c => c.CategoryName == "Beverages");
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetById_ReturnsTypedRow()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
         var beverages = _fx.Db.Categories.GetById(1);
         Assert.NotNull(beverages);
         Assert.Equal("Beverages", beverages!.CategoryName);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetAllAsync_Works()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
         var shippers = await _fx.Db.Shippers.GetAllAsync();
         Assert.True(shippers.Count >= 2);
         Assert.Contains(shippers, s => s.CompanyName == "Speedy Express");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Insert_ReturnsIdentity_ViaLastInsertId()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
         // MySQL Insert returns the key via SELECT last_insert_id().
         int newId = _fx.Db.Shippers.Insert("Federal Shipping", "(503) 555-9931");
         Assert.True(newId > 2, $"expected a new identity > 2, got {newId}");
         Assert.Equal("Federal Shipping", _fx.Db.Shippers.GetById(newId)!.CompanyName);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Update_And_Delete()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
         int id = _fx.Db.Suppliers.Insert("Temp Supplier", "Seattle");
         int updated = _fx.Db.Suppliers.Update("Renamed Supplier", "Portland", id);
         Assert.Equal(1, updated);
@@ -65,10 +65,10 @@ public class MySqlLiveTests : IClassFixture<MySqlFixture>
         Assert.Null(_fx.Db.Suppliers.GetById(id));
     }
 
-    [Fact]
+    [SkippableFact]
     public void Upsert_InsertsThenUpdates_ViaOnDuplicateKey()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
         // First upsert inserts (1 row affected). MySQL reports 2 affected rows
         // for an ON DUPLICATE KEY UPDATE that updates an existing row, so the
         // second call asserts >= 1 rather than an exact count.
@@ -81,10 +81,10 @@ public class MySqlLiveTests : IClassFixture<MySqlFixture>
         Assert.Equal("Northern (revised)", _fx.Db.Region.GetById(3)!.RegionDescription);
     }
 
-    [Fact]
+    [SkippableFact]
     public void FkLoader_And_TypedReads()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
         var fromSupplier1 = _fx.Db.Products.GetBySupplierId(1);
         Assert.Equal(3, fromSupplier1.Count);
 

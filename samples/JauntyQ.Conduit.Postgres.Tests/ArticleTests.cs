@@ -26,10 +26,10 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         _repo = new ArticleRepository(fx.Db);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Create_WithTags_PersistsAndIsRetrievableBySlug()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         string slug = _repo.Create(authorId: 4, title: "Fresh Article", description: "desc",
             body: "body text", tagNames: new[] { "dotnet", "new-tag" }, nowIso: "2026-02-01T00:00:00Z");
@@ -46,10 +46,10 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         _repo.Delete(slug); // avoid inflating article counts seen by other tests sharing this fixture
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetBySlug_ComposesTagsAuthorAndFavoriteState()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var view = _repo.GetBySlug("intro-to-jauntyq", viewerId: 1);
 
@@ -62,10 +62,10 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         Assert.True(view.Author.Following); // jane follows bob
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetBySlug_NoViewer_FavoritedFalse()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var view = _repo.GetBySlug("intro-to-jauntyq", viewerId: null);
 
@@ -74,18 +74,18 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         Assert.Equal(2, view.FavoritesCount); // count is viewer-independent
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetBySlug_UnknownSlug_ReturnsNull()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         Assert.Null(_repo.GetBySlug("does-not-exist", viewerId: null));
     }
 
-    [Fact]
+    [SkippableFact]
     public void List_FilterByTag_ReturnsMatchingArticlesNewestFirst()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var (articles, total) = _repo.List(tag: "sql", author: null, favoritedBy: null, skip: 0, take: 10, viewerId: null);
 
@@ -93,10 +93,10 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         Assert.Equal(new[] { "composite-keys-101", "sqlite-tips", "intro-to-jauntyq" }, articles.Select(a => a.Slug));
     }
 
-    [Fact]
+    [SkippableFact]
     public void List_FilterByAuthor_ReturnsOnlyThatAuthorsArticles()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var (articles, total) = _repo.List(tag: null, author: "bob", favoritedBy: null, skip: 0, take: 10, viewerId: null);
 
@@ -104,10 +104,10 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         Assert.Equal(new[] { "composite-keys-101", "intro-to-jauntyq" }, articles.Select(a => a.Slug));
     }
 
-    [Fact]
+    [SkippableFact]
     public void List_FilterByFavoritedBy_ReturnsOnlyArticlesThatUserFavorited()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var (articles, total) = _repo.List(tag: null, author: null, favoritedBy: "jane", skip: 0, take: 10, viewerId: null);
 
@@ -115,10 +115,10 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         Assert.Equal(new[] { "sqlite-tips", "intro-to-jauntyq" }, articles.Select(a => a.Slug));
     }
 
-    [Fact]
+    [SkippableFact]
     public void List_CombinedTagAndAuthorFilters_Intersect()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var (articles, total) = _repo.List(tag: "sql", author: "bob", favoritedBy: null, skip: 0, take: 10, viewerId: null);
 
@@ -126,10 +126,10 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         Assert.Equal(new[] { "composite-keys-101", "intro-to-jauntyq" }, articles.Select(a => a.Slug));
     }
 
-    [Fact]
+    [SkippableFact]
     public void List_Pagination_SplitsAcrossPagesConsistently()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var (page1, total) = _repo.List(tag: null, author: null, favoritedBy: null, skip: 0, take: 2, viewerId: null);
         var (page2, _) = _repo.List(tag: null, author: null, favoritedBy: null, skip: 2, take: 2, viewerId: null);
@@ -139,10 +139,10 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         Assert.Equal(new[] { "sqlite-tips", "intro-to-jauntyq" }, page2.Select(a => a.Slug));
     }
 
-    [Fact]
+    [SkippableFact]
     public void Feed_ReturnsOnlyFollowedAuthorsArticles()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         // jane(1) follows bob(2) and carol(3), not dave(4): feed excludes
         // dave's unrelated-post despite it being the newest article.
@@ -152,10 +152,10 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         Assert.Equal(new[] { "composite-keys-101", "sqlite-tips", "intro-to-jauntyq" }, articles.Select(a => a.Slug));
     }
 
-    [Fact]
+    [SkippableFact]
     public void Feed_NoFollows_ReturnsEmpty()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var (articles, total) = _repo.Feed(userId: 4, skip: 0, take: 10);
 
@@ -163,10 +163,10 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         Assert.Empty(articles);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Update_ChangesFieldsAndUpdatedAt()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         string slug = _repo.Create(authorId: 2, title: "Update Me", description: "d", body: "b",
             tagNames: System.Array.Empty<string>(), nowIso: "2026-02-02T00:00:00Z");
@@ -181,10 +181,10 @@ public class ArticleTests : IClassFixture<ConduitPostgresFixture>
         _repo.Delete(slug); // avoid inflating article counts seen by other tests sharing this fixture
     }
 
-    [Fact]
+    [SkippableFact]
     public void Delete_RemovesArticleAndCascadesArticleTagsFavoritesAndComments()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         string slug = _repo.Create(authorId: 3, title: "Delete Me", description: "d", body: "b",
             tagNames: new[] { "dotnet" }, nowIso: "2026-02-04T00:00:00Z");

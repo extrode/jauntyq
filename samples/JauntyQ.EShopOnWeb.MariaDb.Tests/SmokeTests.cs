@@ -8,10 +8,10 @@ public class SmokeTests : IClassFixture<EShopOnWebMariaDbFixture>
 
     public SmokeTests(EShopOnWebMariaDbFixture fx) => _fx = fx;
 
-    [Fact]
+    [SkippableFact]
     public void AutoCrudSurfaceExists()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var brands = _fx.Db.CatalogBrand.GetAll();
         var types = _fx.Db.CatalogType.GetAll();

@@ -17,7 +17,7 @@ public class PaginationTests : IClassFixture<EShopOnWebSqlServerFixture>
 
     public PaginationTests(EShopOnWebSqlServerFixture fx) => _fx = fx;
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(0, 5, 5)]
     [InlineData(5, 5, 5)]
     [InlineData(10, 5, 2)]
@@ -26,27 +26,27 @@ public class PaginationTests : IClassFixture<EShopOnWebSqlServerFixture>
     [InlineData(0, 100, 12)]
     public void GetFilteredPaginated_PageSizes_MatchExpectedCounts(int skip, int take, int expectedCount)
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var page = _fx.Db.CatalogItem.GetFilteredPaginated(BrandId: null, TypeId: null, Skip: skip, Take: take);
 
         Assert.Equal(expectedCount, page.Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetFilteredPaginated_SkipBeyondTotal_ReturnsEmpty()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var page = _fx.Db.CatalogItem.GetFilteredPaginated(BrandId: null, TypeId: null, Skip: 999, Take: 5);
 
         Assert.Empty(page);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetFilteredPaginated_AllPagesCoverEveryRowExactlyOnce()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var total = _fx.Db.CatalogItem.GetCount(BrandId: null, TypeId: null)!.Total;
         Assert.Equal(12, total);
@@ -62,10 +62,10 @@ public class PaginationTests : IClassFixture<EShopOnWebSqlServerFixture>
         Assert.Equal(seenIds.Distinct().Count(), seenIds.Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetFilteredPaginated_FilteredByBrand_CountMatchesPageTotal()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var total = _fx.Db.CatalogItem.GetCount(BrandId: 2, TypeId: null)!.Total;
         var page = _fx.Db.CatalogItem.GetFilteredPaginated(BrandId: 2, TypeId: null, Skip: 0, Take: 100);
@@ -74,10 +74,10 @@ public class PaginationTests : IClassFixture<EShopOnWebSqlServerFixture>
         Assert.All(page, p => Assert.Equal(2, p.CatalogBrandId));
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetFilteredPaginated_PagesAreOrderedConsistently()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var page1 = _fx.Db.CatalogItem.GetFilteredPaginated(BrandId: null, TypeId: null, Skip: 0, Take: 6);
         var page2 = _fx.Db.CatalogItem.GetFilteredPaginated(BrandId: null, TypeId: null, Skip: 6, Take: 6);

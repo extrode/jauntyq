@@ -21,10 +21,10 @@ public class ProfileTests : IClassFixture<ConduitMySqlFixture>
         _repo = new ProfileRepository(fx.Db);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetProfile_Following_FollowingTrue()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var profile = _repo.GetProfile("bob", viewerId: 1);
 
@@ -32,10 +32,10 @@ public class ProfileTests : IClassFixture<ConduitMySqlFixture>
         Assert.True(profile!.Following);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetProfile_NotFollowing_FollowingFalse()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var profile = _repo.GetProfile("dave", viewerId: 1);
 
@@ -43,10 +43,10 @@ public class ProfileTests : IClassFixture<ConduitMySqlFixture>
         Assert.False(profile!.Following);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetProfile_NoViewer_FollowingFalse()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var profile = _repo.GetProfile("bob", viewerId: null);
 
@@ -54,20 +54,20 @@ public class ProfileTests : IClassFixture<ConduitMySqlFixture>
         Assert.False(profile!.Following);
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetProfile_UnknownUser_ReturnsNull()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         var profile = _repo.GetProfile("nobody", viewerId: 1);
 
         Assert.Null(profile);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Follow_ThenGetProfile_FollowingTrue()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         _repo.Follow(followerId: 1, followedId: 4);
 
@@ -77,10 +77,10 @@ public class ProfileTests : IClassFixture<ConduitMySqlFixture>
         _repo.Unfollow(followerId: 1, followedId: 4);
     }
 
-    [Fact]
+    [SkippableFact]
     public void Unfollow_ThenGetProfile_FollowingFalse()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         _repo.Follow(followerId: 3, followedId: 4);
         _repo.Unfollow(followerId: 3, followedId: 4);
@@ -93,10 +93,10 @@ public class ProfileTests : IClassFixture<ConduitMySqlFixture>
     // second time hits the (follower_id, followed_id) primary key directly,
     // with no ON CONFLICT clause in Follow/Insert.sql - expect a raw
     // MySqlException, logged as a Part 3 finding either way.
-    [Fact]
+    [SkippableFact]
     public void Follow_Duplicate_ThrowsOnPrimaryKeyConflict()
     {
-        if (!_fx.Available) return;
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
 
         Assert.Throws<MySqlException>(() => _repo.Follow(followerId: 1, followedId: 2));
     }

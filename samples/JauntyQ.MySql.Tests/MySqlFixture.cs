@@ -1,3 +1,4 @@
+using JauntyQ.TestInfra;
 using MySqlConnector;
 using Testcontainers.MySql;
 using JauntyQ.Generated;
@@ -77,7 +78,7 @@ public sealed class MySqlFixture : IAsyncLifetime
         catch (Exception ex)
         {
             Available = false;
-            SkipReason = $"Docker unavailable: {ex.GetType().Name}: {ex.Message}";
+            SkipReason = FixtureGate.SkipReasonOrThrow(ex);
         }
     }
 

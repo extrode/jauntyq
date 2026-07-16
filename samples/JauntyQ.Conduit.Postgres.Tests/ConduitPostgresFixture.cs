@@ -1,3 +1,4 @@
+using JauntyQ.TestInfra;
 using Npgsql;
 using Testcontainers.PostgreSql;
 using JauntyQ.Generated;
@@ -53,7 +54,7 @@ public sealed class ConduitPostgresFixture : IAsyncLifetime
         catch (Exception ex)
         {
             Available = false;
-            SkipReason = $"Docker unavailable: {ex.GetType().Name}: {ex.Message}";
+            SkipReason = FixtureGate.SkipReasonOrThrow(ex);
         }
     }
 

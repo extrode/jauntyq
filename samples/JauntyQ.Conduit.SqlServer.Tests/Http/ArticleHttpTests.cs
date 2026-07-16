@@ -50,20 +50,20 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         return articles.Create(author.Id, title, "desc", "body", tags, DateTime.UtcNow.ToString("O"));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetArticle_UnknownSlug_Returns404()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         var response = await _client.GetAsync("/api/articles/no-such-slug");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetArticle_KnownSlug_ReturnsArticle()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         await RegisterAndGetToken("mona", "mona@example.com");
         string slug = SeedArticle("mona", "Mona's First Article", "dragons");
@@ -77,10 +77,10 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Contains("dragons", body.Article.TagList);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ListArticles_FilterByAuthor_ReturnsOnlyThatAuthorsArticles()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         await RegisterAndGetToken("nora", "nora@example.com");
         await RegisterAndGetToken("oscar", "oscar@example.com");
@@ -95,10 +95,10 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(body.Articles.Count, body.ArticlesCount);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ListArticles_WithLimit_RespectsPagination()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         await RegisterAndGetToken("piper", "piper@example.com");
         SeedArticle("piper", "Piper Article One");
@@ -112,20 +112,20 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(3, body.ArticlesCount);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Feed_WithoutToken_Returns401()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         var response = await _client.GetAsync("/api/articles/feed");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Feed_ReturnsOnlyArticlesFromFollowedAuthors()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string quinnToken = await RegisterAndGetToken("quinn", "quinn@example.com");
         await RegisterAndGetToken("rex", "rex@example.com");
@@ -145,10 +145,10 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
     private static UpsertArticleRequestEnvelope UpsertBody(string title, string description = "desc", string body = "body", params string[] tags) =>
         new(new UpsertArticleRequest(title, description, body, tags));
 
-    [Fact]
+    [SkippableFact]
     public async Task CreateArticle_Valid_Returns201WithArticle()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("sam", "sam@example.com");
 
@@ -164,10 +164,10 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Contains("reactjs", created.Article.TagList);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task CreateArticle_MissingTitle_Returns422()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("tara", "tara@example.com");
 
@@ -177,10 +177,10 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal((HttpStatusCode)422, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task CreateArticle_DuplicateSlug_Returns422()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("uma", "uma@example.com");
         await _client.SendAsync(WithToken(HttpMethod.Post, "/api/articles", token).Also(m =>
@@ -192,20 +192,20 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal((HttpStatusCode)422, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task CreateArticle_WithoutToken_Returns401()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         var response = await _client.PostAsJsonAsync("/api/articles", UpsertBody("No Token Article"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task UpdateArticle_ByAuthor_UpdatesFields()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("vince", "vince@example.com");
         string slug = SeedArticle("vince", "Vince Original Title");
@@ -220,10 +220,10 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(slug, updated.Article.Slug);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task UpdateArticle_ByNonAuthor_Returns403()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         await RegisterAndGetToken("walt", "walt@example.com");
         string slug = SeedArticle("walt", "Walt Article");
@@ -235,10 +235,10 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task UpdateArticle_UnknownSlug_Returns404()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("yara", "yara@example.com");
 
@@ -248,10 +248,10 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeleteArticle_ByAuthor_RemovesArticle()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("zane", "zane@example.com");
         string slug = SeedArticle("zane", "Zane Article");
@@ -263,10 +263,10 @@ public sealed class ArticleHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeleteArticle_ByNonAuthor_Returns403()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         await RegisterAndGetToken("aaron", "aaron@example.com");
         string slug = SeedArticle("aaron", "Aaron Article");

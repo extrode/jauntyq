@@ -41,10 +41,10 @@ public sealed class FavoriteHttpTests : IClassFixture<ConduitWebAppFixture>
         return created!.Article.Slug;
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task FavoriteArticle_Valid_SetsFavoritedAndIncrementsCount()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string authorToken = await RegisterAndGetToken("mira", "mira@example.com");
         string slug = await CreateArticle(authorToken, "Mira Article");
@@ -58,10 +58,10 @@ public sealed class FavoriteHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(1, body.Article.FavoritesCount);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task UnfavoriteArticle_AfterFavoriting_ClearsFavoritedAndDecrementsCount()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string authorToken = await RegisterAndGetToken("owen", "owen@example.com");
         string slug = await CreateArticle(authorToken, "Owen Article");
@@ -76,10 +76,10 @@ public sealed class FavoriteHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(0, body.Article.FavoritesCount);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task FavoriteArticle_WithoutToken_Returns401()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string authorToken = await RegisterAndGetToken("quinn", "quinn2@example.com");
         string slug = await CreateArticle(authorToken, "Quinn Article");
@@ -89,10 +89,10 @@ public sealed class FavoriteHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task FavoriteArticle_UnknownSlug_Returns404()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("ruth", "ruth@example.com");
 
@@ -101,10 +101,10 @@ public sealed class FavoriteHttpTests : IClassFixture<ConduitWebAppFixture>
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task UnfavoriteArticle_UnknownSlug_Returns404()
     {
-        if (!_fixture.Available) return;
+        Skip.IfNot(_fixture.Available, _fixture.SkipReason);
 
         string token = await RegisterAndGetToken("stan", "stan@example.com");
 
