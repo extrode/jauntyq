@@ -214,7 +214,10 @@ left join employees m on e.manager_id = m.employee_id";
         Assert.Equal("string", projection.Columns[0].Type);
         Assert.Equal("LastName", projection.Columns[1].Name);
         Assert.Equal("ManagerName", projection.Columns[2].Name);
-        Assert.Equal("string", projection.Columns[2].Type);
+        // m is the LEFT-joined side of the self-join: an employee with no
+        // manager (manager_id IS NULL) produces NULL for every m.* column,
+        // even though employees.first_name is NOT NULL in the schema.
+        Assert.Equal("string?", projection.Columns[2].Type);
     }
 
     [Fact]

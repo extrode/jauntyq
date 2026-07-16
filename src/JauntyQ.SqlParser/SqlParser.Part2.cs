@@ -37,15 +37,23 @@ public static partial class SqlParser
 
     private static int ParseJoin(List<Token> tokens, int pos, QueryModel model)
     {
-        // Skip join type keywords (LEFT, RIGHT, INNER, OUTER, CROSS, FULL)
+        // Skip join type keywords (LEFT, RIGHT, INNER, OUTER, CROSS, FULL),
+        // noting LEFT/RIGHT/FULL so the joined table's nullability can be
+        // modeled — an outer join can produce this table's columns as NULL
+        // even when the schema declares them NOT NULL.
+        bool sawLeft = false, sawRight = false, sawFull = false;
         while (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword &&
                (tokens[pos].Value == "LEFT" || tokens[pos].Value == "RIGHT" ||
                 tokens[pos].Value == "INNER" || tokens[pos].Value == "OUTER" ||
                 tokens[pos].Value == "CROSS" || tokens[pos].Value == "FULL" ||
                 tokens[pos].Value == "JOIN"))
         {
+            if (tokens[pos].Value == "LEFT") sawLeft = true;
+            else if (tokens[pos].Value == "RIGHT") sawRight = true;
+            else if (tokens[pos].Value == "FULL") sawFull = true;
             pos++;
         }
+        JoinKind joinKind = sawFull ? JoinKind.Full : sawLeft ? JoinKind.Left : sawRight ? JoinKind.Right : JoinKind.None;
 
         // Table name
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
@@ -70,7 +78,7 @@ public static partial class SqlParser
                 }
             }
 
-            model.Tables.Add(new TableRef { TableName = tableName, Alias = alias });
+            model.Tables.Add(new TableRef { TableName = tableName, Alias = alias, Join = joinKind });
 
             // Parse ON condition
             if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "ON")

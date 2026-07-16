@@ -253,6 +253,90 @@ join categories c on p.category_id = c.category_id", "GetProductsByCategory");
     }
 
     [Fact]
+    public void Build_InnerJoin_KeepsNotNullColumnsNonNullable()
+    {
+        // Baseline: an INNER (or plain) JOIN requires a match on both sides,
+        // so the schema's own NOT NULL constraint holds for the projection.
+        var query = ParseSql(@"
+select p.product_id, c.category_name
+from products p
+join categories c on p.category_id = c.category_id", "GetProductsByCategory");
+
+        var projection = ProjectionBuilder.Build(query, CreateTestSchema());
+
+        Assert.Equal("string", projection.Columns[1].Type);
+    }
+
+    [Fact]
+    public void Build_LeftJoin_ForcesJoinedTableColumnsNullable()
+    {
+        // categories.category_name is NOT NULL in the schema, but a LEFT JOIN
+        // with no match produces NULL for every column on the joined side --
+        // the projection must reflect that or a plain reader.GetString()
+        // throws at runtime the first time a product has no category.
+        var query = ParseSql(@"
+select p.product_id, c.category_name
+from products p
+left join categories c on p.category_id = c.category_id", "GetProductsByCategory");
+
+        var projection = ProjectionBuilder.Build(query, CreateTestSchema());
+
+        Assert.Equal("int", projection.Columns[0].Type);
+        Assert.Equal("string?", projection.Columns[1].Type);
+    }
+
+    [Fact]
+    public void Build_LeftJoin_StarExpansion_ForcesJoinedTableColumnsNullable()
+    {
+        var query = ParseSql(@"
+select *
+from products p
+left join categories c on p.category_id = c.category_id", "GetProductsByCategory");
+
+        var projection = ProjectionBuilder.Build(query, CreateTestSchema());
+
+        // products (the non-optional side) keeps its own nullability
+        var productName = Assert.Single(projection.Columns, c => c.Name == "ProductName");
+        Assert.Equal("string", productName.Type);
+
+        // categories (the LEFT-joined, optional side) is forced nullable,
+        // even though the schema itself declares it NOT NULL
+        var categoryName = Assert.Single(projection.Columns, c => c.Name == "CategoryName");
+        Assert.Equal("string?", categoryName.Type);
+    }
+
+    [Fact]
+    public void Build_RightJoin_ForcesPreservedSideTableColumnsNullable()
+    {
+        // RIGHT JOIN flips which side is optional: products (the preceding,
+        // "left" table in the FROM/JOIN chain) is now the side that can be
+        // all-NULL when no matching category exists on the right.
+        var query = ParseSql(@"
+select p.product_name, c.category_name
+from products p
+right join categories c on p.category_id = c.category_id", "GetCategoriesWithProducts");
+
+        var projection = ProjectionBuilder.Build(query, CreateTestSchema());
+
+        Assert.Equal("string?", projection.Columns[0].Type);
+        Assert.Equal("string", projection.Columns[1].Type);
+    }
+
+    [Fact]
+    public void Build_FullJoin_ForcesBothSidesTableColumnsNullable()
+    {
+        var query = ParseSql(@"
+select p.product_name, c.category_name
+from products p
+full join categories c on p.category_id = c.category_id", "GetAllProductsAndCategories");
+
+        var projection = ProjectionBuilder.Build(query, CreateTestSchema());
+
+        Assert.Equal("string?", projection.Columns[0].Type);
+        Assert.Equal("string?", projection.Columns[1].Type);
+    }
+
+    [Fact]
     public void Build_SumExpression_ExplicitTypeDirectiveOverridesInference()
     {
         var query = ParseSql("select sum(unit_price) as total from products", "GetTotal");
