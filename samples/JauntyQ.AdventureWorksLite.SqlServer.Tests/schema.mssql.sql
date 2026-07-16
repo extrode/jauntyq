@@ -231,6 +231,14 @@ insert into Person.EmailAddress (BusinessEntityID, EmailAddress) values
 -- just synthetic reader data (see NullableUnmappedColumn_PropertyIsNullableObject_
 -- AndReaderGuardsIsDBNull in tests/JauntyQ.Generator.Tests/UnmappedColumnTypeTests.cs,
 -- which proves the same shape at the generator level only).
+--
+-- Round 15 audit: round 14 discovered that GetOrganizationNodes.sql (no
+-- WHERE clause) never actually reaches this NULL row live -- it throws
+-- System.IO.FileNotFoundException on row 1's non-null hierarchyid value
+-- first (AUD-R14-01). db/tables/Employee/GetNullOrganizationNodeRows.sql
+-- filters to `OrganizationNode IS NULL`, selecting only this row, so the
+-- NULL-handling half of AUD-R13-01's fix can finally be proven live without
+-- hitting the still-open CLR UDT crash.
 insert into HumanResources.Employee (BusinessEntityID, NationalIDNumber, JobTitle, HireDate, OrganizationNode) values
     (1, '295847284', 'Chief Executive Officer', '2003-02-15', hierarchyid::GetRoot()),
     (2, '245797967', 'Vice President of Engineering', '2003-02-15', hierarchyid::Parse('/1/')),
