@@ -86,6 +86,7 @@ public static class SchemaSimulator
             }
             table.Columns[col.Name] = Finalize(col, schema.Dialect);
         }
+        ApplySqliteRowidAliasing(table, schema.Dialect);
         schema.Tables[stmt.TableName] = table;
     }
 
@@ -400,6 +401,48 @@ public static class SchemaSimulator
         }
 
         return col;
+    }
+
+    /// <summary>
+    /// AUD-R17-01: SQLite aliases a single-column PRIMARY KEY declared with
+    /// the EXACT literal type "INTEGER" (no facet, no other keywords) to the
+    /// table's rowid, which then auto-assigns 1, 2, 3, ... on insert --
+    /// confirmed live via SqliteExtractor (JauntyQ.Schema.Contract/
+    /// Extractors/SqliteExtractor.cs's rowidAliasCandidates/pkCols check).
+    /// Neither ParseColumnDef nor ParseCreateTable can apply this rule
+    /// themselves: it needs the finalized DbType string AND a table-wide
+    /// count of primary-key columns (composite keys never alias, even if one
+    /// member is INTEGER), both of which are only available here, after
+    /// every column in the CREATE TABLE has already been finalized. Without
+    /// this, a migration-only "create table widgets (id INTEGER primary key,
+    /// ...)" simulated the pending schema with IsIdentity=false, silently
+    /// disagreeing with a live re-pull of the exact same DDL (IsIdentity=
+    /// true) -- the same class of simulator/live-extractor divergence as the
+    /// MySQL "real"-vs-"double" and SQL Server "timestamp" rowversion cases
+    /// already handled in <see cref="Finalize"/>, just column-count-scoped
+    /// instead of single-column-scoped, hence its own pass rather than living
+    /// inside Finalize.
+    /// </summary>
+    private static void ApplySqliteRowidAliasing(TableSchema table, string dialect)
+    {
+        if (!string.Equals(dialect, "sqlite", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        ColumnSchema? solePk = null;
+        int pkCount = 0;
+        foreach (var col in table.Columns.Values)
+        {
+            if (!col.IsPrimaryKey)
+                continue;
+            pkCount++;
+            solePk = col;
+        }
+
+        if (pkCount == 1 && solePk != null &&
+            string.Equals(solePk.DbType, "integer", StringComparison.OrdinalIgnoreCase))
+        {
+            solePk.IsIdentity = true;
+        }
     }
 
     // The clone must carry EVERY part of the snapshot, not just what the
