@@ -170,9 +170,15 @@ public static partial class SqlParser
             }
 
             // Expression item: consume tokens at paren-depth 0 to the next
-            // top-level comma or terminator; record one Expression item.
+            // top-level comma or terminator; record one Expression item along
+            // with every column it touches (see CollectExpressionColumnRefs),
+            // so ORDER BY a.x + b.y depends on both a.x and b.y just like the
+            // equivalent SELECT-list expression does.
+            int exprStart = pos;
             pos = SkipOrderByExpression(tokens, pos);
-            model.OrderBy.Add(new OrderByRef { Kind = OrderByItemKind.Expression });
+            var orderByRef = new OrderByRef { Kind = OrderByItemKind.Expression };
+            orderByRef.ReferencedColumns.AddRange(CollectExpressionColumnRefs(tokens, exprStart, pos));
+            model.OrderBy.Add(orderByRef);
         }
 
         return pos;
@@ -464,8 +470,51 @@ public static partial class SqlParser
             OutputAlias = alias
         };
         InferExpressionType(run, exprEnd, col);
+        col.ReferencedColumns.AddRange(CollectExpressionColumnRefs(run, 0, exprEnd));
         target.Add(col);
         return pos;
+    }
+
+    /// <summary>
+    /// Walks an expression's token run (from <paramref name="start"/> to
+    /// <paramref name="end"/>, exclusive) and returns every column reference it
+    /// touches, for migration-impact dependency tracking. An Identifier token
+    /// is a column reference unless it is a function-call head (immediately
+    /// followed by "(" — e.g. <c>CONCAT</c>, <c>ROUND</c>, and any built-in
+    /// aggregate not already tokenized as a keyword) or a CAST-style type name
+    /// (immediately preceded by the keyword "AS", as in
+    /// <c>CAST(a.x AS INT)</c> — that identifier names a type, not a column).
+    /// Used for both SELECT/RETURNING expression projection items (see
+    /// <see cref="ColumnRef.ReferencedColumns"/>) and ORDER BY expression items
+    /// (see <see cref="OrderByRef.ReferencedColumns"/>): without this, an
+    /// expression item like <c>count(email)</c>, <c>max(a.x)</c>,
+    /// <c>concat(a.first, a.last)</c>, or <c>a.price * b.qty</c> — whether
+    /// projected or sorted on — recorded NO column dependency at all (only the
+    /// narrow SUM/AVG-single-bare-column shape did, via
+    /// <see cref="ColumnRef.AggregateArgColumnName"/>), so a migration that
+    /// removed or changed a column referenced only inside such an expression
+    /// produced a false SAFE verdict from
+    /// <c>JauntyQ.Analysis.Impact.ReferencedObjects</c>/<c>ImpactClassifier</c>.
+    /// </summary>
+    private static List<(string TableAlias, string ColumnName)> CollectExpressionColumnRefs(
+        List<Token> tokens, int start, int end)
+    {
+        var result = new List<(string, string)>();
+        for (int i = start; i < end; i++)
+        {
+            if (tokens[i].Type != TokenType.Identifier)
+                continue;
+
+            bool isFunctionHead = i + 1 < end &&
+                tokens[i + 1].Type == TokenType.Symbol && tokens[i + 1].Value == "(";
+            bool isCastTypeName = i > start &&
+                tokens[i - 1].Type == TokenType.Keyword && tokens[i - 1].Value == "AS";
+            if (isFunctionHead || isCastTypeName)
+                continue;
+
+            result.Add(SplitQualifiedName(tokens[i].Value));
+        }
+        return result;
     }
 
     /// <summary>Space-joins the expression tokens (excluding a trailing AS alias) into verbatim-ish SQL for messages.</summary>

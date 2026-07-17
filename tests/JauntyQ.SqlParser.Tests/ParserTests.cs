@@ -784,6 +784,82 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
         Assert.Contains("END", col.ExpressionSql);
     }
 
+    // ── ColumnRef.ReferencedColumns: expression column-dependency capture ──
+    // Only the narrow "SUM/AVG over a single bare column" shape used to
+    // expose any column dependency for an expression projection item (via
+    // AggregateArgColumnName); every other shape -- count(col), max(col),
+    // arbitrary function calls, arithmetic combining multiple columns, CASE
+    // branches -- recorded NO dependency at all, so
+    // JauntyQ.Analysis.Impact.ReferencedObjects/ImpactClassifier could not
+    // see that the query depended on that column (a migration removing it
+    // produced a false SAFE verdict).
+
+    [Fact]
+    public void CountOverColumn_RecordsColumnDependency()
+    {
+        var model = ParseSql("select count(email) as cnt from users");
+
+        var col = Assert.Single(model.Columns);
+        var (alias, name) = Assert.Single(col.ReferencedColumns);
+        Assert.Empty(alias);
+        Assert.Equal("email", name);
+    }
+
+    [Fact]
+    public void ArithmeticExpression_RecordsBothColumnDependencies()
+    {
+        var model = ParseSql("select p.price * p.qty as total from orders p");
+
+        var col = Assert.Single(model.Columns);
+        Assert.Equal(2, col.ReferencedColumns.Count);
+        Assert.All(col.ReferencedColumns, c => Assert.Equal("p", c.TableAlias));
+        Assert.Contains(col.ReferencedColumns, c => c.ColumnName == "price");
+        Assert.Contains(col.ReferencedColumns, c => c.ColumnName == "qty");
+    }
+
+    [Fact]
+    public void UserDefinedFunctionCall_RecordsArgumentColumnsNotFunctionName()
+    {
+        // CONCAT is not a built-in tokenizer keyword, so it tokenizes as a
+        // plain Identifier just like a column -- it must still be excluded
+        // (it is immediately followed by '(', so it is a function-call head,
+        // not a column reference).
+        var model = ParseSql("select concat(first_name, last_name) as full_name from users");
+
+        var col = Assert.Single(model.Columns);
+        Assert.Equal(2, col.ReferencedColumns.Count);
+        Assert.DoesNotContain(col.ReferencedColumns, c => c.ColumnName == "concat");
+        Assert.Contains(col.ReferencedColumns, c => c.ColumnName == "first_name");
+        Assert.Contains(col.ReferencedColumns, c => c.ColumnName == "last_name");
+    }
+
+    [Fact]
+    public void CastExpression_RecordsArgumentColumnNotTypeName()
+    {
+        // The type name in "CAST(x AS INT)" tokenizes as a plain Identifier
+        // (INT is not a reserved keyword) -- it must be excluded (it is
+        // immediately preceded by the keyword AS) so it is never mistaken
+        // for a dependency on a column literally named "INT".
+        var model = ParseSql("select cast(age as int) as age_int from users");
+
+        var col = Assert.Single(model.Columns);
+        var (alias, name) = Assert.Single(col.ReferencedColumns);
+        Assert.Empty(alias);
+        Assert.Equal("age", name);
+    }
+
+    [Fact]
+    public void CaseExpression_RecordsEveryBranchColumnDependency()
+    {
+        var model = ParseSql(
+            "select case when status = 1 then active_label else inactive_label end as label from users");
+
+        var col = Assert.Single(model.Columns);
+        Assert.Contains(col.ReferencedColumns, c => c.ColumnName == "status");
+        Assert.Contains(col.ReferencedColumns, c => c.ColumnName == "active_label");
+        Assert.Contains(col.ReferencedColumns, c => c.ColumnName == "inactive_label");
+    }
+
     [Fact]
     public void ScalarSubqueryExpression_NotInferredAsBoolean()
     {
