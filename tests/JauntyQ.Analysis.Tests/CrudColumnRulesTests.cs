@@ -189,4 +189,54 @@ public class CrudColumnRulesTests
 
         Assert.Empty(setCols);
     }
+
+    // AUD-R37-01. §2.10's CRUD column-set rules cluster: UpsertColumns grants
+    // Identity an "unless part of key" escape hatch but grants none to
+    // RowVersion/Computed, even though UpsertKeyResolver.Resolve (post-
+    // AUD-R36-01) can legitimately return a key containing either. That
+    // asymmetry is invisible at the CrudColumnRules layer alone -- it only
+    // surfaces once EmitUpsert's SQL Server MERGE branch builds a "src"
+    // derived-table select from UpsertColumns' filtered list and an "on"
+    // clause from the raw, unfiltered key, referencing a column "src" never
+    // selected. HasUnbindableUpsertKeyColumn is the shared predicate both
+    // AutoCrud.Synthesize's gate and EmitUpsert use to refuse such a table
+    // instead of emitting SQL a live engine rejects at runtime.
+
+    [Fact]
+    public void HasUnbindableUpsertKeyColumn_False_ForOrdinaryNonIdentityKey()
+    {
+        var cols = new List<ColumnSchema> { Col("Id", pk: true), Col("Name") };
+        var key = new List<ColumnSchema> { cols[0] };
+
+        Assert.False(CrudColumnRules.HasUnbindableUpsertKeyColumn(cols, key));
+    }
+
+    [Fact]
+    public void HasUnbindableUpsertKeyColumn_False_WhenKeyIdentityColumnIsPartOfComposite()
+    {
+        // Identity has its own escape hatch inside UpsertColumns (kept when
+        // it's part of the key) -- this predicate must agree, not flag it.
+        var cols = new List<ColumnSchema> { Col("Id", pk: true, identity: true), Col("Tenant", pk: true), Col("Name") };
+        var key = new List<ColumnSchema> { cols[0], cols[1] };
+
+        Assert.False(CrudColumnRules.HasUnbindableUpsertKeyColumn(cols, key));
+    }
+
+    [Fact]
+    public void HasUnbindableUpsertKeyColumn_True_WhenKeyContainsComputedColumn()
+    {
+        var cols = new List<ColumnSchema> { Col("Id", pk: true, computed: true), Col("Name") };
+        var key = new List<ColumnSchema> { cols[0] };
+
+        Assert.True(CrudColumnRules.HasUnbindableUpsertKeyColumn(cols, key));
+    }
+
+    [Fact]
+    public void HasUnbindableUpsertKeyColumn_True_WhenKeyContainsRowVersionColumn()
+    {
+        var cols = new List<ColumnSchema> { Col("Id", pk: true, rowVersion: true), Col("Name") };
+        var key = new List<ColumnSchema> { cols[0] };
+
+        Assert.True(CrudColumnRules.HasUnbindableUpsertKeyColumn(cols, key));
+    }
 }

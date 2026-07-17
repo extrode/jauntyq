@@ -19,6 +19,7 @@ class JauntyQ.Analysis.AutoCrud+SyntheticQuery
     prop Sql:String
     prop TableName:String
 class JauntyQ.Analysis.CrudColumnRules
+    method HasUnbindableUpsertKeyColumn(IEnumerable<ColumnSchema>,List<ColumnSchema>):Boolean
     method InsertableColumns(IEnumerable<ColumnSchema>):List<ColumnSchema>
     method PrimaryKeyColumns(IEnumerable<ColumnSchema>):List<ColumnSchema>
     method RowVersionColumns(IEnumerable<ColumnSchema>):List<ColumnSchema>
