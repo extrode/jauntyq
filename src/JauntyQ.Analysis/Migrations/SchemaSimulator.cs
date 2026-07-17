@@ -400,6 +400,31 @@ public static class SchemaSimulator
             col.DbType = "double";
         }
 
+        // MySQL's SERIAL column type is a pure alias, desugared by the
+        // server at DDL-parse time to "BIGINT UNSIGNED NOT NULL
+        // AUTO_INCREMENT UNIQUE" -- a live re-pull of a migration-declared
+        // "id SERIAL" column reports DbType "bigint unsigned" (matching
+        // MySqlExtractor's COLUMN_TYPE LIKE '%unsigned%' check), never the
+        // literal "serial". Left unnormalized, DialectMapper.MapDbTypeToCSharp
+        // never reaches its unsigned-widening branch (that branch keys off
+        // the DbType string literally containing "unsigned"), so the bare
+        // "serial" fallback arm maps the column to plain C# int: silently
+        // both too narrow (4 bytes vs. the 8 a real BIGINT needs) and
+        // wrong-signed (signed vs. unsigned) versus the ulong a live pull
+        // produces. Postgres's own SERIAL/BIGSERIAL/SMALLSERIAL are left
+        // unnormalized on purpose (DialectMapper's switch already treats
+        // those literal spellings as synonyms for int/bigint/short, which is
+        // exactly what Postgres's information_schema itself reports for a
+        // serial column there) -- MySQL has no such synonym arm for the
+        // unsigned-widened case, so it must be normalized here instead, the
+        // same way "real" is above.
+        if (string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(col.DbType, "serial", StringComparison.OrdinalIgnoreCase))
+        {
+            col.DbType = "bigint unsigned";
+            col.IsNullable = false;
+        }
+
         return col;
     }
 
