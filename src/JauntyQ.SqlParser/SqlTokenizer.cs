@@ -45,6 +45,40 @@ public static class SqlTokenizer
     /// </summary>
     public const int MaxNestingDepth = 1000;
 
+    /// <summary>
+    /// True when <paramref name="tokens"/> is nothing but <see
+    /// cref="Tokenize"/>'s own trailing <see cref="TokenType.End"/> marker --
+    /// i.e. the input's real content, after comment-stripping, was empty
+    /// (whitespace-only, comment-only, or a directive-only line such as
+    /// <c>-- @call ProcName</c>, JauntyQ's stored-procedure-invocation file
+    /// shape). <see cref="Tokenize"/> always appends exactly one such marker,
+    /// even for empty input, so an all-End token list is never produced by a
+    /// genuine (even malformed) SQL statement -- any real statement
+    /// contributes at least one non-End token before the trailing marker.
+    /// AUD-R40-01: every consumer that walks a raw <c>.sql</c> corpus and
+    /// feeds it through the tokenizer/parser (JauntyQ.Cli.Usage.
+    /// UsageManifestBuilder, JauntyQ.Cli.MigrateImpact.ImpactCommand) must
+    /// check this before calling <see cref="SqlParser"/> and skip
+    /// attribution/classification for the file rather than let
+    /// <c>SqlParser.Parse</c> silently succeed on an empty <c>QueryModel</c>
+    /// with no tables — mirroring how JauntyQGenerator.Part2.cs's real
+    /// pipeline explicitly short-circuits SQL parsing entirely for this
+    /// shape (a <c>@call</c> file's contract comes from the schema snapshot's
+    /// procedure signature, not from a SQL body that doesn't exist). Shared
+    /// here, rather than duplicated per consumer, specifically so a THIRD
+    /// consumer added later inherits the check instead of re-introducing the
+    /// same divergence a third time.
+    /// </summary>
+    public static bool IsEffectivelyEmpty(List<Token> tokens)
+    {
+        foreach (var t in tokens)
+        {
+            if (t.Type != TokenType.End)
+                return false;
+        }
+        return true;
+    }
+
     public static List<Token> Tokenize(string sql)
     {
         // Refuse oversized input outright: bail with a TooLarge sentinel rather

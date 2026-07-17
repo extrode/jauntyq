@@ -617,4 +617,57 @@ select product_id /* inline comment */ from products");
         Assert.DoesNotContain(tokens, t => t.Type == TokenType.TooDeep);
         Assert.Contains(tokens, t => t.Type == TokenType.Literal);
     }
+
+    // AUD-R40-01: SqlTokenizer.IsEffectivelyEmpty is the shared check both
+    // UsageManifestBuilder and ImpactCommand now rely on to detect a
+    // directive-only/comment-only/whitespace-only file (most notably a
+    // "-- @call ProcName" stored-procedure invocation) before ever handing
+    // it to SqlParser.Parse.
+    [Fact]
+    public void IsEffectivelyEmpty_EmptyString_True()
+    {
+        Assert.True(SqlTokenizer.IsEffectivelyEmpty(SqlTokenizer.Tokenize("")));
+    }
+
+    [Fact]
+    public void IsEffectivelyEmpty_WhitespaceOnly_True()
+    {
+        Assert.True(SqlTokenizer.IsEffectivelyEmpty(SqlTokenizer.Tokenize("   \n\t  \n")));
+    }
+
+    [Fact]
+    public void IsEffectivelyEmpty_CommentOnly_True()
+    {
+        Assert.True(SqlTokenizer.IsEffectivelyEmpty(SqlTokenizer.Tokenize("-- just a comment\n-- another one")));
+    }
+
+    [Fact]
+    public void IsEffectivelyEmpty_CallDirectiveOnly_True()
+    {
+        Assert.True(SqlTokenizer.IsEffectivelyEmpty(SqlTokenizer.Tokenize("-- @call GetProductsByCategory")));
+    }
+
+    [Fact]
+    public void IsEffectivelyEmpty_BlockCommentOnly_True()
+    {
+        Assert.True(SqlTokenizer.IsEffectivelyEmpty(SqlTokenizer.Tokenize("/* just a block comment */")));
+    }
+
+    [Fact]
+    public void IsEffectivelyEmpty_RealQuery_False()
+    {
+        Assert.False(SqlTokenizer.IsEffectivelyEmpty(SqlTokenizer.Tokenize("select id from t")));
+    }
+
+    [Fact]
+    public void IsEffectivelyEmpty_GarbageNonSqlText_False() // still real (non-End) tokens; must go through the parser's own error path, not be silently skipped
+    {
+        Assert.False(SqlTokenizer.IsEffectivelyEmpty(SqlTokenizer.Tokenize("not really sql at all")));
+    }
+
+    [Fact]
+    public void IsEffectivelyEmpty_UnterminatedBlockComment_False() // Unterminated sentinel is a real, non-End token: must still surface as unparseable, not be silently skipped
+    {
+        Assert.False(SqlTokenizer.IsEffectivelyEmpty(SqlTokenizer.Tokenize("/* never closed")));
+    }
 }
