@@ -160,4 +160,45 @@ public class InternalCachingTypeTests
         Assert.Equal("", JauntyQGenerator.ComputeCommonDirectoryPrefix(
             ImmutableArray<Microsoft.CodeAnalysis.AdditionalText>.Empty));
     }
+
+    [Fact]
+    public void ComputeCommonDirectoryPrefix_SiblingGroupingDirWhoseNameIsPrefixOfAnother_DoesNotOverextendPastSegmentBoundary()
+    {
+        // "db/tables" and "db/tablesArchive" are two different sibling
+        // grouping folders (each holding its own set of entity subfolders)
+        // whose names happen to share "db/tables" as a literal character
+        // prefix without a '/' boundary after it in the longer one. The
+        // common *directory* prefix across both files must stop at "db/"
+        // (the real shared ancestor), not overextend to "db/tables/" merely
+        // because the shorter grandparent string was fully consumed while
+        // walking character-by-character.
+        //
+        // This mirrors the real "tables"/"views" grouping-folder convention
+        // used throughout the codebase (see ExtractEntityName's special
+        // case for segments[0] == "tables" / "views"): a file's grandparent
+        // directory is "<root>/<groupingFolder>", so a name collision at
+        // this level is a realistic, not merely synthetic, shape.
+        var prefix = JauntyQGenerator.ComputeCommonDirectoryPrefix(
+            ImmutableArray.Create("db/tables/Products/GetAll.sql", "db/tablesArchive/Orders/GetAll.sql"));
+
+        Assert.Equal("db/", prefix);
+
+        // With the correct prefix, the first file's StartsWith check succeeds
+        // and its "tables" grouping folder is recognized, correctly yielding
+        // its true entity name.
+        string entity1 = JauntyQGenerator.ExtractEntityName("db/tables/Products/GetAll.sql", prefix);
+        Assert.Equal("Products", entity1);
+
+        // The second file's grouping folder ("tablesArchive") isn't a
+        // recognized special case, so it is (correctly) treated as the
+        // entity segment itself — the important thing is that it is NOT
+        // swallowed into the generic "Queries" catch-all, which is exactly
+        // what happens under the pre-fix over-extended "db/tables/" prefix:
+        // that longer prefix fails the second file's StartsWith check
+        // entirely, falls back to a bare filename with too few segments,
+        // and silently miscategorizes the file into "Queries".
+        string entity2 = JauntyQGenerator.ExtractEntityName("db/tablesArchive/Orders/GetAll.sql", prefix);
+        Assert.NotEqual("Queries", entity2);
+        Assert.Equal("tablesArchive", entity2);
+    }
 }
