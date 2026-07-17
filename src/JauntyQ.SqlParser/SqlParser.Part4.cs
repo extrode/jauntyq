@@ -12,12 +12,23 @@ public static partial class SqlParser
     /// </summary>
     private static void ExtractPerfHints(List<Token> tokens, QueryModel model)
     {
-        // Bound the WHERE region: from WHERE to GROUP/ORDER/HAVING or end.
+        // Bound the WHERE region: from WHERE to GROUP/ORDER/HAVING or end. Depth-
+        // gated (only a top-level, depth-0 keyword counts) so a projection-list
+        // EXISTS(...) subquery -- a supported Feature A expression whose own
+        // inner SELECT is deliberately left in the token stream (it is neither
+        // lifted by ExtractPredicateSubqueries, which only handles WHERE-clause
+        // IN/EXISTS predicates, nor flagged unsupported by DetectUnsupportedConstructs,
+        // which explicitly excludes it) -- can't have its own nested WHERE/GROUP/
+        // ORDER/HAVING keywords mistaken for the enclosing statement's own. Mirrors
+        // the same scanDepth convention already used by ExtractPredicateSubqueries.
         int start = -1;
         int end = tokens.Count;
+        int boundaryDepth = 0;
         for (int i = 0; i < tokens.Count; i++)
         {
-            if (tokens[i].Type != TokenType.Keyword)
+            if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == "(") { boundaryDepth++; continue; }
+            if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ")") { boundaryDepth--; continue; }
+            if (tokens[i].Type != TokenType.Keyword || boundaryDepth != 0)
                 continue;
             if (start < 0 && tokens[i].Value == "WHERE")
             {
