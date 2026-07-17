@@ -266,21 +266,35 @@ public static partial class SqlParser
         ExtractParameterBindings(tokens, model);
 
         // Parameters assigned in the SET clause (before WHERE) are write
-        // targets; everything after WHERE is a comparison.
+        // targets; everything after WHERE is a comparison. A SET-list item
+        // may itself be a scalar subquery carrying its own WHERE (e.g. a
+        // correlated "copy this value from another row" column) -- that
+        // nested WHERE is at paren depth > 0 and must not be mistaken for
+        // the UPDATE's own top-level WHERE, or every SET-clause parameter
+        // after it would be silently left un-flagged as a write target
+        // (and, worse, ExtractParameterBindings' generic "identifier <op>
+        // @param" scan above would already have bound it as if it were a
+        // WHERE-side comparison parameter instead). Depth-gate both the
+        // clause-boundary keywords and the assignment-shape match so a
+        // parameter used *inside* the subquery's own predicate is never
+        // mistaken for an outer SET assignment either.
         bool inSet = false;
+        int depth = 0;
         for (int i = 0; i < tokens.Count; i++)
         {
+            if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == "(") { depth++; continue; }
+            if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ")") { if (depth > 0) depth--; continue; }
             if (tokens[i].Type == TokenType.Keyword)
             {
-                if (tokens[i].Value == "SET")
+                if (tokens[i].Value == "SET" && depth == 0)
                 {
                     inSet = true;
                     continue;
                 }
-                if (tokens[i].Value == "WHERE")
+                if (tokens[i].Value == "WHERE" && depth == 0)
                     break;
             }
-            if (inSet && i >= 2 &&
+            if (inSet && depth == 0 && i >= 2 &&
                 tokens[i].Type == TokenType.Parameter &&
                 tokens[i - 1].Type == TokenType.Symbol && tokens[i - 1].Value == "=" &&
                 tokens[i - 2].Type == TokenType.Identifier)

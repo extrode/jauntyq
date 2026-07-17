@@ -848,6 +848,26 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
     }
 
     [Fact]
+    public void Update_ParamAfterSetClauseSubqueryWithNestedWhere_StillMarkedAsWriteTarget()
+    {
+        // A scalar subquery inside the SET list can carry its own WHERE
+        // (e.g. a correlated "copy this value from another row" column).
+        // That nested WHERE must not be mistaken for the UPDATE's own
+        // top-level WHERE: the write-target scan has to keep scanning past
+        // it and still catch "last_editor = @editor" as a genuine SET
+        // assignment, not treat it as a WHERE-side comparison parameter.
+        var model = ParseSql(
+            "update products set " +
+            "unit_price = (select max(p2.unit_price) from products p2 where p2.category_id = category_id), " +
+            "last_editor = @editor " +
+            "where product_id = @id");
+
+        var pEditor = model.Parameters.Single(p => p.Name == "editor");
+        Assert.Equal("last_editor", pEditor.BoundColumnName);
+        Assert.True(pEditor.IsWriteTarget);
+    }
+
+    [Fact]
     public void SelectTopN_SkipsModifierAndResolvesPlainColumns()
     {
         var model = ParseSql("select top 10 product_id, product_name from products");
