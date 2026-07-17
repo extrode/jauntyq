@@ -635,6 +635,26 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
     }
 
     [Fact]
+    public void CountConcatenatedWithLiteral_NotInferredBigint()
+    {
+        // count(...) only determines bigint/NOT NULL when the call IS the
+        // entire expression body -- not merely its head. "count(*) || ' rows'"
+        // is a string, not a bigint: the count(...) call is combined with a
+        // literal via the concatenation operator, so the shape check must
+        // fail closed (leave InferredDbType empty) rather than claim bigint
+        // for the whole expression, exactly as the sibling sum(...)/avg(...)
+        // check already does for "sum(x) || ' total'" (its stricter
+        // exact-4-token check naturally excludes this shape).
+        var model = ParseSql("select count(*) || ' rows' as msg from users");
+
+        Assert.Single(model.Columns);
+        var expr = model.Columns[0];
+        Assert.True(expr.IsExpression);
+        Assert.Empty(expr.InferredDbType);
+        Assert.False(expr.InferredNotNull);
+    }
+
+    [Fact]
     public void ComparisonExpression_InferredBoolean()
     {
         var model = ParseSql("select count(*) > 0 as is_in_use from users");
