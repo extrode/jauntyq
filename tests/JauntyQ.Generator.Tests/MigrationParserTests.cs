@@ -812,6 +812,38 @@ public class SchemaSimulatorTests
     }
 
     [Fact]
+    public void MySqlSerial_NormalizedToBigintUnsigned_OnlyOnMySql()
+    {
+        // AUD-R18: MySQL's SERIAL column type is desugared by the server
+        // itself to "BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE" -- a
+        // live re-pull of a migration-declared "id SERIAL" column reports
+        // DbType "bigint unsigned" (MySqlExtractor's COLUMN_TYPE LIKE
+        // '%unsigned%' check), never the literal "serial". Left
+        // unnormalized, DialectMapper.MapDbTypeToCSharp's unsigned-widening
+        // branch (keyed on the DbType string literally containing
+        // "unsigned") never triggers, so the column maps to plain C# int
+        // instead of the ulong a live pull produces -- silently both too
+        // narrow (4 vs. 8 bytes) and wrong-signed. Postgres's SERIAL must
+        // stay unnormalized ("serial" is already a synonym arm in
+        // DialectMapper matching what Postgres's own information_schema
+        // reports there).
+        var (mysqlSchema, errors) = Apply(new DatabaseSchema { Dialect = "mysql" },
+            "create table widgets (id serial primary key, name varchar(40) not null)");
+        Assert.Empty(errors);
+        var mysqlId = mysqlSchema.Tables["widgets"].Columns["id"];
+        Assert.Equal("bigint unsigned", mysqlId.DbType);
+        Assert.True(mysqlId.IsIdentity);
+        Assert.False(mysqlId.IsNullable);
+        Assert.Equal("ulong", DialectMapper.MapColumnToCSharp(mysqlId, "mysql"));
+
+        var (pgSchema2, _) = Apply(new DatabaseSchema { Dialect = "postgres" },
+            "create table widgets (id serial primary key, name varchar(40) not null)");
+        var pgId = pgSchema2.Tables["widgets"].Columns["id"];
+        Assert.Equal("serial", pgId.DbType);
+        Assert.Equal("int", DialectMapper.MapColumnToCSharp(pgId, "postgres"));
+    }
+
+    [Fact]
     public void MixedAddDropAdd_AppliesAllThreeActions()
     {
         var (schema, errors) = Apply(BaseSchema(),
