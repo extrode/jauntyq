@@ -384,6 +384,80 @@ public class ImpactClassifierTests
         Assert.Contains(entry.Reasons, r => r.SchemaObject == "users.email" && r.ChangeKind == "removed");
     }
 
+    // ── ReferencedObjects.Resolve: PerfHint-only column coverage ──────────
+    // WHERE-clause shapes where the referenced column isn't directly
+    // adjacent to the comparison operator (fn(column) = ..., or a bare
+    // column = column implicit-join/correlated-subquery back-reference) are
+    // captured by the parser only as PerfHint entries (for the JNT8xxx
+    // performance analyzer) -- never as a ParameterRef or LiteralBinding.
+    // Before this fix, ReferencedObjects.ResolveInto never read
+    // model.PerfHints at all, so a migration that only touched a column
+    // referenced solely via one of these shapes produced a false SAFE
+    // verdict.
+
+    [Fact]
+    public void NotSafe_WhenOnlyFunctionOnColumnPerfHintReferencesRemovedColumn()
+    {
+        // WHERE UPPER(email) = 'X' : the column is wrapped in a function
+        // call, so neither ExtractParameterBindings nor ExtractLiteralBindings
+        // binds it (the token before '=' is ')', not the identifier) -- only
+        // ExtractPerfHints captures it, as PerfHintKind.FunctionOnColumn.
+        var baseline = Schema(Table("users", Col("id"), Col("email", "varchar")));
+        var effective = Schema(Table("users", Col("id")));
+
+        var m = Select("users", "id");
+        m.PerfHints.Add(new PerfHint
+        {
+            Kind = PerfHintKind.FunctionOnColumn,
+            FunctionName = "UPPER",
+            BoundTableAlias = "users",
+            BoundColumnName = "email"
+        });
+
+        var report = Run(Delta(baseline, effective), Input("User.Get", m));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Breaking, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "users.email" && r.ChangeKind == "removed");
+    }
+
+    [Fact]
+    public void NotSafe_WhenOnlyColumnComparedToColumnPerfHintReferencesRemovedColumn()
+    {
+        // A correlated subquery back-reference (e.g. inside EXISTS/IN),
+        // `oi.order_id = o.id`: both sides are bare identifiers, so neither
+        // side is a parameter or a literal -- only ExtractPerfHints captures
+        // either column, as two PerfHintKind.ColumnComparedToColumn entries
+        // (one per side).
+        var baseline = Schema(Table("orders", Col("id"), Col("user_id")),
+                              Table("order_items", Col("id"), Col("order_id")));
+        var effective = Schema(Table("orders", Col("id"), Col("user_id")),
+                               Table("order_items", Col("id")));
+
+        var subquery = Select("order_items", "id");
+        subquery.PerfHints.Add(new PerfHint
+        {
+            Kind = PerfHintKind.ColumnComparedToColumn,
+            BoundTableAlias = "order_items",
+            BoundColumnName = "order_id"
+        });
+        subquery.PerfHints.Add(new PerfHint
+        {
+            Kind = PerfHintKind.ColumnComparedToColumn,
+            BoundTableAlias = "orders",
+            BoundColumnName = "id"
+        });
+
+        var m = Select("orders", "id");
+        m.Subqueries.Add(new SubqueryRef { Kind = SubqueryKind.Exists, Body = subquery });
+
+        var report = Run(Delta(baseline, effective), Input("Order.Get", m));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Breaking, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "order_items.order_id" && r.ChangeKind == "removed");
+    }
+
     [Fact]
     public void NotSafe_WhenOnlyCteBodyReferencesModifiedColumn()
     {
