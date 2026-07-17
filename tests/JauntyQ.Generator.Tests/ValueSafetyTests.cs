@@ -281,6 +281,68 @@ public class ValueSafetyTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
     }
 
+    // ── Postgres SERIAL family: JNT5002's range switch (a sibling of
+    // DialectMapper.MapDbTypeToCSharp's own serial-family switch, discovered
+    // via this round's §4.4 sweep) had "serial"/"bigserial" but never
+    // "smallserial" -- a residual gap left by AUD-R19-01, which fixed only
+    // the C#-type-mapping side, not this compile-time range-check side --
+    // nor the AUD-R21-01 "serial2"/"serial4"/"serial8" numeric synonyms.
+    // Before this fix, all four fell to the switch's `_ => null` arm, so
+    // `range.HasValue` was false and JNT5002 silently never fired for any of
+    // them, no matter how far out of range the literal.
+
+    [Fact]
+    public void PostgresSmallserial_40000_OutOfRange_JNT5002()
+    {
+        // smallserial's underlying type is smallint (-32768..32767); 40000
+        // overflows it.
+        var result = RunTinyint("postgres", "smallserial",
+            "insert into flags (flag_id, level) values (@flagId, 40000)");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void PostgresSmallserial_20000_Fits_NoJNT5002()
+    {
+        var result = RunTinyint("postgres", "smallserial",
+            "insert into flags (flag_id, level) values (@flagId, 20000)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void PostgresSerial2_40000_OutOfRange_JNT5002()
+    {
+        // "serial2" is smallserial's pure-numeric synonym -- same underlying
+        // smallint range.
+        var result = RunTinyint("postgres", "serial2",
+            "insert into flags (flag_id, level) values (@flagId, 40000)");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void PostgresSerial4_5000000000_OutOfRange_JNT5002()
+    {
+        // "serial4" is serial's synonym -- underlying int range
+        // (-2147483648..2147483647); 5 billion overflows it.
+        var result = RunTinyint("postgres", "serial4",
+            "insert into flags (flag_id, level) values (@flagId, 5000000000)");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void PostgresSerial8_9223372036854775807_Fits_NoJNT5002()
+    {
+        // "serial8" is bigserial's synonym -- long.MaxValue must fit exactly.
+        var result = RunTinyint("postgres", "serial8",
+            "insert into flags (flag_id, level) values (@flagId, 9223372036854775807)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
     // ── Guards and DbParameter sizing ───────────────────────────────────
 
     [Fact]

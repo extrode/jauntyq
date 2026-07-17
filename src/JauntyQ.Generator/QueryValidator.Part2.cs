@@ -340,11 +340,22 @@ public static partial class QueryValidator
 
         (decimal Min, decimal Max)? range = dbType switch
         {
-            "int" or "int4" or "integer" or "serial" =>
+            // Postgres SERIAL family: "serial"/"bigserial" already had cases
+            // here, but "smallserial" was missing entirely -- a residual gap
+            // left by AUD-R19-01 (which fixed only DialectMapper's C#-type
+            // mapping, a different switch, not this compile-time range
+            // check) -- and "serial2"/"serial4"/"serial8" (Postgres's own
+            // documented pure-numeric synonyms for
+            // "smallserial"/"serial"/"bigserial") were never recognized
+            // anywhere (AUD-R21-01/AUD-R21-02). Before this fix, all four
+            // fell to this switch's `_ => null` fallback below, so
+            // `range.HasValue` was false and JNT5002 silently never fired
+            // for any of them no matter how far out of range the literal.
+            "int" or "int4" or "integer" or "serial" or "serial4" =>
                 unsigned ? (0m, 4294967295m) : (int.MinValue, int.MaxValue),
-            "bigint" or "int8" or "bigserial" =>
+            "bigint" or "int8" or "bigserial" or "serial8" =>
                 unsigned ? (0m, 18446744073709551615m) : (long.MinValue, long.MaxValue),
-            "smallint" or "int2" =>
+            "smallint" or "int2" or "smallserial" or "serial2" =>
                 unsigned ? (0m, 65535m) : (short.MinValue, short.MaxValue),
             "tinyint" =>
                 mysqlDialect && !unsigned ? (-128m, 127m) : (0m, 255m),
