@@ -131,6 +131,22 @@ public sealed class ReferencedObjects
         foreach (var l in model.Literals)
             AddColumn(l.BoundTableAlias, l.BoundColumnName);
 
+        // WHERE-clause shapes the parameter/literal binders can't see because
+        // the column isn't directly adjacent to the comparison operator:
+        // fn(column) = ... (FunctionOnColumn) and column = column, an
+        // implicit join or a correlated subquery's back-reference to an outer
+        // alias (ColumnComparedToColumn — every entry already carries just its
+        // own side's alias/column, see ExtractPerfHints). LeadingWildcardLike
+        // also carries a bound alias/column and is included for the same
+        // reason. Without this, a migration that only touched a column
+        // referenced solely via one of these shapes (e.g. `WHERE
+        // UPPER(email) = ?` or a correlated `EXISTS (... WHERE oi.order_id =
+        // o.id)`) produced a false SAFE verdict: the column was captured by
+        // the parser (as a PerfHint, for the JNT8xxx performance analyzer) but
+        // never carried into this dependency accumulator.
+        foreach (var h in model.PerfHints)
+            AddColumn(h.BoundTableAlias, h.BoundColumnName);
+
         // ORDER BY: PlainColumn items carry a bound alias/column directly.
         // Expression items (e.g. ORDER BY a.x + b.y, ORDER BY count(email))
         // carry no bound alias/column (AddColumn no-ops on those) but DO carry
