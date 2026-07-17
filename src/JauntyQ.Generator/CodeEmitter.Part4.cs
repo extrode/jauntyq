@@ -129,7 +129,16 @@ public static partial class CodeEmitter
     {
         // MySQL's LAST_INSERT_ID() is BIGINT UNSIGNED regardless of the key
         // type; read as long and narrow explicitly.
-        if (identity.Dialect == "mysql" && identity.CSharpType != "long")
+        //
+        // AUD-R34-01: identity.Dialect is a bare, unnormalized string straight
+        // from the JSON snapshot (see BuildIdentityInsertSql's own comment
+        // above), and JNT7003 accepts any casing via
+        // DialectMapper.IsKnownDialect's OrdinalIgnoreCase membership check --
+        // so an ordinary, JNT7003-accepted "dialect": "MySql"/"MYSQL" must
+        // compare case-insensitively here too, exactly like the sibling
+        // dialect switches in this same file/fan-out (BuildIdentityInsertSql,
+        // EmitUpsert in CodeEmitter.Part6.cs) already do.
+        if (string.Equals(identity.Dialect, "mysql", StringComparison.OrdinalIgnoreCase) && identity.CSharpType != "long")
             return $"checked(({identity.CSharpType})reader.GetInt64(0))";
         return GetReaderCall(identity.CSharpType, 0);
     }
