@@ -215,6 +215,7 @@ public static partial class CodeEmitter
         // masquerade as a clean one.
         sb.AppendLine("                using (var __warnCmd = " + connVar + ".CreateCommand())");
         sb.AppendLine("                {");
+        sb.AppendLine("                    if (tx != null) __warnCmd.Transaction = tx;");
         sb.AppendLine("                    __warnCmd.CommandText = \"SHOW WARNINGS\";");
         sb.AppendLine(isAsync
             ? "                    using var __warnRdr = await __warnCmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);"

@@ -72,4 +72,61 @@ public class BulkInsertAtomicityTests : IClassFixture<MySqlFixture>
         var after = _fx.Db.Suppliers.GetAll();
         Assert.Contains(after, s => s.CompanyName == "" && s.City == "Austin");
     }
+
+    /// <summary>
+    /// Coordinator-caught regression in the fix above: the new <c>__warnCmd</c>
+    /// (the <c>SHOW WARNINGS</c> check in <c>EmitBulkInsertBodyMySql</c>) was
+    /// initially emitted without <c>.Transaction</c> set. MySqlConnector requires
+    /// every command run while a connection has an active transaction to be
+    /// explicitly associated with it, or <c>ExecuteReader</c>/<c>ExecuteReaderAsync</c>
+    /// throws <c>InvalidOperationException: The transaction associated with this
+    /// command is not the connection's active transaction</c> -- unconditionally,
+    /// even for rows with zero constraint violations. That would have broken
+    /// every transactional MySQL <c>BulkInsert</c> call, which is worse than the
+    /// silent-corruption bug this round set out to fix. The corrected emitter sets
+    /// <c>__warnCmd.Transaction = tx</c> when <c>tx</c> is non-null, mirroring the
+    /// established convention already used by every other emitted command that
+    /// might run inside a caller-supplied or ambient transaction (see
+    /// CodeEmitter.Part3.cs, Part5.cs, Part8.cs, Part11.cs, Part12.cs).
+    /// </summary>
+    [SkippableFact]
+    public void BulkInsert_InsideActiveTransaction_CleanRows_DoesNotThrow()
+    {
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
+
+        using var tx = _fx.Db.BeginTransaction();
+        var rows = new[]
+        {
+            new Supplier { CompanyName = "R33-Tx-Clean-A", City = "Portland" },
+        };
+
+        int affected = _fx.Db.Suppliers.BulkInsert(rows);
+        Assert.Equal(1, affected);
+        tx.Rollback();
+    }
+
+    /// <summary>
+    /// Companion to <see cref="BulkInsert_InsideActiveTransaction_CleanRows_DoesNotThrow"/>:
+    /// confirms the transaction-association fix doesn't undermine this round's
+    /// original fix -- a genuine NOT NULL violation still surfaces as a thrown
+    /// <see cref="System.InvalidOperationException"/> when the call happens inside
+    /// an active transaction, not just in the transaction-free case covered by
+    /// <see cref="BulkInsert_NotNullViolation_ThrowsInsteadOfSilentlyCoercingToDefault"/>.
+    /// </summary>
+    [SkippableFact]
+    public void BulkInsert_InsideActiveTransaction_NotNullViolation_StillThrows()
+    {
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
+
+        using var tx = _fx.Db.BeginTransaction();
+        var rows = new[]
+        {
+            new Supplier { CompanyName = "R33-Tx-Violation-A", City = "Portland" },
+            new Supplier { CompanyName = null!, City = "Austin" },
+        };
+
+        Assert.Throws<System.InvalidOperationException>(
+            () => _fx.Db.Suppliers.BulkInsert(rows));
+        tx.Rollback();
+    }
 }
