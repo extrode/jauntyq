@@ -124,6 +124,104 @@ create table products (
         Assert.Contains("check", statements[3].RawText, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("primary key clustered (order_id, item_no)")]
+    [InlineData("primary key nonclustered (order_id, item_no)")]
+    [InlineData("constraint pk_order_items primary key clustered (order_id, item_no)")]
+    [InlineData("constraint pk_order_items primary key nonclustered (order_id, item_no)")]
+    public void CreateTable_TableLevelPrimaryKeyClustered_MarksColumns(string pkClause)
+    {
+        // AUD-R16-01: SQL Server's idiomatic table-level primary-key form --
+        // CONSTRAINT name PRIMARY KEY CLUSTERED (cols), the literal text SSMS
+        // itself generates for every scripted table -- was silently dropped.
+        // ReadParenNameList requires "(" immediately after "KEY"; CLUSTERED/
+        // NONCLUSTERED sitting in between made it return an empty list, and
+        // unlike the sibling UNIQUE/FOREIGN/CHECK branch (AUD-R4-18), this
+        // branch had no fallback: it just `continue`d with no Unsupported
+        // sibling and no diagnostic at all. No column ever got IsPrimaryKey,
+        // so a table keyed only this way was silently treated as keyless by
+        // downstream consumers (e.g. UpsertKeyResolver) with zero signal to
+        // the developer.
+        var statements = MigrationParser.Parse($@"
+create table order_items (
+    order_id int not null,
+    item_no int not null,
+    qty int not null,
+    {pkClause}
+)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.CreateTable, stmt.Kind);
+        Assert.True(stmt.Columns.Single(c => c.Name == "order_id").IsPrimaryKey);
+        Assert.True(stmt.Columns.Single(c => c.Name == "item_no").IsPrimaryKey);
+        Assert.False(stmt.Columns.Single(c => c.Name == "qty").IsPrimaryKey);
+    }
+
+    [Fact]
+    public void CreateTable_TableLevelPrimaryKeyMalformed_SurfacesAsSiblingUnsupported()
+    {
+        // AUD-R16-01 general fallback: if a table-level PRIMARY KEY clause
+        // still can't be parsed into a column list after the CLUSTERED/
+        // NONCLUSTERED fix above (e.g. some other unanticipated form), it
+        // must surface as an Unsupported sibling -- matching UNIQUE/FOREIGN/
+        // CHECK's existing behavior -- instead of silently vanishing with no
+        // diagnostic, which was the root cause of this finding.
+        var statements = MigrationParser.Parse(@"
+create table order_items (
+    order_id int not null,
+    item_no int not null,
+    constraint pk_order_items primary key nocheck
+)");
+
+        Assert.Equal(2, statements.Count);
+        Assert.Equal(MigrationStatementKind.CreateTable, statements[0].Kind);
+        Assert.False(statements[0].Columns.Single(c => c.Name == "order_id").IsPrimaryKey);
+        Assert.Equal(MigrationStatementKind.Unsupported, statements[1].Kind);
+        Assert.Contains("primary", statements[1].RawText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("gadget_id int not null primary key clustered identity(1,1)")]
+    [InlineData("gadget_id int not null primary key nonclustered identity(1,1)")]
+    public void CreateTable_ColumnLevelPrimaryKeyClustered_AlreadyHandled(string columnDef)
+    {
+        // AUD-R16-01 sibling-sweep (§4.4): the column-level "col ... PRIMARY
+        // KEY [CLUSTERED|NONCLUSTERED]" flag in ParseColumnDef's flag-scanning
+        // loop -- a different code path from the table-level constraint
+        // clause fixed above -- doesn't require a paren immediately after
+        // KEY, so a trailing CLUSTERED/NONCLUSTERED token was already falling
+        // through harmlessly to the generic "unknown flag, skip one token"
+        // branch with IsPrimaryKey already correctly set. Recorded as a
+        // confirmed-PASS regression guard, not part of the fix.
+        var statements = MigrationParser.Parse($"create table gadgets ({columnDef}, name varchar(40) not null)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.CreateTable, stmt.Kind);
+        var id = stmt.Columns.Single(c => c.Name == "gadget_id");
+        Assert.True(id.IsPrimaryKey);
+        Assert.True(id.IsIdentity);
+    }
+
+    [Theory]
+    [InlineData("alter table products add constraint pk_products primary key clustered (product_id)")]
+    [InlineData("alter table products add constraint pk_products primary key nonclustered (product_id)")]
+    [InlineData("alter table products add primary key clustered (product_id)")]
+    public void AddConstraintPrimaryKeyClustered_ParsesAsAddPrimaryKey(string sql)
+    {
+        // AUD-R16-01 sibling: the same CLUSTERED/NONCLUSTERED gap in
+        // ReadParenNameList affected ALTER TABLE ADD CONSTRAINT ... PRIMARY
+        // KEY CLUSTERED too, though that path already fell back to
+        // Unsupported/JNT9001 (S1, not silent) rather than vanishing
+        // entirely. Fixed to correctly recognize it as AddPrimaryKey instead
+        // of merely diagnosing its absence.
+        var statements = MigrationParser.Parse(sql);
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.AddPrimaryKey, stmt.Kind);
+        Assert.Equal("products", stmt.TableName);
+        Assert.Equal(new[] { "product_id" }, stmt.ColumnNames);
+    }
+
     [Fact]
     public void CreateTable_NoTableLevelConstraints_StillSingleStatement()
     {

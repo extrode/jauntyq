@@ -120,14 +120,39 @@ public static class MigrationParser
                 c = 2; // skip CONSTRAINT <name>
             if (Is(def, c, "PRIMARY") && Is(def, c + 1, "KEY"))
             {
-                foreach (var pkName in ReadParenNameList(def, c + 2))
+                // AUD-R16-01: SQL Server's idiomatic CONSTRAINT name PRIMARY
+                // KEY CLUSTERED (...) / NONCLUSTERED (...) -- the literal
+                // text SSMS itself generates for every scripted table -- has
+                // an optional CLUSTERED/NONCLUSTERED keyword between KEY and
+                // the paren column list. ReadParenNameList requires "("
+                // immediately after the position it's given, so without this
+                // skip it silently returned an empty list and no column
+                // ever got IsPrimaryKey set here.
+                int pkPos = SkipClusteredKeyword(def, c + 2);
+                var pkNames = ReadParenNameList(def, pkPos);
+                if (pkNames.Count > 0)
                 {
-                    var col = stmt.Columns.Find(x => string.Equals(x.Name, pkName, StringComparison.OrdinalIgnoreCase));
-                    if (col != null)
+                    foreach (var pkName in pkNames)
                     {
-                        col.IsPrimaryKey = true;
-                        col.IsNullable = false;
+                        var col = stmt.Columns.Find(x => string.Equals(x.Name, pkName, StringComparison.OrdinalIgnoreCase));
+                        if (col != null)
+                        {
+                            col.IsPrimaryKey = true;
+                            col.IsNullable = false;
+                        }
                     }
+                }
+                else
+                {
+                    // Unparseable PRIMARY KEY clause (even after the
+                    // CLUSTERED/NONCLUSTERED skip above): previously this
+                    // just vanished with no diagnostic at all, unlike the
+                    // sibling UNIQUE/FOREIGN/CHECK branch below. Surface it
+                    // the same way so JNT9001 fires instead of silence.
+                    var clauseWords = new List<string>(def.Count);
+                    foreach (var t in def)
+                        clauseWords.Add(t.Value);
+                    unsupported.Add(Unsupported($"{raw} -- table-level constraint dropped: {string.Join(" ", clauseWords)}"));
                 }
                 continue;
             }
@@ -280,7 +305,11 @@ public static class MigrationParser
             // auto-CRUD Upsert synthesis for it with no diagnostic at all.
             if (Is(first, constraintPos, "PRIMARY") && Is(first, constraintPos + 1, "KEY"))
             {
-                var pkColumns = ReadParenNameList(first, constraintPos + 2);
+                // AUD-R16-01: skip the optional CLUSTERED/NONCLUSTERED
+                // keyword SQL Server allows between KEY and the column
+                // list -- see the matching comment in ParseCreateTable.
+                int pkPos = SkipClusteredKeyword(first, constraintPos + 2);
+                var pkColumns = ReadParenNameList(first, pkPos);
                 if (pkColumns.Count > 0)
                 {
                     var pkStmt = new MigrationStatement { Kind = MigrationStatementKind.AddPrimaryKey, TableName = tableName, RawText = raw };
@@ -865,4 +894,14 @@ public static class MigrationParser
         }
         return names;
     }
+
+    /// <summary>
+    /// Advances past a SQL Server PRIMARY KEY CLUSTERED/NONCLUSTERED
+    /// keyword at <paramref name="pos"/>, if present -- returns
+    /// <paramref name="pos"/> unchanged otherwise. Only SQL Server allows
+    /// this keyword between "PRIMARY KEY" and the column list; MySQL,
+    /// Postgres and SQLite go straight to "(".
+    /// </summary>
+    private static int SkipClusteredKeyword(List<Token> tokens, int pos) =>
+        Is(tokens, pos, "CLUSTERED") || Is(tokens, pos, "NONCLUSTERED") ? pos + 1 : pos;
 }
