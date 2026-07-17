@@ -341,11 +341,19 @@ public class DialectMapperTests
     [InlineData("int4", false, "int")] [InlineData("int4", true, "int?")]
     [InlineData("integer", false, "int")] [InlineData("integer", true, "int?")]
     [InlineData("serial", false, "int")] [InlineData("serial", true, "int?")]
+    // Round 21 (AUD-R21-01): "serial4"/"serial8"/"serial2" are Postgres's own
+    // documented pure-numeric synonyms for "serial"/"bigserial"/"smallserial"
+    // respectively -- round 19 sibling-swept these, found them unrecognized by
+    // MapDbTypeToCSharp (they fell through to the "object"/"object?"
+    // fallback), and deliberately deferred fixing them (zero occurrences in
+    // samples/ at the time). This round closes that residual.
+    [InlineData("serial4", false, "int")] [InlineData("serial4", true, "int?")]
     [InlineData("mediumint", false, "int")] [InlineData("mediumint", true, "int?")]
     [InlineData("year", false, "int")] [InlineData("year", true, "int?")]
     [InlineData("bigint", false, "long")] [InlineData("bigint", true, "long?")]
     [InlineData("int8", false, "long")] [InlineData("int8", true, "long?")]
     [InlineData("bigserial", false, "long")] [InlineData("bigserial", true, "long?")]
+    [InlineData("serial8", false, "long")] [InlineData("serial8", true, "long?")]
     [InlineData("smallint", false, "short")] [InlineData("smallint", true, "short?")]
     [InlineData("int2", false, "short")] [InlineData("int2", true, "short?")]
     // Round 19 (AUD-R19-01): "smallserial" was the one serial-family alias
@@ -354,6 +362,7 @@ public class DialectMapperTests
     // "smallserial" fell through to the "object"/"object?" fallback until
     // this round's fix, so it belongs beside its "smallint"/"int2" siblings.
     [InlineData("smallserial", false, "short")] [InlineData("smallserial", true, "short?")]
+    [InlineData("serial2", false, "short")] [InlineData("serial2", true, "short?")]
     // --- string family ---
     [InlineData("varchar", false, "string")] [InlineData("varchar", true, "string?")]
     [InlineData("text", false, "string")] [InlineData("text", true, "string?")]

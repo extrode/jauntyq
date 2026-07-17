@@ -529,7 +529,15 @@ public static class MigrationParser
         // (def[1]), not seen again at pos 2+. Matches the live
         // PostgresExtractor, whose is_identity check is column_default LIKE
         // 'nextval(%'.
-        if (column.DbType is "serial" or "bigserial" or "smallserial")
+        // Round 21 (AUD-R21-01): "serial2"/"serial4"/"serial8" are Postgres's
+        // own documented pure-numeric synonyms for
+        // "smallserial"/"serial"/"bigserial" respectively (same sugar, same
+        // nextval() identity signal) -- sibling-swept from round 19's
+        // "smallserial" gap (AUD-R19-01) and round 19's own residual note
+        // that these spellings were checked and found unrecognized by this
+        // exact IsIdentity detection.
+        if (column.DbType is "serial" or "bigserial" or "smallserial"
+            or "serial2" or "serial4" or "serial8")
             column.IsIdentity = true;
 
         int pos = 2;

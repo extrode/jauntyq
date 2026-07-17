@@ -49,6 +49,14 @@ create table gadgets (
     [InlineData("serial")]
     [InlineData("bigserial")]
     [InlineData("smallserial")]
+    // Round 21 (AUD-R21-01): "serial2"/"serial4"/"serial8" are Postgres's own
+    // documented pure-numeric synonyms for "smallserial"/"serial"/"bigserial"
+    // respectively -- round 19 sibling-swept these and found them
+    // unrecognized here too, but deliberately deferred fixing them (zero
+    // occurrences in samples/ at the time). This round closes that residual.
+    [InlineData("serial2")]
+    [InlineData("serial4")]
+    [InlineData("serial8")]
     public void CreateTable_SerialColumn_RecognizedAsIdentity(string serialType)
     {
         // Postgres SERIAL/BIGSERIAL/SMALLSERIAL are sugar for an integer

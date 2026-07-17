@@ -121,9 +121,9 @@ public static class DialectMapper
         {
             switch (normalized)
             {
-                case "int": case "int4": case "integer": case "serial":
+                case "int": case "int4": case "integer": case "serial": case "serial4":
                     return isNullable ? "uint?" : "uint";
-                case "bigint": case "int8": case "bigserial":
+                case "bigint": case "int8": case "bigserial": case "serial8":
                     return isNullable ? "ulong?" : "ulong";
                 case "smallint": case "int2":
                     return isNullable ? "ushort?" : "ushort";
@@ -144,8 +144,8 @@ public static class DialectMapper
             // (MySQL 1-4 digit year) both round-trip through MySqlConnector
             // as System.Int32 (confirmed live) -- int is a safe superset for
             // both.
-            "int" or "int4" or "integer" or "serial" or "mediumint" or "year" => isNullable ? "int?" : "int",
-            "bigint" or "int8" or "bigserial" => isNullable ? "long?" : "long",
+            "int" or "int4" or "integer" or "serial" or "serial4" or "mediumint" or "year" => isNullable ? "int?" : "int",
+            "bigint" or "int8" or "bigserial" or "serial8" => isNullable ? "long?" : "long",
             "tinyint" when isSqlServer => isNullable ? "byte?" : "byte",
             // Round 20 (AUD-R20-01): MySQL/MariaDB TINYINT(1) -- and its
             // BOOLEAN/BOOL DDL synonym, which the server desugars to
@@ -178,7 +178,15 @@ public static class DialectMapper
             // for it until now, so it fell all the way through to the
             // generic `object`/`object?` fallback below instead of joining
             // its "smallint"/"int2" siblings.
-            "smallint" or "int2" or "tinyint" or "smallserial" => isNullable ? "short?" : "short",
+            // Round 21 (AUD-R21-01): "serial2"/"serial4"/"serial8" are
+            // Postgres's own documented pure-numeric synonyms for
+            // "smallserial"/"serial"/"bigserial" (see the "int"/"bigint"
+            // arms above for the other two) -- round 19 sibling-swept these
+            // and found them unrecognized by both this switch and
+            // MigrationParser's IsIdentity detection, but deliberately
+            // deferred fixing them (zero occurrences in samples/ at the
+            // time) rather than treating it as a gap.
+            "smallint" or "int2" or "tinyint" or "smallserial" or "serial2" => isNullable ? "short?" : "short",
             // "enum"/"set" (MySQL) materialize as System.String through
             // MySqlConnector (confirmed live) -- the member/value list itself
             // isn't captured by the schema extractor, so a C# enum can't be
