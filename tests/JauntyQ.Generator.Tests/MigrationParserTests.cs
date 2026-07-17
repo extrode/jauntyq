@@ -881,6 +881,73 @@ alter table products add supplier_note nvarchar(50) null;
     }
 
     [Fact]
+    public void CreateTable_Sqlite_BareIntegerPrimaryKey_IsIdentity()
+    {
+        // SQLite aliases a single-column PRIMARY KEY declared with the exact
+        // type "INTEGER" (no facet, no other keywords) to the table's rowid,
+        // which auto-assigns 1, 2, 3, ... on insert -- confirmed live via
+        // SqliteExtractor_IntegerPrimaryKey_IsIdentity (JauntyQ.Tests/
+        // ExtractorTests.cs), which reports IsIdentity=true for this exact
+        // shape after a real sqlite3 CREATE TABLE. The simulated
+        // (pre-live-DB) effective schema must agree, or a project with a
+        // pending "create table widgets (id INTEGER primary key, name text)"
+        // migration sees IsIdentity=false right up until the migration is
+        // actually applied and re-pulled, silently disagreeing with itself.
+        var schema = new DatabaseSchema { Dialect = "sqlite" };
+        var (effective, errors) = Apply(schema,
+            "create table widgets (id INTEGER primary key, name text)");
+
+        Assert.Empty(errors);
+        Assert.True(effective.Tables["widgets"].Columns["id"].IsIdentity);
+    }
+
+    [Theory]
+    [InlineData("INT")]
+    [InlineData("BIGINT")]
+    public void CreateTable_Sqlite_NonLiteralIntegerPrimaryKey_IsNotIdentity(string declaredType)
+    {
+        // Only the literal declared type "INTEGER" aliases to the rowid --
+        // "INT"/"BIGINT"/etc. share INTEGER storage affinity but do NOT get
+        // auto-assigned values (confirmed live: SqliteExtractor_
+        // NonLiteralIntegerPrimaryKey_IsNotIdentity). The simulator must not
+        // over-eagerly mark every integer-typed PK as identity.
+        var schema = new DatabaseSchema { Dialect = "sqlite" };
+        var (effective, _) = Apply(schema,
+            $"create table widgets (id {declaredType} primary key, name text)");
+
+        Assert.False(effective.Tables["widgets"].Columns["id"].IsIdentity);
+    }
+
+    [Fact]
+    public void CreateTable_Sqlite_CompositeIntegerPrimaryKey_IsNotIdentity()
+    {
+        // SQLite only aliases a SINGLE-column INTEGER PRIMARY KEY to the
+        // rowid; a composite primary key never gets rowid aliasing even if
+        // one of its columns is declared INTEGER (confirmed live via
+        // SqliteExtractor's own pkCols.Count == 1 guard).
+        var schema = new DatabaseSchema { Dialect = "sqlite" };
+        var (effective, _) = Apply(schema,
+            "create table order_items (order_id INTEGER, line_no INTEGER, qty INTEGER, primary key (order_id, line_no))");
+
+        Assert.False(effective.Tables["order_items"].Columns["order_id"].IsIdentity);
+        Assert.False(effective.Tables["order_items"].Columns["line_no"].IsIdentity);
+    }
+
+    [Fact]
+    public void CreateTable_NonSqlite_BareIntegerPrimaryKey_IsNotIdentity()
+    {
+        // The rowid-aliasing rule is SQLite-specific; an "INTEGER" column
+        // name has no special meaning as a bare type keyword on the other
+        // three dialects (Postgres/MySQL/SQL Server don't even ship an
+        // "INTEGER" alias behaving this way), so this must stay dialect-gated.
+        var schema = new DatabaseSchema { Dialect = "postgres" };
+        var (effective, _) = Apply(schema,
+            "create table widgets (id INTEGER primary key, name text)");
+
+        Assert.False(effective.Tables["widgets"].Columns["id"].IsIdentity);
+    }
+
+    [Fact]
     public void MySqlModify_HonorsDeclaredIdentity_UnlikeOtherDialectsAlterColumn()
     {
         // MySQL's MODIFY fully REDEFINES the column (unlike SQL Server/
