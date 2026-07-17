@@ -388,6 +388,36 @@ public class AutoCrudTests
         Assert.Contains("checked((int)reader.GetInt64(0))", source);
     }
 
+    [Theory]
+    [InlineData("MySql")]
+    [InlineData("MYSQL")]
+    public void SyntheticInsert_MySqlMixedCase_StillUsesCheckedNarrowing_NotBareGetInt32(string dialect)
+    {
+        // AUD-R10-03 sibling gap: CodeEmitter.Part4.cs's GetIdentityReaderCall
+        // compares identity.Dialect == "mysql" with a plain, case-SENSITIVE
+        // C# string equality -- unlike BuildIdentityInsertSql/EmitUpsert in
+        // the very same fan-out (fixed round 10 via
+        // dialect.ToLowerInvariant()), which this file's own
+        // DialectCaseSensitivityTests.cs exercises but which never covered
+        // GetIdentityReaderCall. schema.Dialect is a bare, unnormalized JSON
+        // string and JNT7003/DialectMapper.IsKnownDialect accept any casing,
+        // so "MySql"/"MYSQL" are ordinary, accepted spellings. The query text
+        // still correctly appends "select last_insert_id()" (that part goes
+        // through BuildIdentityInsertSql, which IS fixed), but
+        // LAST_INSERT_ID() always returns BIGINT UNSIGNED regardless of the
+        // key column's declared type -- reading it back via a bare
+        // reader.GetInt32(0) (skipping the checked long->int narrowing cast)
+        // is a real InvalidCastException risk against every ADO.NET provider
+        // whose typed getters enforce an exact CLR-type match.
+        var (result, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", $"\"{dialect}\""));
+
+        var source = TryGetSource(result, "Products.Insert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("select last_insert_id()", source);
+        Assert.Contains("checked((int)reader.GetInt64(0))", source);
+        Assert.DoesNotContain("reader.GetInt32(0)", source);
+    }
+
     [Fact]
     public void UserInsert_WithoutDirective_StillReturnsRowcount()
     {
