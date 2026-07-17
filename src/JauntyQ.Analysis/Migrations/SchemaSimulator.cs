@@ -412,12 +412,15 @@ public static class SchemaSimulator
         // both too narrow (4 bytes vs. the 8 a real BIGINT needs) and
         // wrong-signed (signed vs. unsigned) versus the ulong a live pull
         // produces. Postgres's own SERIAL/BIGSERIAL/SMALLSERIAL are left
-        // unnormalized on purpose (DialectMapper's switch already treats
-        // those literal spellings as synonyms for int/bigint/short, which is
-        // exactly what Postgres's information_schema itself reports for a
-        // serial column there) -- MySQL has no such synonym arm for the
+        // unnormalized on purpose (DialectMapper's switch treats all three
+        // literal spellings as synonyms for int/bigint/short respectively,
+        // which is exactly what Postgres's information_schema itself reports
+        // for a serial column there) -- MySQL has no such synonym arm for the
         // unsigned-widened case, so it must be normalized here instead, the
-        // same way "real" is above.
+        // same way "real" is above. (AUD-R19-01: "smallserial" was missing
+        // from DialectMapper's switch until round 19 -- this comment's claim
+        // is accurate as of that fix, not before it; see DialectMapper.cs's
+        // smallint case arm.)
         if (string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase) &&
             string.Equals(col.DbType, "serial", StringComparison.OrdinalIgnoreCase))
         {
