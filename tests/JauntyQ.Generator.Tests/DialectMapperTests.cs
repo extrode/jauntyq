@@ -220,6 +220,46 @@ public class DialectMapperTests
     }
 
     /// <summary>
+    /// Round 20 (AUD-R20-01): confirmed live against a real MySQL 8.0
+    /// container that MySqlConnector's "Treat Tiny As Boolean" connection
+    /// option -- true by default, and not something JauntyDb's consumer-
+    /// supplied connection can force off -- silently coerces every typed
+    /// reader accessor (not just GetValue()/GetBoolean(), but GetInt16() and
+    /// GetByte() too) on a TINYINT(1)/BOOLEAN-shaped column down to 0 or 1,
+    /// discarding any other stored value (2, -1, 127, ...) with no exception
+    /// and no diagnostic. The old dialect-blind "tinyint" -&gt; "short" mapping
+    /// therefore generated code (reader.GetInt16(ordinal)) that silently
+    /// read back a corrupted value for any MySQL/MariaDB TINYINT(1) column
+    /// under the driver's default settings -- exactly the shape Sakila's own
+    /// canonical schema uses for staff.active and customer.activebool.
+    /// MySqlExtractor now surfaces the display-width-1 signal (the only live
+    /// one available -- NUMERIC_PRECISION is always 3 for any tinyint
+    /// regardless of width, and NormalizeDbType strips any "(1)" suffix from
+    /// the dbType string itself) via the existing `length` facet channel
+    /// (Precision), the same channel "bit(n)" already uses. A plain,
+    /// unspecified-width tinyint (length=null, or an explicit wider length
+    /// such as 4) must keep mapping to "short" unchanged -- MySQL 8's default
+    /// unspecified-width TINYINT is NOT display-width-1, and non-MySQL
+    /// dialects have no such display-width concept at all.
+    /// </summary>
+    [Theory]
+    [InlineData("mysql", 1, false, "bool")]
+    [InlineData("mysql", 1, true, "bool?")]
+    [InlineData("mysql", null, false, "short")]
+    [InlineData("mysql", null, true, "short?")]
+    [InlineData("mysql", 4, false, "short")]
+    [InlineData("mysql", 3, false, "short")]
+    [InlineData("sqlserver", 1, false, "byte")]
+    [InlineData("postgres", 1, false, "short")]
+    [InlineData(null, 1, false, "short")]
+    public void MySqlTinyint1Column_MapsToBool_OtherDialectsAndWidthsUnchanged(
+        string? dialect, int? length, bool isNullable, string expected)
+    {
+        Assert.Equal(expected, DialectMapper.MapDbTypeToCSharp("tinyint", isNullable, length, dialect));
+        Assert.False(DialectMapper.IsUnmappedDbType("tinyint", isNullable, length, dialect));
+    }
+
+    /// <summary>
     /// MySQL's UNSIGNED modifier widens int/bigint/smallint's positive range
     /// beyond the equivalent signed CLR type's max (e.g. INT UNSIGNED's
     /// 4294967295 overflows System.Int32) -- MySqlConnector reports these as
