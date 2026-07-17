@@ -717,6 +717,108 @@ public class AutoCrudTests
         Assert.DoesNotContain("row.Seq", upsertForwarder.Value);
     }
 
+    // ── Computed/RowVersion primary-key column (AUD-R37-01) ─────
+
+    // A sole PK column that is also IsComputed (e.g. a SQL Server PERSISTED
+    // computed column that's part of a PRIMARY KEY constraint) is legitimately
+    // resolved as the table's usable Upsert key by UpsertKeyResolver.Resolve
+    // (AUD-R36-01: it must agree with AutoCrud's own PK detection for the
+    // same table). But unlike Identity, CrudColumnRules.UpsertColumns grants
+    // Computed/RowVersion no "unless part of key" escape hatch -- no dialect
+    // accepts an explicit INSERT value for either. Confirmed live
+    // (Testcontainers SQL Server 2022): the old code emitted a MERGE whose
+    // "on target.id = src.id" clause referenced a "src" derived table that
+    // never selected "id" (CrudColumnRules.UpsertColumns excludes it
+    // unconditionally), throwing SqlException "Invalid column name 'id'." at
+    // runtime. AutoCrud.Synthesize's gate must skip Upsert synthesis for
+    // this table entirely, matching "no usable key at all".
+    private const string ComputedPrimaryKeySchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""gauges"": {
+      ""name"": ""gauges"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isComputed"": true },
+        ""reading"": { ""name"": ""reading"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 50 }
+      }
+    }
+  }
+}";
+
+    [Fact]
+    public void ComputedPrimaryKeyColumn_NoUpsertSynthesized()
+    {
+        var schema = JauntyQ.Schema.SchemaLoader.Load(ComputedPrimaryKeySchemaJson);
+
+        var synthesized = AutoCrud.Synthesize(schema);
+
+        Assert.DoesNotContain(synthesized, q => q.MethodName == "Upsert");
+        // Insert/Update/Delete are unaffected: none of them route a
+        // key column through a "src"/derived-table reference the way
+        // EmitUpsert's MERGE branch does, so a computed PK column is
+        // referenced directly (e.g. "where id = @id") and works fine.
+        Assert.Contains(synthesized, q => q.MethodName == "Insert");
+        Assert.Contains(synthesized, q => q.MethodName == "Update");
+        Assert.Contains(synthesized, q => q.MethodName == "Delete");
+    }
+
+    [Fact]
+    public void ComputedPrimaryKeyColumn_AutoCrud_CompilesClean_NoUpsertGenerated()
+    {
+        var (result, compilation) = RunAutoCrudWithSchema(ComputedPrimaryKeySchemaJson);
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        Assert.Null(TryGetSource(result, "Gauges.Upsert.auto.g.cs"));
+        Assert.NotNull(TryGetSource(result, "Gauges.Insert.auto.g.cs"));
+        Assert.NotNull(TryGetSource(result, "Gauges.Update.auto.g.cs"));
+        Assert.NotNull(TryGetSource(result, "Gauges.Delete.auto.g.cs"));
+
+        // No Upsert(row) POCO forwarder was ever emitted for this entity.
+        string? poco = TryGetSource(result, "Gauges.Poco.auto.g.cs");
+        Assert.NotNull(poco);
+        Assert.DoesNotContain("Upsert(", poco);
+    }
+
+    [Fact]
+    public void EmitUpsert_Throws_WhenPrimaryKeyIsComputedColumn()
+    {
+        // Direct-call backstop: a caller invoking EmitUpsert without going
+        // through AutoCrud.Synthesize's gate (as this test itself does) must
+        // still get a loud, clear generation-time failure instead of the
+        // silently-broken MERGE SQL the pre-fix code produced.
+        var schema = JauntyQ.Schema.SchemaLoader.Load(ComputedPrimaryKeySchemaJson);
+        var table = schema.Tables["gauges"];
+
+        var ex = Assert.Throws<System.InvalidOperationException>(() => CodeEmitter.EmitUpsert("Gauge", table, "sqlserver"));
+        Assert.Contains("Computed or RowVersion column", ex.Message);
+    }
+
+    [Fact]
+    public void EmitUpsert_Throws_WhenPrimaryKeyIsRowVersionColumn()
+    {
+        // Same defect shape, the RowVersion sibling (UpsertKeyResolverTests'
+        // own Resolve_RowVersionPrimaryKeyColumn_StillResolvesAsKey pairs
+        // with this one, matching AUD-R36-01's Computed/RowVersion pairing).
+        const string schemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""tokens"": {
+      ""name"": ""tokens"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""binary"", ""isNullable"": false, ""isPrimaryKey"": true, ""isRowVersion"": true },
+        ""label"": { ""name"": ""label"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 50 }
+      }
+    }
+  }
+}";
+        var schema = JauntyQ.Schema.SchemaLoader.Load(schemaJson);
+        var table = schema.Tables["tokens"];
+
+        var ex = Assert.Throws<System.InvalidOperationException>(() => CodeEmitter.EmitUpsert("Token", table, "sqlserver"));
+        Assert.Contains("Computed or RowVersion column", ex.Message);
+    }
+
     [Fact]
     public void TypoDirective_ReportsJNT3008_AndStillEmits()
     {

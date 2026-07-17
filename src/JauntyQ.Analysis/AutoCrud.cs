@@ -188,7 +188,20 @@ public static class AutoCrud
             // database rejects both at runtime.
             bool hasNonKeyColumns = upsertKey != null
                 && CrudColumnRules.UpsertSetColumns(CrudColumnRules.UpsertColumns(columns, upsertKey), upsertKey).Count > 0;
-            if (upsertKey != null && hasNonKeyColumns && !string.IsNullOrEmpty(schema.Dialect))
+            // AUD-R37-01: a key resolved post-AUD-R36-01 may legitimately
+            // contain a Computed/RowVersion primary-key column (matching
+            // AutoCrud's own PK detection for this same table) that
+            // CrudColumnRules.UpsertColumns nonetheless excludes outright,
+            // with no "unless part of key" escape hatch (unlike Identity) --
+            // no dialect accepts an explicit INSERT value for either, so
+            // EmitUpsert's SQL Server MERGE branch would reference that
+            // column in its "on"/src-derived-table clause without it ever
+            // having been selected, and a live engine rejects the query at
+            // runtime ("Invalid column name", confirmed via Testcontainers).
+            // Skip Upsert synthesis for that table entirely, the same
+            // outcome as "no usable key at all".
+            bool keyIsBindable = upsertKey == null || !CrudColumnRules.HasUnbindableUpsertKeyColumn(columns, upsertKey);
+            if (upsertKey != null && hasNonKeyColumns && keyIsBindable && !string.IsNullOrEmpty(schema.Dialect))
             {
                 result.Add(new SyntheticQuery(entityName, "Upsert", "", table.Name, isUpsert: true));
             }

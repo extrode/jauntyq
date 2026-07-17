@@ -134,6 +134,18 @@ public static partial class CodeEmitter
                 ?? throw new System.InvalidOperationException(
                     $"Table '{tableSchema.Name}' has no usable upsert key: no primary key, or an " +
                     "identity-only primary key with no secondary UNIQUE index to match on instead.");
+            // AUD-R37-01: same defensive backstop as CodeEmitter.Part6.cs's
+            // EmitUpsert -- AutoCrud.Synthesize's gate already excludes a
+            // table whose key contains an unbindable Computed/RowVersion
+            // column, but a direct caller of this method must get the same
+            // loud failure Part6.cs gives instead of a POCO overload that
+            // forwards to a scalar Upsert(...) signature Part6.cs would
+            // refuse to emit for the identical table.
+            if (CrudColumnRules.HasUnbindableUpsertKeyColumn(columns, upsertKey))
+                throw new System.InvalidOperationException(
+                    $"Table '{tableSchema.Name}' has no usable upsert key: its primary key contains a " +
+                    "Computed or RowVersion column, and no dialect can bind a value for one on the " +
+                    "INSERT/conflict-target side of an upsert.");
             var upsertCols = CrudColumnRules.UpsertColumns(columns, upsertKey);
             Forward("Upsert", upsertCols);
         }

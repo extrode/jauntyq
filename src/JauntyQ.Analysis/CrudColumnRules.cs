@@ -95,6 +95,37 @@ public static class CrudColumnRules
     public static List<ColumnSchema> UpsertSetColumns(List<ColumnSchema> upsertColumns, List<ColumnSchema> upsertKey)
         => upsertColumns.FindAll(c => !upsertKey.Exists(k => string.Equals(k.Name, c.Name, StringComparison.OrdinalIgnoreCase)));
 
+    /// <summary>
+    /// AUD-R37-01: true when <paramref name="upsertKey"/> (UpsertKeyResolver.
+    /// Resolve's result — post-AUD-R36-01, this legitimately includes a
+    /// Computed or RowVersion primary-key column, matching AutoCrud's own PK
+    /// detection for the same table) contains a column <see
+    /// cref="UpsertColumns"/> excludes outright with no "unless part of key"
+    /// escape hatch. Identity has that escape hatch (a composite key with one
+    /// identity member is still a column a caller can bind an explicit value
+    /// for, given IDENTITY_INSERT/equivalent) — Computed and RowVersion do
+    /// not and cannot: no dialect accepts an explicit INSERT value for either
+    /// (the database rejects it outright), so a "src"/conflict-target
+    /// reference to one in the generated Upsert SQL would name a column that
+    /// was never selected/writable anywhere else in the same statement. Both
+    /// AutoCrud.Synthesize's Upsert gate and CodeEmitter.Part6.cs's
+    /// EmitUpsert must treat this exactly like "no usable key at all" —
+    /// silently skipping Upsert synthesis rather than emitting SQL a live
+    /// engine rejects at runtime with "Invalid column name" (confirmed
+    /// live against SQL Server 2022 via Testcontainers for the MERGE
+    /// src-derived-table shape).
+    /// </summary>
+    public static bool HasUnbindableUpsertKeyColumn(IEnumerable<ColumnSchema> columns, List<ColumnSchema> upsertKey)
+    {
+        var upsertCols = UpsertColumns(columns, upsertKey);
+        foreach (var k in upsertKey)
+        {
+            if (!upsertCols.Exists(c => string.Equals(c.Name, k.Name, StringComparison.OrdinalIgnoreCase)))
+                return true;
+        }
+        return false;
+    }
+
     private static List<ColumnSchema> Filter(IEnumerable<ColumnSchema> columns, System.Func<ColumnSchema, bool> predicate)
     {
         var result = new List<ColumnSchema>();

@@ -44,6 +44,26 @@ public static partial class CodeEmitter
                 $"Table '{tableSchema.Name}' has no usable upsert key: no primary key, or an " +
                 "identity-only primary key with no secondary UNIQUE index to match on instead.");
 
+        // AUD-R37-01: keyCols may legitimately contain a Computed/RowVersion
+        // primary-key column (post-AUD-R36-01, UpsertKeyResolver.Resolve
+        // agrees with AutoCrud's own PK detection for this same table), but
+        // CrudColumnRules.UpsertColumns excludes such a column outright --
+        // unlike Identity, it has no "unless part of key" escape hatch,
+        // because no dialect accepts an explicit INSERT value for either.
+        // AutoCrud.Synthesize's gate already skips Upsert synthesis for such
+        // a table entirely (matching "no usable key"); this is the same
+        // defensive backstop the null-key throw above already is, for any
+        // caller invoking EmitUpsert directly. Without it, the SQL Server
+        // branch below would reference the excluded column in its "on"/
+        // src-derived-table clause without ever selecting it, and a live
+        // engine rejects the query at runtime ("Invalid column name",
+        // confirmed via Testcontainers against SQL Server 2022).
+        if (CrudColumnRules.HasUnbindableUpsertKeyColumn(tableSchema.Columns.Values, keyCols))
+            throw new System.InvalidOperationException(
+                $"Table '{tableSchema.Name}' has no usable upsert key: its primary key contains a " +
+                "Computed or RowVersion column, and no dialect can bind a value for one on the " +
+                "INSERT/conflict-target side of an upsert.");
+
         // CrudColumnRules.UpsertColumns/UpsertSetColumns (JauntyQ.Analysis) is
         // the single source of truth for this filtering -- AutoCrud.cs's
         // Upsert-synthesis gate and CodeEmitter.Part7.cs's EmitPocoOverloads
