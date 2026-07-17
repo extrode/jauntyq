@@ -58,23 +58,32 @@ public static class DialectMapper
 
     /// <summary>
     /// <paramref name="length"/> is the declared bit/char length for types
-    /// where it changes the mapping — currently just <c>bit(n)</c>: MySQL and
-    /// PostgreSQL both allow a multi-bit <c>BIT(n &gt; 1)</c> column (unlike SQL
-    /// Server, where BIT is always a single bit), and neither MySqlConnector
-    /// nor Npgsql returns that as a bool (ulong and BitArray respectively) — so
-    /// mapping it to "bool" would silently corrupt/throw. Null means "unknown
-    /// or not applicable", which preserves the old single-bit behavior for
-    /// callers (identity/param types) that don't have column metadata handy.
+    /// where it changes the mapping — <c>bit(n)</c>: MySQL and PostgreSQL both
+    /// allow a multi-bit <c>BIT(n &gt; 1)</c> column (unlike SQL Server, where
+    /// BIT is always a single bit), and neither MySqlConnector nor Npgsql
+    /// returns that as a bool (ulong and BitArray respectively) — so mapping
+    /// it to "bool" would silently corrupt/throw. Also (round 20, AUD-R20-01)
+    /// MySQL/MariaDB <c>tinyint(1)</c> — including the <c>BOOLEAN</c>/<c>BOOL</c>
+    /// DDL synonym, which the server desugars to <c>tinyint(1)</c> at parse
+    /// time: MySqlExtractor folds that display width into <c>Precision</c>
+    /// (NUMERIC_PRECISION itself is useless here — always 3, regardless of
+    /// declared width — confirmed empirically). Null means "unknown or not
+    /// applicable", which preserves the old single-bit behavior for callers
+    /// (identity/param types) that don't have column metadata handy.
     ///
-    /// <paramref name="dialect"/> disambiguates the one dbType string that
-    /// means genuinely different things on different engines: "tinyint" is
-    /// SQL Server's unsigned single-byte type (0-255, provider storage type
-    /// byte — Microsoft.Data.SqlClient's GetInt16 throws InvalidCastException
-    /// on it) but MySQL's signed-by-default tinyint (-128..127, provider
-    /// storage type sbyte/byte depending on UNSIGNED) round-trips fine through
-    /// GetInt16 today. Only "sqlserver" gets the byte mapping; every other
-    /// dialect (and null, for callers without schema/dialect in scope) keeps
-    /// the historical short mapping.
+    /// <paramref name="dialect"/> disambiguates dbType strings that mean
+    /// genuinely different things on different engines: "tinyint" is SQL
+    /// Server's unsigned single-byte type (0-255, provider storage type byte —
+    /// Microsoft.Data.SqlClient's GetInt16 throws InvalidCastException on it)
+    /// but MySQL's signed-by-default tinyint (-128..127, provider storage type
+    /// sbyte/byte depending on UNSIGNED) round-trips fine through GetInt16 —
+    /// UNLESS it's display-width-1 (see <paramref name="length"/> above), in
+    /// which case MySqlConnector's default "Treat Tiny As Boolean" setting
+    /// silently collapses every typed accessor's result to 0/1 regardless of
+    /// the true stored value (confirmed live, Testcontainers mysql:8.0).
+    /// Only "sqlserver" gets the byte mapping; only "mysql" (with length == 1)
+    /// gets the bool mapping; every other dialect (and null, for callers
+    /// without schema/dialect in scope) keeps the historical short mapping.
     /// </summary>
     public static string MapDbTypeToCSharp(string dbType, bool isNullable, int? length = null, string? dialect = null)
     {
@@ -138,6 +147,30 @@ public static class DialectMapper
             "int" or "int4" or "integer" or "serial" or "mediumint" or "year" => isNullable ? "int?" : "int",
             "bigint" or "int8" or "bigserial" => isNullable ? "long?" : "long",
             "tinyint" when isSqlServer => isNullable ? "byte?" : "byte",
+            // Round 20 (AUD-R20-01): MySQL/MariaDB TINYINT(1) -- and its
+            // BOOLEAN/BOOL DDL synonym, which the server desugars to
+            // TINYINT(1) at parse time -- is coerced to a boolean by
+            // MySqlConnector's "Treat Tiny As Boolean" default (on unless the
+            // consumer's own connection string overrides it) for EVERY
+            // accessor, not just GetValue()/GetBoolean(). Confirmed live
+            // (Testcontainers mysql:8.0): reader.GetInt16() -- the exact call
+            // GetReaderCall emits for a "short"-mapped column -- silently
+            // collapses any non-zero stored value (2, -1, 127, ...) down to
+            // 1; only a stored 0 reads back faithfully. Mapping this column to
+            // "short" therefore falsely implies the full -128..127 range
+            // survives the round trip when it provably does not; "bool" is
+            // the honest representation of what the wire protocol/driver
+            // actually deliver under the default that the overwhelming
+            // majority of real consumers run with. MySqlExtractor folds this
+            // column's display-width-1 shape (COLUMN_TYPE = 'tinyint(1)',
+            // which -- unlike NUMERIC_PRECISION, always 3 regardless of
+            // width -- is the only signal that survives) into Precision=1,
+            // the same length channel "bit" (immediately below) already uses.
+            // Gated on isMySql: SQL Server's real, unsigned tinyint (handled
+            // by the arm above) and a SQLite/Postgres column whose ported
+            // dbType string happens to read "tinyint" have no such
+            // wire-level coercion and must keep the plain short mapping.
+            "tinyint" when isMySql && length == 1 => isNullable ? "bool?" : "bool",
             // Round 19 (AUD-R19-01): "smallserial" is Postgres SERIAL's
             // 16-bit sibling -- MigrationParser.ParseColumnDef already
             // recognizes the literal spelling for IsIdentity detection
