@@ -345,6 +345,7 @@ class JauntyQ.SqlParser.IR.ColumnRef
     prop InferredNotNull:Boolean
     prop IsExpression:Boolean
     prop OutputAlias:String
+    prop ReferencedColumns:List<ValueTuple<String,String>>
     prop TableAlias:String
 class JauntyQ.SqlParser.IR.CteRef
     ctor .ctor()
@@ -382,6 +383,7 @@ class JauntyQ.SqlParser.IR.OrderByRef
     prop BoundColumnName:String
     prop BoundTableAlias:String
     prop Kind:OrderByItemKind
+    prop ReferencedColumns:List<ValueTuple<String,String>>
 class JauntyQ.SqlParser.IR.ParameterRef
     ctor .ctor()
     prop BoundColumnName:String

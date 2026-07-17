@@ -94,17 +94,27 @@ public sealed class ReferencedObjects
         {
             if (c.IsExpression)
             {
-                // Only a pure aggregate over a single column exposes a real column dep.
-                if (!string.IsNullOrEmpty(c.AggregateArgColumnName))
-                    AddColumn(c.AggregateArgTableAlias, c.AggregateArgColumnName);
+                // Every column touched anywhere in the expression's shape —
+                // count(email), max(a.x), concat(a.first, a.last),
+                // p.price * p.qty, a CASE branch's column, etc. — not just
+                // the narrow SUM/AVG-single-bare-column special case.
+                foreach (var (tableAlias, columnName) in c.ReferencedColumns)
+                    AddColumn(tableAlias, columnName);
                 continue;
             }
             AddColumn(c.TableAlias, c.ColumnName);
         }
 
         foreach (var c in model.Returning)
-            if (!c.IsExpression)
-                AddColumn(c.TableAlias, c.ColumnName);
+        {
+            if (c.IsExpression)
+            {
+                foreach (var (tableAlias, columnName) in c.ReferencedColumns)
+                    AddColumn(tableAlias, columnName);
+                continue;
+            }
+            AddColumn(c.TableAlias, c.ColumnName);
+        }
 
         foreach (var j in model.Joins)
         {
@@ -121,11 +131,19 @@ public sealed class ReferencedObjects
         foreach (var l in model.Literals)
             AddColumn(l.BoundTableAlias, l.BoundColumnName);
 
-        // ORDER BY: only PlainColumn items carry a bound alias/column; the
-        // others (Expression/Ordinal/ProjectedAlias) leave it empty, which
-        // AddColumn already no-ops on.
+        // ORDER BY: PlainColumn items carry a bound alias/column directly.
+        // Expression items (e.g. ORDER BY a.x + b.y, ORDER BY count(email))
+        // carry no bound alias/column (AddColumn no-ops on those) but DO carry
+        // every column the expression touches in ReferencedColumns — without
+        // this, a migration that only touched a column referenced inside an
+        // ORDER BY expression produced a false SAFE verdict. Ordinal/
+        // ProjectedAlias items carry neither and are correctly inert.
         foreach (var o in model.OrderBy)
+        {
             AddColumn(o.BoundTableAlias, o.BoundColumnName);
+            foreach (var (tableAlias, columnName) in o.ReferencedColumns)
+                AddColumn(tableAlias, columnName);
+        }
 
         // Nested statement scopes: each resolved against its own FROM/JOIN
         // tables, not this statement's aliasToTable/inScope.

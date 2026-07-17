@@ -267,6 +267,30 @@ public class ImpactClassifierTests
     }
 
     [Fact]
+    public void NotSafe_WhenOnlyOrderByExpressionReferencesRemovedColumn()
+    {
+        // Same defect class as the SELECT-list expression gap below, extended
+        // to ORDER BY: an Expression-kind item's ReferencedColumns must be
+        // resolved too, not just its (always-empty-for-Expression) bound
+        // alias/column -- otherwise a migration that removed a column
+        // referenced only inside an ORDER BY expression (e.g.
+        // "order by count(email)") produced a false SAFE verdict.
+        var baseline = Schema(Table("users", Col("id"), Col("email", "varchar")));
+        var effective = Schema(Table("users", Col("id")));
+
+        var m = Select("users", "id");
+        var orderByExpr = new OrderByRef { Kind = OrderByItemKind.Expression };
+        orderByExpr.ReferencedColumns.Add(("", "email"));
+        m.OrderBy.Add(orderByExpr);
+
+        var report = Run(Delta(baseline, effective), Input("User.Get", m));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Breaking, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "users.email" && r.ChangeKind == "removed");
+    }
+
+    [Fact]
     public void NotSafe_WhenOnlyWhereInSubqueryReferencesRemovedColumn()
     {
         var baseline = Schema(Table("users", Col("id")), Table("orders", Col("id"), Col("user_id"), Col("discontinued", "bit")));
@@ -282,6 +306,82 @@ public class ImpactClassifierTests
         var entry = Assert.Single(report.Entries);
         Assert.Equal(Classification.Breaking, entry.Classification);
         Assert.Contains(entry.Reasons, r => r.SchemaObject == "orders.discontinued" && r.ChangeKind == "removed");
+    }
+
+    // ── ReferencedObjects.Resolve: expression-projection column coverage ──
+    // A projection expression that isn't the narrow "SUM/AVG over a single
+    // bare column" shape used to record ZERO column dependency at all, so a
+    // migration that removed/changed a column referenced only inside such an
+    // expression produced a false SAFE verdict.
+
+    [Fact]
+    public void NotSafe_WhenOnlyCountExpressionReferencesRemovedColumn()
+    {
+        var baseline = Schema(Table("users", Col("id"), Col("email", "varchar")));
+        var effective = Schema(Table("users", Col("id")));
+
+        var m = Select("users", "id");
+        m.Columns.Add(new ColumnRef
+        {
+            IsExpression = true,
+            ExpressionSql = "count ( email )",
+            OutputAlias = "cnt",
+            ReferencedColumns = { ("", "email") }
+        });
+
+        var report = Run(Delta(baseline, effective), Input("User.CountEmail", m));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Breaking, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "users.email" && r.ChangeKind == "removed");
+    }
+
+    [Fact]
+    public void NotSafe_WhenOnlyArithmeticExpressionReferencesModifiedColumn()
+    {
+        var baseline = Schema(Table("orders", Col("id"), Col("price", "decimal"), Col("qty")));
+        var effective = Schema(Table("orders", Col("id"), Col("price", "decimal"), Col("qty")));
+        baseline.Tables["orders"].Columns["price"].Precision = 10;
+        baseline.Tables["orders"].Columns["price"].Scale = 2;
+        effective.Tables["orders"].Columns["price"].Precision = 8;
+        effective.Tables["orders"].Columns["price"].Scale = 2;
+
+        var m = Select("orders", "id");
+        m.Columns.Add(new ColumnRef
+        {
+            IsExpression = true,
+            ExpressionSql = "orders . price * orders . qty",
+            OutputAlias = "total",
+            ReferencedColumns = { ("orders", "price"), ("orders", "qty") }
+        });
+
+        var report = Run(Delta(baseline, effective), Input("Order.Total", m));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Risky, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "orders.price" && r.ChangeKind == "precisionScale");
+    }
+
+    [Fact]
+    public void NotSafe_WhenOnlyExpressionInReturningReferencesRemovedColumn()
+    {
+        var baseline = Schema(Table("users", Col("id"), Col("email", "varchar")));
+        var effective = Schema(Table("users", Col("id")));
+
+        var m = Select("users", "id");
+        m.Returning.Add(new ColumnRef
+        {
+            IsExpression = true,
+            ExpressionSql = "count ( email )",
+            OutputAlias = "cnt",
+            ReferencedColumns = { ("", "email") }
+        });
+
+        var report = Run(Delta(baseline, effective), Input("User.Insert", m));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Breaking, entry.Classification);
+        Assert.Contains(entry.Reasons, r => r.SchemaObject == "users.email" && r.ChangeKind == "removed");
     }
 
     [Fact]

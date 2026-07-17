@@ -65,6 +65,28 @@ public class OrderByParserTests
 
         var item = Assert.Single(model.OrderBy);
         Assert.Equal(OrderByItemKind.Expression, item.Kind);
+        var (alias, name) = Assert.Single(item.ReferencedColumns);
+        Assert.Empty(alias);
+        Assert.Equal("product_name", name);
+    }
+
+    [Fact]
+    public void Expression_ArithmeticAcrossAliases_RecordsBothColumnDependencies()
+    {
+        // Same defect class as expression projection items: an ORDER BY
+        // expression must record every column it touches, not just the
+        // (still-empty) BoundTableAlias/BoundColumnName pair, or a migration
+        // that only touched a column referenced solely inside an ORDER BY
+        // expression produced a false SAFE verdict from ReferencedObjects.
+        var model = ParseSql(
+            "select o.id from orders o join items i on o.id = i.order_id " +
+            "order by o.price * i.qty");
+
+        var item = Assert.Single(model.OrderBy);
+        Assert.Equal(OrderByItemKind.Expression, item.Kind);
+        Assert.Equal(2, item.ReferencedColumns.Count);
+        Assert.Contains(item.ReferencedColumns, c => c.TableAlias == "o" && c.ColumnName == "price");
+        Assert.Contains(item.ReferencedColumns, c => c.TableAlias == "i" && c.ColumnName == "qty");
     }
 
     [Fact]

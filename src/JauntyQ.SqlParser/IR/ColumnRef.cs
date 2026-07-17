@@ -55,4 +55,18 @@ public class ColumnRef
 
     /// <summary>The single column argument of <see cref="AggregateFunction"/>.</summary>
     public string AggregateArgColumnName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Every (table alias, column name) pair referenced anywhere inside this
+    /// expression's token run — e.g. both entries for <c>p.price * p.qty</c>,
+    /// or the one argument for <c>count(email)</c>, <c>max(a.x)</c>,
+    /// <c>concat(a.first, a.last)</c>, a CASE branch's column, etc. Populated
+    /// for every expression projection item regardless of shape. Unlike
+    /// <see cref="AggregateArgColumnName"/> (narrowly scoped to the SUM/AVG
+    /// schema-type-resolution case), this is a safe over-approximation used
+    /// only for dependency tracking (migration-impact classification, see
+    /// <c>JauntyQ.Analysis.Impact.ReferencedObjects</c>) — it is never used to
+    /// type the expression's result. Empty for plain columns.
+    /// </summary>
+    public List<(string TableAlias, string ColumnName)> ReferencedColumns { get; } = new();
 }
