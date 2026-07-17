@@ -201,6 +201,35 @@ public static partial class CodeEmitter
         sb.AppendLine(isAsync
             ? "                await __bulkCopy.WriteToServerAsync(__reader, cancellationToken).ConfigureAwait(false);"
             : "                __bulkCopy.WriteToServer(__reader);");
+        // MySqlBulkCopy issues LOAD DATA ... IGNORE INTO TABLE ..., and MySQL's
+        // IGNORE downgrades data-integrity violations (e.g. NULL supplied to a
+        // NOT NULL column) from a hard error to a session warning, silently
+        // substituting the column's implicit default instead of rejecting the
+        // row. WriteToServer reports success regardless, so a batch can finish
+        // with corrupted data and no signal that anything went wrong -- unlike
+        // the SqlServer/Postgres fast paths (the server itself rejects such
+        // rows) or the portable ExecuteNonQuery fallback (a real ADO.NET NULL
+        // parameter trips the constraint as a genuine error). Check the
+        // session's own warning list immediately after the copy and throw if
+        // it holds anything at Warning level, so a silently-altered load can't
+        // masquerade as a clean one.
+        sb.AppendLine("                using (var __warnCmd = " + connVar + ".CreateCommand())");
+        sb.AppendLine("                {");
+        sb.AppendLine("                    __warnCmd.CommandText = \"SHOW WARNINGS\";");
+        sb.AppendLine(isAsync
+            ? "                    using var __warnRdr = await __warnCmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);"
+            : "                    using var __warnRdr = __warnCmd.ExecuteReader();");
+        sb.AppendLine("                    var __warnMsgs = new System.Collections.Generic.List<string>();");
+        sb.AppendLine(isAsync
+            ? "                    while (await __warnRdr.ReadAsync(cancellationToken).ConfigureAwait(false))"
+            : "                    while (__warnRdr.Read())");
+        sb.AppendLine("                    {");
+        sb.AppendLine("                        if (string.Equals(System.Convert.ToString(__warnRdr.GetValue(0)), \"Warning\", System.StringComparison.OrdinalIgnoreCase))");
+        sb.AppendLine("                            __warnMsgs.Add(System.Convert.ToString(__warnRdr.GetValue(2)) ?? string.Empty);");
+        sb.AppendLine("                    }");
+        sb.AppendLine("                    if (__warnMsgs.Count > 0)");
+        sb.AppendLine("                        throw new System.InvalidOperationException(\"MySqlBulkCopy completed but the server reported \" + __warnMsgs.Count + \" warning(s); LOAD DATA's IGNORE semantics silently coerce constraint violations (e.g. NULL into a NOT NULL column) to a default value instead of failing the row: \" + string.Join(\"; \", __warnMsgs));");
+        sb.AppendLine("                }");
         sb.AppendLine("                return __reader.RowsRead;");
         EmitFinallyClose(sb, connVar, isAsync);
         sb.AppendLine("        }");
