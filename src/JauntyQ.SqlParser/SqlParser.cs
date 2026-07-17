@@ -544,10 +544,21 @@ public static partial class SqlParser
             }
         }
 
-        // count(...) as the (unwrapped) head -> bigint NOT NULL.
+        // count(...) as the *entire* (unwrapped) expression body -> bigint NOT
+        // NULL. Unlike sum/avg below, count's result type never depends on its
+        // argument's shape (count(*), count(col), count(DISTINCT col), a
+        // multi-arg count(a,b) -- all return bigint regardless), so the
+        // argument itself is intentionally not shape-checked here. But the
+        // call must still consume the WHOLE expression: "count(*) || ' rows'"
+        // or "count(a) + count(b)" combine a count(...) call with something
+        // else via an operator that isn't a top-level comparison (already
+        // handled above), so the overall expression is NOT bigint-shaped even
+        // though it STARTS with one -- checking only the head let those slip
+        // through as a false bigint claim.
         if (hi - lo >= 2 &&
             IsCountHead(run[lo]) &&
-            run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(")
+            run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(" &&
+            FindMatchingClose(run, lo + 1, hi) == hi - 1)
         {
             col.InferredDbType = "bigint";
             col.InferredNotNull = true;
@@ -605,6 +616,29 @@ public static partial class SqlParser
             }
         }
         return false;
+    }
+
+    /// <summary>
+    /// The index of the ")" that matches the "(" at <paramref name="openIndex"/>
+    /// (which must itself be an open-paren token), scanning no further than
+    /// <paramref name="hi"/>. Returns -1 if unmatched within range. Used to
+    /// confirm a call's parens consume the rest of the expression body (i.e.
+    /// close exactly at <c>hi - 1</c>), not just that the call appears first.
+    /// </summary>
+    private static int FindMatchingClose(List<Token> run, int openIndex, int hi)
+    {
+        int depth = 0;
+        for (int i = openIndex; i < hi; i++)
+        {
+            if (run[i].Type == TokenType.Symbol && run[i].Value == "(") depth++;
+            else if (run[i].Type == TokenType.Symbol && run[i].Value == ")")
+            {
+                depth--;
+                if (depth == 0)
+                    return i;
+            }
+        }
+        return -1;
     }
 
     private static bool IsCountHead(Token t) =>
