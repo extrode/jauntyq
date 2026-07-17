@@ -58,14 +58,34 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             string dir = nonEmpty[i];
             int len = System.Math.Min(prefix.Length, dir.Length);
             int matchEnd = 0;
-            for (int j = 0; j < len; j++)
+            int j;
+            for (j = 0; j < len; j++)
             {
                 if (char.ToLowerInvariant(prefix[j]) != char.ToLowerInvariant(dir[j]))
                     break;
                 if (prefix[j] == '/')
                     matchEnd = j + 1;
-                if (j == len - 1)
+            }
+            if (j == len)
+            {
+                // The shorter of the two strings was consumed entirely without
+                // a mismatch. That only makes it a valid directory-boundary
+                // match if the longer string ends at exactly the same point,
+                // or the very next character in the longer string is itself a
+                // '/' separator. Otherwise one name is merely a character
+                // prefix of the other (e.g. "db/Sub" vs "db/SubExtra") with no
+                // real parent/child relationship, so the match must not be
+                // force-extended past the last genuine '/' boundary above.
+                if (prefix.Length == dir.Length)
+                {
                     matchEnd = len;
+                }
+                else
+                {
+                    string longer = prefix.Length > dir.Length ? prefix : dir;
+                    if (longer.Length > len && longer[len] == '/')
+                        matchEnd = len;
+                }
             }
             prefix = prefix.Substring(0, matchEnd);
         }
