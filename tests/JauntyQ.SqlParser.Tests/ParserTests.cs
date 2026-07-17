@@ -429,6 +429,36 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
     }
 
     [Fact]
+    public void ExtractPerfHints_OuterWhereAfterProjectionExistsWithGroupBy_StillDetected()
+    {
+        // A projection-list EXISTS(...) (Feature A expression, InferExpressionType
+        // -> boolean) is a fully supported construct whose own inner SELECT is
+        // deliberately left in the token stream by DetectUnsupportedConstructs
+        // (IsExistsSubquery excludes it from the generic nested-SELECT check, and
+        // ExtractPredicateSubqueries only ever lifts WHERE-clause IN/EXISTS
+        // predicates, never a projection-list one). ExtractPerfHints' own
+        // WHERE-region-boundary scan (SqlParser.Part4.cs) must therefore find the
+        // *outer* statement's own top-level WHERE/GROUP/ORDER/HAVING keywords,
+        // not whichever keyword of these shapes happens to appear first in the
+        // whole token stream regardless of paren depth -- otherwise a nested
+        // EXISTS(...) subquery carrying its own WHERE ... GROUP BY makes the scan
+        // start inside the subquery and stop at the subquery's own GROUP keyword,
+        // silently excluding everything from there on, including the real outer
+        // WHERE clause's own non-sargable predicate.
+        var sql = "select product_id, " +
+                  "exists(select 1 from order_items oi where oi.product_id = products.product_id " +
+                  "group by oi.customer_id having count(*) > 1) as has_repeat_orders " +
+                  "from products " +
+                  "where upper(product_name) = @name";
+        var model = ParseSql(sql);
+
+        Assert.Contains(model.PerfHints, h =>
+            h.Kind == PerfHintKind.FunctionOnColumn &&
+            h.FunctionName == "upper" &&
+            h.BoundColumnName == "product_name");
+    }
+
+    [Fact]
     public void WithRecursive_Rejected()
     {
         var sql = "with recursive t as (select product_id from products) select product_id from t";
