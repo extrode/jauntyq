@@ -64,9 +64,22 @@ public static partial class CodeEmitter
         {
             if (_tx != null)
                 throw new System.InvalidOperationException("A JauntyDb transaction is already active.");
-            _txOpenedConnection = _conn.State != System.Data.ConnectionState.Open;
-            if (_txOpenedConnection) _conn.Open();
-            _tx = _conn.BeginTransaction();
+            bool openedNow = _conn.State != System.Data.ConnectionState.Open;
+            if (openedNow) _conn.Open();
+            try
+            {
+                _tx = _conn.BeginTransaction();
+            }
+            catch
+            {
+                // A failed BeginTransaction must not leave a dangling "we opened
+                // it" claim behind: if we opened the connection for this attempt,
+                // close it again so a retry on this instance starts from a clean
+                // slate instead of silently losing track of who opened it.
+                if (openedNow) _conn.Close();
+                throw;
+            }
+            _txOpenedConnection = openedNow;
             return new Transaction(this, _tx);
         }
 
@@ -74,9 +87,18 @@ public static partial class CodeEmitter
         {
             if (_tx != null)
                 throw new System.InvalidOperationException("A JauntyDb transaction is already active.");
-            _txOpenedConnection = _conn.State != System.Data.ConnectionState.Open;
-            if (_txOpenedConnection) await _conn.OpenAsync(cancellationToken).ConfigureAwait(false);
-            _tx = await _conn.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            bool openedNow = _conn.State != System.Data.ConnectionState.Open;
+            if (openedNow) await _conn.OpenAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                _tx = await _conn.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                if (openedNow) _conn.Close();
+                throw;
+            }
+            _txOpenedConnection = openedNow;
             return new Transaction(this, _tx);
         }
 
