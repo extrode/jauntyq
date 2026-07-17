@@ -138,7 +138,14 @@ public static class DialectMapper
             "int" or "int4" or "integer" or "serial" or "mediumint" or "year" => isNullable ? "int?" : "int",
             "bigint" or "int8" or "bigserial" => isNullable ? "long?" : "long",
             "tinyint" when isSqlServer => isNullable ? "byte?" : "byte",
-            "smallint" or "int2" or "tinyint" => isNullable ? "short?" : "short",
+            // Round 19 (AUD-R19-01): "smallserial" is Postgres SERIAL's
+            // 16-bit sibling -- MigrationParser.ParseColumnDef already
+            // recognizes the literal spelling for IsIdentity detection
+            // (matching "serial"/"bigserial"), but this switch had no case
+            // for it until now, so it fell all the way through to the
+            // generic `object`/`object?` fallback below instead of joining
+            // its "smallint"/"int2" siblings.
+            "smallint" or "int2" or "tinyint" or "smallserial" => isNullable ? "short?" : "short",
             // "enum"/"set" (MySQL) materialize as System.String through
             // MySqlConnector (confirmed live) -- the member/value list itself
             // isn't captured by the schema extractor, so a C# enum can't be

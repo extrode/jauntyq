@@ -308,6 +308,12 @@ public class DialectMapperTests
     [InlineData("bigserial", false, "long")] [InlineData("bigserial", true, "long?")]
     [InlineData("smallint", false, "short")] [InlineData("smallint", true, "short?")]
     [InlineData("int2", false, "short")] [InlineData("int2", true, "short?")]
+    // Round 19 (AUD-R19-01): "smallserial" was the one serial-family alias
+    // missing from this exhaustive table -- "serial" and "bigserial" (both
+    // above) already had cases in MapDbTypeToCSharp's switch, but
+    // "smallserial" fell through to the "object"/"object?" fallback until
+    // this round's fix, so it belongs beside its "smallint"/"int2" siblings.
+    [InlineData("smallserial", false, "short")] [InlineData("smallserial", true, "short?")]
     // --- string family ---
     [InlineData("varchar", false, "string")] [InlineData("varchar", true, "string?")]
     [InlineData("text", false, "string")] [InlineData("text", true, "string?")]
