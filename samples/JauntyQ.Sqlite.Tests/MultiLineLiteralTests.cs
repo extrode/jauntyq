@@ -20,10 +20,11 @@ public class MultiLineLiteralTests : IClassFixture<SqliteFixture>
     {
         var row = _fx.Db.Categories.GetLabeledName(1);
         Assert.NotNull(row);
+        Assert.NotNull(row!.Labeled);
         // Normalize CRLF (in case the .sql file's line endings differ per
         // platform) but preserve everything else — the injected padding this
         // guards against is spaces, which normalization does not touch.
-        string labeled = row!.Labeled.Replace("\r\n", "\n");
+        string labeled = row.Labeled!.Replace("\r\n", "\n");
         Assert.Equal("Beverages[line1\nline2]", labeled);
     }
 }
