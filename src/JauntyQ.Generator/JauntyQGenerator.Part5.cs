@@ -100,57 +100,15 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// Files directly in the root SQL folder get entity name "Queries" (catch-all).
     /// Files in a subfolder get the subfolder name as entity name.
     ///
-    /// Structurally different from JauntyQ.Cli's own entity-name algorithm
-    /// (DeriveEntity, duplicated in ImpactCommand.cs and UsageManifestBuilder.cs:
-    /// bare immediate-parent-folder-name, vs. this method's common-prefix-relative
-    /// first-segment-after-skipping-tables/views) -- confirmed to coincide only
-    /// because every canonical sample's query corpus is exactly one folder deep.
-    /// If a query layout ever goes deeper than one folder, re-verify both
-    /// algorithms still agree before trusting either one's output against the
-    /// other's.
+    /// Thin forwarding wrapper (audit round 61) over the canonical algorithm in
+    /// <see cref="JauntyQ.Analysis.EntityNameResolver.ExtractEntityName"/>, which
+    /// JauntyQ.Cli's ImpactCommand/UsageManifestBuilder now call directly instead
+    /// of maintaining their own copy. Kept here, rather than deleted, so
+    /// InternalCachingTypeTests.cs's AUD-R31-01 regression test (which calls this
+    /// method by this exact name) stays unedited.
     /// </summary>
     internal static string ExtractEntityName(string filePath, string commonPrefix)
-    {
-        // Normalize separators
-        string normalized = filePath.Replace('\\', '/');
-        string normalizedPrefix = commonPrefix.Replace('\\', '/');
-
-        // Get the relative path after the common prefix
-        string relative;
-        if (normalized.StartsWith(normalizedPrefix, StringComparison.OrdinalIgnoreCase))
-        {
-            relative = normalized.Substring(normalizedPrefix.Length);
-        }
-        else
-        {
-            // Fallback: just use the filename
-            relative = System.IO.Path.GetFileName(filePath);
-        }
-
-        // Trim leading separators
-        relative = relative.TrimStart('/');
-
-        // Split into segments
-        var segments = relative.Split('/');
-
-        // Skip structural prefixes (tables/, views/)
-        int entityIndex = 0;
-        if (segments.Length >= 3 &&
-            (string.Equals(segments[0], "tables", StringComparison.OrdinalIgnoreCase) ||
-             string.Equals(segments[0], "views", StringComparison.OrdinalIgnoreCase)))
-        {
-            entityIndex = 1;
-        }
-
-        if (segments.Length >= entityIndex + 2)
-        {
-            // Has an entity subfolder
-            return segments[entityIndex];
-        }
-
-        // No subfolder — catch-all
-        return "Queries";
-    }
+        => JauntyQ.Analysis.EntityNameResolver.ExtractEntityName(filePath, commonPrefix);
 
     internal static string ComputeCommonDirectoryPrefix(ImmutableArray<AdditionalText> files)
     {

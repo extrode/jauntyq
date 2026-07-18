@@ -67,6 +67,8 @@ class JauntyQ.Analysis.Diff.TableDelta
     prop ModifiedColumns:IReadOnlyList<ColumnChange>
     prop RemovedColumns:IReadOnlyList<String>
     prop Table:String
+class JauntyQ.Analysis.EntityNameResolver
+    method ExtractEntityName(String,String):String
 enum JauntyQ.Analysis.Impact.Classification
     field Breaking:Classification
     field Risky:Classification
