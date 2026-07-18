@@ -4,10 +4,12 @@ namespace JauntyQ.Schema;
 
 /// <summary>
 /// A sequence object that lives in the database (SQL Server <c>sys.sequences</c>,
-/// PostgreSQL <c>information_schema.sequences</c>). Captured by 'jaunty schema
+/// PostgreSQL <c>information_schema.sequences</c>, MariaDB's own one-row-table
+/// <c>CREATE SEQUENCE</c> mechanism since 10.3). Captured by 'jaunty schema
 /// pull' so the generator can emit a typed <c>db.Sequences.Next{Name}()</c>
-/// accessor. Only SQL Server and PostgreSQL have a true sequence object; MySQL
-/// and SQLite have none, so this dictionary is empty for those dialects.
+/// accessor. Real/Oracle MySQL and SQLite have no true sequence object, so
+/// this dictionary is empty for those; MariaDB (mapped to the same "mysql"
+/// dialect string) does populate it.
 /// </summary>
 public class SequenceSchema
 {

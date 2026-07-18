@@ -42,6 +42,23 @@ public class SequenceGenerationTests
   }
 }";
 
+    private const string MySqlSequenceSchema = @"{
+  ""dialect"": ""mysql"",
+  ""tables"": {
+    ""products"": {
+      ""name"": ""products"",
+      ""columns"": {
+        ""product_id"": { ""name"": ""product_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""product_name"": { ""name"": ""product_name"", ""dbType"": ""varchar"", ""isNullable"": false }
+      }
+    }
+  },
+  ""foreignKeys"": [],
+  ""sequences"": {
+    ""order_number"": { ""name"": ""order_number"", ""startValue"": 100, ""increment"": 5 }
+  }
+}";
+
     private static (GeneratorDriverRunResult result, Compilation compilation) Run(string schemaJson)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText("");
@@ -116,6 +133,31 @@ public class SequenceGenerationTests
         Assert.NotNull(db);
         Assert.Contains("public long NextOrderNumber()", db);
         Assert.Contains(@"SELECT nextval('order_number')", db);
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    /// <summary>
+    /// Regression test for a silent-data-loss gap: MySqlExtractor populates
+    /// DatabaseSchema.Sequences for a MariaDB CREATE SEQUENCE object (the
+    /// "mysql" dialect string covers both real MySQL, which has none, and
+    /// MariaDB, which does), but EmitSequenceAccessor previously excluded
+    /// every dialect except sqlserver/postgres outright -- a MariaDB schema
+    /// with real sequences got them extracted into the snapshot and then
+    /// silently got no db.Sequences accessor generated at all, with no
+    /// diagnostic. NEXTVAL(name) verified live against mariadb:11.
+    /// </summary>
+    [Fact]
+    public void MySql_EmitsSequenceAccessor_WithNextvalFunctionSql()
+    {
+        var (result, compilation) = Run(MySqlSequenceSchema);
+
+        var db = TryGetSource(result, "JauntyDb.g.cs");
+        Assert.NotNull(db);
+        Assert.Contains("public SequenceAccessor Sequences =>", db);
+        Assert.Contains("public long NextOrderNumber()", db);
+        Assert.Contains("public System.Threading.Tasks.Task<long> NextOrderNumberAsync(", db);
+        Assert.Contains("SELECT NEXTVAL(order_number)", db);
 
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
