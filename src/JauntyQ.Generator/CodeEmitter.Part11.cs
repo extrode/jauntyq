@@ -53,7 +53,7 @@ public static partial class CodeEmitter
             {
                 string outCt = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
                 string outPname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
-                tupleParts.Add($"{outCt} {outPname}");
+                tupleParts.Add($"{ShortenValueTypeName(schema, outCt)} {outPname}");
             }
             declaredReturn = $"{taskType}<({string.Join(", ", tupleParts)})>";
         }
@@ -74,15 +74,16 @@ public static partial class CodeEmitter
                 continue;
             string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
             string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
+            string displayCt = ShortenValueTypeName(schema, ct);
             if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out)
             {
                 if (!isAsync)
-                    parts.Add($"out {ct} {pname}");
+                    parts.Add($"out {displayCt} {pname}");
             }
             else if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.InOut)
-                parts.Add(isAsync ? $"{ct} {pname}" : $"ref {ct} {pname}");
+                parts.Add(isAsync ? $"{displayCt} {pname}" : $"ref {displayCt} {pname}");
             else
-                parts.Add($"{ct} {pname}");
+                parts.Add($"{displayCt} {pname}");
         }
         // Static variants take an optional trailing DbTransaction (see
         // HasStaticTransactionParam); skipped if a proc parameter maps to the
@@ -202,12 +203,12 @@ public static partial class CodeEmitter
             sb.AppendLine("                }");
             if (asyncReturnsTuple)
             {
-                var localNames = EmitProcOutReadback(sb, outReadback, "                ", declareLocals: true);
+                var localNames = EmitProcOutReadback(sb, outReadback, "                ", declareLocals: true, schema);
                 sb.AppendLine($"                return (results, {string.Join(", ", localNames)});");
             }
             else
             {
-                EmitProcOutReadback(sb, outReadback, "                ", declareLocals: false);
+                EmitProcOutReadback(sb, outReadback, "                ", declareLocals: false, schema);
                 sb.AppendLine("                return results;");
             }
         }
@@ -218,12 +219,12 @@ public static partial class CodeEmitter
                 : "                int __affected = cmd.ExecuteNonQuery();");
             if (asyncReturnsTuple)
             {
-                var localNames = EmitProcOutReadback(sb, outReadback, "                ", declareLocals: true);
+                var localNames = EmitProcOutReadback(sb, outReadback, "                ", declareLocals: true, schema);
                 sb.AppendLine($"                return (__affected, {string.Join(", ", localNames)});");
             }
             else
             {
-                EmitProcOutReadback(sb, outReadback, "                ", declareLocals: false);
+                EmitProcOutReadback(sb, outReadback, "                ", declareLocals: false, schema);
                 sb.AppendLine("                return __affected;");
             }
         }
@@ -244,11 +245,13 @@ public static partial class CodeEmitter
         System.Text.StringBuilder sb,
         System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType, bool Nullable)> outParams,
         string indent,
-        bool declareLocals)
+        bool declareLocals,
+        DatabaseSchema? schema = null)
     {
         var targetNames = new System.Collections.Generic.List<string>();
-        foreach (var (paramVar, csName, csType, nullable) in outParams)
+        foreach (var (paramVar, csName, rawCsType, nullable) in outParams)
         {
+            string csType = ShortenValueTypeName(schema, rawCsType);
             string baseType = csType.EndsWith("?") ? csType.Substring(0, csType.Length - 1) : csType;
             string target = declareLocals ? $"{csName}Out" : csName;
             string declKeyword = declareLocals ? $"{csType} " : "";

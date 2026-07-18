@@ -85,14 +85,14 @@ public class GetReaderCallCompileTests
         // pre-existing "byte[]" case); the surrounding IsDBNull conditional
         // (emitted separately for nullable columns) carries the "?" instead.
         Assert.Contains("(System.Net.IPAddress)reader.GetValue(", querySource);
-        Assert.Contains("(System.TimeSpan)reader.GetValue(", querySource);
+        Assert.Contains("(TimeSpan)reader.GetValue(", querySource);
         Assert.Contains("(string[])reader.GetValue(", querySource);
         Assert.Contains("(int[])reader.GetValue(", querySource);
         // DialectMapper maps "time with time zone" (Postgres) and SQL Server's
         // "datetimeoffset" to System.DateTimeOffset (task #26), but GetReaderCall
         // had no case for it and fell through to the bare, untyped
         // reader.GetValue(ordinal) -- CS0266 assigning object to DateTimeOffset.
-        Assert.Contains("(System.DateTimeOffset)reader.GetValue(", querySource);
+        Assert.Contains("(DateTimeOffset)reader.GetValue(", querySource);
 
         var allTrees = result.Results[0].GeneratedSources
             .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))

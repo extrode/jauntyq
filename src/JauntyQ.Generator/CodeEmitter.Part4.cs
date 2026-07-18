@@ -125,7 +125,7 @@ public static partial class CodeEmitter
         return -1;
     }
 
-    private static string GetIdentityReaderCall(IdentityInfo identity)
+    private static string GetIdentityReaderCall(IdentityInfo identity, DatabaseSchema? schema = null)
     {
         // MySQL's LAST_INSERT_ID() is BIGINT UNSIGNED regardless of the key
         // type; read as long and narrow explicitly.
@@ -139,8 +139,8 @@ public static partial class CodeEmitter
         // dialect switches in this same file/fan-out (BuildIdentityInsertSql,
         // EmitUpsert in CodeEmitter.Part6.cs) already do.
         if (string.Equals(identity.Dialect, "mysql", StringComparison.OrdinalIgnoreCase) && identity.CSharpType != "long")
-            return $"checked(({identity.CSharpType})reader.GetInt64(0))";
-        return GetReaderCall(identity.CSharpType, 0);
+            return $"checked(({ShortenValueTypeName(schema, identity.CSharpType)})reader.GetInt64(0))";
+        return GetReaderCall(identity.CSharpType, 0, schema);
     }
 
     private static void EmitFinallyClose(System.Text.StringBuilder sb, string connVar, bool isAsync)

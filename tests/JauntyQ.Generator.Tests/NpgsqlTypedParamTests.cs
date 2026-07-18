@@ -175,9 +175,9 @@ public class NpgsqlTypedParamTests
             "db/Events/Insert.sql");
         string source = QuerySource(result, "Events.Insert.g.cs");
 
-        Assert.Contains("new NpgsqlParameter<System.DateTimeOffset> { ParameterName = \"@observed_at\", TypedValue = observed_at }", source);
+        Assert.Contains("new NpgsqlParameter<DateTimeOffset> { ParameterName = \"@observed_at\", TypedValue = observed_at }", source);
 
-        Assert.DoesNotContain("NpgsqlParameter<System.DateTimeOffset?>", source);
+        Assert.DoesNotContain("NpgsqlParameter<DateTimeOffset?>", source);
         Assert.Contains(".Value = (object?)resolved_at ?? DBNull.Value;", source);
         Assert.Contains(".DbType = DbType.DateTimeOffset;", source);
     }

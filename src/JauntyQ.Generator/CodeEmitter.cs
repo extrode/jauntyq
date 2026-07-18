@@ -84,6 +84,39 @@ public static partial class CodeEmitter
     }
 
     /// <summary>
+    /// Shortens the fixed set of fully-qualified value types
+    /// <see cref="DialectMapper.MapDbTypeToCSharp"/> emits (System.DateTime,
+    /// System.Guid, System.TimeSpan, System.DateTimeOffset -- all resolvable
+    /// via the <c>using System;</c> every per-file emission already adds) for
+    /// display in emitted source, routed through <see cref="TypeRef"/> for the
+    /// same collision guard as every other shortened type. Deliberately does
+    /// NOT touch <see cref="DialectMapper.MapDbTypeToCSharp"/>'s own return
+    /// value or <c>System.Net.IPAddress</c> (its "?"-stripped, fully-qualified
+    /// form is a comparison key at several coordination points -- GetReaderCall
+    /// in CodeEmitter.Part9.cs, IsNonNullableValueType/MapCSharpTypeToAdoDbType
+    /// in Part4.cs -- so only the display copy at the point of emission is
+    /// shortened, never the value flowing through inference/comparison logic).
+    /// </summary>
+    internal static string ShortenValueTypeName(DatabaseSchema? schema, string csharpType)
+    {
+        bool nullable = csharpType.EndsWith("?", StringComparison.Ordinal);
+        string baseType = nullable ? csharpType.Substring(0, csharpType.Length - 1) : csharpType;
+        string? simpleName = baseType switch
+        {
+            "System.DateTime" => "DateTime",
+            "System.DateTimeOffset" => "DateTimeOffset",
+            "System.TimeSpan" => "TimeSpan",
+            "System.Guid" => "Guid",
+            _ => null
+        };
+        if (simpleName == null)
+            return csharpType;
+
+        string shortened = TypeRef(schema, simpleName, "System");
+        return nullable ? shortened + "?" : shortened;
+    }
+
+    /// <summary>
     /// The base set of usings every per-file query/CRUD emission needs, plus
     /// the provider namespace for whichever dialect this schema targets (only
     /// the dialect actually in play emits code that needs it -- e.g. Npgsql
@@ -131,7 +164,7 @@ public static partial class CodeEmitter
         {
             sb.AppendLine("        public static partial class Result");
             sb.AppendLine("        {");
-            EmitDto(sb, projection);
+            EmitDto(sb, projection, schema);
             sb.AppendLine("        }");
             sb.AppendLine();
         }

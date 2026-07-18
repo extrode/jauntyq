@@ -18,10 +18,10 @@ public static partial class CodeEmitter
     {
         string modifier = isStatic ? "public static" : "public";
         string asyncModifier = isAsync ? " async" : "";
-        string syncReturn = identity != null ? identity.Value.CSharpType : "int";
+        string syncReturn = identity != null ? ShortenValueTypeName(schema, identity.Value.CSharpType) : "int";
         string returnType = isAsync ? $"{TypeRef(schema, "Task", "System.Threading.Tasks")}<{syncReturn}>" : syncReturn;
         string methodName = isAsync ? $"{query.Name}Async" : query.Name;
-        string paramList = BuildParamList(paramInfos, isStatic, isAsync, trailingNullableDefaults: true);
+        string paramList = BuildParamList(paramInfos, isStatic, isAsync, trailingNullableDefaults: true, schema: schema);
 
         sb.AppendLine($"        {modifier}{asyncModifier} {returnType} {methodName}({paramList})");
         sb.AppendLine("        {");
@@ -77,7 +77,7 @@ public static partial class CodeEmitter
                 : "reader.Read()";
             sb.AppendLine($"                if (!({readCall}))");
             sb.AppendLine("                    throw new InvalidOperationException(\"INSERT did not return an identity value.\");");
-            sb.AppendLine($"                return {GetIdentityReaderCall(identity.Value)};");
+            sb.AppendLine($"                return {GetIdentityReaderCall(identity.Value, schema)};");
         }
         else
         {
@@ -100,7 +100,7 @@ public static partial class CodeEmitter
     private static bool HasStaticTransactionParam(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic) =>
         isStatic && !paramInfos.Exists(p => string.Equals(p.Name, "transaction", StringComparison.OrdinalIgnoreCase));
 
-    private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync, bool trailingNullableDefaults = false, bool enumeratorCancellation = false)
+    private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync, bool trailingNullableDefaults = false, bool enumeratorCancellation = false, DatabaseSchema? schema = null)
     {
         // C# optional parameters must be trailing: give `= default` to the
         // longest suffix of nullable-column parameters so callers pass only
@@ -120,7 +120,7 @@ public static partial class CodeEmitter
         {
             var p = paramInfos[i];
             if (sb.Length > 0) sb.Append(", ");
-            sb.Append($"{p.CSharpType} {p.CSharpName}");
+            sb.Append($"{ShortenValueTypeName(schema, p.CSharpType)} {p.CSharpName}");
             if (i >= firstDefault) sb.Append(" = default");
         }
 
@@ -174,7 +174,7 @@ public static partial class CodeEmitter
                 string npgsqlParameterType = TypeRef(schema, "NpgsqlParameter", "Npgsql");
                 if (IsNonNullableValueType(param.CSharpType))
                 {
-                    sb.AppendLine($"                var {varName} = new {npgsqlParameterType}<{param.CSharpType}> {{ ParameterName = \"@{param.Name}\", TypedValue = {param.CSharpName} }};");
+                    sb.AppendLine($"                var {varName} = new {npgsqlParameterType}<{ShortenValueTypeName(schema, param.CSharpType)}> {{ ParameterName = \"@{param.Name}\", TypedValue = {param.CSharpName} }};");
                 }
                 else
                 {
@@ -233,7 +233,7 @@ public static partial class CodeEmitter
             sb.AppendLine("                {");
             if (IsNonNullableValueType(elementType))
             {
-                sb.AppendLine($"                    cmd.Parameters.Add(new {npgsqlParameterType}<{elementType}> {{ ParameterName = \"@{param.Name}\" + {loopVar}, TypedValue = {param.CSharpName}[{loopVar}] }});");
+                sb.AppendLine($"                    cmd.Parameters.Add(new {npgsqlParameterType}<{ShortenValueTypeName(schema, elementType)}> {{ ParameterName = \"@{param.Name}\" + {loopVar}, TypedValue = {param.CSharpName}[{loopVar}] }});");
             }
             else
             {

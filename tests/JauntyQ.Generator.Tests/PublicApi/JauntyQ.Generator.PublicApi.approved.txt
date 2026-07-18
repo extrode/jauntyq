@@ -151,7 +151,7 @@ class JauntyQ.Generator.CodeEmitter
     method EmitJauntyDb(IEnumerable<String>,DatabaseSchema):String
     method EmitPocoOverloads(String,String,TableSchema,String,Boolean,Boolean,Boolean,Boolean,DatabaseSchema):String
     method EmitProcCall(String,String,ProcedureSchema,String,DatabaseSchema):String
-    method EmitRowPoco(String,TableSchema,String):String
+    method EmitRowPoco(String,TableSchema,String,DatabaseSchema):String
     method EmitShapeGuardSource():String
     method EmitUpsert(String,TableSchema,String,DatabaseSchema):String
     method InferParameterType(String,QueryModel,ProjectionModel,DatabaseSchema,DirectiveModel):String

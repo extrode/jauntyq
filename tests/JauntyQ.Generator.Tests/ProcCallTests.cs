@@ -92,7 +92,7 @@ public class ProcCallTests
         Assert.Contains("cmd.CommandText = \"GetOrdersByCustomer\";", src);
         // Typed result DTO with PascalCase columns.
         Assert.Contains("public required int OrderId", src);
-        Assert.Contains("System.DateTime? OrderDate", src);
+        Assert.Contains("DateTime? OrderDate", src);
         // IN param typed and bound.
         Assert.Contains("string customerId", src);
         // Returns a List of the result type.

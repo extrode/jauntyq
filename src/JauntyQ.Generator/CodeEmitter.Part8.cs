@@ -47,7 +47,7 @@ public static partial class CodeEmitter
             mapperCall = $"__Map{query.Name}(reader)";
             sb.AppendLine($"        private static {returnType} __Map{query.Name}(DbDataReader reader) => new {returnType}");
             sb.AppendLine("        {");
-            EmitColumnAssignments(sb, projection, indent: "            ");
+            EmitColumnAssignments(sb, projection, indent: "            ", schema);
             sb.AppendLine("        };");
             sb.AppendLine();
         }
@@ -106,7 +106,7 @@ public static partial class CodeEmitter
         // Async streaming iterators need [EnumeratorCancellation] on the token so
         // `await foreach (... .WithCancellation(ct))` flows the token through.
         bool cancelAttr = isAsync && isStream;
-        string paramList = BuildParamList(paramInfos, isStatic, isAsync, enumeratorCancellation: cancelAttr);
+        string paramList = BuildParamList(paramInfos, isStatic, isAsync, enumeratorCancellation: cancelAttr, schema: schema);
 
         sb.AppendLine($"        {modifier}{asyncModifier} {declaredReturn} {methodName}({paramList})");
         sb.AppendLine("        {");

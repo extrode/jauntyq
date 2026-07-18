@@ -331,7 +331,7 @@ public static partial class CodeEmitter
         sb.AppendLine("                {");
         for (int i = 0; i < cols.Count; i++)
         {
-            string ct = DialectMapper.MapColumnToCSharp(cols[i], dialect);
+            string ct = ShortenValueTypeName(schema, DialectMapper.MapColumnToCSharp(cols[i], dialect));
             string baseType = ct.EndsWith("?") ? ct.Substring(0, ct.Length - 1) : ct;
             sb.AppendLine($"                    case {i}: return typeof({baseType});");
         }
