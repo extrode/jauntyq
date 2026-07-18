@@ -390,7 +390,22 @@ public static partial class CodeEmitter
             // schema-vs-JauntyQ-bookkeeping, same defect shape as
             // "__results"/"__cmd"/"__reader" above, not the schema-vs-schema
             // case that's out of scope for this round.
-            string target = declareLocals ? $"__{csName}Out" : csName;
+            //
+            // "bareCsName", stripping a leading '@', not "csName" directly --
+            // csName is already IdentifierGuard.Escape()-d (see the caller),
+            // so an OUT/INOUT param whose camelCased name is itself a C#
+            // keyword (e.g. "Ref" -> "ref" -> "@ref") arrives here as
+            // "@ref". "@" is only legal at position 0 of an identifier, so
+            // prefixing it as-is would emit "__@refOut", a syntax error
+            // (confirmed via a real Roslyn compile: CS1002/CS0841/CS0118/
+            // CS8185). This readback local is a pure-internal synthesized
+            // name, not the schema parameter itself, so it never needs the
+            // '@' escape in the first place -- stripping it here is safe and
+            // keeps the double-underscore collision-safety argument intact
+            // (the result still starts with "__", which no schema-derived
+            // name can ever produce).
+            string bareCsName = csName.Length > 0 && csName[0] == '@' ? csName.Substring(1) : csName;
+            string target = declareLocals ? $"__{bareCsName}Out" : csName;
             string declKeyword = declareLocals ? $"{csType} " : "";
             // DBNull -> default; otherwise unbox to the declared type.
             sb.AppendLine($"{indent}{declKeyword}{target} = {paramVar}.Value is null || {paramVar}.Value is DBNull ? default! : ({csType})({baseType}){paramVar}.Value;");

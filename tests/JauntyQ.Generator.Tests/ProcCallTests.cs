@@ -109,6 +109,14 @@ public class ProcCallTests
         { ""name"": ""TotalOut"", ""dbType"": ""int"", ""direction"": ""InOut"", ""isNullable"": false }
       ],
       ""results"": []
+    },
+    ""ArchiveWithKeywordNamedOutParam"": {
+      ""name"": ""ArchiveWithKeywordNamedOutParam"",
+      ""params"": [
+        { ""name"": ""CustomerId"", ""dbType"": ""nchar"", ""direction"": ""In"", ""isNullable"": false, ""maxLength"": 5 },
+        { ""name"": ""Ref"", ""dbType"": ""int"", ""direction"": ""Out"", ""isNullable"": false }
+      ],
+      ""results"": []
     }
   }
 }";
@@ -742,6 +750,43 @@ public class ProcCallTests
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         Assert.True(errors.Count == 0,
             "generated proc-call code for an OUT param named 'Total' alongside a sibling INOUT param named 'TotalOut' failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    /// <summary>
+    /// AUD-R68-01 (amendment, caught by independent post-fix review): the
+    /// async readback local's name is built from "csName", which is already
+    /// IdentifierGuard.Escape()-d -- so an OUT param whose camelCased name is
+    /// itself a C# keyword (e.g. "Ref" -&gt; "ref" -&gt; "@ref") arrives as
+    /// "@ref". "@" is only legal at position 0 of an identifier, so naively
+    /// prefixing it ("__" + "@ref" + "Out") emitted "__@refOut", a syntax
+    /// error -- confirmed live via a real Roslyn compile (CS1002, CS0841,
+    /// CS0118, CS8185) before this specific amendment. Fixed by stripping the
+    /// leading '@' before building the readback local's name; the sync
+    /// overload's direct out-param assignment (declareLocals: false, which
+    /// legitimately needs the '@' escape) is unaffected.
+    /// </summary>
+    [Fact]
+    public void Call_KeywordNamedOutParam_ReadbackLocalDoesNotEmitLeadingAtSign()
+    {
+        var result = Run("-- @call ArchiveWithKeywordNamedOutParam\n", "db/Customers/ArchiveWithKeywordNamedOutParam.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithKeywordNamedOutParam.g.cs").SourceText.ToString();
+
+        Assert.Contains("int __refOut = ", source);
+        Assert.DoesNotContain("__@refOut", source);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        var compilation = CSharpCompilation.Create("ProcCallKeywordOutParamReadbackEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated proc-call code for a keyword-named ('Ref') OUT param failed to compile:\n" +
             string.Join("\n", errors.Select(e => e.ToString())));
     }
 }
