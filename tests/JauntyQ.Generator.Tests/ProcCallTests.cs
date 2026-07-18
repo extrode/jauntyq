@@ -144,9 +144,14 @@ public class ProcCallTests
         // No result set -> returns int (affected rows).
         Assert.Contains("int ArchiveCustomer(", src);
         Assert.DoesNotContain("List<Result.ArchiveCustomer>", src);
-        // AUD-R66-01: sqlserver genuinely reports a real affected-row count
-        // for this call shape (confirmed live against SQL Server 2022), so
-        // the postgres-only "-1 always" caveat doc comment must NOT appear.
+        // AUD-R66-01: unlike postgres, sqlserver's affected-row count isn't
+        // unconditionally -1 (confirmed live against SQL Server 2022: a
+        // plain proc without SET NOCOUNT ON genuinely reports a real
+        // count -- though one using SET NOCOUNT ON, a common T-SQL
+        // pattern, reports -1 too, a pre-existing ADO.NET/T-SQL nuance
+        // outside this fix's scope), so the postgres-only "-1 always"
+        // caveat doc comment -- which only applies where the value is
+        // unconditionally meaningless -- must NOT appear here.
         Assert.DoesNotContain("PostgreSQL note: the returned row count is always", src);
     }
 
@@ -155,11 +160,13 @@ public class ProcCallTests
     /// cmd.ExecuteNonQuery() for a CommandType.StoredProcedure CALL always
     /// returns -1, even for a procedure that performs a genuine multi-row
     /// UPDATE -- Postgres's CALL protocol reports only a bare completion
-    /// tag, never an affected-row count, unlike SQL Server/MySQL (both
-    /// confirmed live to report a real count for the identical call shape).
-    /// Since this is a structural PostgreSQL/Npgsql limitation with no
-    /// ADO.NET-level fix, the caveat is surfaced as a doc comment on the
-    /// generated method itself, right at the call site.
+    /// tag, never an affected-row count, regardless of how the procedure
+    /// is authored. MySQL confirmed live to always report a real count for
+    /// the identical call shape; SQL Server confirmed live to usually do
+    /// so too, but not unconditionally (see the sibling test above). Since
+    /// Postgres's case is a structural PostgreSQL/Npgsql limitation with
+    /// no ADO.NET-level fix, the caveat is surfaced as a doc comment on
+    /// the generated method itself, right at the call site.
     /// </summary>
     [Fact]
     public void Call_Postgres_SideEffectProc_EmitsAlwaysNegativeOneCaveatDocComment()

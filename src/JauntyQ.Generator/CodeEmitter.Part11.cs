@@ -103,20 +103,28 @@ public static partial class CodeEmitter
         // count -- confirmed live: cmd.ExecuteNonQuery() (and
         // DbDataReader.RecordsAffected after an ExecuteReader-based CALL)
         // both unconditionally return -1 for a Postgres procedure, even one
-        // that performs a genuine multi-row UPDATE, unlike SQL Server/MySQL,
-        // which both report a real count for the identical call shape. This
-        // is a structural PostgreSQL/Npgsql limitation (no ADO.NET-level
-        // workaround exists), not fixable by changing how the call is
-        // emitted, so the caveat is surfaced at the call site instead.
+        // that performs a genuine multi-row UPDATE. This is a structural
+        // Postgres/Npgsql protocol limitation with no ADO.NET-level
+        // workaround. MySQL confirmed live to always report a real
+        // count for the identical call shape. SQL Server's own count is
+        // NOT an unconditional per-dialect guarantee the way Postgres's -1
+        // is -- confirmed live that a bound procedure using `SET NOCOUNT
+        // ON` (a common, idiomatic T-SQL pattern -- JauntyQ's own --
+        // @proc-emitted procedures use it) also reports -1 via
+        // ExecuteNonQuery, same as Postgres. That gap is pre-existing,
+        // general ADO.NET/T-SQL behavior unrelated to what changed here
+        // (JauntyQ never authors the bound procedure's body for --
+        // @call), so it isn't gated by this fix; only Postgres's
+        // unconditional, authoring-independent -1 gets a caveat here.
         if (!hasResults && string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
         {
             sb.AppendLine("        /// <summary>");
-            sb.AppendLine("        /// PostgreSQL note: the returned row count is always <c>-1</c>.");
-            sb.AppendLine("        /// Postgres's <c>CALL</c> protocol reports only a bare completion tag");
-            sb.AppendLine("        /// for a procedure invocation, never an affected-row count -- unlike");
-            sb.AppendLine("        /// SQL Server/MySQL, which both report a real count for the identical");
-            sb.AppendLine("        /// call shape. This is a structural PostgreSQL/Npgsql limitation, not");
-            sb.AppendLine("        /// a JauntyQ defect; do not rely on this value to detect whether the");
+            sb.AppendLine("        /// PostgreSQL note: the returned row count is always <c>-1</c>,");
+            sb.AppendLine("        /// unconditionally. Postgres's <c>CALL</c> protocol reports only a");
+            sb.AppendLine("        /// bare completion tag for a procedure invocation, never an");
+            sb.AppendLine("        /// affected-row count, regardless of how the procedure is authored.");
+            sb.AppendLine("        /// This is a structural PostgreSQL/Npgsql limitation, not a JauntyQ");
+            sb.AppendLine("        /// defect; do not rely on this value to detect whether the");
             sb.AppendLine("        /// procedure's side effects occurred.");
             sb.AppendLine("        /// </summary>");
         }
