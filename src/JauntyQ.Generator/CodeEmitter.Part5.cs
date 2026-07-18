@@ -171,9 +171,12 @@ public static partial class CodeEmitter
     /// <summary>
     /// Emits the lazily-constructed <c>db.Sequences</c> accessor plus its nested
     /// <c>SequenceAccessor</c> class, one <c>Next{Name}()</c>/<c>Next{Name}Async()</c>
-    /// method per database sequence. Only SQL Server and PostgreSQL populate
-    /// <see cref="DatabaseSchema.Sequences"/>, so this is a no-op for other
-    /// dialects (and when the snapshot has no sequences at all). Each sequence
+    /// method per database sequence. SQL Server, PostgreSQL, and MariaDB (under
+    /// the "mysql" dialect string; real/Oracle MySQL never populates
+    /// <see cref="DatabaseSchema.Sequences"/> at all, since it has no sequence
+    /// object for the extractor to find) populate
+    /// <see cref="DatabaseSchema.Sequences"/>; this is a no-op for any other
+    /// dialect (and when the snapshot has no sequences at all). Each sequence
     /// name flows into both a C# method name and an embedded SQL literal, so it
     /// crosses the same trust boundary as table/column names: invalid raw
     /// identifiers are skipped and the SQL side is emitted through
@@ -185,11 +188,14 @@ public static partial class CodeEmitter
             return;
 
         // "SELECT NEXT VALUE FOR {name}" (SQL Server) vs "SELECT nextval('{name}')"
-        // (PostgreSQL). Any other dialect never populates Sequences, but guard
-        // anyway so a mislabeled snapshot emits nothing rather than wrong SQL.
+        // (PostgreSQL) vs "SELECT NEXTVAL({name})" (MariaDB, verified live against
+        // mariadb:11 -- its NEXTVAL() takes a bare identifier, no quoting). Any
+        // other dialect never populates Sequences, but guard anyway so a
+        // mislabeled snapshot emits nothing rather than wrong SQL.
         bool isSqlServer = string.Equals(schema.Dialect, "sqlserver", System.StringComparison.OrdinalIgnoreCase);
         bool isPostgres = string.Equals(schema.Dialect, "postgres", System.StringComparison.OrdinalIgnoreCase);
-        if (!isSqlServer && !isPostgres)
+        bool isMySql = string.Equals(schema.Dialect, "mysql", System.StringComparison.OrdinalIgnoreCase);
+        if (!isSqlServer && !isPostgres && !isMySql)
             return;
 
         var emitted = new System.Collections.Generic.List<(string Method, string Sql)>();
@@ -201,7 +207,9 @@ public static partial class CodeEmitter
             string method = "Next" + DialectMapper.ToPascalCase(seq.Name);
             string literal = isSqlServer
                 ? "SELECT NEXT VALUE FOR " + seq.Name
-                : "SELECT nextval('" + seq.Name + "')";
+                : isPostgres
+                    ? "SELECT nextval('" + seq.Name + "')"
+                    : "SELECT NEXTVAL(" + seq.Name + ")";
             emitted.Add((method, IdentifierGuard.ToStringLiteral(literal)));
         }
 

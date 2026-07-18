@@ -29,8 +29,10 @@ public class DatabaseSchema
     /// <summary>
     /// Sequence objects that live in the database, keyed by name. Captured by
     /// 'jaunty schema pull' so the generator can emit a typed
-    /// <c>db.Sequences.Next{Name}()</c> accessor. Only SQL Server and
-    /// PostgreSQL have a true sequence object; empty for MySQL and SQLite.
+    /// <c>db.Sequences.Next{Name}()</c> accessor. SQL Server, PostgreSQL, and
+    /// MariaDB (mapped to the "mysql" dialect string, via its own
+    /// <c>CREATE SEQUENCE</c> since 10.3) populate this; empty for real/Oracle
+    /// MySQL and SQLite, which have no true sequence object.
     /// </summary>
     [JsonPropertyName("sequences")]
     public Dictionary<string, SequenceSchema> Sequences { get; set; } = new();
