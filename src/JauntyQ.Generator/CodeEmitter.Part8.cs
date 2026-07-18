@@ -56,14 +56,15 @@ public static partial class CodeEmitter
             sb.AppendLine();
         }
 
-        // Instance sync
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, isFirst, queryId, mapperCall, procName, schema, isStream);
+        // Instance sync. AUD-R70-01: "this._conn", not "_conn" -- see
+        // CodeEmitter.cs's identical fix comment.
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "this._conn", isStatic: false, isAsync: false, isFirst, queryId, mapperCall, procName, schema, isStream);
         sb.AppendLine();
         // Static sync
         EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, isFirst, queryId, mapperCall, procName, schema, isStream);
         sb.AppendLine();
         // Instance async
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, isFirst, queryId, mapperCall, procName, schema, isStream);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "this._conn", isStatic: false, isAsync: true, isFirst, queryId, mapperCall, procName, schema, isStream);
         sb.AppendLine();
         // Static async
         EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, isFirst, queryId, mapperCall, procName, schema, isStream);
@@ -145,7 +146,9 @@ public static partial class CodeEmitter
         sb.AppendLine($"                using DbCommand __cmd = {connVar}.CreateCommand();");
         if (!isStatic)
         {
-            sb.AppendLine("                if (_db?.CurrentTransaction != null) __cmd.Transaction = _db.CurrentTransaction;");
+            // AUD-R70-01: "this._db", not "_db" -- see EmitCrudMethodBody's
+            // identical fix comment (CodeEmitter.Part3.cs).
+            sb.AppendLine("                if (this._db?.CurrentTransaction != null) __cmd.Transaction = this._db.CurrentTransaction;");
         }
         else if (HasStaticTransactionParam(paramInfos, isStatic))
         {

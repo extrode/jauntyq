@@ -198,4 +198,47 @@ public class CrudBookkeepingNameCollisionTests
         Assert.Contains("return __reader.GetInt32(0)", source);
         AssertCompilesClean(compilation, "an -- @identity INSERT with a parameter literally named '@reader'");
     }
+
+    /// <summary>
+    /// AUD-R70-01: EmitEntityCore (CodeEmitter.Part5.cs) declares
+    /// "private readonly DbConnection _conn;"/"private readonly JauntyDb?
+    /// _db;" on every generated entity class; every instance-overload call
+    /// site of EmitCrudMethodBody/EmitMethodBody previously passed the bare
+    /// literal "_conn" as connVar and hardcoded a bare "_db?.
+    /// CurrentTransaction" reference -- neither ever checked against real
+    /// schema/query-derived parameter names. Unlike -- @call (structurally
+    /// immune: ProcedureParam naming folds through DialectMapper.
+    /// ToPascalCase, which never re-emits an underscore), EmittedParam.
+    /// CSharpName performs no casing fold at all, so a query parameter
+    /// literally named "@_conn" reached the DbConnection field's own simple
+    /// name directly, silently shadowing it instead of referencing the
+    /// field. Fixed by unconditionally qualifying both references with
+    /// "this." -- safe with zero behavior change on the non-colliding path,
+    /// since "this._conn"/"this._db" and "_conn"/"_db" are semantically
+    /// identical whenever no shadowing parameter exists, and neither name
+    /// ever appears in a public signature (so no "friendly name" is lost).
+    /// </summary>
+    [Fact]
+    public void Call_ParamNamedUnderscoreConn_DoesNotCollideWithInstanceConnectionField()
+    {
+        var (result, compilation) = RunGenerator(
+            "select product_id, product_name from products where product_id = @_conn\n",
+            "db/Products/GetByUnderscoreConn.sql");
+        string source = GetSource(result, "GetByUnderscoreConn");
+
+        Assert.Contains("using DbCommand __cmd = this._conn.CreateCommand();", source);
+        AssertCompilesClean(compilation, "a query parameter literally named '@_conn'");
+    }
+
+    [Fact]
+    public void Call_ParamNamedUnderscoreDb_DoesNotCollideWithInstanceDbField()
+    {
+        var (result, compilation) = RunGenerator(
+            "select product_id, product_name from products where product_id = @_db\n",
+            "db/Products/GetByUnderscoreDb.sql");
+        string source = GetSource(result, "GetByUnderscoreDb");
+
+        Assert.Contains("if (this._db?.CurrentTransaction != null) __cmd.Transaction = this._db.CurrentTransaction;", source);
+        AssertCompilesClean(compilation, "a query parameter literally named '@_db'");
+    }
 }
