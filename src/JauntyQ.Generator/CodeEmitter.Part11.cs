@@ -45,12 +45,30 @@ public static partial class CodeEmitter
         }
         bool asyncReturnsTuple = isAsync && outOrInOutParams.Count > 0;
 
+        // AUD-R67-01: the tuple's own first element name ("results"/
+        // "affected") is a JauntyQ-introduced bookkeeping name, not derived
+        // from the schema -- but it was never checked against the OTHER
+        // tuple elements, which ARE schema-derived (an OUT/INOUT param's own
+        // camelCased name). A procedure with an OUT param literally named
+        // "Affected" (non-row-returning) or "Results" (row-returning)
+        // produces a tuple type with two identically-named elements --
+        // confirmed via a real Roslyn compile: CS8127 "Tuple element names
+        // must be unique." Only escalate to a guaranteed-unique fallback
+        // name in the actual collision case, so the common (non-colliding)
+        // case keeps its friendly, human-readable tuple element name.
+        bool firstTupleElementCollides = outOrInOutParams.Exists(p =>
+            IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)))
+                == (hasResults ? "results" : "affected"));
+        string firstTupleElementName = hasResults
+            ? (firstTupleElementCollides ? "__results" : "results")
+            : (firstTupleElementCollides ? "__affected" : "affected");
+
         string declaredReturn;
         if (asyncReturnsTuple)
         {
             var tupleParts = new System.Collections.Generic.List<string>
             {
-                $"{syncReturn} {(hasResults ? "results" : "affected")}"
+                $"{syncReturn} {firstTupleElementName}"
             };
             foreach (var p in outOrInOutParams)
             {
@@ -225,24 +243,37 @@ public static partial class CodeEmitter
             // procedure's actual OUT value. The read/loop stays inside the
             // using block; readback and the return happen after it closes.
             string behavior = "CommandBehavior.SingleResult";
-            sb.AppendLine($"                var results = new {listType}<{resultType}>();");
+            // AUD-R67-01: named "__results", not "results" -- a schema
+            // param/column can never camelCase to a name containing an
+            // underscore (DialectMapper.ToPascalCase treats '_' as a pure
+            // word separator, never emitted), so this local can never
+            // collide with a real parameter's own name the way a bare
+            // "results" local could (confirmed via a real Roslyn compile:
+            // an IN, OUT, or INOUT param literally named "Results" produces
+            // a formal parameter also named "results", and the two
+            // definitions of the same name in the same scope are a
+            // CS0136/CS0029 compile failure). Purely an internal rename --
+            // the tuple TYPE's own declared element name (see
+            // firstTupleElementName above) is unaffected by this and keeps
+            // its friendly public-facing name.
+            sb.AppendLine($"                var __results = new {listType}<{resultType}>();");
             sb.AppendLine(isAsync
                 ? $"                using (DbDataReader reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false))"
                 : $"                using (DbDataReader reader = cmd.ExecuteReader({behavior}))");
             sb.AppendLine("                {");
             string readCall = isAsync ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)" : "reader.Read()";
             sb.AppendLine($"                    while ({readCall})");
-            sb.AppendLine($"                        results.Add(__Map{methodName}(reader));");
+            sb.AppendLine($"                        __results.Add(__Map{methodName}(reader));");
             sb.AppendLine("                }");
             if (asyncReturnsTuple)
             {
                 var localNames = EmitProcOutReadback(sb, outReadback, "                ", declareLocals: true, schema);
-                sb.AppendLine($"                return (results, {string.Join(", ", localNames)});");
+                sb.AppendLine($"                return (__results, {string.Join(", ", localNames)});");
             }
             else
             {
                 EmitProcOutReadback(sb, outReadback, "                ", declareLocals: false, schema);
-                sb.AppendLine("                return results;");
+                sb.AppendLine("                return __results;");
             }
         }
         else
