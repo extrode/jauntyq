@@ -258,7 +258,7 @@ public static partial class CodeEmitter
                 if (opened) _db.Connection.Open();
                 try
                 {
-                    using var cmd = _db.Connection.CreateCommand();
+                    using DbCommand cmd = _db.Connection.CreateCommand();
                     cmd.CommandText = sql;
                     cmd.Transaction = _db.CurrentTransaction;
                     return Convert.ToInt64(cmd.ExecuteScalar());
@@ -275,7 +275,7 @@ public static partial class CodeEmitter
                 if (opened) await _db.Connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 try
                 {
-                    using var cmd = _db.Connection.CreateCommand();
+                    using DbCommand cmd = _db.Connection.CreateCommand();
                     cmd.CommandText = sql;
                     cmd.Transaction = _db.CurrentTransaction;
                     return Convert.ToInt64(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false));

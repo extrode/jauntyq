@@ -37,7 +37,7 @@ public static partial class CodeEmitter
         sb.AppendLine("            {");
 
         // Create command
-        sb.AppendLine($"                using var cmd = {connVar}.CreateCommand();");
+        sb.AppendLine($"                using DbCommand cmd = {connVar}.CreateCommand();");
         if (!isStatic)
         {
             sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
@@ -70,8 +70,8 @@ public static partial class CodeEmitter
         {
             string behavior = "CommandBehavior.SingleRow | CommandBehavior.SingleResult";
             sb.AppendLine(isAsync
-                ? $"                using var reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
-                : $"                using var reader = cmd.ExecuteReader({behavior});");
+                ? $"                using DbDataReader reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
+                : $"                using DbDataReader reader = cmd.ExecuteReader({behavior});");
             string readCall = isAsync
                 ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)"
                 : "reader.Read()";
@@ -188,7 +188,7 @@ public static partial class CodeEmitter
                 continue;
             }
 
-            sb.AppendLine($"                var {varName} = cmd.CreateParameter();");
+            sb.AppendLine($"                DbParameter {varName} = cmd.CreateParameter();");
             sb.AppendLine($"                {varName}.ParameterName = \"@{param.Name}\";");
             string? adoDbType = MapCSharpTypeToAdoDbType(param.CSharpType);
             if (adoDbType != null)
@@ -249,7 +249,7 @@ public static partial class CodeEmitter
 
         sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.CSharpName}.Count; {loopVar}++)");
         sb.AppendLine("                {");
-        sb.AppendLine($"                    var {varName} = cmd.CreateParameter();");
+        sb.AppendLine($"                    DbParameter {varName} = cmd.CreateParameter();");
         sb.AppendLine($"                    {varName}.ParameterName = \"@{param.Name}\" + {loopVar};");
         if (adoDbType != null)
             sb.AppendLine($"                    {varName}.DbType = DbType.{adoDbType};");

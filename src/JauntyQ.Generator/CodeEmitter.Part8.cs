@@ -123,7 +123,7 @@ public static partial class CodeEmitter
         sb.AppendLine("            {");
 
         // Create command
-        sb.AppendLine($"                using var cmd = {connVar}.CreateCommand();");
+        sb.AppendLine($"                using DbCommand cmd = {connVar}.CreateCommand();");
         if (!isStatic)
         {
             sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
@@ -152,8 +152,8 @@ public static partial class CodeEmitter
             : "CommandBehavior.SingleResult";
         sb.AppendLine();
         sb.AppendLine(isAsync
-            ? $"                using var reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
-            : $"                using var reader = cmd.ExecuteReader({behavior});");
+            ? $"                using DbDataReader reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
+            : $"                using DbDataReader reader = cmd.ExecuteReader({behavior});");
         sb.AppendLine($"                if (Volatile.Read(ref __{query.Name}Validated) == 0)");
         sb.AppendLine("                {");
         sb.AppendLine($"                    JauntyQShapeGuard.Validate(reader, __{query.Name}Columns, \"{queryId}\");");

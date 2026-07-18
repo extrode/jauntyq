@@ -52,6 +52,7 @@ public static partial class CodeEmitter
     {
         var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync, schema);
         string npgsqlConnectionType = TypeRef(schema, "NpgsqlConnection", "Npgsql");
+        string npgsqlBinaryImporterType = TypeRef(schema, "NpgsqlBinaryImporter", "Npgsql");
         string colList = JoinColumns(cols, ", ", c => c.Name);
         string copySql = $"COPY {tableName} ({colList}) FROM STDIN (FORMAT BINARY)";
 
@@ -66,9 +67,9 @@ public static partial class CodeEmitter
         sb.AppendLine($"                var __npgsqlConn = ({npgsqlConnectionType}){connVar};");
         sb.AppendLine("                int __count = 0;");
         if (isAsync)
-            sb.AppendLine($"                await using (var __importer = await __npgsqlConn.BeginBinaryImportAsync(@\"{EscapeVerbatimString(copySql)}\", cancellationToken).ConfigureAwait(false))");
+            sb.AppendLine($"                await using ({npgsqlBinaryImporterType} __importer = await __npgsqlConn.BeginBinaryImportAsync(@\"{EscapeVerbatimString(copySql)}\", cancellationToken).ConfigureAwait(false))");
         else
-            sb.AppendLine($"                using (var __importer = __npgsqlConn.BeginBinaryImport(@\"{EscapeVerbatimString(copySql)}\"))");
+            sb.AppendLine($"                using ({npgsqlBinaryImporterType} __importer = __npgsqlConn.BeginBinaryImport(@\"{EscapeVerbatimString(copySql)}\"))");
         sb.AppendLine("                {");
         sb.AppendLine("                    foreach (var row in rows)");
         sb.AppendLine("                    {");
@@ -226,13 +227,13 @@ public static partial class CodeEmitter
         // session's own warning list immediately after the copy and throw if
         // it holds anything at Warning level, so a silently-altered load can't
         // masquerade as a clean one.
-        sb.AppendLine("                using (var __warnCmd = " + connVar + ".CreateCommand())");
+        sb.AppendLine("                using (DbCommand __warnCmd = " + connVar + ".CreateCommand())");
         sb.AppendLine("                {");
         sb.AppendLine("                    if (tx != null) __warnCmd.Transaction = tx;");
         sb.AppendLine("                    __warnCmd.CommandText = \"SHOW WARNINGS\";");
         sb.AppendLine(isAsync
-            ? "                    using var __warnRdr = await __warnCmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);"
-            : "                    using var __warnRdr = __warnCmd.ExecuteReader();");
+            ? "                    using DbDataReader __warnRdr = await __warnCmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);"
+            : "                    using DbDataReader __warnRdr = __warnCmd.ExecuteReader();");
         sb.AppendLine($"                    var __warnMsgs = new {listType}<string>();");
         sb.AppendLine(isAsync
             ? "                    while (await __warnRdr.ReadAsync(cancellationToken).ConfigureAwait(false))"
@@ -380,7 +381,7 @@ public static partial class CodeEmitter
         sb.AppendLine();
         sb.AppendLine("            public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)");
         sb.AppendLine("            {");
-        sb.AppendLine("                var data = GetString(ordinal);");
+        sb.AppendLine("                string data = GetString(ordinal);");
         sb.AppendLine("                if (buffer == null) return data.Length;");
         sb.AppendLine("                long available = data.Length - dataOffset;");
         sb.AppendLine("                if (available <= 0) return 0;");

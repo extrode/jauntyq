@@ -119,7 +119,7 @@ public static partial class CodeEmitter
             : $"            if (weOpened) {connVar}.Open();");
         sb.AppendLine("            try");
         sb.AppendLine("            {");
-        sb.AppendLine($"                using var cmd = {connVar}.CreateCommand();");
+        sb.AppendLine($"                using DbCommand cmd = {connVar}.CreateCommand();");
         if (!isStatic)
             sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
         else if (hasTransactionParam)
@@ -137,7 +137,7 @@ public static partial class CodeEmitter
             string varName = $"p{idx++}";
             string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
             string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
-            sb.AppendLine($"                var {varName} = cmd.CreateParameter();");
+            sb.AppendLine($"                DbParameter {varName} = cmd.CreateParameter();");
             sb.AppendLine($"                {varName}.ParameterName = \"@{IdentifierGuard.ToStringLiteral(p.Name)}\";");
             string? adoDbType = MapCSharpTypeToAdoDbType(ct);
             if (adoDbType != null)
@@ -194,8 +194,8 @@ public static partial class CodeEmitter
             string behavior = "CommandBehavior.SingleResult";
             sb.AppendLine($"                var results = new {listType}<{resultType}>();");
             sb.AppendLine(isAsync
-                ? $"                using (var reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false))"
-                : $"                using (var reader = cmd.ExecuteReader({behavior}))");
+                ? $"                using (DbDataReader reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false))"
+                : $"                using (DbDataReader reader = cmd.ExecuteReader({behavior}))");
             sb.AppendLine("                {");
             string readCall = isAsync ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)" : "reader.Read()";
             sb.AppendLine($"                    while ({readCall})");

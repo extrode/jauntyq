@@ -57,14 +57,14 @@ public static partial class CodeEmitter
         sb.AppendLine("                int __count = 0;");
         sb.AppendLine("                try");
         sb.AppendLine("                {");
-        sb.AppendLine($"                    using var cmd = {connVar}.CreateCommand();");
+        sb.AppendLine($"                    using DbCommand cmd = {connVar}.CreateCommand();");
         sb.AppendLine("                    cmd.Transaction = tx;");
         sb.AppendLine($"                    cmd.CommandText = @\"{IndentSqlContinuationLines(EscapeVerbatimString(insertSql), 40)}\";");
         for (int i = 0; i < cols.Count; i++)
         {
             var c = cols[i];
             string ct = DialectMapper.MapColumnToCSharp(c, dialect);
-            sb.AppendLine($"                    var p{i} = cmd.CreateParameter();");
+            sb.AppendLine($"                    DbParameter p{i} = cmd.CreateParameter();");
             sb.AppendLine($"                    p{i}.ParameterName = \"@{c.Name}\";");
             string? ado = MapCSharpTypeToAdoDbType(ct);
             if (ado != null)
