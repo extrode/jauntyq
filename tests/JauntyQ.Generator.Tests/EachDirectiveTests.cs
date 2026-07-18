@@ -87,7 +87,7 @@ public class EachDirectiveTests
         // The query selects every schema column of products, so it resolves to
         // the canonical full-row POCO (Product) instead of a query-specific
         // Result type.
-        Assert.Contains("return new System.Collections.Generic.List<Product>();", src);
+        Assert.Contains("return new List<Product>();", src);
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class EachDirectiveTests
         var result = Run(EachSql);
         string src = QuerySource(result);
 
-        Assert.Contains("var __each_Ids = new System.Text.StringBuilder();", src);
+        Assert.Contains("var __each_Ids = new StringBuilder();", src);
         Assert.Contains("for (int __i_Ids = 0; __i_Ids < Ids.Count; __i_Ids++)", src);
         Assert.Contains("__each_Ids.Append(\"@Ids\").Append(__i_Ids);", src);
         Assert.Contains("cmd.CommandText = ", src);
@@ -153,7 +153,7 @@ public class EachDirectiveTests
         Assert.Equal(8, occurrences);
         // only one expansion StringBuilder/loop should be built per method body
         // even though the token appears twice in the SQL text
-        Assert.Equal(4, src.Split("var __each_Ids = new System.Text.StringBuilder();").Length - 1);
+        Assert.Equal(4, src.Split("var __each_Ids = new StringBuilder();").Length - 1);
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public class EachDirectiveTests
         string src = QuerySource(result);
 
         Assert.Contains("for (int __ib_Ids = 0; __ib_Ids < Ids.Count; __ib_Ids++)", src);
-        Assert.Contains("new global::Npgsql.NpgsqlParameter<int> { ParameterName = \"@Ids\" + __ib_Ids, TypedValue = Ids[__ib_Ids] }", src);
+        Assert.Contains("new NpgsqlParameter<int> { ParameterName = \"@Ids\" + __ib_Ids, TypedValue = Ids[__ib_Ids] }", src);
     }
 
     [Fact]
@@ -317,7 +317,7 @@ public class EachDirectiveTests
         string src = QuerySource(result);
 
         Assert.Contains("if (Ids.Count > 32000)", src);
-        Assert.Contains("throw new System.ArgumentException(", src);
+        Assert.Contains("throw new ArgumentException(", src);
     }
 
     [Fact]

@@ -83,7 +83,7 @@ public static partial class CodeEmitter
             if (!param.IsEach && param.CSharpType is not ("string" or "byte[]"))
                 continue;
             sb.AppendLine($"            if ({param.CSharpName} is null)");
-            sb.AppendLine($"                throw new System.ArgumentNullException(nameof({param.CSharpName}));");
+            sb.AppendLine($"                throw new ArgumentNullException(nameof({param.CSharpName}));");
             any = true;
         }
         foreach (var param in paramInfos)
@@ -99,7 +99,7 @@ public static partial class CodeEmitter
                 ? $"{param.CSharpName}.Length > {max}"
                 : $"{param.CSharpName} != null && {param.CSharpName}.Length > {max}";
             sb.AppendLine($"            if ({condition})");
-            sb.AppendLine($"                throw new System.ArgumentException($\"Value ({{{param.CSharpName}.Length}} {unit}) exceeds {param.ColumnDisplay} max length ({max}).\", nameof({param.CSharpName}));");
+            sb.AppendLine($"                throw new ArgumentException($\"Value ({{{param.CSharpName}.Length}} {unit}) exceeds {param.ColumnDisplay} max length ({max}).\", nameof({param.CSharpName}));");
             any = true;
         }
         if (any)

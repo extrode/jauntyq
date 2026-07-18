@@ -171,7 +171,7 @@ public class GeneratorIntegrationTests
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("public System.Collections.Generic.List<Result.GetProducts> GetProducts()", source);
+        Assert.Contains("public List<Result.GetProducts> GetProducts()", source);
     }
 
     // ── Static method (with conn param) ────────────────────
@@ -183,7 +183,7 @@ public class GeneratorIntegrationTests
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("public static System.Collections.Generic.List<Result.GetProducts> GetProducts(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction? transaction = null)", source);
+        Assert.Contains("public static List<Result.GetProducts> GetProducts(DbConnection conn, DbTransaction? transaction = null)", source);
     }
 
     [Fact]
@@ -209,7 +209,7 @@ public class GeneratorIntegrationTests
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         Assert.Contains(
-            "GetProductsAsync(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction? transaction = null, System.Threading.CancellationToken cancellationToken = default)",
+            "GetProductsAsync(DbConnection conn, DbTransaction? transaction = null, CancellationToken cancellationToken = default)",
             source);
     }
 
@@ -268,7 +268,7 @@ where p.category_id = @categoryId";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         // Instance method: no conn, just the query parameter
-        Assert.Contains("public System.Collections.Generic.List<Result.GetProducts> GetProducts(int? categoryId)", source);
+        Assert.Contains("public List<Result.GetProducts> GetProducts(int? categoryId)", source);
     }
 
     [Fact]
@@ -282,7 +282,7 @@ where p.category_id = @categoryId";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         // Static method: conn + query parameter
-        Assert.Contains("public static System.Collections.Generic.List<Result.GetProducts> GetProducts(System.Data.Common.DbConnection conn, int? categoryId, System.Data.Common.DbTransaction? transaction = null)", source);
+        Assert.Contains("public static List<Result.GetProducts> GetProducts(DbConnection conn, int? categoryId, DbTransaction? transaction = null)", source);
     }
 
     // ── Nullable columns ───────────────────────────────────
@@ -714,7 +714,7 @@ where p.category_id = c.category_id and c.category_name = @categoryName";
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("cmd.CommandType = System.Data.CommandType.StoredProcedure", source);
+        Assert.Contains("cmd.CommandType = CommandType.StoredProcedure", source);
     }
 
     [Fact]
@@ -769,7 +769,7 @@ where p.category_id = c.category_id and c.category_name = @categoryName";
         var (result, _) = RunGenerator(sql, "db/Products/Insert.sql");
 
         var source = GetSource(result, "Products.Insert.g.cs");
-        Assert.Contains("cmd.CommandType = System.Data.CommandType.StoredProcedure", source);
+        Assert.Contains("cmd.CommandType = CommandType.StoredProcedure", source);
         Assert.Contains("cmd.CommandText = \"Products_Insert\"", source);
         Assert.Contains("public static partial class Proc", source);
         Assert.Contains("CREATE OR ALTER PROCEDURE [Products_Insert]", source);
@@ -830,8 +830,8 @@ where p.category_id = c.category_id and c.category_name = @categoryName";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         Assert.Contains("GetProductsAsync(", source);
-        Assert.Contains("System.Threading.CancellationToken cancellationToken = default", source);
-        Assert.Contains("ExecuteReaderAsync(System.Data.CommandBehavior.SingleResult, cancellationToken).ConfigureAwait(false)", source);
+        Assert.Contains("CancellationToken cancellationToken = default", source);
+        Assert.Contains("ExecuteReaderAsync(CommandBehavior.SingleResult, cancellationToken).ConfigureAwait(false)", source);
         Assert.Contains("OpenAsync(cancellationToken).ConfigureAwait(false)", source);
         Assert.Contains("CloseAsync().ConfigureAwait(false)", source);
     }
@@ -870,7 +870,7 @@ where p.category_id = c.category_id and c.category_name = @categoryName";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         Assert.Contains("public Result.GetProducts? GetProducts(", source);
-        Assert.Contains("System.Threading.Tasks.Task<Result.GetProducts?> GetProductsAsync(", source);
+        Assert.Contains("Task<Result.GetProducts?> GetProductsAsync(", source);
         Assert.Contains("return null;", source);
         Assert.DoesNotContain("List<Result.GetProducts>", source);
     }
@@ -884,7 +884,7 @@ where p.category_id = c.category_id and c.category_name = @categoryName";
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("p0.DbType = System.Data.DbType.Int32;", source);
+        Assert.Contains("p0.DbType = DbType.Int32;", source);
     }
 
     // ── GW-2: leading comment stripping ────────────────────
@@ -951,7 +951,7 @@ where p.product_id = @product_id";
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Equal(1, CountOccurrences(source, "__MapGetProducts(System.Data.Common.DbDataReader reader)"));
+        Assert.Equal(1, CountOccurrences(source, "__MapGetProducts(DbDataReader reader)"));
         Assert.Equal(4, CountOccurrences(source, "__MapGetProducts(reader)"));
     }
 
@@ -962,7 +962,7 @@ where p.product_id = @product_id";
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("cmd.ExecuteReader(System.Data.CommandBehavior.SingleResult)", source);
+        Assert.Contains("cmd.ExecuteReader(CommandBehavior.SingleResult)", source);
         Assert.DoesNotContain("SingleRow", source);
     }
 
@@ -973,7 +973,7 @@ where p.product_id = @product_id";
         var (result, _) = RunGenerator(sql);
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
-        Assert.Contains("System.Data.CommandBehavior.SingleRow | System.Data.CommandBehavior.SingleResult", source);
+        Assert.Contains("CommandBehavior.SingleRow | CommandBehavior.SingleResult", source);
     }
 
     private static int CountOccurrences(string haystack, string needle)

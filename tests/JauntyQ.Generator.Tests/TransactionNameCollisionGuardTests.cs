@@ -137,7 +137,7 @@ public class TransactionNameCollisionGuardTests
             "db/Products/Update.sql", ProductsSchema);
 
         string src = AllSources(result);
-        Assert.Contains("System.Data.Common.DbTransaction? transaction = null", src);
+        Assert.Contains("DbTransaction? transaction = null", src);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 

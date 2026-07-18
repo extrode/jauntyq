@@ -151,8 +151,8 @@ public class AutoCrudTests
         var source = TryGetSource(result, "Products.GetById.auto.g.cs");
         Assert.NotNull(source);
         Assert.Contains("public Product? GetById(int product_id)", source);
-        Assert.Contains("System.Threading.Tasks.Task<Product?> GetByIdAsync(", source);
-        Assert.Contains("p0.DbType = System.Data.DbType.Int32;", source);
+        Assert.Contains("Task<Product?> GetByIdAsync(", source);
+        Assert.Contains("p0.DbType = DbType.Int32;", source);
         Assert.Contains("Product.Read(reader)", source);
         Assert.DoesNotContain("Result.GetById", source);
     }
@@ -177,7 +177,7 @@ public class AutoCrudTests
 
         var getAll = TryGetSource(result, "Products.GetAll.auto.g.cs");
         Assert.NotNull(getAll);
-        Assert.Contains("System.Collections.Generic.List<Product> GetAll(", getAll);
+        Assert.Contains("List<Product> GetAll(", getAll);
     }
 
     [Fact]

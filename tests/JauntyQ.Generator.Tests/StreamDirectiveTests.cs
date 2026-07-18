@@ -54,12 +54,12 @@ public class StreamDirectiveTests
         var result = Run(sql);
         string src = AllSources(result);
 
-        Assert.Contains("System.Collections.Generic.IEnumerable<", src);
-        Assert.Contains("System.Collections.Generic.IAsyncEnumerable<", src);
+        Assert.Contains("IEnumerable<", src);
+        Assert.Contains("IAsyncEnumerable<", src);
         Assert.Contains("yield return", src);
-        Assert.Contains("[System.Runtime.CompilerServices.EnumeratorCancellation]", src);
+        Assert.Contains("[EnumeratorCancellation]", src);
         // The streamed query method must not buffer into a List.
-        Assert.DoesNotContain("var results = new System.Collections.Generic.List<", src);
+        Assert.DoesNotContain("var results = new List<", src);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public class StreamDirectiveTests
         string sql = "select product_id, product_name from products";
         var result = Run(sql, "db/Products/PlainQuery.sql");
         string src = AllSources(result);
-        Assert.Contains("var results = new System.Collections.Generic.List<", src);
+        Assert.Contains("var results = new List<", src);
         Assert.DoesNotContain("yield return", src);
     }
 
