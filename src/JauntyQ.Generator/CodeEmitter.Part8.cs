@@ -40,11 +40,15 @@ public static partial class CodeEmitter
         string mapperCall;
         if (canonicalRowType != null)
         {
-            mapperCall = $"{canonicalRowType}.Read(reader)";
+            // AUD-R69-01: passes "__reader" (EmitMethodBody's own renamed
+            // local), not "reader" -- the callee's OWN "reader" parameter
+            // (declared right below / on the row type itself) is a separate,
+            // immune scope and is intentionally left unrenamed.
+            mapperCall = $"{canonicalRowType}.Read(__reader)";
         }
         else
         {
-            mapperCall = $"__Map{query.Name}(reader)";
+            mapperCall = $"__Map{query.Name}(__reader)";
             sb.AppendLine($"        private static {returnType} __Map{query.Name}(DbDataReader reader) => new {returnType}");
             sb.AppendLine("        {");
             EmitColumnAssignments(sb, projection, indent: "            ", schema);
@@ -106,7 +110,20 @@ public static partial class CodeEmitter
         // Async streaming iterators need [EnumeratorCancellation] on the token so
         // `await foreach (... .WithCancellation(ct))` flows the token through.
         bool cancelAttr = isAsync && isStream;
-        string paramList = BuildParamList(paramInfos, isStatic, isAsync, enumeratorCancellation: cancelAttr, schema: schema);
+
+        // AUD-R69-01: same defect family as AUD-R67-01/AUD-R68-01 (which only
+        // covered -- @call's EmitProcCallBody), applied here to the ordinary
+        // hand-written .sql query path -- see EmitCrudMethodBody's identical
+        // comment (CodeEmitter.Part3.cs) for full detail. "conn"/
+        // "cancellationToken" DO appear in the public signature, so only
+        // escalate to a guaranteed-unique fallback in the actual collision case.
+        bool connNameCollides = isStatic && AnyParamNameCollidesWith(paramInfos, "conn");
+        if (connNameCollides)
+            connVar = "__conn";
+        bool cancellationTokenNameCollides = isAsync && AnyParamNameCollidesWith(paramInfos, "cancellationToken");
+        string tokenParamName = cancellationTokenNameCollides ? "__cancellationToken" : "cancellationToken";
+
+        string paramList = BuildParamList(paramInfos, isStatic, isAsync, connVarName: connVar, tokenParamName: tokenParamName, enumeratorCancellation: cancelAttr, schema: schema);
 
         sb.AppendLine($"        {modifier}{asyncModifier} {declaredReturn} {methodName}({paramList})");
         sb.AppendLine("        {");
@@ -114,28 +131,30 @@ public static partial class CodeEmitter
         EmitValueGuards(sb, paramInfos, schema);
         EmitEachListGuards(sb, paramInfos, returnType, isFirst, isStream, schema);
 
-        // Connection lifecycle
-        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
+        // Connection lifecycle. AUD-R69-01: "__weOpened", "__cmd" -- pure
+        // internal locals, unconditionally renamed (see EmitCrudMethodBody's
+        // identical comment).
+        sb.AppendLine($"            bool __weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
-            ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
-            : $"            if (weOpened) {connVar}.Open();");
+            ? $"            if (__weOpened) await {connVar}.OpenAsync({tokenParamName}).ConfigureAwait(false);"
+            : $"            if (__weOpened) {connVar}.Open();");
         sb.AppendLine("            try");
         sb.AppendLine("            {");
 
         // Create command
-        sb.AppendLine($"                using DbCommand cmd = {connVar}.CreateCommand();");
+        sb.AppendLine($"                using DbCommand __cmd = {connVar}.CreateCommand();");
         if (!isStatic)
         {
-            sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
+            sb.AppendLine("                if (_db?.CurrentTransaction != null) __cmd.Transaction = _db.CurrentTransaction;");
         }
         else if (HasStaticTransactionParam(paramInfos, isStatic))
         {
-            sb.AppendLine("                if (transaction != null) cmd.Transaction = transaction;");
+            sb.AppendLine("                if (transaction != null) __cmd.Transaction = transaction;");
         }
         if (procName != null)
         {
-            sb.AppendLine($"                cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procName)}\";");
-            sb.AppendLine("                cmd.CommandType = CommandType.StoredProcedure;");
+            sb.AppendLine($"                __cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procName)}\";");
+            sb.AppendLine("                __cmd.CommandType = CommandType.StoredProcedure;");
         }
         else
         {
@@ -151,22 +170,25 @@ public static partial class CodeEmitter
             ? "CommandBehavior.SingleRow | CommandBehavior.SingleResult"
             : "CommandBehavior.SingleResult";
         sb.AppendLine();
+        // AUD-R69-01: "__reader", not "reader" -- confirmed live that a query
+        // parameter literally named "@reader" collides (CS0136) with the
+        // bare "reader" local.
         sb.AppendLine(isAsync
-            ? $"                using DbDataReader reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
-            : $"                using DbDataReader reader = cmd.ExecuteReader({behavior});");
+            ? $"                using DbDataReader __reader = await __cmd.ExecuteReaderAsync({behavior}, {tokenParamName}).ConfigureAwait(false);"
+            : $"                using DbDataReader __reader = __cmd.ExecuteReader({behavior});");
         // AUD-R50-03 (residual): Volatile was emitted bare — a table named
         // "volatiles" (row POCO "Volatile") shadowed System.Threading.Volatile
         // namespace-wide, breaking Volatile.Read/Write with CS1615/CS0117.
         string volatileType = TypeRef(schema, "Volatile", "System.Threading");
         sb.AppendLine($"                if ({volatileType}.Read(ref __{query.Name}Validated) == 0)");
         sb.AppendLine("                {");
-        sb.AppendLine($"                    JauntyQShapeGuard.Validate(reader, __{query.Name}Columns, \"{queryId}\");");
+        sb.AppendLine($"                    JauntyQShapeGuard.Validate(__reader, __{query.Name}Columns, \"{queryId}\");");
         sb.AppendLine($"                    {volatileType}.Write(ref __{query.Name}Validated, 1);");
         sb.AppendLine("                }");
 
         string readCall = isAsync
-            ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)"
-            : "reader.Read()";
+            ? $"await __reader.ReadAsync({tokenParamName}).ConfigureAwait(false)"
+            : "__reader.Read()";
 
         if (isStream)
         {
@@ -187,12 +209,16 @@ public static partial class CodeEmitter
         }
         else
         {
-            sb.AppendLine($"                var results = new {TypeRef(schema, "List", "System.Collections.Generic")}<{returnType}>();");
+            // AUD-R69-01: "__results", not "results" -- confirmed live that a
+            // query parameter literally named "@results" collides (CS0136)
+            // with the bare "results" local, same defect AUD-R67-01 fixed for
+            // -- @call's identical row-list-local convention.
+            sb.AppendLine($"                var __results = new {TypeRef(schema, "List", "System.Collections.Generic")}<{returnType}>();");
             sb.AppendLine($"                while ({readCall})");
             sb.AppendLine("                {");
-            sb.AppendLine($"                    results.Add({mapperCall});");
+            sb.AppendLine($"                    __results.Add({mapperCall});");
             sb.AppendLine("                }");
-            sb.AppendLine("                return results;");
+            sb.AppendLine("                return __results;");
         }
 
         EmitFinallyClose(sb, connVar, isAsync);
@@ -261,7 +287,7 @@ public static partial class CodeEmitter
         var eachParams = paramInfos.FindAll(p => p.IsEach);
         if (eachParams.Count == 0)
         {
-            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(IndentSqlContinuationLines(sql, 36))}\";");
+            sb.AppendLine($"                __cmd.CommandText = @\"{EscapeVerbatimString(IndentSqlContinuationLines(sql, 36))}\";");
             return;
         }
 
@@ -277,7 +303,7 @@ public static partial class CodeEmitter
         }
 
         var segments = SplitSqlForEach(sql, eachParams);
-        sb.Append("                cmd.CommandText = ");
+        sb.Append("                __cmd.CommandText = ");
         for (int i = 0; i < segments.Count; i++)
         {
             if (i > 0) sb.Append(" + ");

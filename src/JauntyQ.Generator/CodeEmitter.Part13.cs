@@ -7,7 +7,7 @@ public static partial class CodeEmitter
     // Provider-native bulk-insert fast paths. Each mirrors the portable
     // EmitBulkInsertBody (CodeEmitter.Part12.cs) method shape/signature exactly
     // — same name (BulkInsert / BulkInsertAsync), same instance/static overloads,
-    // same weOpened connection lifecycle and _db?.CurrentTransaction reuse — but
+    // same __weOpened connection lifecycle and _db?.CurrentTransaction reuse — but
     // swaps the per-row ExecuteNonQuery loop for the provider's set-based copy
     // API. The generator never references Npgsql / Microsoft.Data.SqlClient /
     // MySqlConnector itself (it is netstandard2.0); it emits (collision-guarded,
@@ -58,10 +58,15 @@ public static partial class CodeEmitter
 
         sb.AppendLine($"        {modifier}{asyncModifier} {ret} {name}({paramList})");
         sb.AppendLine("        {");
-        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
+        // AUD-R69-01: "__weOpened", matching EmitFinallyClose's now-shared
+        // literal across all 7 call sites (see CodeEmitter.Part4.cs). Same
+        // structural-immunity note as CodeEmitter.Part12.cs's sibling: bulk
+        // insert exposes no per-column formal parameters, so this rename is
+        // purely for consistency with the shared helper.
+        sb.AppendLine($"            bool __weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
-            ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
-            : $"            if (weOpened) {connVar}.Open();");
+            ? $"            if (__weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
+            : $"            if (__weOpened) {connVar}.Open();");
         sb.AppendLine("            try");
         sb.AppendLine("            {");
         sb.AppendLine($"                var __npgsqlConn = ({npgsqlConnectionType}){connVar};");
@@ -136,10 +141,15 @@ public static partial class CodeEmitter
 
         sb.AppendLine($"        {modifier}{asyncModifier} {ret} {name}({paramList})");
         sb.AppendLine("        {");
-        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
+        // AUD-R69-01: "__weOpened", matching EmitFinallyClose's now-shared
+        // literal across all 7 call sites (see CodeEmitter.Part4.cs). Same
+        // structural-immunity note as CodeEmitter.Part12.cs's sibling: bulk
+        // insert exposes no per-column formal parameters, so this rename is
+        // purely for consistency with the shared helper.
+        sb.AppendLine($"            bool __weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
-            ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
-            : $"            if (weOpened) {connVar}.Open();");
+            ? $"            if (__weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
+            : $"            if (__weOpened) {connVar}.Open();");
         sb.AppendLine("            try");
         sb.AppendLine("            {");
         // Reuse an ambient JauntyDb transaction if one is active so the copy
@@ -199,10 +209,15 @@ public static partial class CodeEmitter
         sb.AppendLine("        /// </summary>");
         sb.AppendLine($"        {modifier}{asyncModifier} {ret} {name}({paramList})");
         sb.AppendLine("        {");
-        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
+        // AUD-R69-01: "__weOpened", matching EmitFinallyClose's now-shared
+        // literal across all 7 call sites (see CodeEmitter.Part4.cs). Same
+        // structural-immunity note as CodeEmitter.Part12.cs's sibling: bulk
+        // insert exposes no per-column formal parameters, so this rename is
+        // purely for consistency with the shared helper.
+        sb.AppendLine($"            bool __weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
-            ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
-            : $"            if (weOpened) {connVar}.Open();");
+            ? $"            if (__weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
+            : $"            if (__weOpened) {connVar}.Open();");
         sb.AppendLine("            try");
         sb.AppendLine("            {");
         if (!isStatic)

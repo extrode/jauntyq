@@ -15,7 +15,20 @@ public static partial class CodeEmitter
         }
     }
 
-    private static string GetReaderCall(string csharpType, int ordinal, DatabaseSchema? schema = null)
+    // AUD-R69-01: "readerVar", default "reader" -- every existing caller of
+    // this method (EmitColumnAssignments, and the canonical-row-type /
+    // proc-call-result mapper methods in Part5.cs/Part10.cs) is itself a
+    // standalone `__Map...(DbDataReader reader)`-style method whose OWN sole
+    // parameter is named "reader" and which takes no other parameters a
+    // schema/query name could collide with -- structurally immune, so the
+    // default is left as the friendly "reader" name for all of those. The one
+    // caller that is NOT immune is CodeEmitter.Part3.cs's identity-insert
+    // path, which declares its own `DbDataReader` LOCAL (renamed to
+    // "__reader" as part of this round's fix, since a query parameter
+    // literally named "@reader" collides with it, confirmed live) and reads
+    // the identity value back via GetIdentityReaderCall -&gt; GetReaderCall;
+    // that one call site passes readerVar: "__reader" explicitly.
+    private static string GetReaderCall(string csharpType, int ordinal, DatabaseSchema? schema = null, string readerVar = "reader")
     {
         // Handle nullable types
         bool isNullable = csharpType.EndsWith("?");
@@ -23,17 +36,17 @@ public static partial class CodeEmitter
 
         string getMethod = baseType switch
         {
-            "int" => $"reader.GetInt32({ordinal})",
-            "long" => $"reader.GetInt64({ordinal})",
-            "short" => $"reader.GetInt16({ordinal})",
-            "byte" => $"reader.GetByte({ordinal})",
-            "bool" => $"reader.GetBoolean({ordinal})",
-            "decimal" => $"reader.GetDecimal({ordinal})",
-            "double" => $"reader.GetDouble({ordinal})",
-            "float" => $"reader.GetFloat({ordinal})",
-            "string" => $"reader.GetString({ordinal})",
-            "System.DateTime" => $"reader.GetDateTime({ordinal})",
-            "System.Guid" => $"reader.GetGuid({ordinal})",
+            "int" => $"{readerVar}.GetInt32({ordinal})",
+            "long" => $"{readerVar}.GetInt64({ordinal})",
+            "short" => $"{readerVar}.GetInt16({ordinal})",
+            "byte" => $"{readerVar}.GetByte({ordinal})",
+            "bool" => $"{readerVar}.GetBoolean({ordinal})",
+            "decimal" => $"{readerVar}.GetDecimal({ordinal})",
+            "double" => $"{readerVar}.GetDouble({ordinal})",
+            "float" => $"{readerVar}.GetFloat({ordinal})",
+            "string" => $"{readerVar}.GetString({ordinal})",
+            "System.DateTime" => $"{readerVar}.GetDateTime({ordinal})",
+            "System.Guid" => $"{readerVar}.GetGuid({ordinal})",
             // TimeSpan (Postgres "time"), IPAddress ("inet"/"cidr"), and every
             // array type (Postgres "int[]", "text[]", "uuid[]", ...) fell
             // through to the bare reader.GetValue(ordinal) below, which is
@@ -43,19 +56,19 @@ public static partial class CodeEmitter
             // every case (System.Net.IPAddress, System.TimeSpan, int[],
             // string[], Guid[]), so an explicit cast (matching the existing
             // "byte[]" case just below) is all that's missing.
-            "System.TimeSpan" => $"({ShortenValueTypeName(schema, "System.TimeSpan")})reader.GetValue({ordinal})",
+            "System.TimeSpan" => $"({ShortenValueTypeName(schema, "System.TimeSpan")}){readerVar}.GetValue({ordinal})",
             // IPAddress is the one DialectMapper value type that stays fully
             // qualified even at the point of emission: unlike DateTime/Guid/
             // TimeSpan/DateTimeOffset (all resolvable via the `using System;`
             // every per-file emission already adds), a bare "IPAddress" needs
             // its own `using System.Net;`, which is not worth adding solely
             // for this rare (Postgres inet/cidr) case.
-            "System.Net.IPAddress" => $"(System.Net.IPAddress)reader.GetValue({ordinal})",
+            "System.Net.IPAddress" => $"(System.Net.IPAddress){readerVar}.GetValue({ordinal})",
             // DialectMapper maps SQL Server "datetimeoffset" and Postgres "time
             // with time zone" to System.DateTimeOffset (task #26), which has no
             // dedicated IDataReader.Get* method either -- same CS0266 hazard as
             // TimeSpan/IPAddress above if left as bare GetValue.
-            "System.DateTimeOffset" => $"({ShortenValueTypeName(schema, "System.DateTimeOffset")})reader.GetValue({ordinal})",
+            "System.DateTimeOffset" => $"({ShortenValueTypeName(schema, "System.DateTimeOffset")}){readerVar}.GetValue({ordinal})",
             // DialectMapper maps MySQL's UNSIGNED int/bigint/smallint to
             // uint/ulong/ushort (their signed CLR counterparts can't hold the
             // full unsigned range) -- MySqlConnector's GetValue returns
@@ -63,12 +76,12 @@ public static partial class CodeEmitter
             // the same explicit-cast pattern as TimeSpan/IPAddress above
             // applies; none of these three have a dedicated IDataReader.Get*
             // method either.
-            "uint" => $"(uint)reader.GetValue({ordinal})",
-            "ulong" => $"(ulong)reader.GetValue({ordinal})",
-            "ushort" => $"(ushort)reader.GetValue({ordinal})",
-            "byte[]" => $"(byte[])reader.GetValue({ordinal})",
-            _ when baseType.EndsWith("[]") => $"({baseType})reader.GetValue({ordinal})",
-            _ => $"reader.GetValue({ordinal})"
+            "uint" => $"(uint){readerVar}.GetValue({ordinal})",
+            "ulong" => $"(ulong){readerVar}.GetValue({ordinal})",
+            "ushort" => $"(ushort){readerVar}.GetValue({ordinal})",
+            "byte[]" => $"(byte[]){readerVar}.GetValue({ordinal})",
+            _ when baseType.EndsWith("[]") => $"({baseType}){readerVar}.GetValue({ordinal})",
+            _ => $"{readerVar}.GetValue({ordinal})"
         };
 
         if (isNullable)
@@ -76,13 +89,13 @@ public static partial class CodeEmitter
             // Bare `default` here infers the conditional's natural type from the getMethod arm
             // (a non-nullable value type), yielding e.g. DateTime.MinValue instead of null for
             // NULL columns. Carry the full nullable type explicitly so the null arm is truly null.
-            return $"reader.IsDBNull({ordinal}) ? default({csharpType}) : {getMethod}";
+            return $"{readerVar}.IsDBNull({ordinal}) ? default({csharpType}) : {getMethod}";
         }
 
         // String is a reference type — always needs null check
         if (csharpType == "string")
         {
-            return $"reader.IsDBNull({ordinal}) ? null! : {getMethod}";
+            return $"{readerVar}.IsDBNull({ordinal}) ? null! : {getMethod}";
         }
 
         return getMethod;
