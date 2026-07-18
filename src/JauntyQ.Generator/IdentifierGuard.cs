@@ -83,6 +83,16 @@ public static class IdentifierGuard
     /// Encodes an arbitrary string as the body of a regular C# "..." literal
     /// (not verbatim). Escapes backslash, quote, and control characters so the
     /// value cannot break out of the literal.
+    ///
+    /// AUD-R62-01: the C# lexical grammar's <c>New_Line_Character</c> set is
+    /// five code points -- U+000D, U+000A, U+0085 (NEL), U+2028 (LINE
+    /// SEPARATOR), and U+2029 (PARAGRAPH SEPARATOR) -- every one of which is
+    /// illegal unescaped inside a regular string literal. The first two are
+    /// below 0x20 and were already covered by the control-character fallback
+    /// below, but the latter three are ordinary printable code points (>=
+    /// 0x20) that used to fall through unescaped, letting a bracket-quoted
+    /// SQL alias containing one of them break the emitted `__...Columns`
+    /// literal at build time with a raw, unattributed CS1010/CS1002 cascade.
     /// </summary>
     public static string ToStringLiteral(string? value)
     {
@@ -101,7 +111,7 @@ public static class IdentifierGuard
                 case '\t': sb.Append("\\t"); break;
                 case '\0': sb.Append("\\0"); break;
                 default:
-                    if (c < 0x20)
+                    if (c < 0x20 || c == '\u0085' || c == '\u2028' || c == '\u2029')
                         sb.Append("\\u").Append(((int)c).ToString("x4"));
                     else
                         sb.Append(c);
