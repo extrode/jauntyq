@@ -103,8 +103,8 @@ public class ComputedColumnTests
         // WidgetId (identity) and FullName (computed) are both database-
         // assigned: only Name is a caller-supplied argument.
         Assert.Contains("public int Insert(string Name)", source);
-        Assert.Contains("insert into Widgets (Name)", source);
-        Assert.DoesNotContain("insert into Widgets (Name, FullName", source);
+        Assert.Contains("INSERT INTO Widgets (Name)", source);
+        Assert.DoesNotContain("INSERT INTO Widgets (Name, FullName", source);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public class ComputedColumnTests
         var result = Run(IdentityKeySchema);
         string source = Source(result, "Widgets.Update.auto.g.cs");
 
-        Assert.Contains("set Name = @Name", source);
+        Assert.Contains("SET Name = @Name", source);
         Assert.DoesNotContain("FullName = @FullName", source);
     }
 
@@ -135,8 +135,8 @@ public class ComputedColumnTests
         var result = Run(IdentityKeySchema);
         var src = AllSources(result);
 
-        Assert.Contains("insert into Widgets (Name)", src);
-        Assert.DoesNotContain("insert into Widgets (Name, FullName", src);
+        Assert.Contains("INSERT INTO Widgets (Name)", src);
+        Assert.DoesNotContain("INSERT INTO Widgets (Name, FullName", src);
     }
 
     [Fact]
@@ -145,8 +145,8 @@ public class ComputedColumnTests
         var result = Run(NaturalKeySchema);
         string source = Source(result, "Widgets.Upsert.auto.g.cs");
 
-        Assert.Contains("when not matched then insert (Code, Name) values (src.Code, src.Name)", source);
-        Assert.Contains("when matched then update set Name = src.Name", source);
+        Assert.Contains("WHEN NOT MATCHED THEN INSERT (Code, Name) VALUES (src.Code, src.Name)", source);
+        Assert.Contains("WHEN MATCHED THEN UPDATE SET Name = src.Name", source);
         Assert.DoesNotContain("FullName", source);
     }
 

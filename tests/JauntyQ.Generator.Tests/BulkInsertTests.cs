@@ -72,8 +72,8 @@ public class BulkInsertTests
         Assert.Contains("Task<int> BulkInsertAsync(", src);
         Assert.Contains("BeginTransaction", src);
         // Identity WidgetId is excluded from the insert column list.
-        Assert.Contains("insert into Widgets (Name)", src);
-        Assert.DoesNotContain("insert into Widgets (WidgetId", src);
+        Assert.Contains("INSERT INTO Widgets (Name)", src);
+        Assert.DoesNotContain("INSERT INTO Widgets (WidgetId", src);
     }
 
     [Fact]
@@ -259,7 +259,7 @@ public class BulkInsertTests
         var src = AllSources(Run(SchemaFor("sqlite")));
         // sqlite is unchanged: portable prepared-command loop in a transaction.
         Assert.Contains("BeginTransaction", src);
-        Assert.Contains("insert into Widgets (Name, Note)", src);
+        Assert.Contains("INSERT INTO Widgets (Name, Note)", src);
         Assert.DoesNotContain("SqlBulkCopy", src);
         Assert.DoesNotContain("BeginBinaryImport", src);
         Assert.DoesNotContain("MySqlBulkCopy", src);

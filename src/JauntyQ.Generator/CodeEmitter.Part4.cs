@@ -64,13 +64,13 @@ public static partial class CodeEmitter
                 int idx = FindValuesKeyword(trimmed);
                 if (idx < 0)
                     return trimmed; // generator validated the shape; defensive only
-                return trimmed.Substring(0, idx) + $"output inserted.{identityColumn}\n" + trimmed.Substring(idx);
+                return trimmed.Substring(0, idx) + $"OUTPUT INSERTED.{identityColumn}\n" + trimmed.Substring(idx);
             }
             case "postgres":
             case "sqlite":
-                return trimmed + $"\nreturning {identityColumn}";
+                return trimmed + $"\nRETURNING {identityColumn}";
             case "mysql":
-                return trimmed + ";\nselect last_insert_id()";
+                return trimmed + ";\nSELECT last_insert_id()";
             default:
                 // JNT7003 rejects an unrecognized schema.Dialect before emission
                 // ever reaches here; defensive only.

@@ -51,7 +51,7 @@ public class DialectCaseSensitivityTests
     {
         string sql = "insert into products (name) values (@name)";
         string result = CodeEmitter.BuildIdentityInsertSql(sql, dialect, "product_id");
-        Assert.Equal("insert into products (name) output inserted.product_id\nvalues (@name)", result);
+        Assert.Equal("insert into products (name) OUTPUT INSERTED.product_id\nvalues (@name)", result);
     }
 
     [Theory]
@@ -63,7 +63,7 @@ public class DialectCaseSensitivityTests
     {
         string sql = "insert into products (name) values (@name)";
         string result = CodeEmitter.BuildIdentityInsertSql(sql, dialect, "product_id");
-        Assert.Equal(sql + "\nreturning product_id", result);
+        Assert.Equal(sql + "\nRETURNING product_id", result);
     }
 
     [Theory]
@@ -73,7 +73,7 @@ public class DialectCaseSensitivityTests
     {
         string sql = "insert into products (name) values (@name)";
         string result = CodeEmitter.BuildIdentityInsertSql(sql, dialect, "product_id");
-        Assert.Equal(sql + ";\nselect last_insert_id()", result);
+        Assert.Equal(sql + ";\nSELECT last_insert_id()", result);
     }
 
     private static TableSchema BuildCustomersTable() => new TableSchema
@@ -93,8 +93,8 @@ public class DialectCaseSensitivityTests
     };
 
     [Theory]
-    [InlineData("SqlServer", "merge into customers with (holdlock) as target")]
-    [InlineData("SQLSERVER", "merge into customers with (holdlock) as target")]
+    [InlineData("SqlServer", "MERGE INTO customers WITH (HOLDLOCK) AS target")]
+    [InlineData("SQLSERVER", "MERGE INTO customers WITH (HOLDLOCK) AS target")]
     public void EmitUpsert_SqlServer_AnyCasing_DoesNotThrow_EmitsMergeSql(string dialect, string expectedFragment)
     {
         string sql = CodeEmitter.EmitUpsert("Customer", BuildCustomersTable(), dialect);
@@ -109,7 +109,7 @@ public class DialectCaseSensitivityTests
     public void EmitUpsert_PostgresOrSqlite_AnyCasing_DoesNotThrow_EmitsOnConflictSql(string dialect)
     {
         string sql = CodeEmitter.EmitUpsert("Customer", BuildCustomersTable(), dialect);
-        Assert.Contains("on conflict (customer_id) do update set", sql);
+        Assert.Contains("ON CONFLICT (customer_id) DO UPDATE SET", sql);
     }
 
     [Theory]
@@ -118,6 +118,6 @@ public class DialectCaseSensitivityTests
     public void EmitUpsert_MySql_AnyCasing_DoesNotThrow_EmitsOnDuplicateKeySql(string dialect)
     {
         string sql = CodeEmitter.EmitUpsert("Customer", BuildCustomersTable(), dialect);
-        Assert.Contains("on duplicate key update", sql);
+        Assert.Contains("ON DUPLICATE KEY UPDATE", sql);
     }
 }

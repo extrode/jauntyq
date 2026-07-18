@@ -85,24 +85,24 @@ public static partial class CodeEmitter
         {
             case "sqlserver":
             {
-                string srcSelect = JoinColumns(columns, ", ", c => $"@{c.Name} as {c.Name}");
-                string onClause = JoinColumns(keyCols, " and ", c => $"target.{c.Name} = src.{c.Name}");
+                string srcSelect = JoinColumns(columns, ", ", c => $"@{c.Name} AS {c.Name}");
+                string onClause = JoinColumns(keyCols, " AND ", c => $"target.{c.Name} = src.{c.Name}");
                 string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = src.{c.Name}");
                 string insertVals = JoinColumns(columns, ", ", c => $"src.{c.Name}");
-                sql = $"merge into {tableSchema.Name} with (holdlock) as target\n" +
-                      $"using (select {srcSelect}) as src\n" +
-                      $"on {onClause}\n" +
-                      $"when matched then update set {updateSet}\n" +
-                      $"when not matched then insert ({colList}) values ({insertVals});";
+                sql = $"MERGE INTO {tableSchema.Name} WITH (HOLDLOCK) AS target\n" +
+                      $"USING (SELECT {srcSelect}) AS src\n" +
+                      $"ON {onClause}\n" +
+                      $"WHEN MATCHED THEN UPDATE SET {updateSet}\n" +
+                      $"WHEN NOT MATCHED THEN INSERT ({colList}) VALUES ({insertVals});";
                 break;
             }
             case "postgres":
             case "sqlite":
             {
                 string conflictCols = JoinColumns(keyCols, ", ", c => c.Name);
-                string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = excluded.{c.Name}");
-                sql = $"insert into {tableSchema.Name} ({colList})\nvalues ({paramList})\n" +
-                      $"on conflict ({conflictCols}) do update set {updateSet}";
+                string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = EXCLUDED.{c.Name}");
+                sql = $"INSERT INTO {tableSchema.Name} ({colList})\nVALUES ({paramList})\n" +
+                      $"ON CONFLICT ({conflictCols}) DO UPDATE SET {updateSet}";
                 break;
             }
             case "mysql":
@@ -111,9 +111,9 @@ public static partial class CodeEmitter
                 // alias form is not MariaDB-compatible). ON DUPLICATE KEY
                 // does not name the conflicting key: MySQL/MariaDB detect it
                 // from whichever UNIQUE constraint the insert violates.
-                string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = values({c.Name})");
-                sql = $"insert into {tableSchema.Name} ({colList})\nvalues ({paramList})\n" +
-                      $"on duplicate key update {updateSet}";
+                string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = VALUES({c.Name})");
+                sql = $"INSERT INTO {tableSchema.Name} ({colList})\nVALUES ({paramList})\n" +
+                      $"ON DUPLICATE KEY UPDATE {updateSet}";
                 break;
             }
             default:

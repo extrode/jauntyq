@@ -74,7 +74,7 @@ create table gadgets (
         Assert.True(HasSource(result, "Gadgets.GetAll.auto.g.cs"));
         Assert.True(HasSource(result, "Gadgets.GetById.auto.g.cs"));
         Assert.Contains("public int Insert(string name)", Source(result, "Gadgets.Insert.auto.g.cs"));
-        Assert.Contains("and row_version = @row_version", Source(result, "Gadgets.Update.auto.g.cs"));
+        Assert.Contains("AND row_version = @row_version", Source(result, "Gadgets.Update.auto.g.cs"));
         Assert.Contains("public byte[]? RowVersion { get; set; }", Source(result, "Gadgets.Row.g.cs"));
 
         // value safety came along for free: name is nvarchar(20)

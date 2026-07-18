@@ -18,7 +18,7 @@ public class CodeEmitterIdentityInsertTests
 
         string result = CodeEmitter.BuildIdentityInsertSql(sql, "sqlserver", "product_id");
 
-        Assert.Equal("insert into products (name) output inserted.product_id\nvalues (@name)", result);
+        Assert.Equal("insert into products (name) OUTPUT INSERTED.product_id\nvalues (@name)", result);
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class CodeEmitterIdentityInsertTests
         string result = CodeEmitter.BuildIdentityInsertSql(sql, "sqlserver", "product_id");
 
         Assert.Equal(
-            "insert into products (name) -- restore old values here\noutput inserted.product_id\nvalues (@name)",
+            "insert into products (name) -- restore old values here\nOUTPUT INSERTED.product_id\nvalues (@name)",
             result);
     }
 
@@ -45,7 +45,7 @@ public class CodeEmitterIdentityInsertTests
         string result = CodeEmitter.BuildIdentityInsertSql(sql, "sqlserver", "product_id");
 
         Assert.Equal(
-            "insert into products (name) /* seed values below */ output inserted.product_id\nvalues (@name)",
+            "insert into products (name) /* seed values below */ OUTPUT INSERTED.product_id\nvalues (@name)",
             result);
     }
 
@@ -56,6 +56,6 @@ public class CodeEmitterIdentityInsertTests
 
         string result = CodeEmitter.BuildIdentityInsertSql(sql, "sqlserver", "product_id");
 
-        Assert.Equal("insert into products ([values]) output inserted.product_id\nvalues (@name)", result);
+        Assert.Equal("insert into products ([values]) OUTPUT INSERTED.product_id\nvalues (@name)", result);
     }
 }

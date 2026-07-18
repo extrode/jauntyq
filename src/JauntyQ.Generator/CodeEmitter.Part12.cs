@@ -27,7 +27,7 @@ public static partial class CodeEmitter
 
         string colList = JoinColumns(cols, ", ", c => c.Name);
         string valueList = JoinColumns(cols, ", ", c => $"@{c.Name}");
-        string insertSql = $"insert into {tableName} ({colList}) values ({valueList})";
+        string insertSql = $"INSERT INTO {tableName} ({colList}) VALUES ({valueList})";
 
         sb.AppendLine($"        {modifier}{asyncModifier} {ret} {name}({paramList})");
         sb.AppendLine("        {");
