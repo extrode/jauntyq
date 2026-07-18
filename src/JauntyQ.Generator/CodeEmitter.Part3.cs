@@ -55,11 +55,11 @@ public static partial class CodeEmitter
         {
             string identitySql = BuildIdentityInsertSql(
                 StripLeadingSqlComments(originalSql), identity.Value.Dialect, identity.Value.ColumnName);
-            sb.AppendLine($"                cmd.CommandText = @\"{IndentSqlContinuationLines(EscapeVerbatimString(identitySql), 36)}\";");
+            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(IndentSqlContinuationLines(identitySql, 36))}\";");
         }
         else
         {
-            sb.AppendLine($"                cmd.CommandText = @\"{IndentSqlContinuationLines(EscapeVerbatimString(StripLeadingSqlComments(originalSql)), 36)}\";");
+            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(IndentSqlContinuationLines(StripLeadingSqlComments(originalSql), 36))}\";");
         }
 
         EmitParameterBinding(sb, paramInfos, schema);
