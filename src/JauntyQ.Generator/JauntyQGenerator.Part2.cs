@@ -176,9 +176,10 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             return FileResult.WithDiagnostics(entityName, methodName, tooDeepDiag.ToImmutable());
         }
 
-        // JNT1002: an unterminated block comment or bracket-quoted identifier
-        // ran to end-of-input. Bail before parsing rather than let the parser
-        // work off a truncated/corrupted token stream.
+        // JNT1002: an unterminated block comment, quoted identifier
+        // ([Name/"Name/`Name), or string literal ran to end-of-input. Bail
+        // before parsing rather than let the parser work off a
+        // truncated/corrupted token stream.
         int unterminatedIndex = tokens.FindIndex(t => t.Type == JauntyQ.SqlParser.Tokens.TokenType.Unterminated);
         if (unterminatedIndex >= 0)
         {
