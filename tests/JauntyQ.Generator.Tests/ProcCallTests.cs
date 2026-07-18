@@ -58,6 +58,14 @@ public class ProcCallTests
         { ""name"": ""Total"", ""dbType"": ""decimal"", ""direction"": ""Out"", ""isNullable"": false, ""precision"": 12, ""scale"": 4 }
       ],
       ""results"": []
+    },
+    ""GetOrderSummary"": {
+      ""name"": ""GetOrderSummary"",
+      ""params"": [ { ""name"": ""OrderId"", ""dbType"": ""int"", ""direction"": ""In"", ""isNullable"": false } ],
+      ""results"": [
+        { ""name"": ""order_number"", ""dbType"": ""int"", ""isNullable"": false },
+        { ""name"": ""OrderNumber"", ""dbType"": ""int"", ""isNullable"": false }
+      ]
     }
   }
 }";
@@ -351,5 +359,28 @@ public class ProcCallTests
         Assert.True(errors.Count == 0,
             "generated row-returning proc-call code with an OUT param failed to compile:\n" +
             string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    /// <summary>
+    /// AUD-R64-01 (fix 2): two distinct, individually-legal result columns
+    /// ("order_number"/"OrderNumber") that fold to the same PascalCased
+    /// property name previously made EmitProcCall's Result DTO
+    /// (CodeEmitter.Part10.cs) emit a duplicate member -- the exact sibling
+    /// of the canonical row-POCO collision this same round's fix guards for
+    /// tables (JauntyQGenerator.Part4.cs), here for a stored procedure's own
+    /// result-set columns instead. Now reports JNT2011 and the file emits no
+    /// source at all (mirroring JNT3009's per-query "skip this one file"
+    /// policy, since -- @call is a per-file directive with its own
+    /// independent Result DTO, unlike the table-level row POCO).
+    /// </summary>
+    [Fact]
+    public void Call_ResultColumnsFoldToSamePascalCase_ReportsJNT2011_NoSourceEmitted()
+    {
+        var result = Run("-- @call GetOrderSummary\n", "db/Orders/GetOrderSummary.sql");
+
+        var diag = Assert.Single(result.Results[0].Diagnostics, d => d.Id == "JNT2011");
+        Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
+        Assert.Contains("'OrderNumber'", diag.GetMessage());
+        Assert.DoesNotContain(result.Results[0].GeneratedSources, s => s.HintName.Contains("GetOrderSummary"));
     }
 }

@@ -90,22 +90,6 @@ public static class DialectReservedWords
         "write", "xor", "year_month", "zerofill",
     };
 
-    /// <summary>
-    /// Deliberately excludes "tran"/"transaction" despite both appearing on
-    /// Microsoft's published T-SQL reserved-keyword list: this project's own
-    /// existing, real-compile-verified regression test
-    /// (<c>TransactionNameCollisionGuardTests.
-    /// AutoCrud_TableWithColumnLiterallyNamedTransaction_
-    /// PocoOverloadsCompileClean</c>) establishes that a column literally
-    /// named <c>transaction</c> synthesizes and compiles cleanly today, and
-    /// the published reserved-word list is known to include words "reserved
-    /// for future use" that the engine does not currently enforce in every
-    /// syntactic position (column-name position in particular is often more
-    /// permissive than the list implies). Since a false-positive here (an
-    /// actually-safe name skipped) is merely conservative while a
-    /// false-negative is the exact defect class this file exists to close,
-    /// words are excluded rather than included on uncertain footing.
-    /// </summary>
     private static readonly HashSet<string> SqlServer = new(StringComparer.OrdinalIgnoreCase)
     {
         "add", "all", "alter", "and", "any", "as", "asc", "authorization",
@@ -134,7 +118,7 @@ public static class DialectReservedWords
         "rowguidcol", "rule", "save", "schema", "securityaudit", "select",
         "session_user", "set", "setuser", "shutdown", "some",
         "statistics", "system_user", "table", "tablesample", "textsize",
-        "then", "to", "top", "trigger", "truncate",
+        "then", "to", "top", "tran", "transaction", "trigger", "truncate",
         "try_convert", "tsequal", "union", "unique", "unpivot", "update",
         "use", "user", "values", "varying", "view", "waitfor", "when",
         "where", "while", "with", "writetext",

@@ -80,6 +80,24 @@ public static class AutoCrud
             if (!allColumnsUsable || columns.Count == 0)
                 continue;
 
+            // AUD-R64-01 (fix 2): two distinct, individually-legal column
+            // names (e.g. "order_number"/"OrderNumber") that fold to the
+            // same PascalCased property name would make CodeEmitter's shared
+            // row POCO for this table (and, for a stored proc, its own
+            // Result DTO) declare a duplicate member -- caught and reported
+            // as JNT2011 by JauntyQGenerator.Part4.cs's own row-POCO
+            // emission loop, and by ResolveCanonicalRowType refusing to
+            // route ANY query (AutoCrud-synthesized or hand-written) to a
+            // row type it cannot safely emit. Skip synthesizing CRUD for
+            // this table entirely here too, at the source: a synthetic
+            // Insert/Update/Delete's POCO overload (EmitPocoOverloads) and
+            // BulkInsert both unconditionally reference this table's row
+            // type by name, so still emitting them here would leave a
+            // dangling reference to a type JauntyQGenerator will not emit
+            // for this exact reason.
+            if (HasColumnNameCollisionAfterPascalCase(columns))
+                continue;
+
             string entityName = DialectMapper.ToPascalCase(table.Name);
             string colList = JoinColumns(columns, ", ", c => c.Name);
 
@@ -260,5 +278,28 @@ public static class AutoCrud
         if (DialectReservedWords.RequiresQuotingForCase(name, dialect))
             return false;
         return true;
+    }
+
+    /// <summary>
+    /// True when two columns in <paramref name="columns"/> fold to the same
+    /// <see cref="DialectMapper.ToPascalCase"/> result (e.g.
+    /// "order_number"/"OrderNumber") -- the same emitted-member-name shape
+    /// <c>JauntyQGenerator</c>'s own JNT2011/JNT3009 checks guard for the
+    /// canonical row POCO, a query's own projection type, and a stored
+    /// proc's Result DTO. Checked here too so a colliding table's ENTIRE
+    /// synthetic CRUD surface is skipped at the source, not just its
+    /// row-returning queries: a synthetic Insert/Update/Delete's POCO
+    /// overload and BulkInsert both unconditionally reference this table's
+    /// shared row type by name.
+    /// </summary>
+    private static bool HasColumnNameCollisionAfterPascalCase(List<ColumnSchema> columns)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var col in columns)
+        {
+            if (!seen.Add(DialectMapper.ToPascalCase(col.Name)))
+                return true;
+        }
+        return false;
     }
 }

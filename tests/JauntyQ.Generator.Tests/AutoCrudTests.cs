@@ -630,6 +630,8 @@ public class AutoCrudTests
     [InlineData("mysql", "key")]
     [InlineData("mysql", "rank")]
     [InlineData("sqlserver", "user")]
+    [InlineData("sqlserver", "transaction")]
+    [InlineData("sqlserver", "tran")]
     public void Synthesize_SkipsColumnReservedInTargetDialect_ButNotInJauntyQsOwnKeywordList(string dialect, string columnName)
     {
         // AUD-R64-01: these are ordinary short nouns, not JauntyQ keywords
@@ -648,6 +650,33 @@ public class AutoCrudTests
             {
                 ["id"] = new ColumnSchema { Name = "id", DbType = "int", IsPrimaryKey = true },
                 [columnName] = new ColumnSchema { Name = columnName, DbType = "varchar" }
+            }
+        };
+
+        Assert.Empty(AutoCrud.Synthesize(schema));
+    }
+
+    [Fact]
+    public void Synthesize_SkipsTableWithColumnNamesCollidingAfterPascalCase()
+    {
+        // AUD-R64-01 (fix 2): "order_number"/"OrderNumber" are both distinct,
+        // individually-legal, non-reserved column names, but both fold to
+        // the same PascalCased property name -- unlike the dialect-reserved-
+        // word/case-fold gate above, this collision is between two column
+        // names, not against an external grammar, so it must be checked
+        // independently. A synthetic Insert/Update/Delete's POCO overload
+        // and BulkInsert both unconditionally reference the table's shared
+        // row type by name, so the whole table is skipped, not just the
+        // colliding columns.
+        var schema = new DatabaseSchema { Dialect = "sqlserver" };
+        schema.Tables["widgets"] = new TableSchema
+        {
+            Name = "widgets",
+            Columns = new Dictionary<string, ColumnSchema>
+            {
+                ["id"] = new ColumnSchema { Name = "id", DbType = "int", IsPrimaryKey = true },
+                ["order_number"] = new ColumnSchema { Name = "order_number", DbType = "int" },
+                ["OrderNumber"] = new ColumnSchema { Name = "OrderNumber", DbType = "int" }
             }
         };
 
@@ -982,5 +1011,94 @@ public class AutoCrudTests
         // The first-declared table ("widgets") keeps its full CRUD surface.
         bool sawWidgetIdColumn = result.GeneratedTrees.Any(t => t.ToString().Contains("widget_id"));
         Assert.True(sawWidgetIdColumn, "Expected the 'widgets' table's CRUD to still be generated.");
+    }
+
+    // Two distinct, individually-legal column names that fold to the same
+    // PascalCase property name via DialectMapper.ToPascalCase -- a real,
+    // plausible shape for a table carrying both a legacy snake_case column
+    // and its newer camelCase/PascalCase replacement during a migration.
+    private const string CollidingColumnNamesSchema = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""widgets"": {
+      ""name"": ""widgets"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""order_number"": { ""name"": ""order_number"", ""dbType"": ""int"", ""isNullable"": false },
+        ""OrderNumber"": { ""name"": ""OrderNumber"", ""dbType"": ""int"", ""isNullable"": false }
+      }
+    }
+  },
+  ""foreignKeys"": []
+}";
+
+    /// <summary>
+    /// AUD-R64-01 (fix 2, a reviewer's finding): two distinct, individually-legal
+    /// column names ("order_number"/"OrderNumber") that fold to the same
+    /// PascalCased property name would make CodeEmitter.EmitRowPoco emit a
+    /// duplicate property (CS0102) plus a duplicate member-initializer entry
+    /// in Read() -- the same "sibling switch/guard divergence" shape
+    /// JNT3009/JNT2009/JNT2010 already guard for a query's own SELECT
+    /// projection, sequence accessors, and entity accessor names
+    /// respectively, but nothing previously covered a table's own full
+    /// column set feeding the shared canonical row POCO. AutoCrud.Synthesize
+    /// now skips the WHOLE table (matching the existing, already-silent
+    /// dialect-reserved-word/case-fold skip AUD-R64-01's first fix
+    /// established -- v1 has no quoting/renaming support, so an
+    /// unsafely-named table/column is skipped rather than emitted broken,
+    /// with no diagnostic at this layer), so a colliding table's ENTIRE
+    /// auto-CRUD surface is silently absent rather than referencing a row
+    /// type that JauntyQGenerator's own JNT2011 guard (Part4.cs, for the
+    /// row POCO; ProcCallTests for the stored-proc Result DTO sibling) would
+    /// otherwise refuse to emit. The whole compilation stays clean rather
+    /// than failing with an opaque CS0102/CS1912 cascade.
+    /// </summary>
+    [Fact]
+    public void CollidingColumnNames_SkipsWholeTable_CompilationStaysClean()
+    {
+        var (result, compilation) = RunAutoCrudWithSchema(CollidingColumnNamesSchema, autoCrud: true);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2011");
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.Empty(errors);
+
+        // No row POCO -- and no auto-CRUD source referencing it -- was
+        // emitted for the colliding table at all.
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains("Widgets.Row"));
+        bool sawColumnOrderNumber = result.GeneratedTrees.Any(t => t.ToString().Contains("order_number"));
+        Assert.False(sawColumnOrderNumber, "Expected the colliding 'widgets' table to be skipped entirely.");
+    }
+
+    /// <summary>
+    /// AUD-R64-01 (fix 2): a hand-written query aliasing one of two
+    /// otherwise-colliding raw columns distinctly (unlike AutoCrud, which
+    /// always selects raw column names verbatim) has no collision in its OWN
+    /// projection -- but still selects the "widgets" table's full raw column
+    /// set, so ResolveCanonicalRowType's original (pre-fix) logic would have
+    /// matched it to the table's shared (unsafely-emittable) canonical row
+    /// type anyway, leaving this query's OWN generated source referencing a
+    /// type JauntyQGenerator's row-POCO loop refuses to emit. Confirms
+    /// ResolveCanonicalRowType's own collision check correctly falls back to
+    /// this query's distinct, conflict-free per-query projection type
+    /// instead, so it compiles clean.
+    /// </summary>
+    [Fact]
+    public void FullRowQuery_WithDistinctAliasAroundCollidingTableColumns_FallsBackToPerQueryType_CompilesClean()
+    {
+        var (result, compilation) = RunAutoCrudWithSchema(CollidingColumnNamesSchema, autoCrud: false, sqlFiles:
+            ("db/Widgets/GetAll.sql", "select id, order_number as order_num, OrderNumber from widgets"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT3009" || d.Id == "JNT2011");
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.Empty(errors);
+
+        // Never claimed the broken shared "WidgetsRow" type -- used its own
+        // per-query projection instead.
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.Contains("Widgets.Row"));
+        bool sawOwnDistinctProperties = result.GeneratedTrees.Any(t =>
+            t.ToString().Contains("OrderNum") && t.ToString().Contains("OrderNumber"));
+        Assert.True(sawOwnDistinctProperties, "Expected the query's own per-query type with distinct property names.");
     }
 }

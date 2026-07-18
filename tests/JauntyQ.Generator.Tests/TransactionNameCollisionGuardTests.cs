@@ -143,8 +143,21 @@ public class TransactionNameCollisionGuardTests
 
     // ── Algorithm 2: TxForwardable (synthetic AutoCrud POCO overloads) ─────
 
+    // AUD-R64-01 (dialect-aware bare-identifier gates): "transaction"/"tran"
+    // are genuinely reserved on SQL Server (independent verification
+    // confirmed live against SQL Server 2022 that a bare "transaction"
+    // column fails with "Msg 156: Incorrect syntax near the keyword" in
+    // every position AutoCrud emits it -- SELECT list, INSERT column list,
+    // UPDATE SET), so a "ledger_entries.transaction" column on sqlserver is
+    // now correctly excluded from AutoCrud synthesis entirely, same as any
+    // other dialect-reserved name. This fixture uses "mysql" instead, where
+    // TRANSACTION is not a reserved word, so it still exercises this test's
+    // real purpose (TxForwardable/HasStaticTransactionParam correctly
+    // suppressing the injected DbTransaction parameter for a column
+    // literally named "transaction") via a dialect where the column is
+    // actually safe to emit bare.
     private const string TransactionColumnSchema = @"{
-  ""dialect"": ""sqlserver"",
+  ""dialect"": ""mysql"",
   ""tables"": {
     ""ledger_entries"": {
       ""name"": ""ledger_entries"",
