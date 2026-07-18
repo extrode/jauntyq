@@ -62,6 +62,42 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 neededRowTables.Add(file.CanonicalTable);
         }
 
+        // JNT2010: DatabaseSchema.Tables is a plain Dictionary<string, TableSchema>
+        // (the default, ordinal, case-SENSITIVE comparer), so two distinct raw
+        // table names differing only by case -- reachable on any
+        // case-sensitive-identifier engine (Postgres with quoted mixed-case
+        // names, or MySQL/MariaDB on a case-sensitive-filesystem Linux host,
+        // the common lower_case_table_names=0 default) -- can coexist as two
+        // separate schema entries. AutoCrud.Synthesize computes each table's
+        // entity name via DialectMapper.ToPascalCase(table.Name), which is
+        // itself dialect-agnostic and collapses "widgets"/"Widgets" to the
+        // same "Widgets" -- so both tables' synthetics claim the identical
+        // "Widgets.GetAll" etc. slot, and claimedMethods below silently drops
+        // every one of the second table's methods with no diagnostic at all,
+        // making that entire table invisible in the generated API. Report it
+        // here so the collision is loud instead of a silent missing table.
+        if (autoCrud && schema != null)
+        {
+            var byEntityName = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>(StringComparer.Ordinal);
+            foreach (var table in schema.Tables.Values)
+            {
+                string candidateEntityName = DialectMapper.ToPascalCase(table.Name);
+                if (!byEntityName.TryGetValue(candidateEntityName, out var names))
+                    byEntityName[candidateEntityName] = names = new System.Collections.Generic.List<string>();
+                names.Add(table.Name);
+            }
+            foreach (var pair in byEntityName)
+            {
+                if (pair.Value.Count > 1)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2010, Location.None,
+                        $"Tables {string.Join(", ", pair.Value)} all generate the same entity accessor 'db.{pair.Key}'. " +
+                        "Only the first table's auto-CRUD is emitted; the others are silently invisible in the generated API. " +
+                        "Rename the tables so their PascalCased names no longer collide, or write their queries by hand."));
+                }
+            }
+        }
+
         // Auto-CRUD: synthesize per-table CRUD for everything the user didn't write
         if (autoCrud && schema != null)
         {
