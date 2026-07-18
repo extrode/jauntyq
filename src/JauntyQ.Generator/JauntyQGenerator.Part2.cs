@@ -139,7 +139,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 }
             }
 
-            string callSource = CodeEmitter.EmitProcCall(entityName, methodName, procedure, schema.Dialect);
+            string callSource = CodeEmitter.EmitProcCall(entityName, methodName, procedure, schema.Dialect, schema);
             return new FileResult(
                 $"{entityName}.{methodName}.g.cs",
                 callSource,

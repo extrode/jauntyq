@@ -505,8 +505,8 @@ where p.category_id = c.category_id and c.category_name = @categoryName";
 
         var source = GetSource(result, "Products.Core.g.cs");
         Assert.Contains("public partial class Products", source);
-        Assert.Contains("private readonly System.Data.Common.DbConnection _conn;", source);
-        Assert.Contains("internal Products(System.Data.Common.DbConnection conn)", source);
+        Assert.Contains("private readonly DbConnection _conn;", source);
+        Assert.Contains("internal Products(DbConnection conn)", source);
     }
 
     // ── JauntyDb file ──────────────────────────────────────
@@ -997,8 +997,8 @@ where p.product_id = @product_id";
 
         var source = GetSource(result, "JauntyDb.g.cs");
         Assert.Contains("public Transaction BeginTransaction()", source);
-        Assert.Contains("public async System.Threading.Tasks.Task<Transaction> BeginTransactionAsync(", source);
-        Assert.Contains("public sealed class Transaction : System.IDisposable", source);
+        Assert.Contains("public async Task<Transaction> BeginTransactionAsync(", source);
+        Assert.Contains("public sealed class Transaction : IDisposable", source);
         Assert.Contains("new Products(this)", source);
     }
 

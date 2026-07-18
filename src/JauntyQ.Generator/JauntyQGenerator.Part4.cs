@@ -174,7 +174,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 string rowType = Inflector.RowTypeName(DialectMapper.ToPascalCase(table.Name));
                 string overloadSource = CodeEmitter.EmitPocoOverloads(
                     info.Entity, rowType, table, schema.Dialect,
-                    info.Insert, info.Update, info.Delete, info.Upsert);
+                    info.Insert, info.Update, info.Delete, info.Upsert, schema);
                 context.AddSource($"{info.Entity}.Poco.auto.g.cs", SourceText.From(overloadSource, Encoding.UTF8));
                 neededRowTables.Add(table.Name);
 
@@ -182,7 +182,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // for tables that have a synthetic Insert (and thus a row POCO).
                 if (info.Insert && !string.IsNullOrEmpty(schema.Dialect))
                 {
-                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, table, schema.Dialect);
+                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, table, schema.Dialect, schema);
                     context.AddSource($"{info.Entity}.BulkInsert.auto.g.cs", SourceText.From(bulkSource, Encoding.UTF8));
                 }
             }

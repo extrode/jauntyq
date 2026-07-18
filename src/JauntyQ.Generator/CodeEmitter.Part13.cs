@@ -10,28 +10,31 @@ public static partial class CodeEmitter
     // same weOpened connection lifecycle and _db?.CurrentTransaction reuse — but
     // swaps the per-row ExecuteNonQuery loop for the provider's set-based copy
     // API. The generator never references Npgsql / Microsoft.Data.SqlClient /
-    // MySqlConnector itself (it is netstandard2.0); it emits global::-qualified
-    // type names assuming the consumer's project references the provider package,
-    // exactly as CodeEmitter.Part3.cs already does for NpgsqlParameter<T>.
+    // MySqlConnector itself (it is netstandard2.0); it emits (collision-guarded,
+    // see TypeRef) type names assuming the consumer's project references the
+    // provider package, exactly as CodeEmitter.Part3.cs already does for
+    // NpgsqlParameter<T>.
 
     private static (string Modifier, string AsyncModifier, string Ret, string Name, string ParamList)
-        BulkInsertSignature(string rowType, bool isStatic, bool isAsync)
+        BulkInsertSignature(string rowType, bool isStatic, bool isAsync, DatabaseSchema? schema = null)
     {
+        string taskType = TypeRef(schema, "Task", "System.Threading.Tasks");
+        string enumerableType = TypeRef(schema, "IEnumerable", "System.Collections.Generic");
         string modifier = isStatic ? "public static" : "public";
         string asyncModifier = isAsync ? " async" : "";
-        string ret = isAsync ? "System.Threading.Tasks.Task<int>" : "int";
+        string ret = isAsync ? $"{taskType}<int>" : "int";
         string name = isAsync ? "BulkInsertAsync" : "BulkInsert";
-        string rowsParam = $"System.Collections.Generic.IEnumerable<{rowType}> rows";
+        string rowsParam = $"{enumerableType}<{rowType}> rows";
         // Static variants take an optional trailing DbTransaction so the copy
         // can participate in a caller-managed unit of work (instance variants
         // flow the ambient _db.CurrentTransaction instead). On PostgreSQL the
         // binary COPY rides the connection's active transaction automatically,
         // so the parameter exists there for API uniformity.
-        const string txParam = "System.Data.Common.DbTransaction? transaction = null";
+        string txParam = "DbTransaction? transaction = null";
         string paramList = isStatic
-            ? (isAsync ? $"System.Data.Common.DbConnection conn, {rowsParam}, {txParam}, System.Threading.CancellationToken cancellationToken = default"
-                       : $"System.Data.Common.DbConnection conn, {rowsParam}, {txParam}")
-            : (isAsync ? $"{rowsParam}, System.Threading.CancellationToken cancellationToken = default" : rowsParam);
+            ? (isAsync ? $"DbConnection conn, {rowsParam}, {txParam}, CancellationToken cancellationToken = default"
+                       : $"DbConnection conn, {rowsParam}, {txParam}")
+            : (isAsync ? $"{rowsParam}, CancellationToken cancellationToken = default" : rowsParam);
         return (modifier, asyncModifier, ret, name, paramList);
     }
 
@@ -45,21 +48,22 @@ public static partial class CodeEmitter
     private static void EmitBulkInsertBodyPostgres(
         System.Text.StringBuilder sb, string rowType, string tableName,
         System.Collections.Generic.List<ColumnSchema> cols,
-        string connVar, bool isStatic, bool isAsync, string dialect)
+        string connVar, bool isStatic, bool isAsync, string dialect, DatabaseSchema? schema = null)
     {
-        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync);
+        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync, schema);
+        string npgsqlConnectionType = TypeRef(schema, "NpgsqlConnection", "Npgsql");
         string colList = JoinColumns(cols, ", ", c => c.Name);
         string copySql = $"COPY {tableName} ({colList}) FROM STDIN (FORMAT BINARY)";
 
         sb.AppendLine($"        {modifier}{asyncModifier} {ret} {name}({paramList})");
         sb.AppendLine("        {");
-        sb.AppendLine($"            bool weOpened = {connVar}.State != System.Data.ConnectionState.Open;");
+        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
             ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
             : $"            if (weOpened) {connVar}.Open();");
         sb.AppendLine("            try");
         sb.AppendLine("            {");
-        sb.AppendLine($"                var __npgsqlConn = (global::Npgsql.NpgsqlConnection){connVar};");
+        sb.AppendLine($"                var __npgsqlConn = ({npgsqlConnectionType}){connVar};");
         sb.AppendLine("                int __count = 0;");
         if (isAsync)
             sb.AppendLine($"                await using (var __importer = await __npgsqlConn.BeginBinaryImportAsync(@\"{EscapeVerbatimString(copySql)}\", cancellationToken).ConfigureAwait(false))");
@@ -120,14 +124,18 @@ public static partial class CodeEmitter
     private static void EmitBulkInsertBodySqlServer(
         System.Text.StringBuilder sb, string rowType, string tableName,
         System.Collections.Generic.List<ColumnSchema> cols,
-        string connVar, bool isStatic, bool isAsync)
+        string connVar, bool isStatic, bool isAsync, DatabaseSchema? schema = null)
     {
-        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync);
+        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync, schema);
         string readerType = $"__{rowType}BulkReader";
+        string sqlTransactionType = TypeRef(schema, "SqlTransaction", "Microsoft.Data.SqlClient");
+        string sqlBulkCopyType = TypeRef(schema, "SqlBulkCopy", "Microsoft.Data.SqlClient");
+        string sqlConnectionType = TypeRef(schema, "SqlConnection", "Microsoft.Data.SqlClient");
+        string sqlBulkCopyOptionsType = TypeRef(schema, "SqlBulkCopyOptions", "Microsoft.Data.SqlClient");
 
         sb.AppendLine($"        {modifier}{asyncModifier} {ret} {name}({paramList})");
         sb.AppendLine("        {");
-        sb.AppendLine($"            bool weOpened = {connVar}.State != System.Data.ConnectionState.Open;");
+        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
             ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
             : $"            if (weOpened) {connVar}.Open();");
@@ -136,11 +144,11 @@ public static partial class CodeEmitter
         // Reuse an ambient JauntyDb transaction if one is active so the copy
         // participates in the caller's unit of work.
         if (!isStatic)
-            sb.AppendLine("                var tx = (global::Microsoft.Data.SqlClient.SqlTransaction?)_db?.CurrentTransaction;");
+            sb.AppendLine($"                var tx = ({sqlTransactionType}?)_db?.CurrentTransaction;");
         else
-            sb.AppendLine("                var tx = (global::Microsoft.Data.SqlClient.SqlTransaction?)transaction;");
+            sb.AppendLine($"                var tx = ({sqlTransactionType}?)transaction;");
         sb.AppendLine($"                using var __reader = new {readerType}(rows);");
-        sb.AppendLine($"                using (var __bulkCopy = new global::Microsoft.Data.SqlClient.SqlBulkCopy((global::Microsoft.Data.SqlClient.SqlConnection){connVar}, global::Microsoft.Data.SqlClient.SqlBulkCopyOptions.Default, tx))");
+        sb.AppendLine($"                using (var __bulkCopy = new {sqlBulkCopyType}(({sqlConnectionType}){connVar}, {sqlBulkCopyOptionsType}.Default, tx))");
         sb.AppendLine("                {");
         sb.AppendLine($"                    __bulkCopy.DestinationTableName = \"{IdentifierGuard.ToStringLiteral(tableName)}\";");
         foreach (var c in cols)
@@ -165,10 +173,15 @@ public static partial class CodeEmitter
     private static void EmitBulkInsertBodyMySql(
         System.Text.StringBuilder sb, string rowType, string tableName,
         System.Collections.Generic.List<ColumnSchema> cols,
-        string connVar, bool isStatic, bool isAsync)
+        string connVar, bool isStatic, bool isAsync, DatabaseSchema? schema = null)
     {
-        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync);
+        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync, schema);
         string readerType = $"__{rowType}BulkReader";
+        string listType = TypeRef(schema, "List", "System.Collections.Generic");
+        string mySqlTransactionType = TypeRef(schema, "MySqlTransaction", "MySqlConnector");
+        string mySqlBulkCopyType = TypeRef(schema, "MySqlBulkCopy", "MySqlConnector");
+        string mySqlConnectionType = TypeRef(schema, "MySqlConnection", "MySqlConnector");
+        string mySqlBulkCopyColumnMappingType = TypeRef(schema, "MySqlBulkCopyColumnMapping", "MySqlConnector");
 
         sb.AppendLine("        /// <summary>");
         sb.AppendLine("        /// Bulk-inserts <paramref name=\"rows\"/> via MySqlConnector.MySqlBulkCopy.");
@@ -179,25 +192,25 @@ public static partial class CodeEmitter
         sb.AppendLine("        /// </summary>");
         sb.AppendLine($"        {modifier}{asyncModifier} {ret} {name}({paramList})");
         sb.AppendLine("        {");
-        sb.AppendLine($"            bool weOpened = {connVar}.State != System.Data.ConnectionState.Open;");
+        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
             ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
             : $"            if (weOpened) {connVar}.Open();");
         sb.AppendLine("            try");
         sb.AppendLine("            {");
         if (!isStatic)
-            sb.AppendLine("                var tx = (global::MySqlConnector.MySqlTransaction?)_db?.CurrentTransaction;");
+            sb.AppendLine($"                var tx = ({mySqlTransactionType}?)_db?.CurrentTransaction;");
         else
-            sb.AppendLine("                var tx = (global::MySqlConnector.MySqlTransaction?)transaction;");
+            sb.AppendLine($"                var tx = ({mySqlTransactionType}?)transaction;");
         sb.AppendLine($"                using var __reader = new {readerType}(rows);");
-        sb.AppendLine($"                var __bulkCopy = new global::MySqlConnector.MySqlBulkCopy((global::MySqlConnector.MySqlConnection){connVar}, tx);");
+        sb.AppendLine($"                var __bulkCopy = new {mySqlBulkCopyType}(({mySqlConnectionType}){connVar}, tx);");
         sb.AppendLine($"                __bulkCopy.DestinationTableName = \"{IdentifierGuard.ToStringLiteral(tableName)}\";");
         // Map each source ordinal to its destination column by name. Without
         // this MySqlBulkCopy maps positionally against the *full* table
         // (including the excluded identity column), which would misalign every
         // value by one column.
         for (int i = 0; i < cols.Count; i++)
-            sb.AppendLine($"                __bulkCopy.ColumnMappings.Add(new global::MySqlConnector.MySqlBulkCopyColumnMapping({i}, \"{IdentifierGuard.ToStringLiteral(cols[i].Name)}\"));");
+            sb.AppendLine($"                __bulkCopy.ColumnMappings.Add(new {mySqlBulkCopyColumnMappingType}({i}, \"{IdentifierGuard.ToStringLiteral(cols[i].Name)}\"));");
         sb.AppendLine(isAsync
             ? "                await __bulkCopy.WriteToServerAsync(__reader, cancellationToken).ConfigureAwait(false);"
             : "                __bulkCopy.WriteToServer(__reader);");
@@ -220,16 +233,16 @@ public static partial class CodeEmitter
         sb.AppendLine(isAsync
             ? "                    using var __warnRdr = await __warnCmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);"
             : "                    using var __warnRdr = __warnCmd.ExecuteReader();");
-        sb.AppendLine("                    var __warnMsgs = new System.Collections.Generic.List<string>();");
+        sb.AppendLine($"                    var __warnMsgs = new {listType}<string>();");
         sb.AppendLine(isAsync
             ? "                    while (await __warnRdr.ReadAsync(cancellationToken).ConfigureAwait(false))"
             : "                    while (__warnRdr.Read())");
         sb.AppendLine("                    {");
-        sb.AppendLine("                        if (string.Equals(System.Convert.ToString(__warnRdr.GetValue(0)), \"Warning\", System.StringComparison.OrdinalIgnoreCase))");
-        sb.AppendLine("                            __warnMsgs.Add(System.Convert.ToString(__warnRdr.GetValue(2)) ?? string.Empty);");
+        sb.AppendLine("                        if (string.Equals(Convert.ToString(__warnRdr.GetValue(0)), \"Warning\", StringComparison.OrdinalIgnoreCase))");
+        sb.AppendLine("                            __warnMsgs.Add(Convert.ToString(__warnRdr.GetValue(2)) ?? string.Empty);");
         sb.AppendLine("                    }");
         sb.AppendLine("                    if (__warnMsgs.Count > 0)");
-        sb.AppendLine("                        throw new System.InvalidOperationException(\"MySqlBulkCopy completed but the server reported \" + __warnMsgs.Count + \" warning(s); LOAD DATA's IGNORE semantics silently coerce constraint violations (e.g. NULL into a NOT NULL column) to a default value instead of failing the row: \" + string.Join(\"; \", __warnMsgs));");
+        sb.AppendLine("                        throw new InvalidOperationException(\"MySqlBulkCopy completed but the server reported \" + __warnMsgs.Count + \" warning(s); LOAD DATA's IGNORE semantics silently coerce constraint violations (e.g. NULL into a NOT NULL column) to a default value instead of failing the row: \" + string.Join(\"; \", __warnMsgs));");
         sb.AppendLine("                }");
         sb.AppendLine("                return __reader.RowsRead;");
         EmitFinallyClose(sb, connVar, isAsync);
@@ -246,16 +259,19 @@ public static partial class CodeEmitter
     /// </summary>
     private static void EmitBulkReaderAdapter(
         System.Text.StringBuilder sb, string rowType,
-        System.Collections.Generic.List<ColumnSchema> cols, string dialect)
+        System.Collections.Generic.List<ColumnSchema> cols, string dialect, DatabaseSchema? schema = null)
     {
         string readerType = $"__{rowType}BulkReader";
+        string enumeratorType = TypeRef(schema, "IEnumerator", "System.Collections.Generic");
+        string enumerableType = TypeRef(schema, "IEnumerable", "System.Collections.Generic");
+        string typeType = TypeRef(schema, "Type", "System");
 
-        sb.AppendLine($"        private sealed class {readerType} : System.Data.Common.DbDataReader");
+        sb.AppendLine($"        private sealed class {readerType} : DbDataReader");
         sb.AppendLine("        {");
-        sb.AppendLine($"            private readonly System.Collections.Generic.IEnumerator<{rowType}> _enumerator;");
+        sb.AppendLine($"            private readonly {enumeratorType}<{rowType}> _enumerator;");
         sb.AppendLine($"            private {rowType} _current = default!;");
         sb.AppendLine("            public int RowsRead { get; private set; }");
-        sb.AppendLine($"            public {readerType}(System.Collections.Generic.IEnumerable<{rowType}> rows)");
+        sb.AppendLine($"            public {readerType}({enumerableType}<{rowType}> rows)");
         sb.AppendLine("            {");
         sb.AppendLine("                _enumerator = rows.GetEnumerator();");
         sb.AppendLine("            }");
@@ -283,9 +299,9 @@ public static partial class CodeEmitter
             if (IsNonNullableValueType(ct))
                 sb.AppendLine($"                    case {i}: return _current.{prop};");
             else
-                sb.AppendLine($"                    case {i}: return (object?)_current.{prop} ?? System.DBNull.Value;");
+                sb.AppendLine($"                    case {i}: return (object?)_current.{prop} ?? DBNull.Value;");
         }
-        sb.AppendLine("                    default: throw new System.IndexOutOfRangeException(ordinal.ToString());");
+        sb.AppendLine("                    default: throw new IndexOutOfRangeException(ordinal.ToString());");
         sb.AppendLine("                }");
         sb.AppendLine("            }");
         sb.AppendLine();
@@ -296,7 +312,7 @@ public static partial class CodeEmitter
         sb.AppendLine("                {");
         for (int i = 0; i < cols.Count; i++)
             sb.AppendLine($"                    case {i}: return \"{IdentifierGuard.ToStringLiteral(cols[i].Name)}\";");
-        sb.AppendLine("                    default: throw new System.IndexOutOfRangeException(ordinal.ToString());");
+        sb.AppendLine("                    default: throw new IndexOutOfRangeException(ordinal.ToString());");
         sb.AppendLine("                }");
         sb.AppendLine("            }");
         sb.AppendLine();
@@ -304,12 +320,12 @@ public static partial class CodeEmitter
         sb.AppendLine("            public override int GetOrdinal(string name)");
         sb.AppendLine("            {");
         for (int i = 0; i < cols.Count; i++)
-            sb.AppendLine($"                if (string.Equals(name, \"{IdentifierGuard.ToStringLiteral(cols[i].Name)}\", System.StringComparison.Ordinal)) return {i};");
-        sb.AppendLine("                throw new System.IndexOutOfRangeException(name);");
+            sb.AppendLine($"                if (string.Equals(name, \"{IdentifierGuard.ToStringLiteral(cols[i].Name)}\", StringComparison.Ordinal)) return {i};");
+        sb.AppendLine("                throw new IndexOutOfRangeException(name);");
         sb.AppendLine("            }");
         sb.AppendLine();
         // GetFieldType
-        sb.AppendLine("            public override System.Type GetFieldType(int ordinal)");
+        sb.AppendLine($"            public override {typeType} GetFieldType(int ordinal)");
         sb.AppendLine("            {");
         sb.AppendLine("                switch (ordinal)");
         sb.AppendLine("                {");
@@ -319,11 +335,11 @@ public static partial class CodeEmitter
             string baseType = ct.EndsWith("?") ? ct.Substring(0, ct.Length - 1) : ct;
             sb.AppendLine($"                    case {i}: return typeof({baseType});");
         }
-        sb.AppendLine("                    default: throw new System.IndexOutOfRangeException(ordinal.ToString());");
+        sb.AppendLine("                    default: throw new IndexOutOfRangeException(ordinal.ToString());");
         sb.AppendLine("                }");
         sb.AppendLine("            }");
         sb.AppendLine();
-        sb.AppendLine("            public override bool IsDBNull(int ordinal) => GetValue(ordinal) is System.DBNull;");
+        sb.AppendLine("            public override bool IsDBNull(int ordinal) => GetValue(ordinal) is DBNull;");
         sb.AppendLine();
         sb.AppendLine("            public override object this[int ordinal] => GetValue(ordinal);");
         sb.AppendLine("            public override object this[string name] => GetValue(GetOrdinal(name));");
@@ -332,16 +348,16 @@ public static partial class CodeEmitter
         sb.AppendLine("            public override bool GetBoolean(int ordinal) => (bool)GetValue(ordinal);");
         sb.AppendLine("            public override byte GetByte(int ordinal) => (byte)GetValue(ordinal);");
         sb.AppendLine("            public override char GetChar(int ordinal) => (char)GetValue(ordinal);");
-        sb.AppendLine("            public override System.DateTime GetDateTime(int ordinal) => (System.DateTime)GetValue(ordinal);");
+        sb.AppendLine("            public override DateTime GetDateTime(int ordinal) => (DateTime)GetValue(ordinal);");
         sb.AppendLine("            public override decimal GetDecimal(int ordinal) => (decimal)GetValue(ordinal);");
         sb.AppendLine("            public override double GetDouble(int ordinal) => (double)GetValue(ordinal);");
         sb.AppendLine("            public override float GetFloat(int ordinal) => (float)GetValue(ordinal);");
-        sb.AppendLine("            public override System.Guid GetGuid(int ordinal) => (System.Guid)GetValue(ordinal);");
+        sb.AppendLine("            public override Guid GetGuid(int ordinal) => (Guid)GetValue(ordinal);");
         sb.AppendLine("            public override short GetInt16(int ordinal) => (short)GetValue(ordinal);");
         sb.AppendLine("            public override int GetInt32(int ordinal) => (int)GetValue(ordinal);");
         sb.AppendLine("            public override long GetInt64(int ordinal) => (long)GetValue(ordinal);");
         sb.AppendLine("            public override string GetString(int ordinal) => (string)GetValue(ordinal);");
-        sb.AppendLine("            public override System.Type GetProviderSpecificFieldType(int ordinal) => GetFieldType(ordinal);");
+        sb.AppendLine($"            public override {typeType} GetProviderSpecificFieldType(int ordinal) => GetFieldType(ordinal);");
         sb.AppendLine("            public override object GetProviderSpecificValue(int ordinal) => GetValue(ordinal);");
         sb.AppendLine();
         sb.AppendLine("            public override int GetValues(object[] values)");
@@ -357,8 +373,8 @@ public static partial class CodeEmitter
         sb.AppendLine("                if (buffer == null) return data.Length;");
         sb.AppendLine("                long available = data.Length - dataOffset;");
         sb.AppendLine("                if (available <= 0) return 0;");
-        sb.AppendLine("                int toCopy = (int)System.Math.Min(length, available);");
-        sb.AppendLine("                System.Array.Copy(data, (int)dataOffset, buffer, bufferOffset, toCopy);");
+        sb.AppendLine("                int toCopy = (int)Math.Min(length, available);");
+        sb.AppendLine("                Array.Copy(data, (int)dataOffset, buffer, bufferOffset, toCopy);");
         sb.AppendLine("                return toCopy;");
         sb.AppendLine("            }");
         sb.AppendLine();
@@ -368,7 +384,7 @@ public static partial class CodeEmitter
         sb.AppendLine("                if (buffer == null) return data.Length;");
         sb.AppendLine("                long available = data.Length - dataOffset;");
         sb.AppendLine("                if (available <= 0) return 0;");
-        sb.AppendLine("                int toCopy = (int)System.Math.Min(length, available);");
+        sb.AppendLine("                int toCopy = (int)Math.Min(length, available);");
         sb.AppendLine("                data.CopyTo((int)dataOffset, buffer, bufferOffset, toCopy);");
         sb.AppendLine("                return toCopy;");
         sb.AppendLine("            }");
@@ -382,7 +398,7 @@ public static partial class CodeEmitter
         sb.AppendLine("            public override int RecordsAffected => -1;");
         sb.AppendLine("            public override bool NextResult() => false;");
         sb.AppendLine("            public override System.Collections.IEnumerator GetEnumerator() =>");
-        sb.AppendLine("                new System.Data.Common.DbEnumerator(this, closeReader: false);");
+        sb.AppendLine("                new DbEnumerator(this, closeReader: false);");
         sb.AppendLine("            protected override void Dispose(bool disposing)");
         sb.AppendLine("            {");
         sb.AppendLine("                if (disposing) _enumerator.Dispose();");

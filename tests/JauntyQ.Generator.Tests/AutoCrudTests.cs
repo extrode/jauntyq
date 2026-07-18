@@ -167,7 +167,7 @@ public class AutoCrudTests
         Assert.Contains("public class Product", poco);
         Assert.Contains("public int ProductId { get; set; }", poco); // value types: no `required`
         Assert.Contains("public required string ProductName { get; set; }", poco);
-        Assert.Contains("public static Product Read(System.Data.Common.DbDataReader reader)", poco);
+        Assert.Contains("public static Product Read(DbDataReader reader)", poco);
 
         // category_id is int NULL -> int?. The null arm must carry the nullable
         // type explicitly; a bare `default` infers int (from GetInt32) and

@@ -88,7 +88,7 @@ public class ProcCallTests
         var result = Run("-- @call GetOrdersByCustomer\n", "db/Orders/GetOrdersByCustomer.sql");
         string src = AllSources(result);
 
-        Assert.Contains("cmd.CommandType = System.Data.CommandType.StoredProcedure;", src);
+        Assert.Contains("cmd.CommandType = CommandType.StoredProcedure;", src);
         Assert.Contains("cmd.CommandText = \"GetOrdersByCustomer\";", src);
         // Typed result DTO with PascalCase columns.
         Assert.Contains("public required int OrderId", src);
@@ -96,7 +96,7 @@ public class ProcCallTests
         // IN param typed and bound.
         Assert.Contains("string customerId", src);
         // Returns a List of the result type.
-        Assert.Contains("System.Collections.Generic.List<Result.GetOrdersByCustomer>", src);
+        Assert.Contains("List<Result.GetOrdersByCustomer>", src);
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public class ProcCallTests
         string src = AllSources(result);
 
         Assert.Contains("out int archivedCount", src);
-        Assert.Contains("System.Data.ParameterDirection.Output", src);
+        Assert.Contains("ParameterDirection.Output", src);
         // No result set -> returns int (affected rows).
         Assert.Contains("int ArchiveCustomer(", src);
         Assert.DoesNotContain("List<Result.ArchiveCustomer>", src);

@@ -13,12 +13,15 @@ public static partial class CodeEmitter
         string connVar,
         bool isStatic,
         bool isAsync,
-        string? dialect)
+        string? dialect,
+        DatabaseSchema? schema = null)
     {
+        string listType = TypeRef(schema, "List", "System.Collections.Generic");
+        string taskType = TypeRef(schema, "Task", "System.Threading.Tasks");
         string modifier = isStatic ? "public static" : "public";
         string asyncModifier = isAsync ? " async" : "";
         // Return: List<Result> for row-returning procs, else int (row count).
-        string syncReturn = hasResults ? $"System.Collections.Generic.List<{resultType}>" : "int";
+        string syncReturn = hasResults ? $"{listType}<{resultType}>" : "int";
         string name = isAsync ? $"{methodName}Async" : methodName;
 
         // Async methods cannot declare ref/out parameters (CS1988) -- confirmed
@@ -52,11 +55,11 @@ public static partial class CodeEmitter
                 string outPname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
                 tupleParts.Add($"{outCt} {outPname}");
             }
-            declaredReturn = $"System.Threading.Tasks.Task<({string.Join(", ", tupleParts)})>";
+            declaredReturn = $"{taskType}<({string.Join(", ", tupleParts)})>";
         }
         else
         {
-            declaredReturn = isAsync ? $"System.Threading.Tasks.Task<{syncReturn}>" : syncReturn;
+            declaredReturn = isAsync ? $"{taskType}<{syncReturn}>" : syncReturn;
         }
 
         // Parameter list: IN params by value; OUT/INOUT params as C# `out`/`ref`
@@ -64,7 +67,7 @@ public static partial class CodeEmitter
         // plain input value (see above).
         var parts = new System.Collections.Generic.List<string>();
         if (isStatic)
-            parts.Add("System.Data.Common.DbConnection conn");
+            parts.Add("DbConnection conn");
         foreach (var p in procedure.Params)
         {
             if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.ReturnValue)
@@ -87,9 +90,9 @@ public static partial class CodeEmitter
         bool hasTransactionParam = isStatic
             && !parts.Exists(p => p.EndsWith(" transaction", StringComparison.Ordinal));
         if (hasTransactionParam)
-            parts.Add("System.Data.Common.DbTransaction? transaction = null");
+            parts.Add("DbTransaction? transaction = null");
         if (isAsync)
-            parts.Add("System.Threading.CancellationToken cancellationToken = default");
+            parts.Add("CancellationToken cancellationToken = default");
 
         sb.AppendLine($"        {modifier}{asyncModifier} {declaredReturn} {name}({string.Join(", ", parts)})");
         sb.AppendLine("        {");
@@ -109,7 +112,7 @@ public static partial class CodeEmitter
             }
         }
 
-        sb.AppendLine($"            bool weOpened = {connVar}.State != System.Data.ConnectionState.Open;");
+        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
             ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
             : $"            if (weOpened) {connVar}.Open();");
@@ -121,7 +124,7 @@ public static partial class CodeEmitter
         else if (hasTransactionParam)
             sb.AppendLine("                if (transaction != null) cmd.Transaction = transaction;");
         sb.AppendLine($"                cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procedure.Name)}\";");
-        sb.AppendLine("                cmd.CommandType = System.Data.CommandType.StoredProcedure;");
+        sb.AppendLine("                cmd.CommandType = CommandType.StoredProcedure;");
 
         // Bind parameters. Track OUT/INOUT parameter variable names for readback.
         var outReadback = new System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType, bool Nullable)>();
@@ -137,11 +140,11 @@ public static partial class CodeEmitter
             sb.AppendLine($"                {varName}.ParameterName = \"@{IdentifierGuard.ToStringLiteral(p.Name)}\";");
             string? adoDbType = MapCSharpTypeToAdoDbType(ct);
             if (adoDbType != null)
-                sb.AppendLine($"                {varName}.DbType = System.Data.DbType.{adoDbType};");
+                sb.AppendLine($"                {varName}.DbType = DbType.{adoDbType};");
             switch (p.Direction)
             {
                 case JauntyQ.Schema.ProcedureParamDirection.Out:
-                    sb.AppendLine($"                {varName}.Direction = System.Data.ParameterDirection.Output;");
+                    sb.AppendLine($"                {varName}.Direction = ParameterDirection.Output;");
                     if (p.MaxLength is int ml && ml != 0)
                         sb.AppendLine($"                {varName}.Size = {ml};");
                     // Decimal/numeric OUT parameters: several providers need
@@ -156,7 +159,7 @@ public static partial class CodeEmitter
                     outReadback.Add((varName, pname, ct, p.IsNullable || !IsNonNullableValueType(ct)));
                     break;
                 case JauntyQ.Schema.ProcedureParamDirection.InOut:
-                    sb.AppendLine($"                {varName}.Direction = System.Data.ParameterDirection.InputOutput;");
+                    sb.AppendLine($"                {varName}.Direction = ParameterDirection.InputOutput;");
                     if (p.MaxLength is int ml2 && ml2 != 0)
                         sb.AppendLine($"                {varName}.Size = {ml2};");
                     if (p.Precision is int prec2)
@@ -165,13 +168,13 @@ public static partial class CodeEmitter
                         sb.AppendLine($"                {varName}.Scale = {scl2};");
                     sb.AppendLine(IsNonNullableValueType(ct)
                         ? $"                {varName}.Value = {pname};"
-                        : $"                {varName}.Value = (object?){pname} ?? System.DBNull.Value;");
+                        : $"                {varName}.Value = (object?){pname} ?? DBNull.Value;");
                     outReadback.Add((varName, pname, ct, p.IsNullable || !IsNonNullableValueType(ct)));
                     break;
                 default:
                     sb.AppendLine(IsNonNullableValueType(ct)
                         ? $"                {varName}.Value = {pname};"
-                        : $"                {varName}.Value = (object?){pname} ?? System.DBNull.Value;");
+                        : $"                {varName}.Value = (object?){pname} ?? DBNull.Value;");
                     break;
             }
             sb.AppendLine($"                cmd.Parameters.Add({varName});");
@@ -187,8 +190,8 @@ public static partial class CodeEmitter
             // after every row has been read) returns DBNull/unset, not the
             // procedure's actual OUT value. The read/loop stays inside the
             // using block; readback and the return happen after it closes.
-            string behavior = "System.Data.CommandBehavior.SingleResult";
-            sb.AppendLine($"                var results = new System.Collections.Generic.List<{resultType}>();");
+            string behavior = "CommandBehavior.SingleResult";
+            sb.AppendLine($"                var results = new {listType}<{resultType}>();");
             sb.AppendLine(isAsync
                 ? $"                using (var reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false))"
                 : $"                using (var reader = cmd.ExecuteReader({behavior}))");
@@ -250,7 +253,7 @@ public static partial class CodeEmitter
             string target = declareLocals ? $"{csName}Out" : csName;
             string declKeyword = declareLocals ? $"{csType} " : "";
             // DBNull -> default; otherwise unbox to the declared type.
-            sb.AppendLine($"{indent}{declKeyword}{target} = {paramVar}.Value is null || {paramVar}.Value is System.DBNull ? default! : ({csType})({baseType}){paramVar}.Value;");
+            sb.AppendLine($"{indent}{declKeyword}{target} = {paramVar}.Value is null || {paramVar}.Value is DBNull ? default! : ({csType})({baseType}){paramVar}.Value;");
             targetNames.Add(target);
         }
         return targetNames;
@@ -275,33 +278,46 @@ public static partial class CodeEmitter
     /// columns are database-assigned and excluded. Returns the number of rows
     /// inserted.
     /// </summary>
-    public static string EmitBulkInsert(string entityName, string rowType, TableSchema tableSchema, string dialect)
+    public static string EmitBulkInsert(string entityName, string rowType, TableSchema tableSchema, string dialect, DatabaseSchema? schema = null)
     {
         var cols = CrudColumnRules.InsertableColumns(tableSchema.Columns.Values);
+
+        bool isPostgres = string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase);
+        bool isSqlServer = string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase);
+        bool isMySql = string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase);
 
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("// <auto-generated/>");
         sb.AppendLine("#nullable enable");
+        sb.AppendLine();
+        sb.AppendLine("using System;");
+        sb.AppendLine("using System.Collections.Generic;");
+        sb.AppendLine("using System.Data;");
+        sb.AppendLine("using System.Data.Common;");
+        sb.AppendLine("using System.Threading;");
+        sb.AppendLine("using System.Threading.Tasks;");
+        if (isPostgres)
+            sb.AppendLine("using Npgsql;");
+        else if (isSqlServer)
+            sb.AppendLine("using Microsoft.Data.SqlClient;");
+        else if (isMySql)
+            sb.AppendLine("using MySqlConnector;");
         sb.AppendLine();
         sb.AppendLine("namespace JauntyQ.Generated");
         sb.AppendLine("{");
         sb.AppendLine($"    public partial class {entityName}");
         sb.AppendLine("    {");
 
-        bool isPostgres = string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase);
-        bool isSqlServer = string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase);
-        bool isMySql = string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase);
-
         void EmitOne(string connVar, bool isStatic, bool isAsync)
         {
             if (isPostgres)
-                EmitBulkInsertBodyPostgres(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect);
+                EmitBulkInsertBodyPostgres(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect, schema);
             else if (isSqlServer)
-                EmitBulkInsertBodySqlServer(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync);
+                EmitBulkInsertBodySqlServer(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, schema);
             else if (isMySql)
-                EmitBulkInsertBodyMySql(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync);
+                EmitBulkInsertBodyMySql(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, schema);
             else
-                EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect);
+                EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect, schema);
         }
 
         EmitOne("_conn", isStatic: false, isAsync: false);
@@ -317,7 +333,7 @@ public static partial class CodeEmitter
         if (isSqlServer || isMySql)
         {
             sb.AppendLine();
-            EmitBulkReaderAdapter(sb, rowType, cols, dialect);
+            EmitBulkReaderAdapter(sb, rowType, cols, dialect, schema);
         }
 
         sb.AppendLine("    }");

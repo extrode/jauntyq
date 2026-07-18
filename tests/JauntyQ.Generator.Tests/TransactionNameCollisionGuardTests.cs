@@ -121,7 +121,7 @@ public class TransactionNameCollisionGuardTests
         // The static overload must NOT declare the injected
         // "DbTransaction? transaction = null" alongside the SQL parameter also
         // named "Transaction" -- that would be CS0100 (duplicate parameter).
-        Assert.DoesNotContain("System.Data.Common.DbTransaction? transaction = null", src);
+        Assert.DoesNotContain("DbTransaction? transaction = null", src);
 
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
@@ -246,7 +246,7 @@ public class TransactionNameCollisionGuardTests
         // "string transaction" parameter and must NOT also inject the
         // "System.Data.Common.DbTransaction? transaction = null" parameter.
         Assert.Contains("string transaction", src);
-        Assert.DoesNotContain("System.Data.Common.DbTransaction? transaction = null", src);
+        Assert.DoesNotContain("DbTransaction? transaction = null", src);
 
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
@@ -267,7 +267,7 @@ public class TransactionNameCollisionGuardTests
         string src = AllSources(result);
 
         Assert.Contains("string tRANSACTION", src);
-        Assert.Contains("System.Data.Common.DbTransaction? transaction = null", src);
+        Assert.Contains("DbTransaction? transaction = null", src);
 
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
