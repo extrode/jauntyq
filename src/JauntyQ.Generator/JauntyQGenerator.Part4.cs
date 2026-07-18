@@ -41,6 +41,18 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // Track unique entity names for JauntyDb generation
         var entityNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
 
+        // AUD-R52-01: the two top-level types the generator always emits
+        // itself, regardless of schema content (JauntyDb.g.cs via this file's
+        // own EmitJauntyDb call below; JauntyQShapeGuard.g.cs via
+        // JauntyQGenerator.cs's RegisterPostInitializationOutput). Neither is
+        // user-derived, so an entity or row-POCO name equal to either is a
+        // reserved-name collision distinct from (and not covered by) the
+        // entity-vs-entity/entity-vs-rowtype checks below.
+        var reservedGeneratedTypeNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal)
+        {
+            "JauntyDb", "JauntyQShapeGuard"
+        };
+
         // entity.method slots claimed by user SQL files: a user file always
         // overrides the auto-CRUD synthetic of the same name
         var claimedMethods = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -276,8 +288,46 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         $"Rename the db/tables/{rowType}/ folder to the table's own PascalCase form ('{entityPascal}') so the two names no longer collide."));
                 }
 
+                // AUD-R52-01: the row POCO can equally collide with one of the
+                // two always-emitted, fixed-name generator types (JauntyDb,
+                // JauntyQShapeGuard) — verified live: a table whose singularized
+                // PascalCase name is exactly "JauntyDb" produces a raw CS0260/
+                // CS0542/CS0102/CS0111/CS0229 cascade with zero JauntyQ
+                // diagnostic, since neither name is user-derived and so was
+                // never in scope for the entity-vs-entity check above.
+                if (reservedGeneratedTypeNames.Contains(rowType))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                        $"Generated row type '{rowType}' for table '{tableSchema.Name}' has the same name as a JauntyQ-reserved generated type ('{rowType}'). " +
+                        $"Rename the table (or its db/tables/ folder) so its PascalCase form no longer collides with a reserved name."));
+                }
+
                 context.AddSource($"{entityPascal}.Row.g.cs",
                     SourceText.From(CodeEmitter.EmitRowPoco(rowType, tableSchema, schema.Dialect, schema), Encoding.UTF8));
+            }
+        }
+
+        // AUD-R52-01: an entity accessor name colliding with one of the two
+        // always-emitted, fixed-name generator types (JauntyDb,
+        // JauntyQShapeGuard) is a distinct case from the entity-vs-entity/
+        // entity-vs-rowtype checks above — neither reserved name is
+        // user-derived, so nothing else in this method ever compares against
+        // them. Verified live: a table named "jaunty_db" (PascalCase
+        // "JauntyDb") makes EmitEntityCore below declare a second, directly
+        // conflicting "JauntyDb" type (duplicate _conn field, duplicate
+        // constructor, a self-referential "JauntyDb JauntyDb { get; }"
+        // property whose name equals its enclosing type) — a raw CS0260/
+        // CS0542/CS0102/CS0111/CS0229 cascade with zero JauntyQ diagnostic
+        // pointing at the real cause. Reported (not skipped) to match the
+        // existing JNT2006 row-POCO check's own report-but-still-emit
+        // convention above.
+        foreach (var entity in entityNames)
+        {
+            if (reservedGeneratedTypeNames.Contains(entity))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    $"Generated entity accessor '{entity}' (db.{entity}) has the same name as a JauntyQ-reserved generated type ('{entity}'). " +
+                    $"Rename the table (or its db/tables/ folder) so its PascalCase form no longer collides with a reserved name."));
             }
         }
 
