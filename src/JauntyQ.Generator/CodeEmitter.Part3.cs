@@ -69,7 +69,13 @@ public static partial class CodeEmitter
         sb.AppendLine($"                using DbCommand __cmd = {connVar}.CreateCommand();");
         if (!isStatic)
         {
-            sb.AppendLine("                if (_db?.CurrentTransaction != null) __cmd.Transaction = _db.CurrentTransaction;");
+            // AUD-R70-01: "this._db", not "_db" -- confirmed live that a
+            // query parameter literally named "@_db" collides with the
+            // bare field reference, since EmittedParam.CSharpName performs
+            // no casing fold (unlike -- @call's schema-parameter naming,
+            // structurally immune per DialectMapper.ToPascalCase never
+            // re-emitting an underscore).
+            sb.AppendLine("                if (this._db?.CurrentTransaction != null) __cmd.Transaction = this._db.CurrentTransaction;");
         }
         else if (HasStaticTransactionParam(paramInfos, isStatic))
         {

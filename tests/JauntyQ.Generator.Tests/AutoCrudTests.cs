@@ -751,6 +751,40 @@ public class AutoCrudTests
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
+    // ── Column named after a JauntyQ-internal instance field ─────────────
+
+    // AUD-R70-01: EmitEntityCore declares "private readonly DbConnection
+    // _conn;"/"private readonly JauntyDb? _db;" on every generated entity
+    // class. A bare schema column named "_conn" reaches AutoCrud's
+    // synthesized Insert/Update via EmittedParam.CSharpName (no casing
+    // fold) with no .sql authorship needed at all -- broader reach than
+    // every other member of this defect family (AUD-R67-01 through
+    // AUD-R69-01), which all required at least a hand-written .sql
+    // parameter or a stored-procedure parameter name. Confirmed live
+    // pre-fix: the column's own (int) type silently shadowed the
+    // DbConnection field, producing CS1061 on .State/.Open/.CreateCommand/
+    // .Close etc. across both instance Insert and Update overloads.
+    private const string UnderscoreConnColumnSchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""widgets"": {
+      ""name"": ""widgets"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""_conn"": { ""name"": ""_conn"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 40 }
+      }
+    }
+  }
+}";
+
+    [Fact]
+    public void ColumnNamedUnderscoreConn_AutoCrud_CompilesClean_NoSqlAuthorshipNeeded()
+    {
+        var (_, compilation) = RunAutoCrudWithSchema(UnderscoreConnColumnSchemaJson);
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
     // ── Non-PK identity column ──────────────────────────────────
 
     // A table can have an identity/auto-increment column that isn't the

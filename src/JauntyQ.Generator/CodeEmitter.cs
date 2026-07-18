@@ -238,14 +238,18 @@ public static partial class CodeEmitter
         // by the time we emit, this either resolves or the file was skipped).
         IdentityInfo? identity = ResolveIdentityInfo(query, schema, directives);
 
-        // Instance sync
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, procName: procName, identity: identity, schema: schema);
+        // Instance sync. AUD-R70-01: "this._conn", not "_conn" -- confirmed
+        // live that a query parameter literally named "@_conn" collides with
+        // the bare field reference, since EmittedParam.CSharpName performs
+        // no casing fold (see CodeEmitter.Part5.cs's field declaration and
+        // EmitCrudMethodBody's identical fix for the sibling "_db" field).
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "this._conn", isStatic: false, isAsync: false, procName: procName, identity: identity, schema: schema);
         sb.AppendLine();
         // Static sync
         EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, procName: procName, identity: identity, schema: schema);
         sb.AppendLine();
         // Instance async
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, procName: procName, identity: identity, schema: schema);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "this._conn", isStatic: false, isAsync: true, procName: procName, identity: identity, schema: schema);
         sb.AppendLine();
         // Static async
         EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, procName: procName, identity: identity, schema: schema);

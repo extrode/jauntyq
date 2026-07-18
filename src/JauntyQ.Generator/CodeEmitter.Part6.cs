@@ -139,11 +139,13 @@ public static partial class CodeEmitter
         sb.AppendLine("{");
         sb.AppendLine($"    public partial class {entityName}");
         sb.AppendLine("    {");
-        EmitCrudMethodBody(sb, stub, sql, paramInfos, "_conn", isStatic: false, isAsync: false, schema: schema);
+        // AUD-R70-01: "this._conn", not "_conn" -- see CodeEmitter.cs's
+        // identical fix comment.
+        EmitCrudMethodBody(sb, stub, sql, paramInfos, "this._conn", isStatic: false, isAsync: false, schema: schema);
         sb.AppendLine();
         EmitCrudMethodBody(sb, stub, sql, paramInfos, "conn", isStatic: true, isAsync: false, schema: schema);
         sb.AppendLine();
-        EmitCrudMethodBody(sb, stub, sql, paramInfos, "_conn", isStatic: false, isAsync: true, schema: schema);
+        EmitCrudMethodBody(sb, stub, sql, paramInfos, "this._conn", isStatic: false, isAsync: true, schema: schema);
         sb.AppendLine();
         EmitCrudMethodBody(sb, stub, sql, paramInfos, "conn", isStatic: true, isAsync: true, schema: schema);
         sb.AppendLine("    }");

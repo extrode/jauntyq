@@ -199,7 +199,8 @@ public class GeneratorIntegrationTests
         // AUD-R69-01: "__cmd", not "cmd" -- see EmitCrudMethodBody/EmitMethodBody.
         Assert.Contains("if (transaction != null) __cmd.Transaction = transaction;", source);
         // Instance variants keep flowing the ambient JauntyDb transaction.
-        Assert.Contains("if (_db?.CurrentTransaction != null) __cmd.Transaction = _db.CurrentTransaction;", source);
+        // AUD-R70-01: "this._db", not "_db".
+        Assert.Contains("if (this._db?.CurrentTransaction != null) __cmd.Transaction = this._db.CurrentTransaction;", source);
     }
 
     [Fact]
@@ -1015,8 +1016,8 @@ where p.product_id = @product_id";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         // exactly the two instance variants (sync + async) enlist
-        // AUD-R69-01: "__cmd", not "cmd".
-        Assert.Equal(2, CountOccurrences(source, "if (_db?.CurrentTransaction != null) __cmd.Transaction = _db.CurrentTransaction;"));
+        // AUD-R69-01: "__cmd", not "cmd". AUD-R70-01: "this._db", not "_db".
+        Assert.Equal(2, CountOccurrences(source, "if (this._db?.CurrentTransaction != null) __cmd.Transaction = this._db.CurrentTransaction;"));
 
         var core = GetSource(result, "Products.Core.g.cs");
         Assert.Contains("internal Products(JauntyDb db)", core);
