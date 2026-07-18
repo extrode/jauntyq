@@ -67,9 +67,38 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // they are both far more generic (higher false-positive-on-a-
         // legitimate-table-name risk to even enumerate correctly) and even
         // less plausible as a real table name than the names below.
+        //
+        // AUD-R60-01: "System" is reserved for a third, again-distinct reason
+        // -- namespace-ROOT shadowing, not type-name shadowing. C# namespace-
+        // member lookup resolves the first segment of a dotted name against
+        // in-namespace types before falling back to the global namespace, so
+        // an entity accessor or row POCO literally named "System" (table
+        // "system", or "systems" via singularization) shadows the BCL System
+        // namespace root for EVERY dotted "System.Xxx" reference in every
+        // file compiled into JauntyQ.Generated -- and the always-emitted
+        // JauntyQShapeGuard (schema-independent post-init output, so it can
+        // never route through TypeRef) contains four such references
+        // (System.Data.Common.DbDataReader / System.InvalidOperationException
+        // x2 / System.StringComparison). Verified by real Roslyn compilation:
+        // a "system" table produces CS0426/CS0117 in the shape guard plus a
+        // CS1503 cascade at every entity's Validate call site, on every
+        // dialect, with zero JauntyQ diagnostic -- and, unlike the round-59
+        // residual names, there is NO dialect or feature combination under
+        // which it compiles (the shape guard is unconditional), so an
+        // unconditional JNT2006 Error here has zero false-positive risk.
+        // The same reservation also covers the conditionally-emitted dotted
+        // System.* references (System.Net.IPAddress for postgres inet/cidr
+        // columns in CodeEmitter.Part9.cs and in property/parameter type
+        // positions, System.Collections.IEnumerator in Part13's bulk reader
+        // adapter, System.Collections.Generic.IReadOnlyList<T> for @each
+        // parameters): each is a fully-qualified TYPE-position reference, so
+        // the only schema-reachable way to break any of them is an emitted
+        // top-level type named exactly "System" -- exactly what this entry
+        // now reports.
         var reservedGeneratedTypeNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal)
         {
             "JauntyDb", "JauntyQShapeGuard",
+            "System",
             "DbCommand", "DbParameter", "DbDataReader", "DbConnection", "DbTransaction",
             "CancellationToken", "StringBuilder", "DBNull",
             "ConnectionState", "CommandType", "CommandBehavior", "ParameterDirection"
