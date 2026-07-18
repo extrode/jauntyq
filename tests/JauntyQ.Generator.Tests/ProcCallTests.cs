@@ -70,7 +70,33 @@ public class ProcCallTests
   }
 }";
 
-    private static GeneratorDriverRunResult Run(string sql, string path)
+    // AUD-R66-01: postgres-dialect twin of SchemaJson, used to confirm the
+    // ExecuteNonQuery()-always-returns--1 caveat doc comment is emitted only
+    // for postgres non-row-returning procs, never for sqlserver/mysql (which
+    // both report a real affected-row count for the identical call shape).
+    private const string PostgresSchemaJson = @"{
+  ""dialect"": ""postgres"",
+  ""tables"": {},
+  ""procedures"": {
+    ""BumpAllWidgets"": {
+      ""name"": ""BumpAllWidgets"",
+      ""params"": [],
+      ""results"": []
+    },
+    ""GetProductsByCategory"": {
+      ""name"": ""GetProductsByCategory"",
+      ""params"": [ { ""name"": ""CategoryId"", ""dbType"": ""integer"", ""direction"": ""In"", ""isNullable"": false } ],
+      ""results"": [
+        { ""name"": ""ProductId"", ""dbType"": ""integer"", ""isNullable"": false }
+      ]
+    }
+  }
+}";
+
+    private static GeneratorDriverRunResult Run(string sql, string path) =>
+        Run(sql, path, SchemaJson);
+
+    private static GeneratorDriverRunResult Run(string sql, string path, string schemaJson)
     {
         var compilation = CSharpCompilation.Create("ProcCallTestAssembly",
             new[] { CSharpSyntaxTree.ParseText("") },
@@ -80,7 +106,7 @@ public class ProcCallTests
         var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
             .AddAdditionalTexts(ImmutableArray.Create<AdditionalText>(
                 new InMemoryAdditionalText(path, sql),
-                new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson)))
+                new InMemoryAdditionalText("schema/jaunty.schema.json", schemaJson)))
             .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
 
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
@@ -118,6 +144,59 @@ public class ProcCallTests
         // No result set -> returns int (affected rows).
         Assert.Contains("int ArchiveCustomer(", src);
         Assert.DoesNotContain("List<Result.ArchiveCustomer>", src);
+        // AUD-R66-01: sqlserver genuinely reports a real affected-row count
+        // for this call shape (confirmed live against SQL Server 2022), so
+        // the postgres-only "-1 always" caveat doc comment must NOT appear.
+        Assert.DoesNotContain("PostgreSQL note: the returned row count is always", src);
+    }
+
+    /// <summary>
+    /// AUD-R66-01: confirmed live against Postgres 16 (Npgsql 8.0.6) that
+    /// cmd.ExecuteNonQuery() for a CommandType.StoredProcedure CALL always
+    /// returns -1, even for a procedure that performs a genuine multi-row
+    /// UPDATE -- Postgres's CALL protocol reports only a bare completion
+    /// tag, never an affected-row count, unlike SQL Server/MySQL (both
+    /// confirmed live to report a real count for the identical call shape).
+    /// Since this is a structural PostgreSQL/Npgsql limitation with no
+    /// ADO.NET-level fix, the caveat is surfaced as a doc comment on the
+    /// generated method itself, right at the call site.
+    /// </summary>
+    [Fact]
+    public void Call_Postgres_SideEffectProc_EmitsAlwaysNegativeOneCaveatDocComment()
+    {
+        var result = Run("-- @call BumpAllWidgets\n", "db/Widgets/BumpAllWidgets.sql", PostgresSchemaJson);
+        string src = AllSources(result);
+
+        Assert.Contains("PostgreSQL note: the returned row count is always", src);
+        Assert.Contains("int BumpAllWidgets(", src);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        var compilation = CSharpCompilation.Create("ProcCallPostgresSideEffectEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated postgres non-row-returning proc-call code (with caveat doc comment) failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    /// <summary>
+    /// The caveat only applies to the non-row-returning (int-returning)
+    /// branch -- a row-returning postgres proc returns List&lt;Result&gt;,
+    /// a type for which the "-1 always" caveat doesn't apply and must not
+    /// be emitted.
+    /// </summary>
+    [Fact]
+    public void Call_Postgres_RowReturningProc_DoesNotEmitCaveatDocComment()
+    {
+        var result = Run("-- @call GetProductsByCategory\n", "db/Products/GetProductsByCategory.sql", PostgresSchemaJson);
+        string src = AllSources(result);
+
+        Assert.Contains("List<Result.GetProductsByCategory>", src);
+        Assert.DoesNotContain("PostgreSQL note: the returned row count is always", src);
     }
 
     [Fact]

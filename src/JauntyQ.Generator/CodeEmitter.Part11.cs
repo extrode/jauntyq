@@ -98,6 +98,28 @@ public static partial class CodeEmitter
         if (isAsync)
             parts.Add("CancellationToken cancellationToken = default");
 
+        // AUD-R66-01: Postgres's CALL protocol reports only a bare "CALL"
+        // completion tag for a procedure invocation, never an affected-row
+        // count -- confirmed live: cmd.ExecuteNonQuery() (and
+        // DbDataReader.RecordsAffected after an ExecuteReader-based CALL)
+        // both unconditionally return -1 for a Postgres procedure, even one
+        // that performs a genuine multi-row UPDATE, unlike SQL Server/MySQL,
+        // which both report a real count for the identical call shape. This
+        // is a structural PostgreSQL/Npgsql limitation (no ADO.NET-level
+        // workaround exists), not fixable by changing how the call is
+        // emitted, so the caveat is surfaced at the call site instead.
+        if (!hasResults && string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
+        {
+            sb.AppendLine("        /// <summary>");
+            sb.AppendLine("        /// PostgreSQL note: the returned row count is always <c>-1</c>.");
+            sb.AppendLine("        /// Postgres's <c>CALL</c> protocol reports only a bare completion tag");
+            sb.AppendLine("        /// for a procedure invocation, never an affected-row count -- unlike");
+            sb.AppendLine("        /// SQL Server/MySQL, which both report a real count for the identical");
+            sb.AppendLine("        /// call shape. This is a structural PostgreSQL/Npgsql limitation, not");
+            sb.AppendLine("        /// a JauntyQ defect; do not rely on this value to detect whether the");
+            sb.AppendLine("        /// procedure's side effects occurred.");
+            sb.AppendLine("        /// </summary>");
+        }
         sb.AppendLine($"        {modifier}{asyncModifier} {declaredReturn} {name}({string.Join(", ", parts)})");
         sb.AppendLine("        {");
 
