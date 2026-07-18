@@ -79,6 +79,44 @@ public class ProcCallTests
       ""name"": ""GetProductsWithResultsOutParam"",
       ""params"": [ { ""name"": ""Results"", ""dbType"": ""int"", ""direction"": ""Out"", ""isNullable"": false } ],
       ""results"": [ { ""name"": ""ProductId"", ""dbType"": ""int"", ""isNullable"": false } ]
+    },
+    ""ArchiveWithCmdAndP0Params"": {
+      ""name"": ""ArchiveWithCmdAndP0Params"",
+      ""params"": [
+        { ""name"": ""P0"", ""dbType"": ""int"", ""direction"": ""In"", ""isNullable"": false },
+        { ""name"": ""Cmd"", ""dbType"": ""int"", ""direction"": ""In"", ""isNullable"": false }
+      ],
+      ""results"": []
+    },
+    ""GetItemsWithReaderParam"": {
+      ""name"": ""GetItemsWithReaderParam"",
+      ""params"": [ { ""name"": ""Reader"", ""dbType"": ""int"", ""direction"": ""In"", ""isNullable"": false } ],
+      ""results"": [ { ""name"": ""ItemId"", ""dbType"": ""int"", ""isNullable"": false } ]
+    },
+    ""ArchiveWithConnAndCancellationTokenParams"": {
+      ""name"": ""ArchiveWithConnAndCancellationTokenParams"",
+      ""params"": [
+        { ""name"": ""Conn"", ""dbType"": ""int"", ""direction"": ""In"", ""isNullable"": false },
+        { ""name"": ""CancellationToken"", ""dbType"": ""int"", ""direction"": ""In"", ""isNullable"": false }
+      ],
+      ""results"": []
+    },
+    ""UpdateTotalsWithOutSuffixCollision"": {
+      ""name"": ""UpdateTotalsWithOutSuffixCollision"",
+      ""params"": [
+        { ""name"": ""CustomerId"", ""dbType"": ""nchar"", ""direction"": ""In"", ""isNullable"": false, ""maxLength"": 5 },
+        { ""name"": ""Total"", ""dbType"": ""int"", ""direction"": ""Out"", ""isNullable"": false },
+        { ""name"": ""TotalOut"", ""dbType"": ""int"", ""direction"": ""InOut"", ""isNullable"": false }
+      ],
+      ""results"": []
+    },
+    ""ArchiveWithKeywordNamedOutParam"": {
+      ""name"": ""ArchiveWithKeywordNamedOutParam"",
+      ""params"": [
+        { ""name"": ""CustomerId"", ""dbType"": ""nchar"", ""direction"": ""In"", ""isNullable"": false, ""maxLength"": 5 },
+        { ""name"": ""Ref"", ""dbType"": ""int"", ""direction"": ""Out"", ""isNullable"": false }
+      ],
+      ""results"": []
     }
   }
 }";
@@ -423,16 +461,19 @@ public class ProcCallTests
             .Single(s => s.HintName == "Products.GetProductsAndCount.g.cs").SourceText.ToString();
 
         // Sync overloads assign the out parameter directly (declareLocals: false).
-        Assert.Contains("\n                total = p0.Value is null", source);
-        Assert.DoesNotContain("\n                    total = p0.Value is null", source);
+        // AUD-R68-01: the bound DbParameter local is "__p0", not "p0" (see
+        // ProcCallTests's collision regression tests below).
+        Assert.Contains("\n                total = __p0.Value is null", source);
+        Assert.DoesNotContain("\n                    total = __p0.Value is null", source);
 
         // Async overloads declare a local to fold into the tuple return (declareLocals: true).
-        Assert.Contains("\n                int totalOut = p0.Value is null", source);
-        Assert.DoesNotContain("\n                    int totalOut = p0.Value is null", source);
+        // AUD-R68-01: "__totalOut", not "totalOut" -- see EmitProcOutReadback.
+        Assert.Contains("\n                int __totalOut = __p0.Value is null", source);
+        Assert.DoesNotContain("\n                    int __totalOut = __p0.Value is null", source);
 
         // Both readback forms occur once per overload (instance/static x sync/async).
-        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(source, @"total = p0\.Value is null").Count);
-        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(source, @"int totalOut = p0\.Value is null").Count);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(source, @"total = __p0\.Value is null").Count);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(source, @"int __totalOut = __p0\.Value is null").Count);
     }
 
     /// <summary>
@@ -565,6 +606,187 @@ public class ProcCallTests
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         Assert.True(errors.Count == 0,
             "generated proc-call code for an OUT param literally named 'Results' failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    /// <summary>
+    /// AUD-R68-01: the bound-parameter loop var ("p0"/"p1"/...) and the
+    /// DbCommand local ("cmd") are JauntyQ-introduced pure-internal
+    /// bookkeeping names, never part of the public API surface, that were
+    /// never checked against real schema parameter names either -- same
+    /// defect family as AUD-R67-01's "results"/"affected". Confirmed live
+    /// (before the fix) that a schema param literally named "P0" collides
+    /// (CS0136) with the bare "p0" local for the first bound parameter, and
+    /// a schema param literally named "Cmd" collides (CS0136) with the bare
+    /// "cmd" DbCommand local, in all four overloads. Fixed by unconditionally
+    /// prefixing both with a double underscore ("__p0", "__cmd") -- always
+    /// safe, since (per DialectMapper.ToPascalCase's own invariant) no
+    /// schema-derived name can ever camelCase to a string containing an
+    /// underscore.
+    /// </summary>
+    [Fact]
+    public void Call_ParamsNamedP0AndCmd_DoNotCollideWithBookkeepingLocals()
+    {
+        var result = Run("-- @call ArchiveWithCmdAndP0Params\n", "db/Customers/ArchiveWithCmdAndP0Params.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithCmdAndP0Params.g.cs").SourceText.ToString();
+
+        Assert.Contains("using DbCommand __cmd = ", source);
+        Assert.Contains("DbParameter __p0 = __cmd.CreateParameter();", source);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        var compilation = CSharpCompilation.Create("ProcCallP0CmdCollisionEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated proc-call code for params literally named 'P0'/'Cmd' failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    /// <summary>
+    /// AUD-R68-01: same defect family, for the row-returning overload's
+    /// DbDataReader local. Confirmed live (before the fix) that a schema
+    /// param literally named "Reader" on a row-returning proc collides
+    /// (CS0136) with the bare "reader" local. Fixed the same way: an
+    /// unconditional "__reader" rename.
+    /// </summary>
+    [Fact]
+    public void Call_ParamNamedReader_DoesNotCollideWithDataReaderLocal()
+    {
+        var result = Run("-- @call GetItemsWithReaderParam\n", "db/Items/GetItemsWithReaderParam.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Items.GetItemsWithReaderParam.g.cs").SourceText.ToString();
+
+        Assert.Contains("DbDataReader __reader = ", source);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        var compilation = CSharpCompilation.Create("ProcCallReaderCollisionEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated proc-call code for a param literally named 'Reader' failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    /// <summary>
+    /// AUD-R68-01: unlike the pure-internal locals above, the static
+    /// overload's "conn" parameter and the async overload's
+    /// "cancellationToken" parameter DO appear in the method's public
+    /// signature, so they use the same conditional collision-check-and-
+    /// fallback pattern AUD-R67-01 established for the tuple's first
+    /// element name, rather than an unconditional rename. Confirmed live
+    /// (before the fix) that a schema param literally named "Conn"
+    /// (static overload) or "CancellationToken" (async overload) produces a
+    /// duplicate-parameter compile failure (CS0100/CS0229). Fixed by
+    /// escalating to "__conn"/"__cancellationToken" only in the actual
+    /// collision case, keeping the conventional name otherwise (see e.g.
+    /// AdjustStock's own generated static/async signatures elsewhere in this
+    /// file, unaffected by this fix).
+    /// </summary>
+    [Fact]
+    public void Call_ParamsNamedConnAndCancellationToken_DoNotCollideWithFormalParameters()
+    {
+        var result = Run("-- @call ArchiveWithConnAndCancellationTokenParams\n", "db/Customers/ArchiveWithConnAndCancellationTokenParams.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithConnAndCancellationTokenParams.g.cs").SourceText.ToString();
+
+        Assert.Contains("DbConnection __conn", source);
+        Assert.Contains("CancellationToken __cancellationToken = default", source);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        var compilation = CSharpCompilation.Create("ProcCallConnCancellationTokenCollisionEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated proc-call code for params literally named 'Conn'/'CancellationToken' failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    /// <summary>
+    /// AUD-R68-01: the async overload's OUT-param readback local (folded
+    /// into the tuple return) is named "{csName}Out" -- also never checked
+    /// against real schema parameter names. Confirmed live (before the fix)
+    /// that an OUT param named "Total" (producing readback local "totalOut")
+    /// collides (CS0136) with a sibling INOUT param literally named
+    /// "TotalOut" (which itself stays a real formal parameter named
+    /// "totalOut" on the async overload, since INOUT parameters are kept as
+    /// plain input values on async, never dropped like OUT). Fixed by
+    /// unconditionally prefixing the readback local ("__totalOut") -- a
+    /// pure-internal rename with zero effect on the sibling INOUT param's
+    /// own, separately-computed, public parameter name.
+    /// </summary>
+    [Fact]
+    public void Call_OutParamNamedTotal_DoesNotCollideWithSiblingParamNamedTotalOut()
+    {
+        var result = Run("-- @call UpdateTotalsWithOutSuffixCollision\n", "db/Customers/UpdateTotalsWithOutSuffixCollision.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.UpdateTotalsWithOutSuffixCollision.g.cs").SourceText.ToString();
+
+        Assert.Contains("int __totalOut = ", source);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        var compilation = CSharpCompilation.Create("ProcCallOutSuffixCollisionEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated proc-call code for an OUT param named 'Total' alongside a sibling INOUT param named 'TotalOut' failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    /// <summary>
+    /// AUD-R68-01 (amendment, caught by independent post-fix review): the
+    /// async readback local's name is built from "csName", which is already
+    /// IdentifierGuard.Escape()-d -- so an OUT param whose camelCased name is
+    /// itself a C# keyword (e.g. "Ref" -&gt; "ref" -&gt; "@ref") arrives as
+    /// "@ref". "@" is only legal at position 0 of an identifier, so naively
+    /// prefixing it ("__" + "@ref" + "Out") emitted "__@refOut", a syntax
+    /// error -- confirmed live via a real Roslyn compile (CS1002, CS0841,
+    /// CS0118, CS8185) before this specific amendment. Fixed by stripping the
+    /// leading '@' before building the readback local's name; the sync
+    /// overload's direct out-param assignment (declareLocals: false, which
+    /// legitimately needs the '@' escape) is unaffected.
+    /// </summary>
+    [Fact]
+    public void Call_KeywordNamedOutParam_ReadbackLocalDoesNotEmitLeadingAtSign()
+    {
+        var result = Run("-- @call ArchiveWithKeywordNamedOutParam\n", "db/Customers/ArchiveWithKeywordNamedOutParam.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithKeywordNamedOutParam.g.cs").SourceText.ToString();
+
+        Assert.Contains("int __refOut = ", source);
+        Assert.DoesNotContain("__@refOut", source);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        var compilation = CSharpCompilation.Create("ProcCallKeywordOutParamReadbackEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated proc-call code for a keyword-named ('Ref') OUT param failed to compile:\n" +
             string.Join("\n", errors.Select(e => e.ToString())));
     }
 }
