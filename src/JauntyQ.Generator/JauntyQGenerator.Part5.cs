@@ -48,6 +48,17 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         if (projection.Columns.Count != tableSchema.Columns.Count)
             return null;
 
+        // AUD-R64-01 (fix 2): a table whose columns collide under
+        // DialectMapper.ToPascalCase (JNT2011) has no safely-emittable
+        // shared row type at all -- routing a full-row query to it here
+        // would leave that query's own generated source referencing a type
+        // JauntyQGenerator's row-POCO emission loop (Part4.cs) will not
+        // emit. Fall through to this query's own per-projection type
+        // instead, which the pre-existing JNT3009 duplicate-result-column
+        // check (Part2.cs) already guards independently.
+        if (FindDuplicateColumnPropertyName(tableSchema.Columns.Values) != null)
+            return null;
+
         int i = 0;
         foreach (var col in tableSchema.Columns.Values)
         {

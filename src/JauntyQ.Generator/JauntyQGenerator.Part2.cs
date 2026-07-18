@@ -139,6 +139,21 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 }
             }
 
+            // JNT2011: two distinct result columns folding to the same
+            // PascalCased property name would emit a duplicate member into
+            // EmitProcCall's Result DTO (CodeEmitter.Part10.cs) -- the exact
+            // sibling of the canonical row-POCO check in
+            // JauntyQGenerator.Part4.cs, here for a stored procedure's own
+            // result-set columns instead of a table's columns.
+            string? dupProcCol = FindDuplicateColumnPropertyName(procedure.Results);
+            if (dupProcCol != null)
+            {
+                callDiagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2011,
+                    $"Stored procedure '{procedure.Name}' has two result columns that map to the same generated property '{dupProcCol}'. " +
+                    $"The Result DTO cannot declare '{dupProcCol}' twice; alias one column distinctly in the procedure's own SELECT."));
+                return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
+            }
+
             string callSource = CodeEmitter.EmitProcCall(entityName, methodName, procedure, schema.Dialect, schema);
             return new FileResult(
                 $"{entityName}.{methodName}.g.cs",

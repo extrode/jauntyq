@@ -280,6 +280,27 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 if (!rowNameOk)
                     continue;
 
+                // JNT2011: two distinct, individually-legal column names that
+                // fold to the same PascalCased property name (e.g.
+                // "order_number"/"OrderNumber", or a case-only pair) would
+                // make CodeEmitter.EmitRowPoco emit two identically-named
+                // properties in the same class (CS0102), plus a duplicate
+                // member-initializer entry in Read() -- the same "sibling
+                // switch/guard divergence" shape JNT3009 already guards for a
+                // query's own SELECT projection, and JNT2009/JNT2010 guard
+                // for sequence/entity accessor names, but nothing previously
+                // covered the table's own full column set feeding the
+                // canonical row POCO. Skip the table and report, matching the
+                // JNT2004 (C2) precedent immediately above.
+                string? dupRowCol = FindDuplicateColumnPropertyName(tableSchema.Columns.Values);
+                if (dupRowCol != null)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2011, Location.None,
+                        $"Table '{tableSchema.Name}' has two columns that map to the same generated property '{dupRowCol}'. " +
+                        $"The row type cannot declare '{dupRowCol}' twice; rename one column or exclude it from full-row queries."));
+                    continue;
+                }
+
                 // JNT2007: a column whose db type has no case in
                 // DialectMapper.MapDbTypeToCSharp silently degrades to
                 // `object`, which is unusable without a manual cast at every
@@ -429,5 +450,27 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             var dbSource = CodeEmitter.EmitJauntyDb(sortedEntities, schema);
             context.AddSource("JauntyDb.g.cs", SourceText.From(dbSource, Encoding.UTF8));
         }
+    }
+
+    /// <summary>
+    /// True (returning the folded name) when two columns in <paramref
+    /// name="columns"/> map to the same emitted <c>DialectMapper.ToPascalCase</c>
+    /// property name, else null. Shared by the canonical row-POCO check
+    /// (JNT2011, this file) and the stored-procedure Result DTO check
+    /// (JNT2011, JauntyQGenerator.Part2.cs) — both emit one C# property per
+    /// column from a raw schema-derived column list, the same shape
+    /// <c>FindDuplicateResultColumn</c> already guards for a query's own
+    /// SELECT projection.
+    /// </summary>
+    private static string? FindDuplicateColumnPropertyName(System.Collections.Generic.IEnumerable<ColumnSchema> columns)
+    {
+        var seen = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        foreach (var col in columns)
+        {
+            string emitted = DialectMapper.ToPascalCase(col.Name);
+            if (!seen.Add(emitted))
+                return emitted;
+        }
+        return null;
     }
 }
