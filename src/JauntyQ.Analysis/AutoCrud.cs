@@ -63,14 +63,14 @@ public static class AutoCrud
             // v1 synthesizes bare (unquoted) identifiers so the SQL is exactly
             // what a user would write by hand and flows through the minimal
             // parser unchanged. Tables/columns that need quoting are skipped.
-            if (!IsBareIdentifier(table.Name))
+            if (!IsBareIdentifier(table.Name, schema.Dialect))
                 continue;
 
             var columns = new List<ColumnSchema>();
             bool allColumnsUsable = true;
             foreach (var col in table.Columns.Values)
             {
-                if (!IsBareIdentifier(col.Name))
+                if (!IsBareIdentifier(col.Name, schema.Dialect))
                 {
                     allColumnsUsable = false;
                     break;
@@ -97,7 +97,7 @@ public static class AutoCrud
             {
                 if (!string.Equals(fk.FromTable, table.Name, StringComparison.OrdinalIgnoreCase))
                     continue;
-                if (!IsBareIdentifier(fk.FromColumn) || !fkColumnsSeen.Add(fk.FromColumn))
+                if (!IsBareIdentifier(fk.FromColumn, schema.Dialect) || !fkColumnsSeen.Add(fk.FromColumn))
                     continue;
                 if (pkCols.Count == 1 && string.Equals(pkCols[0].Name, fk.FromColumn, StringComparison.OrdinalIgnoreCase))
                     continue;
@@ -212,16 +212,37 @@ public static class AutoCrud
 
     /// <summary>
     /// True when <paramref name="name"/> can be emitted unquoted into synthetic
-    /// SQL and still round-trip correctly. Beyond the lexical bare-identifier
-    /// shape, a name that collides with a SQL reserved word (e.g. a column
-    /// literally named <c>Group</c> or <c>Order</c>) also fails this check:
-    /// unquoted, it tokenizes as a keyword rather than an identifier, which
-    /// silently desyncs the positional column/parameter binding in
-    /// <c>ParseInsert</c>'s column list — a wrong-typed-parameter bug, not a
-    /// clean compile error, for every column after it. v1 has no quoting
-    /// support, so such tables/columns are skipped rather than emitted broken.
+    /// SQL for <paramref name="dialect"/> and still round-trip correctly.
+    /// Beyond the lexical bare-identifier shape, a name that collides with a
+    /// SQL reserved word (e.g. a column literally named <c>Group</c> or
+    /// <c>Order</c>) also fails this check: unquoted, it tokenizes as a
+    /// keyword rather than an identifier, which silently desyncs the
+    /// positional column/parameter binding in <c>ParseInsert</c>'s column
+    /// list — a wrong-typed-parameter bug, not a clean compile error, for
+    /// every column after it. v1 has no quoting support, so such
+    /// tables/columns are skipped rather than emitted broken.
+    ///
+    /// AUD-R64-01: this used to check only <see
+    /// cref="SqlTokenizer.IsReservedKeyword"/> — JauntyQ's OWN ~55-word
+    /// internal keyword list, which models the subset of SQL this project's
+    /// own tokenizer understands, not the TARGET ENGINE's actual reserved-word
+    /// grammar. A column named <c>user</c> or <c>key</c> is not a JauntyQ
+    /// keyword, so it passed this gate, but PostgreSQL/MySQL/SQL Server all
+    /// reserve those words: emitted bare, PostgreSQL silently parses
+    /// <c>user</c> as the niladic <c>current_user</c> function (wrong data on
+    /// every row, zero diagnostic anywhere — verified live against
+    /// postgres:16), MySQL/SQL Server raise a runtime syntax error instead
+    /// (verified live against mysql:8.0). Now also checks <see
+    /// cref="DialectReservedWords.IsReservedInDialect"/> — a second,
+    /// independent gate from the JauntyQ-tokenizer one, since a name must
+    /// clear both. Separately, PostgreSQL lower-cases every unquoted
+    /// identifier it parses, so a name created quoted with any uppercase
+    /// letter can never be safely referenced bare either (<see
+    /// cref="DialectReservedWords.RequiresQuotingForCase"/>, PostgreSQL-only —
+    /// SQL Server/SQLite's unquoted matching is case-insensitive with no
+    /// silent rename, so this does not generalize to other dialects).
     /// </summary>
-    private static bool IsBareIdentifier(string name)
+    private static bool IsBareIdentifier(string name, string? dialect)
     {
         if (string.IsNullOrEmpty(name))
             return false;
@@ -232,6 +253,12 @@ public static class AutoCrud
             if (!char.IsLetterOrDigit(name[i]) && name[i] != '_')
                 return false;
         }
-        return !SqlTokenizer.IsReservedKeyword(name);
+        if (SqlTokenizer.IsReservedKeyword(name))
+            return false;
+        if (DialectReservedWords.IsReservedInDialect(name, dialect))
+            return false;
+        if (DialectReservedWords.RequiresQuotingForCase(name, dialect))
+            return false;
+        return true;
     }
 }
