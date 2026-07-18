@@ -39,19 +39,26 @@ public static partial class CodeEmitter
     }
 
     /// <summary>
-    /// True when some table in <paramref name="schema"/> generates an entity
-    /// accessor class named exactly <paramref name="simpleName"/>. Entity
-    /// names come from <see cref="DialectMapper.ToPascalCase"/> on a fully
-    /// user-controlled table name and are declared as
-    /// <c>public partial class {name}</c> directly in
-    /// <c>namespace JauntyQ.Generated</c> -- so a table named e.g. "list",
-    /// "task", or "system" shadows the BCL name of the same simple name for
-    /// every file compiled into that namespace, not merely the file for
-    /// that one entity. Only table-derived names are checked (not
-    /// hand-authored .sql entity names, which a developer chooses and is
-    /// unlikely to pick as a BCL/provider type name by accident); this is
-    /// the realistic, demonstrated collision shape, matching the
-    /// PascalCase-folding defect class JNT2009/JNT2010 already guard.
+    /// True when some table in <paramref name="schema"/> generates a
+    /// top-level type named exactly <paramref name="simpleName"/> in
+    /// <c>namespace JauntyQ.Generated</c>. Two table-derived names land
+    /// there per table, both from a fully user-controlled table name:
+    /// the entity accessor class (<see cref="DialectMapper.ToPascalCase"/> --
+    /// <c>public partial class {name}</c>) and the row POCO
+    /// (<see cref="Inflector.RowTypeName"/>, the singularized entity name --
+    /// <c>public class {name}</c>). Either shadows the BCL name of the same
+    /// simple name for every file compiled into that namespace, not merely
+    /// the file for that one table: a table named "task" shadows via its
+    /// entity name, and a table named "date_times" shadows via its row POCO
+    /// "DateTime" (AUD-R50-02) even though its entity name "DateTimes"
+    /// collides with nothing. The row-POCO name is checked for every table
+    /// regardless of whether a POCO is actually emitted for it this run --
+    /// over-qualifying costs only cosmetics, under-qualifying breaks the
+    /// build. Only table-derived names are checked (not hand-authored .sql
+    /// entity names, which a developer chooses and is unlikely to pick as a
+    /// BCL/provider type name by accident); this is the realistic,
+    /// demonstrated collision shape, matching the PascalCase-folding defect
+    /// class JNT2009/JNT2010 already guard.
     /// </summary>
     private static bool SchemaHasEntityNamed(DatabaseSchema? schema, string simpleName)
     {
@@ -60,7 +67,10 @@ public static partial class CodeEmitter
 
         foreach (var table in schema.Tables.Values)
         {
-            if (string.Equals(DialectMapper.ToPascalCase(table.Name), simpleName, StringComparison.Ordinal))
+            string entityName = DialectMapper.ToPascalCase(table.Name);
+            if (string.Equals(entityName, simpleName, StringComparison.Ordinal))
+                return true;
+            if (string.Equals(Inflector.RowTypeName(entityName), simpleName, StringComparison.Ordinal))
                 return true;
         }
 

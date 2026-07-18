@@ -257,7 +257,7 @@ public static partial class CodeEmitter
         var eachParams = paramInfos.FindAll(p => p.IsEach);
         if (eachParams.Count == 0)
         {
-            sb.AppendLine($"                cmd.CommandText = @\"{IndentSqlContinuationLines(EscapeVerbatimString(sql), 36)}\";");
+            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(IndentSqlContinuationLines(sql, 36))}\";");
             return;
         }
 

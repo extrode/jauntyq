@@ -59,7 +59,7 @@ public static partial class CodeEmitter
         sb.AppendLine("                {");
         sb.AppendLine($"                    using DbCommand cmd = {connVar}.CreateCommand();");
         sb.AppendLine("                    cmd.Transaction = tx;");
-        sb.AppendLine($"                    cmd.CommandText = @\"{IndentSqlContinuationLines(EscapeVerbatimString(insertSql), 40)}\";");
+        sb.AppendLine($"                    cmd.CommandText = @\"{EscapeVerbatimString(IndentSqlContinuationLines(insertSql, 40))}\";");
         for (int i = 0; i < cols.Count; i++)
         {
             var c = cols[i];
@@ -105,18 +105,88 @@ public static partial class CodeEmitter
     }
 
     /// <summary>
-    /// Re-indents every line after the first in a verbatim-string SQL literal
-    /// so continuation lines align under the opening quote instead of sitting
-    /// at column 0 -- e.g. "delete from address\nwhere ..." becomes readable
-    /// once the "where" clause lines up under "delete". Call after
-    /// <see cref="EscapeVerbatimString"/>; <paramref name="column"/> is the
-    /// number of characters preceding the SQL's first character on the
+    /// Re-indents every line after the first in a SQL string so continuation
+    /// lines align under the opening quote instead of sitting at column 0 --
+    /// e.g. "delete from address\nwhere ..." becomes readable once the
+    /// "where" clause lines up under "delete". <paramref name="column"/> is
+    /// the number of characters preceding the SQL's first character on the
     /// CommandText assignment line (indent plus <c>cmd.CommandText = @"</c>).
+    /// Call BEFORE <see cref="EscapeVerbatimString"/> (the two commute --
+    /// escaping only doubles quotes, indenting only inserts spaces -- but
+    /// this helper's quote tracking assumes raw, un-doubled text).
+    /// The pad is inserted only after a newline that sits OUTSIDE any
+    /// single-quoted string literal or quoted identifier ("..." / [...] /
+    /// `...`): the emitted verbatim string's whitespace IS the runtime
+    /// CommandText, so padding a newline inside a multi-line literal would
+    /// silently change the value the database receives (AUD-R50-01).
+    /// Newlines inside comments are padded as usual -- a line comment is
+    /// terminated by the newline itself, and extra interior whitespace in a
+    /// block comment is semantically inert.
     /// </summary>
-    private static string IndentSqlContinuationLines(string escapedSql, int column)
+    private static string IndentSqlContinuationLines(string sql, int column)
     {
-        return escapedSql.IndexOf('\n') < 0
-            ? escapedSql
-            : escapedSql.Replace("\n", "\n" + new string(' ', column));
+        if (sql.IndexOf('\n') < 0)
+            return sql;
+
+        string pad = new string(' ', column);
+        var sb = new System.Text.StringBuilder(sql.Length + 64);
+        // Mirror of SqlTokenizer's quoting rules, reduced to the one question
+        // this formatter needs: is this newline inside a literal/identifier?
+        char delimiter = '\0'; // active '\'' / '"' / '`' / '[' opener, or \0
+        bool inLineComment = false;
+        bool inBlockComment = false;
+        for (int i = 0; i < sql.Length; i++)
+        {
+            char c = sql[i];
+            sb.Append(c);
+
+            if (inLineComment)
+            {
+                if (c == '\n') { inLineComment = false; sb.Append(pad); }
+                continue;
+            }
+            if (inBlockComment)
+            {
+                if (c == '*' && i + 1 < sql.Length && sql[i + 1] == '/') { sb.Append('/'); i++; inBlockComment = false; }
+                else if (c == '\n') sb.Append(pad);
+                continue;
+            }
+            if (delimiter != '\0')
+            {
+                char close = delimiter == '[' ? ']' : delimiter;
+                if (c == close)
+                {
+                    // A doubled close char ('' / "" / `` / ]]) is an escaped
+                    // occurrence inside the run, not a terminator.
+                    if (i + 1 < sql.Length && sql[i + 1] == close) { sb.Append(close); i++; }
+                    else delimiter = '\0';
+                }
+                continue;
+            }
+
+            switch (c)
+            {
+                case '\'':
+                case '"':
+                case '`':
+                case '[':
+                    delimiter = c;
+                    break;
+                case '-' when i + 1 < sql.Length && sql[i + 1] == '-':
+                    sb.Append('-');
+                    i++;
+                    inLineComment = true;
+                    break;
+                case '/' when i + 1 < sql.Length && sql[i + 1] == '*':
+                    sb.Append('*');
+                    i++;
+                    inBlockComment = true;
+                    break;
+                case '\n':
+                    sb.Append(pad);
+                    break;
+            }
+        }
+        return sb.ToString();
     }
 }
