@@ -99,6 +99,15 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// Extracts the entity name from a SQL file path by comparing to the common directory prefix.
     /// Files directly in the root SQL folder get entity name "Queries" (catch-all).
     /// Files in a subfolder get the subfolder name as entity name.
+    ///
+    /// Structurally different from JauntyQ.Cli's own entity-name algorithm
+    /// (DeriveEntity, duplicated in ImpactCommand.cs and UsageManifestBuilder.cs:
+    /// bare immediate-parent-folder-name, vs. this method's common-prefix-relative
+    /// first-segment-after-skipping-tables/views) -- confirmed to coincide only
+    /// because every canonical sample's query corpus is exactly one folder deep.
+    /// If a query layout ever goes deeper than one folder, re-verify both
+    /// algorithms still agree before trusting either one's output against the
+    /// other's.
     /// </summary>
     internal static string ExtractEntityName(string filePath, string commonPrefix)
     {

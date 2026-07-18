@@ -210,7 +210,6 @@ internal sealed class SchemaState
     {
         "JNT9001" => JauntyDiagnostics.JNT9001,
         "JNT9002" => JauntyDiagnostics.JNT9002,
-        "JNT9003" => JauntyDiagnostics.JNT9003,
         _ => JauntyDiagnostics.JNT9002,
     };
 }
