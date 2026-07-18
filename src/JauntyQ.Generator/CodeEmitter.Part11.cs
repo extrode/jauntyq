@@ -83,12 +83,34 @@ public static partial class CodeEmitter
             declaredReturn = isAsync ? $"{taskType}<{syncReturn}>" : syncReturn;
         }
 
+        // AUD-R68-01: same defect family as AUD-R67-01 -- the static
+        // overload's "conn" parameter and the async overload's
+        // "cancellationToken" parameter are JauntyQ-introduced bookkeeping
+        // names that were never checked against real schema-derived
+        // parameter names either. Confirmed via a real Roslyn compile: a
+        // schema parameter literally named "Conn" (static) or
+        // "CancellationToken" (async) produces a duplicate-parameter
+        // compile failure (CS0100/CS0229), since these two are hardcoded
+        // formal parameters, not just internal locals. Unlike the pure-
+        // internal locals below, these two DO appear in the method's
+        // public signature, so -- exactly like AUD-R67-01's own tuple-
+        // element-name fix -- only escalate to a guaranteed-unique
+        // fallback name in the actual collision case, keeping the
+        // conventional "conn"/"cancellationToken" name otherwise.
+        bool connNameCollides = isStatic && AnyParamNameCollidesWith(procedure, "conn");
+        if (connNameCollides)
+            connVar = "__conn";
+        bool cancellationTokenNameCollides = isAsync && AnyParamNameCollidesWith(procedure, "cancellationToken");
+        string tokenParamName = cancellationTokenNameCollides ? "__cancellationToken" : "cancellationToken";
+
         // Parameter list: IN params by value; OUT/INOUT params as C# `out`/`ref`
         // on the sync overload. Async drops OUT entirely and keeps INOUT as a
-        // plain input value (see above).
+        // plain input value (see above). "conn" is emitted via connVar (not a
+        // hardcoded literal) so the collision fallback above actually takes
+        // effect here too.
         var parts = new System.Collections.Generic.List<string>();
         if (isStatic)
-            parts.Add("DbConnection conn");
+            parts.Add($"DbConnection {connVar}");
         foreach (var p in procedure.Params)
         {
             if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.ReturnValue)
@@ -114,7 +136,7 @@ public static partial class CodeEmitter
         if (hasTransactionParam)
             parts.Add("DbTransaction? transaction = null");
         if (isAsync)
-            parts.Add("CancellationToken cancellationToken = default");
+            parts.Add($"CancellationToken {tokenParamName} = default");
 
         // AUD-R66-01: Postgres's CALL protocol reports only a bare "CALL"
         // completion tag for a procedure invocation, never an affected-row
@@ -164,19 +186,36 @@ public static partial class CodeEmitter
             }
         }
 
+        // AUD-R68-01: "cmd"/"reader" (below) are unconditionally renamed
+        // with a double-underscore prefix -- pure-internal locals, never
+        // part of the public signature or return value, so (per the same
+        // underscore-can-never-be-schema-derived reasoning AUD-R67-01
+        // established for "__affected"/"__results") this is a zero-risk,
+        // always-safe rename rather than a conditional one. Confirmed via a
+        // real Roslyn compile that a schema parameter literally named
+        // "Cmd"/"Reader" collided (CS0136) with the un-prefixed versions of
+        // these locals. NOTE: "weOpened" (right below) has the identical
+        // collision (a schema param named "WeOpened" also collides,
+        // confirmed live) but is deliberately left un-renamed here --
+        // EmitFinallyClose (CodeEmitter.Part4.cs), a HELPER SHARED BY 7
+        // call sites across this file, hardcodes the literal "weOpened"
+        // and is not itself parameterized to accept a different name;
+        // fixing it correctly means auditing and updating all 7 call
+        // sites, a larger cross-cutting change outside this finding's
+        // scope -- recorded as a residual for a future round instead.
         sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
-            ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
+            ? $"            if (weOpened) await {connVar}.OpenAsync({tokenParamName}).ConfigureAwait(false);"
             : $"            if (weOpened) {connVar}.Open();");
         sb.AppendLine("            try");
         sb.AppendLine("            {");
-        sb.AppendLine($"                using DbCommand cmd = {connVar}.CreateCommand();");
+        sb.AppendLine($"                using DbCommand __cmd = {connVar}.CreateCommand();");
         if (!isStatic)
-            sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
+            sb.AppendLine("                if (_db?.CurrentTransaction != null) __cmd.Transaction = _db.CurrentTransaction;");
         else if (hasTransactionParam)
-            sb.AppendLine("                if (transaction != null) cmd.Transaction = transaction;");
-        sb.AppendLine($"                cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procedure.Name)}\";");
-        sb.AppendLine("                cmd.CommandType = CommandType.StoredProcedure;");
+            sb.AppendLine("                if (transaction != null) __cmd.Transaction = transaction;");
+        sb.AppendLine($"                __cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procedure.Name)}\";");
+        sb.AppendLine("                __cmd.CommandType = CommandType.StoredProcedure;");
 
         // Bind parameters. Track OUT/INOUT parameter variable names for readback.
         var outReadback = new System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType, bool Nullable)>();
@@ -185,10 +224,14 @@ public static partial class CodeEmitter
         {
             if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.ReturnValue)
                 continue;
-            string varName = $"p{idx++}";
+            // AUD-R68-01: "__p0"/"__p1"/... not "p0"/"p1"/... -- confirmed
+            // live that a schema parameter literally named "P0" collides
+            // (CS0136) with the bare "p0" local for the first bound
+            // parameter. Pure-internal, zero API impact.
+            string varName = $"__p{idx++}";
             string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
             string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
-            sb.AppendLine($"                DbParameter {varName} = cmd.CreateParameter();");
+            sb.AppendLine($"                DbParameter {varName} = __cmd.CreateParameter();");
             sb.AppendLine($"                {varName}.ParameterName = \"@{IdentifierGuard.ToStringLiteral(p.Name)}\";");
             string? adoDbType = MapCSharpTypeToAdoDbType(ct);
             if (adoDbType != null)
@@ -229,7 +272,7 @@ public static partial class CodeEmitter
                         : $"                {varName}.Value = (object?){pname} ?? DBNull.Value;");
                     break;
             }
-            sb.AppendLine($"                cmd.Parameters.Add({varName});");
+            sb.AppendLine($"                __cmd.Parameters.Add({varName});");
         }
         sb.AppendLine();
 
@@ -256,14 +299,17 @@ public static partial class CodeEmitter
             // the tuple TYPE's own declared element name (see
             // firstTupleElementName above) is unaffected by this and keeps
             // its friendly public-facing name.
+            // AUD-R68-01: "__reader", not "reader" -- confirmed live that a
+            // schema parameter literally named "Reader" (on a row-returning
+            // proc) collides (CS0136) with the bare "reader" local.
             sb.AppendLine($"                var __results = new {listType}<{resultType}>();");
             sb.AppendLine(isAsync
-                ? $"                using (DbDataReader reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false))"
-                : $"                using (DbDataReader reader = cmd.ExecuteReader({behavior}))");
+                ? $"                using (DbDataReader __reader = await __cmd.ExecuteReaderAsync({behavior}, {tokenParamName}).ConfigureAwait(false))"
+                : $"                using (DbDataReader __reader = __cmd.ExecuteReader({behavior}))");
             sb.AppendLine("                {");
-            string readCall = isAsync ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)" : "reader.Read()";
+            string readCall = isAsync ? $"await __reader.ReadAsync({tokenParamName}).ConfigureAwait(false)" : "__reader.Read()";
             sb.AppendLine($"                    while ({readCall})");
-            sb.AppendLine($"                        __results.Add(__Map{methodName}(reader));");
+            sb.AppendLine($"                        __results.Add(__Map{methodName}(__reader));");
             sb.AppendLine("                }");
             if (asyncReturnsTuple)
             {
@@ -279,8 +325,8 @@ public static partial class CodeEmitter
         else
         {
             sb.AppendLine(isAsync
-                ? "                int __affected = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);"
-                : "                int __affected = cmd.ExecuteNonQuery();");
+                ? $"                int __affected = await __cmd.ExecuteNonQueryAsync({tokenParamName}).ConfigureAwait(false);"
+                : "                int __affected = __cmd.ExecuteNonQuery();");
             if (asyncReturnsTuple)
             {
                 var localNames = EmitProcOutReadback(sb, outReadback, "                ", declareLocals: true, schema);
@@ -296,6 +342,20 @@ public static partial class CodeEmitter
         EmitFinallyClose(sb, connVar, isAsync);
         sb.AppendLine("        }");
     }
+
+    /// <summary>
+    /// AUD-R68-01: true if a real (non-return-value) schema parameter's own
+    /// escaped camelCase name equals <paramref name="bookkeepingName"/> --
+    /// used to gate the "conn"/"cancellationToken" formal-parameter fallback
+    /// renames the same way AUD-R67-01 gates the tuple's first-element name,
+    /// since these two names DO appear in the public method signature and
+    /// should only escalate to the guaranteed-unique fallback in the actual
+    /// collision case.
+    /// </summary>
+    private static bool AnyParamNameCollidesWith(JauntyQ.Schema.ProcedureSchema procedure, string bookkeepingName) =>
+        procedure.Params.Exists(p =>
+            p.Direction != JauntyQ.Schema.ProcedureParamDirection.ReturnValue
+            && IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name))) == bookkeepingName);
 
     /// <summary>
     /// Reads OUT/INOUT parameter values back. The sync overload assigns
@@ -317,7 +377,20 @@ public static partial class CodeEmitter
         {
             string csType = ShortenValueTypeName(schema, rawCsType);
             string baseType = csType.EndsWith("?") ? csType.Substring(0, csType.Length - 1) : csType;
-            string target = declareLocals ? $"{csName}Out" : csName;
+            // AUD-R68-01: "__{csName}Out", not "{csName}Out" -- this local is
+            // only declared on the async overload (declareLocals: true),
+            // purely to be folded into the tuple return below; it never
+            // appears in the public API surface (the tuple TYPE's own
+            // declared element name comes from a separate code path in
+            // EmitProcCallBody, not from here). Confirmed live: an OUT
+            // param named "Total" produces the readback local "totalOut" by
+            // this suffix convention, which collides (CS0128) with a
+            // SECOND, sibling OUT param literally named "TotalOut" (whose
+            // own csName is also "totalOut") on the same procedure --
+            // schema-vs-JauntyQ-bookkeeping, same defect shape as
+            // "__results"/"__cmd"/"__reader" above, not the schema-vs-schema
+            // case that's out of scope for this round.
+            string target = declareLocals ? $"__{csName}Out" : csName;
             string declKeyword = declareLocals ? $"{csType} " : "";
             // DBNull -> default; otherwise unbox to the declared type.
             sb.AppendLine($"{indent}{declKeyword}{target} = {paramVar}.Value is null || {paramVar}.Value is DBNull ? default! : ({csType})({baseType}){paramVar}.Value;");
