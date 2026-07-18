@@ -179,6 +179,12 @@ public static partial class CodeEmitter
         var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync, schema);
         string readerType = $"__{rowType}BulkReader";
         string listType = TypeRef(schema, "List", "System.Collections.Generic");
+        // AUD-R50-03 (residual): these BCL names appear as bare literals in the
+        // SHOW WARNINGS check below; a colliding entity/row-POCO name (e.g.
+        // "converts", "string_comparisons") would shadow them namespace-wide.
+        string convertType = TypeRef(schema, "Convert", "System");
+        string stringComparisonType = TypeRef(schema, "StringComparison", "System");
+        string invalidOpEx = TypeRef(schema, "InvalidOperationException", "System");
         string mySqlTransactionType = TypeRef(schema, "MySqlTransaction", "MySqlConnector");
         string mySqlBulkCopyType = TypeRef(schema, "MySqlBulkCopy", "MySqlConnector");
         string mySqlConnectionType = TypeRef(schema, "MySqlConnection", "MySqlConnector");
@@ -239,11 +245,11 @@ public static partial class CodeEmitter
             ? "                    while (await __warnRdr.ReadAsync(cancellationToken).ConfigureAwait(false))"
             : "                    while (__warnRdr.Read())");
         sb.AppendLine("                    {");
-        sb.AppendLine("                        if (string.Equals(Convert.ToString(__warnRdr.GetValue(0)), \"Warning\", StringComparison.OrdinalIgnoreCase))");
-        sb.AppendLine("                            __warnMsgs.Add(Convert.ToString(__warnRdr.GetValue(2)) ?? string.Empty);");
+        sb.AppendLine($"                        if (string.Equals({convertType}.ToString(__warnRdr.GetValue(0)), \"Warning\", {stringComparisonType}.OrdinalIgnoreCase))");
+        sb.AppendLine($"                            __warnMsgs.Add({convertType}.ToString(__warnRdr.GetValue(2)) ?? string.Empty);");
         sb.AppendLine("                    }");
         sb.AppendLine("                    if (__warnMsgs.Count > 0)");
-        sb.AppendLine("                        throw new InvalidOperationException(\"MySqlBulkCopy completed but the server reported \" + __warnMsgs.Count + \" warning(s); LOAD DATA's IGNORE semantics silently coerce constraint violations (e.g. NULL into a NOT NULL column) to a default value instead of failing the row: \" + string.Join(\"; \", __warnMsgs));");
+        sb.AppendLine($"                        throw new {invalidOpEx}(\"MySqlBulkCopy completed but the server reported \" + __warnMsgs.Count + \" warning(s); LOAD DATA's IGNORE semantics silently coerce constraint violations (e.g. NULL into a NOT NULL column) to a default value instead of failing the row: \" + string.Join(\"; \", __warnMsgs));");
         sb.AppendLine("                }");
         sb.AppendLine("                return __reader.RowsRead;");
         EmitFinallyClose(sb, connVar, isAsync);
@@ -266,6 +272,14 @@ public static partial class CodeEmitter
         string enumeratorType = TypeRef(schema, "IEnumerator", "System.Collections.Generic");
         string enumerableType = TypeRef(schema, "IEnumerable", "System.Collections.Generic");
         string typeType = TypeRef(schema, "Type", "System");
+        // AUD-R50-03 (residual): further BCL/ADO.NET names emitted bare in the
+        // adapter body below — each is shadowed namespace-wide by a colliding
+        // entity/row-POCO name (e.g. "maths", "arrays", "db_enumerators").
+        string indexOutOfRangeEx = TypeRef(schema, "IndexOutOfRangeException", "System");
+        string mathType = TypeRef(schema, "Math", "System");
+        string arrayType = TypeRef(schema, "Array", "System");
+        string stringComparisonType = TypeRef(schema, "StringComparison", "System");
+        string dbEnumeratorType = TypeRef(schema, "DbEnumerator", "System.Data.Common");
 
         sb.AppendLine($"        private sealed class {readerType} : DbDataReader");
         sb.AppendLine("        {");
@@ -302,7 +316,7 @@ public static partial class CodeEmitter
             else
                 sb.AppendLine($"                    case {i}: return (object?)_current.{prop} ?? DBNull.Value;");
         }
-        sb.AppendLine("                    default: throw new IndexOutOfRangeException(ordinal.ToString());");
+        sb.AppendLine($"                    default: throw new {indexOutOfRangeEx}(ordinal.ToString());");
         sb.AppendLine("                }");
         sb.AppendLine("            }");
         sb.AppendLine();
@@ -313,7 +327,7 @@ public static partial class CodeEmitter
         sb.AppendLine("                {");
         for (int i = 0; i < cols.Count; i++)
             sb.AppendLine($"                    case {i}: return \"{IdentifierGuard.ToStringLiteral(cols[i].Name)}\";");
-        sb.AppendLine("                    default: throw new IndexOutOfRangeException(ordinal.ToString());");
+        sb.AppendLine($"                    default: throw new {indexOutOfRangeEx}(ordinal.ToString());");
         sb.AppendLine("                }");
         sb.AppendLine("            }");
         sb.AppendLine();
@@ -321,8 +335,8 @@ public static partial class CodeEmitter
         sb.AppendLine("            public override int GetOrdinal(string name)");
         sb.AppendLine("            {");
         for (int i = 0; i < cols.Count; i++)
-            sb.AppendLine($"                if (string.Equals(name, \"{IdentifierGuard.ToStringLiteral(cols[i].Name)}\", StringComparison.Ordinal)) return {i};");
-        sb.AppendLine("                throw new IndexOutOfRangeException(name);");
+            sb.AppendLine($"                if (string.Equals(name, \"{IdentifierGuard.ToStringLiteral(cols[i].Name)}\", {stringComparisonType}.Ordinal)) return {i};");
+        sb.AppendLine($"                throw new {indexOutOfRangeEx}(name);");
         sb.AppendLine("            }");
         sb.AppendLine();
         // GetFieldType
@@ -336,7 +350,7 @@ public static partial class CodeEmitter
             string baseType = ct.EndsWith("?") ? ct.Substring(0, ct.Length - 1) : ct;
             sb.AppendLine($"                    case {i}: return typeof({baseType});");
         }
-        sb.AppendLine("                    default: throw new IndexOutOfRangeException(ordinal.ToString());");
+        sb.AppendLine($"                    default: throw new {indexOutOfRangeEx}(ordinal.ToString());");
         sb.AppendLine("                }");
         sb.AppendLine("            }");
         sb.AppendLine();
@@ -374,8 +388,8 @@ public static partial class CodeEmitter
         sb.AppendLine("                if (buffer == null) return data.Length;");
         sb.AppendLine("                long available = data.Length - dataOffset;");
         sb.AppendLine("                if (available <= 0) return 0;");
-        sb.AppendLine("                int toCopy = (int)Math.Min(length, available);");
-        sb.AppendLine("                Array.Copy(data, (int)dataOffset, buffer, bufferOffset, toCopy);");
+        sb.AppendLine($"                int toCopy = (int){mathType}.Min(length, available);");
+        sb.AppendLine($"                {arrayType}.Copy(data, (int)dataOffset, buffer, bufferOffset, toCopy);");
         sb.AppendLine("                return toCopy;");
         sb.AppendLine("            }");
         sb.AppendLine();
@@ -385,7 +399,7 @@ public static partial class CodeEmitter
         sb.AppendLine("                if (buffer == null) return data.Length;");
         sb.AppendLine("                long available = data.Length - dataOffset;");
         sb.AppendLine("                if (available <= 0) return 0;");
-        sb.AppendLine("                int toCopy = (int)Math.Min(length, available);");
+        sb.AppendLine($"                int toCopy = (int){mathType}.Min(length, available);");
         sb.AppendLine("                data.CopyTo((int)dataOffset, buffer, bufferOffset, toCopy);");
         sb.AppendLine("                return toCopy;");
         sb.AppendLine("            }");
@@ -399,7 +413,7 @@ public static partial class CodeEmitter
         sb.AppendLine("            public override int RecordsAffected => -1;");
         sb.AppendLine("            public override bool NextResult() => false;");
         sb.AppendLine("            public override System.Collections.IEnumerator GetEnumerator() =>");
-        sb.AppendLine("                new DbEnumerator(this, closeReader: false);");
+        sb.AppendLine($"                new {dbEnumeratorType}(this, closeReader: false);");
         sb.AppendLine("            protected override void Dispose(bool disposing)");
         sb.AppendLine("            {");
         sb.AppendLine("                if (disposing) _enumerator.Dispose();");

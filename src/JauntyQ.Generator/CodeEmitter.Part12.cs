@@ -11,6 +11,9 @@ public static partial class CodeEmitter
     {
         string enumerableType = TypeRef(schema, "IEnumerable", "System.Collections.Generic");
         string taskType = TypeRef(schema, "Task", "System.Threading.Tasks");
+        // AUD-R50-03 (residual): same DbType-shadowing guard as
+        // CodeEmitter.Part3.cs's EmitParameterBinding.
+        string dbTypeEnum = TypeRef(schema, "DbType", "System.Data");
         string modifier = isStatic ? "public static" : "public";
         string asyncModifier = isAsync ? " async" : "";
         string ret = isAsync ? $"{taskType}<int>" : "int";
@@ -68,7 +71,7 @@ public static partial class CodeEmitter
             sb.AppendLine($"                    p{i}.ParameterName = \"@{c.Name}\";");
             string? ado = MapCSharpTypeToAdoDbType(ct);
             if (ado != null)
-                sb.AppendLine($"                    p{i}.DbType = DbType.{ado};");
+                sb.AppendLine($"                    p{i}.DbType = {dbTypeEnum}.{ado};");
             sb.AppendLine($"                    cmd.Parameters.Add(p{i});");
         }
         sb.AppendLine("                    foreach (var row in rows)");

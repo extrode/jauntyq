@@ -73,8 +73,15 @@ public static partial class CodeEmitter
     /// error; also what makes the fixed DbParameter.Size safe (ADO.NET
     /// providers silently truncate oversize values to Size).
     /// </summary>
-    private static void EmitValueGuards(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos)
+    private static void EmitValueGuards(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos, DatabaseSchema? schema = null)
     {
+        // AUD-R50-03 (residual): exception type names are emitted as bare
+        // literals here; a table whose entity/row-POCO name equals one of them
+        // (e.g. "argument_exceptions") would otherwise shadow the BCL type
+        // namespace-wide and break the throw with CS1729 — route through
+        // TypeRef so the colliding case gets global::-qualified instead.
+        string argNullExType = TypeRef(schema, "ArgumentNullException", "System");
+        string argExType = TypeRef(schema, "ArgumentException", "System");
         bool any = false;
         foreach (var param in paramInfos)
         {
@@ -83,7 +90,7 @@ public static partial class CodeEmitter
             if (!param.IsEach && param.CSharpType is not ("string" or "byte[]"))
                 continue;
             sb.AppendLine($"            if ({param.CSharpName} is null)");
-            sb.AppendLine($"                throw new ArgumentNullException(nameof({param.CSharpName}));");
+            sb.AppendLine($"                throw new {argNullExType}(nameof({param.CSharpName}));");
             any = true;
         }
         foreach (var param in paramInfos)
@@ -99,7 +106,7 @@ public static partial class CodeEmitter
                 ? $"{param.CSharpName}.Length > {max}"
                 : $"{param.CSharpName} != null && {param.CSharpName}.Length > {max}";
             sb.AppendLine($"            if ({condition})");
-            sb.AppendLine($"                throw new ArgumentException($\"Value ({{{param.CSharpName}.Length}} {unit}) exceeds {param.ColumnDisplay} max length ({max}).\", nameof({param.CSharpName}));");
+            sb.AppendLine($"                throw new {argExType}($\"Value ({{{param.CSharpName}.Length}} {unit}) exceeds {param.ColumnDisplay} max length ({max}).\", nameof({param.CSharpName}));");
             any = true;
         }
         if (any)

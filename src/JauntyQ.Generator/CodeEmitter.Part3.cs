@@ -26,7 +26,7 @@ public static partial class CodeEmitter
         sb.AppendLine($"        {modifier}{asyncModifier} {returnType} {methodName}({paramList})");
         sb.AppendLine("        {");
 
-        EmitValueGuards(sb, paramInfos);
+        EmitValueGuards(sb, paramInfos, schema);
 
         // Connection lifecycle
         sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
@@ -76,7 +76,7 @@ public static partial class CodeEmitter
                 ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)"
                 : "reader.Read()";
             sb.AppendLine($"                if (!({readCall}))");
-            sb.AppendLine("                    throw new InvalidOperationException(\"INSERT did not return an identity value.\");");
+            sb.AppendLine($"                    throw new {TypeRef(schema, "InvalidOperationException", "System")}(\"INSERT did not return an identity value.\");");
             sb.AppendLine($"                return {GetIdentityReaderCall(identity.Value, schema)};");
         }
         else
@@ -146,6 +146,10 @@ public static partial class CodeEmitter
     private static void EmitParameterBinding(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos, DatabaseSchema? schema = null)
     {
         string? dialect = schema?.Dialect;
+        // AUD-R50-03 (residual): System.Data.DbType was emitted bare — a table
+        // named "db_types" (row POCO "DbType") shadowed the enum namespace-wide
+        // and broke every `p.DbType = DbType.X` assignment with CS0117.
+        string dbTypeEnum = TypeRef(schema, "DbType", "System.Data");
         for (int i = 0; i < paramInfos.Count; i++)
         {
             var param = paramInfos[i];
@@ -181,7 +185,7 @@ public static partial class CodeEmitter
                     sb.AppendLine($"                var {varName} = new {npgsqlParameterType} {{ ParameterName = \"@{param.Name}\" }};");
                     string? pgAdoDbType = MapCSharpTypeToAdoDbType(param.CSharpType);
                     if (pgAdoDbType != null)
-                        sb.AppendLine($"                {varName}.DbType = DbType.{pgAdoDbType};");
+                        sb.AppendLine($"                {varName}.DbType = {dbTypeEnum}.{pgAdoDbType};");
                     sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? DBNull.Value;");
                 }
                 sb.AppendLine($"                cmd.Parameters.Add({varName});");
@@ -193,7 +197,7 @@ public static partial class CodeEmitter
             string? adoDbType = MapCSharpTypeToAdoDbType(param.CSharpType);
             if (adoDbType != null)
             {
-                sb.AppendLine($"                {varName}.DbType = DbType.{adoDbType};");
+                sb.AppendLine($"                {varName}.DbType = {dbTypeEnum}.{adoDbType};");
             }
             EmitParameterSizing(sb, param, varName);
             // DbParameter.Value is object, so value types box exactly once per
@@ -225,6 +229,8 @@ public static partial class CodeEmitter
         string elementType = GetEachElementType(param.CSharpType);
         string loopVar = $"__ib_{param.Name}";
         string? adoDbType = MapCSharpTypeToAdoDbType(elementType);
+        // AUD-R50-03 (residual): same DbType-shadowing guard as EmitParameterBinding.
+        string dbTypeEnum = TypeRef(schema, "DbType", "System.Data");
 
         if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
         {
@@ -239,7 +245,7 @@ public static partial class CodeEmitter
             {
                 sb.AppendLine($"                    var {varName} = new {npgsqlParameterType} {{ ParameterName = \"@{param.Name}\" + {loopVar} }};");
                 if (adoDbType != null)
-                    sb.AppendLine($"                    {varName}.DbType = DbType.{adoDbType};");
+                    sb.AppendLine($"                    {varName}.DbType = {dbTypeEnum}.{adoDbType};");
                 sb.AppendLine($"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? DBNull.Value;");
                 sb.AppendLine($"                    cmd.Parameters.Add({varName});");
             }
@@ -252,7 +258,7 @@ public static partial class CodeEmitter
         sb.AppendLine($"                    DbParameter {varName} = cmd.CreateParameter();");
         sb.AppendLine($"                    {varName}.ParameterName = \"@{param.Name}\" + {loopVar};");
         if (adoDbType != null)
-            sb.AppendLine($"                    {varName}.DbType = DbType.{adoDbType};");
+            sb.AppendLine($"                    {varName}.DbType = {dbTypeEnum}.{adoDbType};");
         // -- @each params are always comparison (IN-list) params, never write
         // targets: same "size to fit the actual value" defense as a plain
         // comparison parameter (CodeEmitter.Part2.cs's EmitParameterSizing),

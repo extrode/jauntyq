@@ -111,7 +111,7 @@ public static partial class CodeEmitter
         sb.AppendLine($"        {modifier}{asyncModifier} {declaredReturn} {methodName}({paramList})");
         sb.AppendLine("        {");
 
-        EmitValueGuards(sb, paramInfos);
+        EmitValueGuards(sb, paramInfos, schema);
         EmitEachListGuards(sb, paramInfos, returnType, isFirst, isStream, schema);
 
         // Connection lifecycle
@@ -154,10 +154,14 @@ public static partial class CodeEmitter
         sb.AppendLine(isAsync
             ? $"                using DbDataReader reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
             : $"                using DbDataReader reader = cmd.ExecuteReader({behavior});");
-        sb.AppendLine($"                if (Volatile.Read(ref __{query.Name}Validated) == 0)");
+        // AUD-R50-03 (residual): Volatile was emitted bare — a table named
+        // "volatiles" (row POCO "Volatile") shadowed System.Threading.Volatile
+        // namespace-wide, breaking Volatile.Read/Write with CS1615/CS0117.
+        string volatileType = TypeRef(schema, "Volatile", "System.Threading");
+        sb.AppendLine($"                if ({volatileType}.Read(ref __{query.Name}Validated) == 0)");
         sb.AppendLine("                {");
         sb.AppendLine($"                    JauntyQShapeGuard.Validate(reader, __{query.Name}Columns, \"{queryId}\");");
-        sb.AppendLine($"                    Volatile.Write(ref __{query.Name}Validated, 1);");
+        sb.AppendLine($"                    {volatileType}.Write(ref __{query.Name}Validated, 1);");
         sb.AppendLine("                }");
 
         string readCall = isAsync
@@ -220,7 +224,7 @@ public static partial class CodeEmitter
             else
                 sb.AppendLine($"                return new {TypeRef(schema, "List", "System.Collections.Generic")}<{returnType}>();");
             sb.AppendLine($"            if ({param.CSharpName}.Count > {cap})");
-            sb.AppendLine($"                throw new ArgumentException($\"-- @each list '{param.Name}' has {{{param.CSharpName}.Count}} elements, exceeding the {cap}-parameter budget for this database. Batch the call into smaller chunks.\", nameof({param.CSharpName}));");
+            sb.AppendLine($"                throw new {TypeRef(schema, "ArgumentException", "System")}($\"-- @each list '{param.Name}' has {{{param.CSharpName}.Count}} elements, exceeding the {cap}-parameter budget for this database. Batch the call into smaller chunks.\", nameof({param.CSharpName}));");
             any = true;
         }
         if (any)
