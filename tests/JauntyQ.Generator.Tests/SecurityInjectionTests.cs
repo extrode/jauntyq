@@ -75,6 +75,29 @@ public class SecurityInjectionTests
     }
 
     [Fact]
+    public void HostileAlias_WithUnicodeLineSeparator_GeneratedCodeStillValid()
+    {
+        // AUD-R62-01: U+2028 LINE SEPARATOR (and U+0085 NEL / U+2029
+        // PARAGRAPH SEPARATOR) are C# New_Line_Characters -- illegal
+        // unescaped inside a regular "..." literal even though they are
+        // >= 0x20. IdentifierGuard.ToStringLiteral's old `c < 0x20` fallback
+        // let them pass through untouched, so a bracket alias carrying one
+        // broke the emitted __Columns literal at build time with a raw,
+        // unattributed CS1010/CS1002 cascade instead of either escaping
+        // cleanly or raising a JauntyQ diagnostic.
+        string sql = "select product_id as [x\u2028evil] from products";
+        var result = Run(sql);
+
+        foreach (var gen in result.Results[0].GeneratedSources)
+        {
+            var tree = CSharpSyntaxTree.ParseText(gen.SourceText.ToString());
+            var errors = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+            Assert.True(errors.Count == 0,
+                $"Alias containing U+2028 broke generated C# in {gen.HintName}: {string.Join("; ", errors.Select(e => e.GetMessage()))}");
+        }
+    }
+
+    [Fact]
     public void LegitimateAliasWithSpaceEquivalent_StillGenerates()
     {
         // A normal aliased projection compiles to a valid member.

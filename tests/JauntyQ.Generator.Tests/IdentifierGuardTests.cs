@@ -57,6 +57,24 @@ public class IdentifierGuardTests
     }
 
     [Theory]
+    [InlineData('\u0085')] // NEL
+    [InlineData('\u2028')] // LINE SEPARATOR
+    [InlineData('\u2029')] // PARAGRAPH SEPARATOR
+    public void ToStringLiteral_EscapesUnicodeLineTerminators(char lineTerminator)
+    {
+        // AUD-R62-01: these three code points are C# New_Line_Characters --
+        // illegal unescaped inside a regular "..." literal even though they
+        // are >= 0x20, so the old `c < 0x20` fallback let them pass through
+        // untouched. A quoted SQL alias is free to contain them (that's the
+        // point of quoting), so ToStringLiteral must escape them like \r/\n
+        // rather than treat them as ordinary printable characters.
+        string input = "a" + lineTerminator + "b";
+        string result = IdentifierGuard.ToStringLiteral(input);
+        Assert.DoesNotContain(lineTerminator, result);
+        Assert.Equal($"a\\u{(int)lineTerminator:x4}b", result);
+    }
+
+    [Theory]
     [InlineData("Order Details", "OrderDetails")]   // real table name with a space
     [InlineData("product_name", "ProductName")]     // snake_case
     [InlineData("customer", "Customer")]
