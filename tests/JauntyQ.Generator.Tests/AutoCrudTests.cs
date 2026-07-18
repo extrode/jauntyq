@@ -831,4 +831,64 @@ public class AutoCrudTests
         // Non-fatal: the file still generates (as a plain multi-row SELECT).
         Assert.Contains(result.GeneratedTrees, t => t.FilePath.EndsWith("Products.GetAll.g.cs"));
     }
+
+    // Two distinct, legal table names that fold to the same PascalCase entity
+    // name via DialectMapper.ToPascalCase -- Dictionary<string, TableSchema>
+    // uses the default (ordinal, case-sensitive) comparer, so "widgets" and
+    // "Widgets" can genuinely coexist as two separate keys in the same
+    // DatabaseSchema.Tables (reachable on any case-sensitive-identifier
+    // engine: Postgres with quoted mixed-case names, or MySQL/MariaDB on a
+    // case-sensitive-filesystem Linux host with the common
+    // lower_case_table_names=0 default).
+    private const string CaseCollidingTableNamesSchema = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""widgets"": {
+      ""name"": ""widgets"",
+      ""columns"": {
+        ""widget_id"": { ""name"": ""widget_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""widget_name"": { ""name"": ""widget_name"", ""dbType"": ""varchar"", ""isNullable"": false }
+      }
+    },
+    ""Widgets"": {
+      ""name"": ""Widgets"",
+      ""columns"": {
+        ""gadget_id"": { ""name"": ""gadget_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""gadget_name"": { ""name"": ""gadget_name"", ""dbType"": ""varchar"", ""isNullable"": false }
+      }
+    }
+  },
+  ""foreignKeys"": []
+}";
+
+    /// <summary>
+    /// Regression test for AUD-R46-01: two distinct, legal table names
+    /// ("widgets"/"Widgets") that fold to the same PascalCase entity name via
+    /// DialectMapper.ToPascalCase previously caused the second table's ENTIRE
+    /// auto-CRUD surface (GetAll, GetById, Insert, Update, Delete -- every
+    /// column) to silently vanish with zero diagnostic: claimedMethods'
+    /// HashSet.Add returning false for the second table's identically-named
+    /// synthetic slots was silently treated the same as "a user SQL file
+    /// already claims this," when in fact it was a second, wholly distinct
+    /// table's data becoming completely invisible in the generated API.
+    /// Confirmed live: pre-fix, the second table's own primary key column
+    /// name never appeared in any generated source at all. Now reports
+    /// JNT2010 naming both colliding table names; the first table's CRUD is
+    /// still emitted (unchanged, deterministic "first wins" behavior), but
+    /// the collision itself is no longer silent.
+    /// </summary>
+    [Fact]
+    public void CaseCollidingTableNames_ReportJNT2010_FirstTablesCrudStillEmitted()
+    {
+        var (result, compilation) = RunAutoCrudWithSchema(CaseCollidingTableNamesSchema, autoCrud: true);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT2010" && d.Severity == DiagnosticSeverity.Error);
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.Empty(errors);
+
+        // The first-declared table ("widgets") keeps its full CRUD surface.
+        bool sawWidgetIdColumn = result.GeneratedTrees.Any(t => t.ToString().Contains("widget_id"));
+        Assert.True(sawWidgetIdColumn, "Expected the 'widgets' table's CRUD to still be generated.");
+    }
 }
