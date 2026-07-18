@@ -36,6 +36,10 @@ public static partial class CodeEmitter
             : "";
 
         string bodySql = IndentSqlContinuationLines(StripLeadingSqlComments(originalSql), 4);
+        // procName is deliberately kept bracketed: IdentifierGuard.IsValidIdentifier
+        // only checks C#-identifier shape, not SQL reserved words, so a proc named
+        // e.g. "User" or "Order" is reachable here and unbracketed would be a
+        // T-SQL syntax error.
         var procSql = $"CREATE OR ALTER PROCEDURE [{procName}]{paramBlock}AS\nBEGIN\n    SET NOCOUNT ON;\n    {bodySql}\nEND";
 
         sb.AppendLine("        public static partial class Proc");
