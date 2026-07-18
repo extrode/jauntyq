@@ -153,7 +153,8 @@ public class AutoCrudTests
         Assert.Contains("public Product? GetById(int product_id)", source);
         Assert.Contains("Task<Product?> GetByIdAsync(", source);
         Assert.Contains("p0.DbType = DbType.Int32;", source);
-        Assert.Contains("Product.Read(reader)", source);
+        // AUD-R69-01: "__reader", not "reader".
+        Assert.Contains("Product.Read(__reader)", source);
         Assert.DoesNotContain("Result.GetById", source);
     }
 
@@ -385,7 +386,8 @@ public class AutoCrudTests
         var source = TryGetSource(result, "Products.Insert.auto.g.cs");
         Assert.NotNull(source);
         Assert.Contains("SELECT last_insert_id()", source);
-        Assert.Contains("checked((int)reader.GetInt64(0))", source);
+        // AUD-R69-01: "__reader", not "reader".
+        Assert.Contains("checked((int)__reader.GetInt64(0))", source);
     }
 
     [Theory]
@@ -414,7 +416,8 @@ public class AutoCrudTests
         var source = TryGetSource(result, "Products.Insert.auto.g.cs");
         Assert.NotNull(source);
         Assert.Contains("SELECT last_insert_id()", source);
-        Assert.Contains("checked((int)reader.GetInt64(0))", source);
+        // AUD-R69-01: "__reader", not "reader".
+        Assert.Contains("checked((int)__reader.GetInt64(0))", source);
         Assert.DoesNotContain("reader.GetInt32(0)", source);
     }
 

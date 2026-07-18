@@ -196,9 +196,10 @@ public class GeneratorIntegrationTests
         // Static variants enlist in the caller's transaction: SqlClient throws
         // if a command runs on a connection with an active transaction the
         // command doesn't carry.
-        Assert.Contains("if (transaction != null) cmd.Transaction = transaction;", source);
+        // AUD-R69-01: "__cmd", not "cmd" -- see EmitCrudMethodBody/EmitMethodBody.
+        Assert.Contains("if (transaction != null) __cmd.Transaction = transaction;", source);
         // Instance variants keep flowing the ambient JauntyDb transaction.
-        Assert.Contains("if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;", source);
+        Assert.Contains("if (_db?.CurrentTransaction != null) __cmd.Transaction = _db.CurrentTransaction;", source);
     }
 
     [Fact]
@@ -857,7 +858,8 @@ where p.category_id = c.category_id and c.category_name = @categoryName";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         Assert.Contains("private static readonly string[] __GetProductsColumns = { \"product_id\", \"product_name\" };", source);
-        Assert.Contains("JauntyQShapeGuard.Validate(reader, __GetProductsColumns, \"Products.GetProducts\");", source);
+        // AUD-R69-01: "__reader", not "reader".
+        Assert.Contains("JauntyQShapeGuard.Validate(__reader, __GetProductsColumns, \"Products.GetProducts\");", source);
     }
 
     // ── GW-2: -- @first ────────────────────────────────────
@@ -952,7 +954,10 @@ where p.product_id = @product_id";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         Assert.Equal(1, CountOccurrences(source, "__MapGetProducts(DbDataReader reader)"));
-        Assert.Equal(4, CountOccurrences(source, "__MapGetProducts(reader)"));
+        // AUD-R69-01: call sites pass "__reader" (the caller's own renamed
+        // local), not "reader" -- the mapper method's own parameter (above)
+        // is a separate, immune scope and keeps its friendly name.
+        Assert.Equal(4, CountOccurrences(source, "__MapGetProducts(__reader)"));
     }
 
     [Fact]
@@ -1010,7 +1015,8 @@ where p.product_id = @product_id";
 
         var source = GetSource(result, "Products.GetProducts.g.cs");
         // exactly the two instance variants (sync + async) enlist
-        Assert.Equal(2, CountOccurrences(source, "if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;"));
+        // AUD-R69-01: "__cmd", not "cmd".
+        Assert.Equal(2, CountOccurrences(source, "if (_db?.CurrentTransaction != null) __cmd.Transaction = _db.CurrentTransaction;"));
 
         var core = GetSource(result, "Products.Core.g.cs");
         Assert.Contains("internal Products(JauntyDb db)", core);

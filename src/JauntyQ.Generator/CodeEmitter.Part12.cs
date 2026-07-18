@@ -34,10 +34,17 @@ public static partial class CodeEmitter
 
         sb.AppendLine($"        {modifier}{asyncModifier} {ret} {name}({paramList})");
         sb.AppendLine("        {");
-        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
+        // AUD-R69-01: "__weOpened", matching EmitFinallyClose's now-shared
+        // literal across all 7 call sites (see CodeEmitter.Part4.cs). No
+        // schema-derived collision risk reaches this specific method (bulk
+        // insert exposes only rows/conn/transaction/cancellationToken as
+        // formal parameters; every column becomes a row-POCO property, never
+        // a method parameter) -- renamed purely to stay consistent with the
+        // shared helper's literal.
+        sb.AppendLine($"            bool __weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
-            ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
-            : $"            if (weOpened) {connVar}.Open();");
+            ? $"            if (__weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
+            : $"            if (__weOpened) {connVar}.Open();");
         sb.AppendLine("            try");
         sb.AppendLine("            {");
         // Reuse an ambient JauntyDb transaction if one is active; else open our

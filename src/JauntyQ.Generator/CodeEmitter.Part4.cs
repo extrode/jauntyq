@@ -125,7 +125,11 @@ public static partial class CodeEmitter
         return -1;
     }
 
-    private static string GetIdentityReaderCall(IdentityInfo identity, DatabaseSchema? schema = null)
+    // AUD-R69-01: "readerVar" (default "reader") threads through to
+    // GetReaderCall -- see that method's own comment. The one non-default
+    // caller is CodeEmitter.Part3.cs's identity-insert path, passing
+    // "__reader".
+    private static string GetIdentityReaderCall(IdentityInfo identity, DatabaseSchema? schema = null, string readerVar = "reader")
     {
         // MySQL's LAST_INSERT_ID() is BIGINT UNSIGNED regardless of the key
         // type; read as long and narrow explicitly.
@@ -139,18 +143,27 @@ public static partial class CodeEmitter
         // dialect switches in this same file/fan-out (BuildIdentityInsertSql,
         // EmitUpsert in CodeEmitter.Part6.cs) already do.
         if (string.Equals(identity.Dialect, "mysql", StringComparison.OrdinalIgnoreCase) && identity.CSharpType != "long")
-            return $"checked(({ShortenValueTypeName(schema, identity.CSharpType)})reader.GetInt64(0))";
-        return GetReaderCall(identity.CSharpType, 0, schema);
+            return $"checked(({ShortenValueTypeName(schema, identity.CSharpType)}){readerVar}.GetInt64(0))";
+        return GetReaderCall(identity.CSharpType, 0, schema, readerVar);
     }
 
+    // AUD-R69-01: "__weOpened", not "weOpened" -- this helper is shared by 7
+    // call sites across the emitter (Part3.cs, Part8.cs, Part11.cs,
+    // Part12.cs, Part13.cs x3), every one of which now declares its own
+    // local as "__weOpened" (round 68 had deliberately left this rename out
+    // of Part11.cs's own fix specifically because this shared helper was not
+    // yet updated in lockstep with all 7 declaration sites; this round does
+    // exactly that, closing a residual carried forward since round 67).
+    // Confirmed live that a schema/query parameter literally named
+    // "WeOpened"/"@weOpened" collides (CS0136) with the un-prefixed local.
     private static void EmitFinallyClose(System.Text.StringBuilder sb, string connVar, bool isAsync)
     {
         sb.AppendLine("            }");
         sb.AppendLine("            finally");
         sb.AppendLine("            {");
         sb.AppendLine(isAsync
-            ? $"                if (weOpened) await {connVar}.CloseAsync().ConfigureAwait(false);"
-            : $"                if (weOpened) {connVar}.Close();");
+            ? $"                if (__weOpened) await {connVar}.CloseAsync().ConfigureAwait(false);"
+            : $"                if (__weOpened) {connVar}.Close();");
         sb.AppendLine("            }");
     }
 

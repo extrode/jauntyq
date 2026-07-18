@@ -186,11 +186,12 @@ public class EachDirectiveTests
         var result = Run(EachSql);
         string src = QuerySource(result);
 
+        // AUD-R69-01: "__p0"/"__cmd", not "p0"/"cmd".
         Assert.Contains("for (int __ib_Ids = 0; __ib_Ids < Ids.Count; __ib_Ids++)", src);
-        Assert.Contains("DbParameter p0 = cmd.CreateParameter();", src);
-        Assert.Contains("p0.ParameterName = \"@Ids\" + __ib_Ids;", src);
-        Assert.Contains("p0.Value = Ids[__ib_Ids];", src);
-        Assert.Contains("cmd.Parameters.Add(p0);", src);
+        Assert.Contains("DbParameter __p0 = __cmd.CreateParameter();", src);
+        Assert.Contains("__p0.ParameterName = \"@Ids\" + __ib_Ids;", src);
+        Assert.Contains("__p0.Value = Ids[__ib_Ids];", src);
+        Assert.Contains("__cmd.Parameters.Add(__p0);", src);
     }
 
     [Fact]

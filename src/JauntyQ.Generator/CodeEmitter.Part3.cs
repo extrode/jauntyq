@@ -21,45 +21,68 @@ public static partial class CodeEmitter
         string syncReturn = identity != null ? ShortenValueTypeName(schema, identity.Value.CSharpType) : "int";
         string returnType = isAsync ? $"{TypeRef(schema, "Task", "System.Threading.Tasks")}<{syncReturn}>" : syncReturn;
         string methodName = isAsync ? $"{query.Name}Async" : query.Name;
-        string paramList = BuildParamList(paramInfos, isStatic, isAsync, trailingNullableDefaults: true, schema: schema);
+
+        // AUD-R69-01: same defect family as AUD-R67-01/AUD-R68-01 (which only
+        // covered -- @call's EmitProcCallBody), applied here to the ordinary
+        // hand-written .sql query path. Unlike the proc-call case, no schema
+        // cooperation is needed to trigger this: EmittedParam.CSharpName is
+        // the literal SQL parameter name (only keyword-escaped, no
+        // PascalCase/camelCase folding), so any .sql file binding a parameter
+        // literally named e.g. "@conn"/"@cancellationToken" reaches these
+        // formal parameters directly. "conn"/"cancellationToken" DO appear in
+        // the public signature, so -- exactly like the proc-call fix --
+        // only escalate to a guaranteed-unique fallback in the actual
+        // collision case.
+        bool connNameCollides = isStatic && AnyParamNameCollidesWith(paramInfos, "conn");
+        if (connNameCollides)
+            connVar = "__conn";
+        bool cancellationTokenNameCollides = isAsync && AnyParamNameCollidesWith(paramInfos, "cancellationToken");
+        string tokenParamName = cancellationTokenNameCollides ? "__cancellationToken" : "cancellationToken";
+
+        string paramList = BuildParamList(paramInfos, isStatic, isAsync, connVarName: connVar, tokenParamName: tokenParamName, trailingNullableDefaults: true, schema: schema);
 
         sb.AppendLine($"        {modifier}{asyncModifier} {returnType} {methodName}({paramList})");
         sb.AppendLine("        {");
 
         EmitValueGuards(sb, paramInfos, schema);
 
-        // Connection lifecycle
-        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
+        // Connection lifecycle. AUD-R69-01: "__weOpened", "__cmd" -- pure
+        // internal locals, never part of the public signature or return
+        // value, unconditionally renamed (a schema/query-derived name can
+        // never collide with a double-underscore-prefixed name -- confirmed
+        // live that "@weOpened"/"@cmd" collided with the un-prefixed
+        // versions before this fix).
+        sb.AppendLine($"            bool __weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
-            ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
-            : $"            if (weOpened) {connVar}.Open();");
+            ? $"            if (__weOpened) await {connVar}.OpenAsync({tokenParamName}).ConfigureAwait(false);"
+            : $"            if (__weOpened) {connVar}.Open();");
         sb.AppendLine("            try");
         sb.AppendLine("            {");
 
         // Create command
-        sb.AppendLine($"                using DbCommand cmd = {connVar}.CreateCommand();");
+        sb.AppendLine($"                using DbCommand __cmd = {connVar}.CreateCommand();");
         if (!isStatic)
         {
-            sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
+            sb.AppendLine("                if (_db?.CurrentTransaction != null) __cmd.Transaction = _db.CurrentTransaction;");
         }
         else if (HasStaticTransactionParam(paramInfos, isStatic))
         {
-            sb.AppendLine("                if (transaction != null) cmd.Transaction = transaction;");
+            sb.AppendLine("                if (transaction != null) __cmd.Transaction = transaction;");
         }
         if (procName != null)
         {
-            sb.AppendLine($"                cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procName)}\";");
-            sb.AppendLine("                cmd.CommandType = CommandType.StoredProcedure;");
+            sb.AppendLine($"                __cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procName)}\";");
+            sb.AppendLine("                __cmd.CommandType = CommandType.StoredProcedure;");
         }
         else if (identity != null)
         {
             string identitySql = BuildIdentityInsertSql(
                 StripLeadingSqlComments(originalSql), identity.Value.Dialect, identity.Value.ColumnName);
-            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(IndentSqlContinuationLines(identitySql, 36))}\";");
+            sb.AppendLine($"                __cmd.CommandText = @\"{EscapeVerbatimString(IndentSqlContinuationLines(identitySql, 36))}\";");
         }
         else
         {
-            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(IndentSqlContinuationLines(StripLeadingSqlComments(originalSql), 36))}\";");
+            sb.AppendLine($"                __cmd.CommandText = @\"{EscapeVerbatimString(IndentSqlContinuationLines(StripLeadingSqlComments(originalSql), 36))}\";");
         }
 
         EmitParameterBinding(sb, paramInfos, schema);
@@ -69,21 +92,29 @@ public static partial class CodeEmitter
         if (identity != null)
         {
             string behavior = "CommandBehavior.SingleRow | CommandBehavior.SingleResult";
+            // AUD-R69-01: "__reader", not "reader" -- confirmed live that a
+            // query parameter literally named "@reader" collides (CS0136)
+            // with the bare "reader" local. GetIdentityReaderCall's readback
+            // expression is threaded the same renamed variable via its own
+            // readerVar parameter (CodeEmitter.Part4.cs) -- every OTHER
+            // caller of GetReaderCall/GetIdentityReaderCall is a standalone
+            // `__Map...(DbDataReader reader)`-style mapper method with its
+            // own immune "reader" parameter and keeps the default.
             sb.AppendLine(isAsync
-                ? $"                using DbDataReader reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
-                : $"                using DbDataReader reader = cmd.ExecuteReader({behavior});");
+                ? $"                using DbDataReader __reader = await __cmd.ExecuteReaderAsync({behavior}, {tokenParamName}).ConfigureAwait(false);"
+                : $"                using DbDataReader __reader = __cmd.ExecuteReader({behavior});");
             string readCall = isAsync
-                ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)"
-                : "reader.Read()";
+                ? $"await __reader.ReadAsync({tokenParamName}).ConfigureAwait(false)"
+                : "__reader.Read()";
             sb.AppendLine($"                if (!({readCall}))");
             sb.AppendLine($"                    throw new {TypeRef(schema, "InvalidOperationException", "System")}(\"INSERT did not return an identity value.\");");
-            sb.AppendLine($"                return {GetIdentityReaderCall(identity.Value, schema)};");
+            sb.AppendLine($"                return {GetIdentityReaderCall(identity.Value, schema, readerVar: "__reader")};");
         }
         else
         {
             sb.AppendLine(isAsync
-                ? "                return await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);"
-                : "                return cmd.ExecuteNonQuery();");
+                ? $"                return await __cmd.ExecuteNonQueryAsync({tokenParamName}).ConfigureAwait(false);"
+                : "                return __cmd.ExecuteNonQuery();");
         }
 
         EmitFinallyClose(sb, connVar, isAsync);
@@ -100,7 +131,16 @@ public static partial class CodeEmitter
     private static bool HasStaticTransactionParam(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic) =>
         isStatic && !paramInfos.Exists(p => string.Equals(p.Name, "transaction", StringComparison.OrdinalIgnoreCase));
 
-    private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync, bool trailingNullableDefaults = false, bool enumeratorCancellation = false, DatabaseSchema? schema = null)
+    // AUD-R69-01: true if a real query/CRUD parameter's own escaped C# name
+    // equals bookkeepingName -- used to gate the "conn"/"cancellationToken"
+    // formal-parameter fallback renames, mirroring CodeEmitter.Part11.cs's
+    // identically-named helper for the -- @call path (a distinct overload,
+    // since this path's parameters are List&lt;EmittedParam&gt;, not
+    // ProcedureSchema.Params).
+    private static bool AnyParamNameCollidesWith(System.Collections.Generic.List<EmittedParam> paramInfos, string bookkeepingName) =>
+        paramInfos.Exists(p => p.CSharpName == bookkeepingName);
+
+    private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync, string connVarName = "conn", string tokenParamName = "cancellationToken", bool trailingNullableDefaults = false, bool enumeratorCancellation = false, DatabaseSchema? schema = null)
     {
         // C# optional parameters must be trailing: give `= default` to the
         // longest suffix of nullable-column parameters so callers pass only
@@ -114,7 +154,7 @@ public static partial class CodeEmitter
 
         var sb = new System.Text.StringBuilder();
         if (isStatic)
-            sb.Append("DbConnection conn");
+            sb.Append($"DbConnection {connVarName}");
 
         for (int i = 0; i < paramInfos.Count; i++)
         {
@@ -137,7 +177,7 @@ public static partial class CodeEmitter
             // flow a token supplied via await foreach (...).WithCancellation(ct).
             if (enumeratorCancellation)
                 sb.Append("[EnumeratorCancellation] ");
-            sb.Append("CancellationToken cancellationToken = default");
+            sb.Append($"CancellationToken {tokenParamName} = default");
         }
 
         return sb.ToString();
@@ -153,7 +193,12 @@ public static partial class CodeEmitter
         for (int i = 0; i < paramInfos.Count; i++)
         {
             var param = paramInfos[i];
-            string varName = $"p{i}";
+            // AUD-R69-01: "__p{i}", not "p{i}" -- confirmed live that a query
+            // parameter literally named "@p0" collides (CS0136) with the
+            // bare "p0" local for the first bound parameter. Pure-internal,
+            // zero API impact, same fix as the -- @call path's identical
+            // convention (CodeEmitter.Part11.cs).
+            string varName = $"__p{i}";
             sb.AppendLine();
 
             if (param.IsEach)
@@ -188,11 +233,11 @@ public static partial class CodeEmitter
                         sb.AppendLine($"                {varName}.DbType = {dbTypeEnum}.{pgAdoDbType};");
                     sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? DBNull.Value;");
                 }
-                sb.AppendLine($"                cmd.Parameters.Add({varName});");
+                sb.AppendLine($"                __cmd.Parameters.Add({varName});");
                 continue;
             }
 
-            sb.AppendLine($"                DbParameter {varName} = cmd.CreateParameter();");
+            sb.AppendLine($"                DbParameter {varName} = __cmd.CreateParameter();");
             sb.AppendLine($"                {varName}.ParameterName = \"@{param.Name}\";");
             string? adoDbType = MapCSharpTypeToAdoDbType(param.CSharpType);
             if (adoDbType != null)
@@ -213,7 +258,7 @@ public static partial class CodeEmitter
             {
                 sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? DBNull.Value;");
             }
-            sb.AppendLine($"                cmd.Parameters.Add({varName});");
+            sb.AppendLine($"                __cmd.Parameters.Add({varName});");
         }
     }
 
@@ -239,7 +284,7 @@ public static partial class CodeEmitter
             sb.AppendLine("                {");
             if (IsNonNullableValueType(elementType))
             {
-                sb.AppendLine($"                    cmd.Parameters.Add(new {npgsqlParameterType}<{ShortenValueTypeName(schema, elementType)}> {{ ParameterName = \"@{param.Name}\" + {loopVar}, TypedValue = {param.CSharpName}[{loopVar}] }});");
+                sb.AppendLine($"                    __cmd.Parameters.Add(new {npgsqlParameterType}<{ShortenValueTypeName(schema, elementType)}> {{ ParameterName = \"@{param.Name}\" + {loopVar}, TypedValue = {param.CSharpName}[{loopVar}] }});");
             }
             else
             {
@@ -247,7 +292,7 @@ public static partial class CodeEmitter
                 if (adoDbType != null)
                     sb.AppendLine($"                    {varName}.DbType = {dbTypeEnum}.{adoDbType};");
                 sb.AppendLine($"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? DBNull.Value;");
-                sb.AppendLine($"                    cmd.Parameters.Add({varName});");
+                sb.AppendLine($"                    __cmd.Parameters.Add({varName});");
             }
             sb.AppendLine("                }");
             return;
@@ -255,7 +300,7 @@ public static partial class CodeEmitter
 
         sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.CSharpName}.Count; {loopVar}++)");
         sb.AppendLine("                {");
-        sb.AppendLine($"                    DbParameter {varName} = cmd.CreateParameter();");
+        sb.AppendLine($"                    DbParameter {varName} = __cmd.CreateParameter();");
         sb.AppendLine($"                    {varName}.ParameterName = \"@{param.Name}\" + {loopVar};");
         if (adoDbType != null)
             sb.AppendLine($"                    {varName}.DbType = {dbTypeEnum}.{adoDbType};");
@@ -269,7 +314,7 @@ public static partial class CodeEmitter
         sb.AppendLine(IsNonNullableValueType(elementType)
             ? $"                    {varName}.Value = {param.CSharpName}[{loopVar}];"
             : $"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? DBNull.Value;");
-        sb.AppendLine($"                    cmd.Parameters.Add({varName});");
+        sb.AppendLine($"                    __cmd.Parameters.Add({varName});");
         sb.AppendLine("                }");
     }
 

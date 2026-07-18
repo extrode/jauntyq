@@ -194,19 +194,21 @@ public static partial class CodeEmitter
         // always-safe rename rather than a conditional one. Confirmed via a
         // real Roslyn compile that a schema parameter literally named
         // "Cmd"/"Reader" collided (CS0136) with the un-prefixed versions of
-        // these locals. NOTE: "weOpened" (right below) has the identical
-        // collision (a schema param named "WeOpened" also collides,
-        // confirmed live) but is deliberately left un-renamed here --
-        // EmitFinallyClose (CodeEmitter.Part4.cs), a HELPER SHARED BY 7
-        // call sites across this file, hardcodes the literal "weOpened"
-        // and is not itself parameterized to accept a different name;
-        // fixing it correctly means auditing and updating all 7 call
-        // sites, a larger cross-cutting change outside this finding's
-        // scope -- recorded as a residual for a future round instead.
-        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
+        // these locals.
+        //
+        // AUD-R69-01: "weOpened" (right below) has the identical collision
+        // (a schema param named "WeOpened" also collides, confirmed live);
+        // round 68 deliberately left it un-renamed here because
+        // EmitFinallyClose (CodeEmitter.Part4.cs), a helper SHARED BY 7 call
+        // sites across the emitter, hardcoded the literal "weOpened"
+        // unparameterized -- renaming it in only this file's caller would
+        // have broken the other 6. Round 69 fixes all 7 call sites (plus
+        // EmitFinallyClose's own two reference lines) in lockstep, so
+        // "__weOpened" is now safe here too.
+        sb.AppendLine($"            bool __weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
-            ? $"            if (weOpened) await {connVar}.OpenAsync({tokenParamName}).ConfigureAwait(false);"
-            : $"            if (weOpened) {connVar}.Open();");
+            ? $"            if (__weOpened) await {connVar}.OpenAsync({tokenParamName}).ConfigureAwait(false);"
+            : $"            if (__weOpened) {connVar}.Open();");
         sb.AppendLine("            try");
         sb.AppendLine("            {");
         sb.AppendLine($"                using DbCommand __cmd = {connVar}.CreateCommand();");

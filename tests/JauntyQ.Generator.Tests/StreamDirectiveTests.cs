@@ -68,7 +68,8 @@ public class StreamDirectiveTests
         string sql = "select product_id, product_name from products";
         var result = Run(sql, "db/Products/PlainQuery.sql");
         string src = AllSources(result);
-        Assert.Contains("var results = new List<", src);
+        // AUD-R69-01: "__results", not "results".
+        Assert.Contains("var __results = new List<", src);
         Assert.DoesNotContain("yield return", src);
     }
 
