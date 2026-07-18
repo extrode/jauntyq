@@ -59,6 +59,24 @@ public class SequenceGenerationTests
   }
 }";
 
+    private const string CollidingSequenceNamesSchema = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""products"": {
+      ""name"": ""products"",
+      ""columns"": {
+        ""product_id"": { ""name"": ""product_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""product_name"": { ""name"": ""product_name"", ""dbType"": ""varchar"", ""isNullable"": false }
+      }
+    }
+  },
+  ""foreignKeys"": [],
+  ""sequences"": {
+    ""order_number"": { ""name"": ""order_number"", ""startValue"": 100, ""increment"": 5 },
+    ""OrderNumber"": { ""name"": ""OrderNumber"", ""startValue"": 1, ""increment"": 1 }
+  }
+}";
+
     private static (GeneratorDriverRunResult result, Compilation compilation) Run(string schemaJson)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText("");
@@ -160,5 +178,35 @@ public class SequenceGenerationTests
         Assert.Contains("SELECT NEXTVAL(order_number)", db);
 
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    /// <summary>
+    /// Regression test for AUD-R44-01: two distinct, legal sequence identifiers
+    /// that fold to the same PascalCase method name via
+    /// <c>DialectMapper.ToPascalCase</c> ("order_number" and "OrderNumber" both
+    /// -&gt; "OrderNumber") previously emitted two identically-named C# members
+    /// in <c>SequenceAccessor</c> with no JauntyQ diagnostic at all -- a real
+    /// CS0111 "already defines a member" compile error confirmed live against
+    /// the unfixed source, the same defect shape AUD-R2-03/JNT3009 already
+    /// covers for colliding result-column aliases. Now reports JNT2009 and
+    /// keeps only the first-declared sequence's accessor.
+    /// </summary>
+    [Fact]
+    public void CollidingSequenceNames_ReportJNT2009_KeepFirstOnly_NoCompileError()
+    {
+        var (result, compilation) = Run(CollidingSequenceNamesSchema);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT2009");
+
+        var db = TryGetSource(result, "JauntyDb.g.cs");
+        Assert.NotNull(db);
+        Assert.Contains("public long NextOrderNumber()", db);
+        // Only the first-declared sequence ("order_number") keeps its accessor;
+        // the second ("OrderNumber") is dropped, not double-emitted.
+        Assert.Contains("SELECT NEXT VALUE FOR order_number", db);
+        Assert.DoesNotContain("SELECT NEXT VALUE FOR OrderNumber", db);
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.Empty(errors);
     }
 }

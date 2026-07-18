@@ -199,12 +199,23 @@ public static partial class CodeEmitter
             return;
 
         var emitted = new System.Collections.Generic.List<(string Method, string Sql)>();
+        var seenMethods = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
         foreach (var seq in schema.Sequences.Values)
         {
             if (!IdentifierGuard.IsValidIdentifier(seq.Name))
                 continue; // hostile/unusable name: refuse to embed it in SQL
 
             string method = "Next" + DialectMapper.ToPascalCase(seq.Name);
+
+            // Two distinct sequence names can fold to the same PascalCase method
+            // name (e.g. "order_number" and "OrderNumber"); the generator reports
+            // this as JNT2009. Keep only the first here regardless, so a snapshot
+            // that somehow reaches this point without going through the generator's
+            // own check (or a future caller) still can't produce a CS0111 duplicate
+            // member -- silently dropping the same way the identifier-guard skip
+            // above already does for a hostile name.
+            if (!seenMethods.Add(method))
+                continue;
             string literal = isSqlServer
                 ? "SELECT NEXT VALUE FOR " + seq.Name
                 : isPostgres
