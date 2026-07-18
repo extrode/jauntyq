@@ -47,19 +47,37 @@ public class BulkInsertTests
     // Same Widgets table as SchemaJson but with a nullable second column and a
     // swappable dialect, so the provider-native fast paths (postgres/sqlserver/
     // mysql) get exercised with both a non-nullable and a nullable column.
-    private static string SchemaFor(string dialect) => $@"{{
+    // AUD-R64-01: PostgreSQL lower-cases every unquoted identifier it parses,
+    // so AutoCrud now (correctly) skips a snapshot table/column name
+    // containing an uppercase letter under the postgres dialect -- a real
+    // extractor never hands back mixed-case names for an unquoted-created
+    // table in the first place (confirmed empirically: every shipped
+    // postgres-dialect sample snapshot is already all-lowercase). Use
+    // realistic lowercase/snake_case names for postgres specifically so this
+    // shared fixture still exercises AutoCrud-driven synthesis; other
+    // dialects are untouched by that check and keep their original PascalCase
+    // names.
+    private static string SchemaFor(string dialect)
+    {
+        bool pg = string.Equals(dialect, "postgres", System.StringComparison.OrdinalIgnoreCase);
+        string table = pg ? "widgets" : "Widgets";
+        string idCol = pg ? "widget_id" : "WidgetId";
+        string nameCol = pg ? "name" : "Name";
+        string noteCol = pg ? "note" : "Note";
+        return $@"{{
   ""dialect"": ""{dialect}"",
   ""tables"": {{
-    ""Widgets"": {{
-      ""name"": ""Widgets"",
+    ""{table}"": {{
+      ""name"": ""{table}"",
       ""columns"": {{
-        ""WidgetId"": {{ ""name"": ""WidgetId"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true }},
-        ""Name"": {{ ""name"": ""Name"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 40 }},
-        ""Note"": {{ ""name"": ""Note"", ""dbType"": ""varchar"", ""isNullable"": true, ""maxLength"": 40 }}
+        ""{idCol}"": {{ ""name"": ""{idCol}"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true }},
+        ""{nameCol}"": {{ ""name"": ""{nameCol}"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 40 }},
+        ""{noteCol}"": {{ ""name"": ""{noteCol}"", ""dbType"": ""varchar"", ""isNullable"": true, ""maxLength"": 40 }}
       }}
     }}
   }}
 }}";
+    }
 
     private static string AllSources(GeneratorDriverRunResult result) =>
         string.Join("\n\n", result.Results[0].GeneratedSources.Select(s => s.SourceText.ToString()));
@@ -111,7 +129,7 @@ public class BulkInsertTests
     {
         var src = AllSources(Run(SchemaFor("postgres")));
         Assert.Contains("BeginBinaryImport", src);
-        Assert.Contains("COPY Widgets (Name, Note) FROM STDIN (FORMAT BINARY)", src);
+        Assert.Contains("COPY widgets (name, note) FROM STDIN (FORMAT BINARY)", src);
         Assert.Contains(".Complete();", src);
         Assert.Contains("await __importer.CompleteAsync(", src);
         // Postgres writes columns directly; no IDataReader adapter is emitted.
@@ -153,14 +171,19 @@ public class BulkInsertTests
     // to 'System.DateTimeOffset' because it is a non-nullable value type"),
     // invisible to a syntax-only parse check since object/struct nullability
     // is a binding-time error, not a syntax error.
+    // AUD-R64-01: lowercase/snake_case, matching what a real postgres
+    // extraction actually produces for an unquoted-created table (see the
+    // note on SchemaFor above) -- ToPascalCase folds "observed_at" to the
+    // same "ObservedAt" C# property name either way, so the row-POCO-facing
+    // assertions below are unaffected by this rename.
     private const string PostgresDateTimeOffsetSchemaJson = @"{
   ""dialect"": ""postgres"",
   ""tables"": {
-    ""Widgets"": {
-      ""name"": ""Widgets"",
+    ""widgets"": {
+      ""name"": ""widgets"",
       ""columns"": {
-        ""WidgetId"": { ""name"": ""WidgetId"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
-        ""ObservedAt"": { ""name"": ""ObservedAt"", ""dbType"": ""time with time zone"", ""isNullable"": false }
+        ""widget_id"": { ""name"": ""widget_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""observed_at"": { ""name"": ""observed_at"", ""dbType"": ""time with time zone"", ""isNullable"": false }
       }
     }
   }

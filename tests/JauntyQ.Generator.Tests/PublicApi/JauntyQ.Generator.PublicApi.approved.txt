@@ -34,6 +34,9 @@ class JauntyQ.Analysis.DialectMapper
     method MapColumnToCSharp(ColumnSchema,String):String
     method MapDbTypeToCSharp(String,Boolean,Nullable<Int32>,String):String
     method ToPascalCase(String):String
+class JauntyQ.Analysis.DialectReservedWords
+    method IsReservedInDialect(String,String):Boolean
+    method RequiresQuotingForCase(String,String):Boolean
 class JauntyQ.Analysis.Diff.ColumnChange
     ctor .ctor(String,ColumnSchema,ColumnSchema,IReadOnlyList<ColumnChangeKind>)
     prop Baseline:ColumnSchema

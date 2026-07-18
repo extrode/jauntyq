@@ -563,6 +563,98 @@ public class AutoCrudTests
     }
 
     [Fact]
+    public void Synthesize_Postgres_SkipsTableWithMixedCaseName()
+    {
+        // AUD-R64-01: PostgreSQL lower-cases every unquoted identifier it
+        // parses. A table stored quoted as "Widgets" (mixed case) cannot be
+        // safely referenced bare -- an unquoted "FROM Widgets" resolves to
+        // "widgets", a different stored name (verified live against
+        // postgres:16: either "relation does not exist", or worse, silently
+        // matches an unrelated same-named-but-lowercase table). AutoCrud must
+        // skip rather than emit a table reference that silently folds to the
+        // wrong object.
+        var schema = new DatabaseSchema { Dialect = "postgres" };
+        schema.Tables["Widgets"] = new TableSchema
+        {
+            Name = "Widgets",
+            Columns = new Dictionary<string, ColumnSchema>
+            {
+                ["Id"] = new ColumnSchema { Name = "Id", DbType = "int", IsPrimaryKey = true },
+                ["Name"] = new ColumnSchema { Name = "Name", DbType = "varchar" }
+            }
+        };
+
+        Assert.Empty(AutoCrud.Synthesize(schema));
+    }
+
+    [Fact]
+    public void Synthesize_Postgres_SkipsTableWithMixedCaseColumn()
+    {
+        var schema = new DatabaseSchema { Dialect = "postgres" };
+        schema.Tables["widgets"] = new TableSchema
+        {
+            Name = "widgets",
+            Columns = new Dictionary<string, ColumnSchema>
+            {
+                ["id"] = new ColumnSchema { Name = "id", DbType = "int", IsPrimaryKey = true },
+                ["displayName"] = new ColumnSchema { Name = "displayName", DbType = "varchar" }
+            }
+        };
+
+        Assert.Empty(AutoCrud.Synthesize(schema));
+    }
+
+    [Fact]
+    public void Synthesize_SqlServer_MixedCaseNames_StillSynthesizes()
+    {
+        // Contrast case: SQL Server's unquoted-identifier matching is
+        // case-INSENSITIVE (no silent rename risk), so the postgres-only
+        // case-fold guard must not overreach into other dialects.
+        var schema = new DatabaseSchema { Dialect = "sqlserver" };
+        schema.Tables["Widgets"] = new TableSchema
+        {
+            Name = "Widgets",
+            Columns = new Dictionary<string, ColumnSchema>
+            {
+                ["Id"] = new ColumnSchema { Name = "Id", DbType = "int", IsPrimaryKey = true },
+                ["DisplayName"] = new ColumnSchema { Name = "DisplayName", DbType = "varchar" }
+            }
+        };
+
+        Assert.NotEmpty(AutoCrud.Synthesize(schema));
+    }
+
+    [Theory]
+    [InlineData("postgres", "user")]
+    [InlineData("postgres", "window")]
+    [InlineData("mysql", "key")]
+    [InlineData("mysql", "rank")]
+    [InlineData("sqlserver", "user")]
+    public void Synthesize_SkipsColumnReservedInTargetDialect_ButNotInJauntyQsOwnKeywordList(string dialect, string columnName)
+    {
+        // AUD-R64-01: these are ordinary short nouns, not JauntyQ keywords
+        // (SqlTokenizer.IsReservedKeyword returns false for all of them), but
+        // each is genuinely reserved in the stated target engine. Emitted
+        // bare, PostgreSQL silently parses "user" as the niladic
+        // current_user() function (wrong data every row, zero diagnostic --
+        // verified live against postgres:16); MySQL/SQL Server raise a
+        // runtime syntax error instead (verified live against mysql:8.0).
+        // Either way AutoCrud must skip the table.
+        var schema = new DatabaseSchema { Dialect = dialect };
+        schema.Tables["accounts"] = new TableSchema
+        {
+            Name = "accounts",
+            Columns = new Dictionary<string, ColumnSchema>
+            {
+                ["id"] = new ColumnSchema { Name = "id", DbType = "int", IsPrimaryKey = true },
+                [columnName] = new ColumnSchema { Name = columnName, DbType = "varchar" }
+            }
+        };
+
+        Assert.Empty(AutoCrud.Synthesize(schema));
+    }
+
+    [Fact]
     public void Synthesize_CompositePk_UsesAllKeyColumnsInWhere()
     {
         var schema = new DatabaseSchema();

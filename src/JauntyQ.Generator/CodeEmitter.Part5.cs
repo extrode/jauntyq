@@ -221,6 +221,16 @@ public static partial class CodeEmitter
             if (!IdentifierGuard.IsValidIdentifier(seq.Name))
                 continue; // hostile/unusable name: refuse to embed it in SQL
 
+            // AUD-R64-01: bare-identifier shape alone isn't enough -- a
+            // sequence name reserved in the target engine's own grammar, or
+            // (PostgreSQL only) containing an uppercase letter that would
+            // silently fold away on an unquoted reference, must be skipped
+            // the same way AutoCrud's own IsBareIdentifier gate now is.
+            if (JauntyQ.Analysis.DialectReservedWords.IsReservedInDialect(seq.Name, schema.Dialect))
+                continue;
+            if (JauntyQ.Analysis.DialectReservedWords.RequiresQuotingForCase(seq.Name, schema.Dialect))
+                continue;
+
             string method = "Next" + DialectMapper.ToPascalCase(seq.Name);
 
             // Two distinct sequence names can fold to the same PascalCase method
