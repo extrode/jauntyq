@@ -344,45 +344,18 @@ public static partial class CodeEmitter
         sb.AppendLine("            public override object this[int ordinal] => GetValue(ordinal);");
         sb.AppendLine("            public override object this[string name] => GetValue(GetOrdinal(name));");
         sb.AppendLine();
-        // Typed getters: switch straight to the field for a column whose type
-        // matches, so no box/unbox round-trip through GetValue's `object`
-        // return happens on the SqlBulkCopy/MySqlBulkCopy hot path (one
-        // allocation per cell otherwise). A column of a different type than
-        // the getter falls back to GetValue -- same InvalidCastException
-        // behavior as before this change, just no longer the common case.
-        void EmitTypedValueGetter(string retType, string methodName, string matchBaseType)
-        {
-            sb.AppendLine($"            public override {retType} {methodName}(int ordinal)");
-            sb.AppendLine("            {");
-            sb.AppendLine("                switch (ordinal)");
-            sb.AppendLine("                {");
-            for (int i = 0; i < cols.Count; i++)
-            {
-                string colCt = DialectMapper.MapColumnToCSharp(cols[i], dialect);
-                bool nullable = colCt.EndsWith("?", StringComparison.Ordinal);
-                string baseCt = nullable ? colCt.Substring(0, colCt.Length - 1) : colCt;
-                if (baseCt != matchBaseType)
-                    continue;
-                string prop = IdentifierGuard.Escape(DialectMapper.ToPascalCase(cols[i].Name));
-                sb.AppendLine(nullable
-                    ? $"                    case {i}: return _current.{prop}!.Value;"
-                    : $"                    case {i}: return _current.{prop};");
-            }
-            sb.AppendLine($"                    default: return ({retType})GetValue(ordinal);");
-            sb.AppendLine("                }");
-            sb.AppendLine("            }");
-        }
-        EmitTypedValueGetter("bool", "GetBoolean", "bool");
-        EmitTypedValueGetter("byte", "GetByte", "byte");
-        EmitTypedValueGetter("char", "GetChar", "char");
-        EmitTypedValueGetter("DateTime", "GetDateTime", "System.DateTime");
-        EmitTypedValueGetter("decimal", "GetDecimal", "decimal");
-        EmitTypedValueGetter("double", "GetDouble", "double");
-        EmitTypedValueGetter("float", "GetFloat", "float");
-        EmitTypedValueGetter("Guid", "GetGuid", "System.Guid");
-        EmitTypedValueGetter("short", "GetInt16", "short");
-        EmitTypedValueGetter("int", "GetInt32", "int");
-        EmitTypedValueGetter("long", "GetInt64", "long");
+        // Typed getters: unbox from GetValue.
+        sb.AppendLine("            public override bool GetBoolean(int ordinal) => (bool)GetValue(ordinal);");
+        sb.AppendLine("            public override byte GetByte(int ordinal) => (byte)GetValue(ordinal);");
+        sb.AppendLine("            public override char GetChar(int ordinal) => (char)GetValue(ordinal);");
+        sb.AppendLine("            public override DateTime GetDateTime(int ordinal) => (DateTime)GetValue(ordinal);");
+        sb.AppendLine("            public override decimal GetDecimal(int ordinal) => (decimal)GetValue(ordinal);");
+        sb.AppendLine("            public override double GetDouble(int ordinal) => (double)GetValue(ordinal);");
+        sb.AppendLine("            public override float GetFloat(int ordinal) => (float)GetValue(ordinal);");
+        sb.AppendLine("            public override Guid GetGuid(int ordinal) => (Guid)GetValue(ordinal);");
+        sb.AppendLine("            public override short GetInt16(int ordinal) => (short)GetValue(ordinal);");
+        sb.AppendLine("            public override int GetInt32(int ordinal) => (int)GetValue(ordinal);");
+        sb.AppendLine("            public override long GetInt64(int ordinal) => (long)GetValue(ordinal);");
         sb.AppendLine("            public override string GetString(int ordinal) => (string)GetValue(ordinal);");
         sb.AppendLine($"            public override {typeType} GetProviderSpecificFieldType(int ordinal) => GetFieldType(ordinal);");
         sb.AppendLine("            public override object GetProviderSpecificValue(int ordinal) => GetValue(ordinal);");
