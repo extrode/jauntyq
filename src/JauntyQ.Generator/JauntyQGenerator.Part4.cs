@@ -48,9 +48,31 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // user-derived, so an entity or row-POCO name equal to either is a
         // reserved-name collision distinct from (and not covered by) the
         // entity-vs-entity/entity-vs-rowtype checks below.
+        //
+        // AUD-R50-03 (partial fix, this set): a second, distinct mechanism
+        // reaches the same "zero JauntyQ diagnostic" outcome. CodeEmitter's
+        // TypeRef collision guard qualifies every *reference* to a table-
+        // derived entity/row-POCO name and to a handful of value types
+        // (DateTime/Guid/TimeSpan/DateTimeOffset/provider types), but the
+        // ADO.NET plumbing types below are emitted as bare literals at every
+        // call site and never routed through TypeRef at all -- verified live
+        // (table "db_commands" -> entity "DbCommands", still collides
+        // because every *reference* to the real System.Data.Common.DbCommand
+        // inside that entity's own emitted methods is now shadowed by the
+        // entity's own class). Deliberately scoped to the ADO.NET-specific
+        // names round 50 named explicitly; broader generic BCL words
+        // (Convert/Math/Array/Type/StringComparison/exception type names)
+        // are NOT included here -- left as residual, still-deferred scope
+        // (AUD-R50-03) since
+        // they are both far more generic (higher false-positive-on-a-
+        // legitimate-table-name risk to even enumerate correctly) and even
+        // less plausible as a real table name than the names below.
         var reservedGeneratedTypeNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal)
         {
-            "JauntyDb", "JauntyQShapeGuard"
+            "JauntyDb", "JauntyQShapeGuard",
+            "DbCommand", "DbParameter", "DbDataReader", "DbConnection", "DbTransaction",
+            "CancellationToken", "StringBuilder", "DBNull",
+            "ConnectionState", "CommandType", "CommandBehavior", "ParameterDirection"
         };
 
         // entity.method slots claimed by user SQL files: a user file always
