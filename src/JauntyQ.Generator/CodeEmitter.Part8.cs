@@ -155,7 +155,7 @@ public static partial class CodeEmitter
             : $"                using var reader = cmd.ExecuteReader({behavior});");
         sb.AppendLine($"                if (System.Threading.Volatile.Read(ref __{query.Name}Validated) == 0)");
         sb.AppendLine("                {");
-        sb.AppendLine($"                    global::JauntyQ.Generated.JauntyQShapeGuard.Validate(reader, __{query.Name}Columns, \"{queryId}\");");
+        sb.AppendLine($"                    JauntyQShapeGuard.Validate(reader, __{query.Name}Columns, \"{queryId}\");");
         sb.AppendLine($"                    System.Threading.Volatile.Write(ref __{query.Name}Validated, 1);");
         sb.AppendLine("                }");
 
