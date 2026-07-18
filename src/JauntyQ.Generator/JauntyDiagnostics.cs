@@ -170,6 +170,14 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    public static readonly DiagnosticDescriptor JNT2009 = new(
+        "JNT2009",
+        "Duplicate Sequence Accessor Name",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(

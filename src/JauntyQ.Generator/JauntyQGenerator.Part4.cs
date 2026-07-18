@@ -252,6 +252,37 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             context.AddSource($"{entity}.Core.g.cs", SourceText.From(coreSource, Encoding.UTF8));
         }
 
+        // JNT2009: two distinct sequence names that fold to the same PascalCase
+        // accessor method name (e.g. "order_number" and "OrderNumber" both ->
+        // "NextOrderNumber") would otherwise silently collapse to a single
+        // db.Sequences method with no diagnostic -- the same "colliding
+        // PascalCase names must not silently double-emit a C# member" invariant
+        // JNT2006/JNT3009 already enforce for row POCOs and result columns.
+        // CodeEmitter.EmitSequenceAccessor keeps only the first on collision
+        // regardless; this reports it so the drop isn't silent.
+        if (schema != null && schema.Sequences.Count > 0)
+        {
+            var byMethodName = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>(StringComparer.Ordinal);
+            foreach (var seq in schema.Sequences.Values)
+            {
+                if (!IdentifierGuard.IsValidIdentifier(seq.Name))
+                    continue;
+                string method = "Next" + DialectMapper.ToPascalCase(seq.Name);
+                if (!byMethodName.TryGetValue(method, out var names))
+                    byMethodName[method] = names = new System.Collections.Generic.List<string>();
+                names.Add(seq.Name);
+            }
+            foreach (var pair in byMethodName)
+            {
+                if (pair.Value.Count > 1)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2009, Location.None,
+                        $"Sequences {string.Join(", ", pair.Value)} all generate the same accessor method '{pair.Key}()'. " +
+                        "Only the first is emitted; rename the others so their PascalCased names no longer collide."));
+                }
+            }
+        }
+
         // Emit JauntyDb class (also when the snapshot has sequences but no
         // emitted entities, so db.Sequences is still generated)
         if (entityNames.Count > 0 || (schema != null && schema.Sequences.Count > 0))
