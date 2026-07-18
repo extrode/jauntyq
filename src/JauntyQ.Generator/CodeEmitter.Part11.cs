@@ -18,6 +18,9 @@ public static partial class CodeEmitter
     {
         string listType = TypeRef(schema, "List", "System.Collections.Generic");
         string taskType = TypeRef(schema, "Task", "System.Threading.Tasks");
+        // AUD-R50-03 (residual): same DbType-shadowing guard as
+        // CodeEmitter.Part3.cs's EmitParameterBinding.
+        string dbTypeEnum = TypeRef(schema, "DbType", "System.Data");
         string modifier = isStatic ? "public static" : "public";
         string asyncModifier = isAsync ? " async" : "";
         // Return: List<Result> for row-returning procs, else int (row count).
@@ -141,7 +144,7 @@ public static partial class CodeEmitter
             sb.AppendLine($"                {varName}.ParameterName = \"@{IdentifierGuard.ToStringLiteral(p.Name)}\";");
             string? adoDbType = MapCSharpTypeToAdoDbType(ct);
             if (adoDbType != null)
-                sb.AppendLine($"                {varName}.DbType = DbType.{adoDbType};");
+                sb.AppendLine($"                {varName}.DbType = {dbTypeEnum}.{adoDbType};");
             switch (p.Direction)
             {
                 case JauntyQ.Schema.ProcedureParamDirection.Out:
