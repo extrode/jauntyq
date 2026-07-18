@@ -54,8 +54,8 @@ public class RowVersionTests
         string source = Source(result, "Gadgets.Update.auto.g.cs");
 
         Assert.Contains("public int Update(string name, int gadget_id, byte[]? row_version)", source);
-        Assert.Contains("where gadget_id = @gadget_id and row_version = @row_version", source);
-        Assert.Contains("set name = @name", source);
+        Assert.Contains("WHERE gadget_id = @gadget_id AND row_version = @row_version", source);
+        Assert.Contains("SET name = @name", source);
         Assert.DoesNotContain("row_version = @row_version,", source); // never in SET
     }
 
@@ -66,7 +66,7 @@ public class RowVersionTests
         string source = Source(result, "Gadgets.Delete.auto.g.cs");
 
         Assert.Contains("public int Delete(int gadget_id, byte[]? row_version)", source);
-        Assert.Contains("where gadget_id = @gadget_id and row_version = @row_version", source);
+        Assert.Contains("WHERE gadget_id = @gadget_id AND row_version = @row_version", source);
     }
 
     [Fact]

@@ -145,15 +145,15 @@ class JauntyQ.Generator.CSharpToSqlTypeMapper
     method Map(String):String
 class JauntyQ.Generator.CodeEmitter
     method Emit(QueryModel,ProjectionModel,String,String,DatabaseSchema,DirectiveModel,String):String
-    method EmitBulkInsert(String,String,TableSchema,String):String
+    method EmitBulkInsert(String,String,TableSchema,String,DatabaseSchema):String
     method EmitCrud(QueryModel,String,String,DatabaseSchema,DirectiveModel):String
     method EmitEntityCore(String):String
     method EmitJauntyDb(IEnumerable<String>,DatabaseSchema):String
-    method EmitPocoOverloads(String,String,TableSchema,String,Boolean,Boolean,Boolean,Boolean):String
-    method EmitProcCall(String,String,ProcedureSchema,String):String
-    method EmitRowPoco(String,TableSchema,String):String
+    method EmitPocoOverloads(String,String,TableSchema,String,Boolean,Boolean,Boolean,Boolean,DatabaseSchema):String
+    method EmitProcCall(String,String,ProcedureSchema,String,DatabaseSchema):String
+    method EmitRowPoco(String,TableSchema,String,DatabaseSchema):String
     method EmitShapeGuardSource():String
-    method EmitUpsert(String,TableSchema,String):String
+    method EmitUpsert(String,TableSchema,String,DatabaseSchema):String
     method InferParameterType(String,QueryModel,ProjectionModel,DatabaseSchema,DirectiveModel):String
 class JauntyQ.Generator.Directives.DirectiveModel
     ctor .ctor()

@@ -151,8 +151,8 @@ public class AutoCrudTests
         var source = TryGetSource(result, "Products.GetById.auto.g.cs");
         Assert.NotNull(source);
         Assert.Contains("public Product? GetById(int product_id)", source);
-        Assert.Contains("System.Threading.Tasks.Task<Product?> GetByIdAsync(", source);
-        Assert.Contains("p0.DbType = System.Data.DbType.Int32;", source);
+        Assert.Contains("Task<Product?> GetByIdAsync(", source);
+        Assert.Contains("p0.DbType = DbType.Int32;", source);
         Assert.Contains("Product.Read(reader)", source);
         Assert.DoesNotContain("Result.GetById", source);
     }
@@ -167,7 +167,7 @@ public class AutoCrudTests
         Assert.Contains("public class Product", poco);
         Assert.Contains("public int ProductId { get; set; }", poco); // value types: no `required`
         Assert.Contains("public required string ProductName { get; set; }", poco);
-        Assert.Contains("public static Product Read(System.Data.Common.DbDataReader reader)", poco);
+        Assert.Contains("public static Product Read(DbDataReader reader)", poco);
 
         // category_id is int NULL -> int?. The null arm must carry the nullable
         // type explicitly; a bare `default` infers int (from GetInt32) and
@@ -177,7 +177,7 @@ public class AutoCrudTests
 
         var getAll = TryGetSource(result, "Products.GetAll.auto.g.cs");
         Assert.NotNull(getAll);
-        Assert.Contains("System.Collections.Generic.List<Product> GetAll(", getAll);
+        Assert.Contains("List<Product> GetAll(", getAll);
     }
 
     [Fact]
@@ -188,7 +188,7 @@ public class AutoCrudTests
         var source = TryGetSource(result, "Products.GetByCategoryId.auto.g.cs");
         Assert.NotNull(source);
         Assert.Contains("List<Product> GetByCategoryId(int? category_id)", source);
-        Assert.Contains("where products.category_id = @category_id", source);
+        Assert.Contains("WHERE products.category_id = @category_id", source);
     }
 
     [Fact]
@@ -199,8 +199,8 @@ public class AutoCrudTests
         // customers: string PK, not identity -> upsert exists (sqlserver MERGE)
         var upsert = TryGetSource(result, "Customers.Upsert.auto.g.cs");
         Assert.NotNull(upsert);
-        Assert.Contains("merge into customers with (holdlock) as target", upsert);
-        Assert.Contains("when matched then update set company_name = src.company_name", upsert);
+        Assert.Contains("MERGE INTO customers WITH (HOLDLOCK) AS target", upsert);
+        Assert.Contains("WHEN MATCHED THEN UPDATE SET company_name = src.company_name", upsert);
         Assert.Contains("public int Upsert(", upsert);
         Assert.Contains("UpsertAsync(", upsert);
 
@@ -216,12 +216,12 @@ public class AutoCrudTests
         var (pg, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"postgres\""));
         var pgSource = TryGetSource(pg, "Customers.Upsert.auto.g.cs");
         Assert.NotNull(pgSource);
-        Assert.Contains("on conflict (customer_id) do update set company_name = excluded.company_name", pgSource);
+        Assert.Contains("ON CONFLICT (customer_id) DO UPDATE SET company_name = EXCLUDED.company_name", pgSource);
 
         var (my, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"mysql\""));
         var mySource = TryGetSource(my, "Customers.Upsert.auto.g.cs");
         Assert.NotNull(mySource);
-        Assert.Contains("on duplicate key update company_name = values(company_name)", mySource);
+        Assert.Contains("ON DUPLICATE KEY UPDATE company_name = VALUES(company_name)", mySource);
     }
 
     [Fact]
@@ -233,10 +233,10 @@ public class AutoCrudTests
         // is a secondary UNIQUE index -> upsert IS synthesized, keyed on it.
         var upsert = TryGetSource(result, "MailQueue.Upsert.auto.g.cs");
         Assert.NotNull(upsert);
-        Assert.Contains("merge into mail_queue with (holdlock) as target", upsert);
-        Assert.Contains("on target.idempotency_key = src.idempotency_key", upsert);
-        Assert.Contains("when matched then update set payload = src.payload", upsert);
-        Assert.Contains("when not matched then insert (idempotency_key, payload) values (src.idempotency_key, src.payload)", upsert);
+        Assert.Contains("MERGE INTO mail_queue WITH (HOLDLOCK) AS target", upsert);
+        Assert.Contains("ON target.idempotency_key = src.idempotency_key", upsert);
+        Assert.Contains("WHEN MATCHED THEN UPDATE SET payload = src.payload", upsert);
+        Assert.Contains("WHEN NOT MATCHED THEN INSERT (idempotency_key, payload) VALUES (src.idempotency_key, src.payload)", upsert);
 
         // the database-assigned identity column is never a caller-supplied arg
         Assert.Contains("public int Upsert(string idempotency_key, string payload)", upsert);
@@ -251,14 +251,14 @@ public class AutoCrudTests
         var (pg, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"postgres\""));
         var pgSource = TryGetSource(pg, "MailQueue.Upsert.auto.g.cs");
         Assert.NotNull(pgSource);
-        Assert.Contains("insert into mail_queue (idempotency_key, payload)", pgSource);
-        Assert.Contains("on conflict (idempotency_key) do update set payload = excluded.payload", pgSource);
+        Assert.Contains("INSERT INTO mail_queue (idempotency_key, payload)", pgSource);
+        Assert.Contains("ON CONFLICT (idempotency_key) DO UPDATE SET payload = EXCLUDED.payload", pgSource);
 
         var (my, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"mysql\""));
         var mySource = TryGetSource(my, "MailQueue.Upsert.auto.g.cs");
         Assert.NotNull(mySource);
-        Assert.Contains("insert into mail_queue (idempotency_key, payload)", mySource);
-        Assert.Contains("on duplicate key update payload = values(payload)", mySource);
+        Assert.Contains("INSERT INTO mail_queue (idempotency_key, payload)", mySource);
+        Assert.Contains("ON DUPLICATE KEY UPDATE payload = VALUES(payload)", mySource);
     }
 
     [Fact]
@@ -295,7 +295,7 @@ public class AutoCrudTests
 
         var source = TryGetSource(result, "Products.Insert.auto.g.cs");
         Assert.NotNull(source);
-        Assert.Contains("insert into products (product_name, category_id)", source);
+        Assert.Contains("INSERT INTO products (product_name, category_id)", source);
         Assert.DoesNotContain("@product_id", source);
     }
 
@@ -341,7 +341,7 @@ public class AutoCrudTests
 
         var source = TryGetSource(result, "Products.Insert.auto.g.cs");
         Assert.NotNull(source);
-        Assert.Contains("output inserted.product_id", source);
+        Assert.Contains("OUTPUT INSERTED.product_id", source);
         Assert.Contains("public int Insert(", source);
         Assert.Contains("INSERT did not return an identity value.", source);
         Assert.Contains("reader.GetInt32(0)", source);
@@ -355,7 +355,7 @@ public class AutoCrudTests
 
         var source = TryGetSource(result, "Products.Insert.auto.g.cs");
         Assert.NotNull(source);
-        Assert.Contains("returning product_id", source);
+        Assert.Contains("RETURNING product_id", source);
     }
 
     [Fact]
@@ -372,8 +372,8 @@ public class AutoCrudTests
 
         var source = TryGetSource(result, "Products.Insert.auto.g.cs");
         Assert.NotNull(source);
-        Assert.Contains("returning product_id", source);
-        Assert.DoesNotContain("output inserted", source);
+        Assert.Contains("RETURNING product_id", source);
+        Assert.DoesNotContain("OUTPUT INSERTED", source);
         Assert.DoesNotContain("last_insert_id()", source);
     }
 
@@ -384,7 +384,7 @@ public class AutoCrudTests
 
         var source = TryGetSource(result, "Products.Insert.auto.g.cs");
         Assert.NotNull(source);
-        Assert.Contains("select last_insert_id()", source);
+        Assert.Contains("SELECT last_insert_id()", source);
         Assert.Contains("checked((int)reader.GetInt64(0))", source);
     }
 
@@ -413,7 +413,7 @@ public class AutoCrudTests
 
         var source = TryGetSource(result, "Products.Insert.auto.g.cs");
         Assert.NotNull(source);
-        Assert.Contains("select last_insert_id()", source);
+        Assert.Contains("SELECT last_insert_id()", source);
         Assert.Contains("checked((int)reader.GetInt64(0))", source);
         Assert.DoesNotContain("reader.GetInt32(0)", source);
     }
@@ -427,7 +427,7 @@ public class AutoCrudTests
         var source = TryGetSource(result, "Products.Insert.g.cs");
         Assert.NotNull(source);
         Assert.Contains("ExecuteNonQuery()", source);
-        Assert.DoesNotContain("output inserted", source);
+        Assert.DoesNotContain("OUTPUT INSERTED", source);
     }
 
     [Fact]
@@ -578,7 +578,7 @@ public class AutoCrudTests
         };
 
         var delete = AutoCrud.Synthesize(schema).Single(q => q.MethodName == "Delete");
-        Assert.Contains("order_id = @order_id and line_no = @line_no", delete.Sql);
+        Assert.Contains("order_id = @order_id AND line_no = @line_no", delete.Sql);
     }
 
     // ── Columns named after C# keywords ──────────────────────────────────
@@ -656,8 +656,8 @@ public class AutoCrudTests
 
         var update = AutoCrud.Synthesize(schema).Single(q => q.MethodName == "Update");
         Assert.DoesNotContain("seq = @seq", update.Sql);
-        Assert.Contains("set name = @name", update.Sql);
-        Assert.Contains("where pk_code = @pk_code", update.Sql);
+        Assert.Contains("SET name = @name", update.Sql);
+        Assert.Contains("WHERE pk_code = @pk_code", update.Sql);
     }
 
     [Fact]

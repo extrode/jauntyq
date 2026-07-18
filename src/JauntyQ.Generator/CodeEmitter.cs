@@ -38,6 +38,109 @@ public static partial class CodeEmitter
         return ordered;
     }
 
+    /// <summary>
+    /// True when some table in <paramref name="schema"/> generates an entity
+    /// accessor class named exactly <paramref name="simpleName"/>. Entity
+    /// names come from <see cref="DialectMapper.ToPascalCase"/> on a fully
+    /// user-controlled table name and are declared as
+    /// <c>public partial class {name}</c> directly in
+    /// <c>namespace JauntyQ.Generated</c> -- so a table named e.g. "list",
+    /// "task", or "system" shadows the BCL name of the same simple name for
+    /// every file compiled into that namespace, not merely the file for
+    /// that one entity. Only table-derived names are checked (not
+    /// hand-authored .sql entity names, which a developer chooses and is
+    /// unlikely to pick as a BCL/provider type name by accident); this is
+    /// the realistic, demonstrated collision shape, matching the
+    /// PascalCase-folding defect class JNT2009/JNT2010 already guard.
+    /// </summary>
+    private static bool SchemaHasEntityNamed(DatabaseSchema? schema, string simpleName)
+    {
+        if (schema == null)
+            return false;
+
+        foreach (var table in schema.Tables.Values)
+        {
+            if (string.Equals(DialectMapper.ToPascalCase(table.Name), simpleName, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// A BCL/provider type reference that survives the entity-name shadowing
+    /// <see cref="SchemaHasEntityNamed"/> documents: <c>global::</c>-qualified
+    /// exactly when the schema has an entity named <paramref name="simpleName"/>
+    /// (guaranteed collision-proof regardless of which name segment collides),
+    /// otherwise the short name -- the caller is expected to have added a
+    /// <c>using {@namespace};</c> directive so the short form resolves.
+    /// </summary>
+    internal static string TypeRef(DatabaseSchema? schema, string simpleName, string @namespace)
+    {
+        if (!SchemaHasEntityNamed(schema, simpleName))
+            return simpleName;
+
+        return @namespace.Length == 0 ? $"global::{simpleName}" : $"global::{@namespace}.{simpleName}";
+    }
+
+    /// <summary>
+    /// Shortens the fixed set of fully-qualified value types
+    /// <see cref="DialectMapper.MapDbTypeToCSharp"/> emits (System.DateTime,
+    /// System.Guid, System.TimeSpan, System.DateTimeOffset -- all resolvable
+    /// via the <c>using System;</c> every per-file emission already adds) for
+    /// display in emitted source, routed through <see cref="TypeRef"/> for the
+    /// same collision guard as every other shortened type. Deliberately does
+    /// NOT touch <see cref="DialectMapper.MapDbTypeToCSharp"/>'s own return
+    /// value or <c>System.Net.IPAddress</c> (its "?"-stripped, fully-qualified
+    /// form is a comparison key at several coordination points -- GetReaderCall
+    /// in CodeEmitter.Part9.cs, IsNonNullableValueType/MapCSharpTypeToAdoDbType
+    /// in Part4.cs -- so only the display copy at the point of emission is
+    /// shortened, never the value flowing through inference/comparison logic).
+    /// </summary>
+    internal static string ShortenValueTypeName(DatabaseSchema? schema, string csharpType)
+    {
+        bool nullable = csharpType.EndsWith("?", StringComparison.Ordinal);
+        string baseType = nullable ? csharpType.Substring(0, csharpType.Length - 1) : csharpType;
+        string? simpleName = baseType switch
+        {
+            "System.DateTime" => "DateTime",
+            "System.DateTimeOffset" => "DateTimeOffset",
+            "System.TimeSpan" => "TimeSpan",
+            "System.Guid" => "Guid",
+            _ => null
+        };
+        if (simpleName == null)
+            return csharpType;
+
+        string shortened = TypeRef(schema, simpleName, "System");
+        return nullable ? shortened + "?" : shortened;
+    }
+
+    /// <summary>
+    /// The base set of usings every per-file query/CRUD emission needs, plus
+    /// the provider namespace for whichever dialect this schema targets (only
+    /// the dialect actually in play emits code that needs it -- e.g. Npgsql
+    /// types only appear when EmitParameterBinding takes its postgres
+    /// branch) and System.Runtime.CompilerServices only for files that emit
+    /// an async streaming iterator (the only place [EnumeratorCancellation]
+    /// is used).
+    /// </summary>
+    private static void EmitUsings(System.Text.StringBuilder sb, string? dialect, bool needsEnumeratorCancellation)
+    {
+        sb.AppendLine("using System;");
+        sb.AppendLine("using System.Collections.Generic;");
+        sb.AppendLine("using System.Data;");
+        sb.AppendLine("using System.Data.Common;");
+        if (needsEnumeratorCancellation)
+            sb.AppendLine("using System.Runtime.CompilerServices;");
+        sb.AppendLine("using System.Text;");
+        sb.AppendLine("using System.Threading;");
+        sb.AppendLine("using System.Threading.Tasks;");
+        if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
+            sb.AppendLine("using Npgsql;");
+        sb.AppendLine();
+    }
+
     public static string Emit(QueryModel query, ProjectionModel projection, string originalSql, string entityName, DatabaseSchema? schema = null, Directives.DirectiveModel? directives = null, string? canonicalRowType = null)
     {
         var sb = new System.Text.StringBuilder();
@@ -45,6 +148,7 @@ public static partial class CodeEmitter
         sb.AppendLine("// <auto-generated/>");
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
+        EmitUsings(sb, schema?.Dialect, needsEnumeratorCancellation: directives?.IsStream == true);
 
         sb.AppendLine("namespace JauntyQ.Generated");
         sb.AppendLine("{");
@@ -60,7 +164,7 @@ public static partial class CodeEmitter
         {
             sb.AppendLine("        public static partial class Result");
             sb.AppendLine("        {");
-            EmitDto(sb, projection);
+            EmitDto(sb, projection, schema);
             sb.AppendLine("        }");
             sb.AppendLine();
         }
@@ -98,6 +202,7 @@ public static partial class CodeEmitter
         sb.AppendLine("// <auto-generated/>");
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
+        EmitUsings(sb, schema?.Dialect, needsEnumeratorCancellation: false);
 
         sb.AppendLine("namespace JauntyQ.Generated");
         sb.AppendLine("{");
@@ -124,16 +229,16 @@ public static partial class CodeEmitter
         IdentityInfo? identity = ResolveIdentityInfo(query, schema, directives);
 
         // Instance sync
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, procName: procName, identity: identity, dialect: schema?.Dialect);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, procName: procName, identity: identity, schema: schema);
         sb.AppendLine();
         // Static sync
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, procName: procName, identity: identity, dialect: schema?.Dialect);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, procName: procName, identity: identity, schema: schema);
         sb.AppendLine();
         // Instance async
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, procName: procName, identity: identity, dialect: schema?.Dialect);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, procName: procName, identity: identity, schema: schema);
         sb.AppendLine();
         // Static async
-        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, procName: procName, identity: identity, dialect: schema?.Dialect);
+        EmitCrudMethodBody(sb, query, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, procName: procName, identity: identity, schema: schema);
 
         // Emit Proc nested class with CREATE PROCEDURE script
         if (procName != null)

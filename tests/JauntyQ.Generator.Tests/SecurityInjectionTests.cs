@@ -139,7 +139,7 @@ public class SecurityInjectionTests
         Assert.DoesNotContain(result.Results[0].Diagnostics, d => d.Id == "JNT2004");
         string sources = AllSources(result);
         Assert.Contains("CommandText = \"GetProducts\"", sources);
-        Assert.Contains("CommandType = System.Data.CommandType.StoredProcedure", sources);
+        Assert.Contains("CommandType = CommandType.StoredProcedure", sources);
     }
 
     // ── PERF-1: shape guard latches once per query ─────────────────────

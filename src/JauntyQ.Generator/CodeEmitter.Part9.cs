@@ -4,18 +4,18 @@ using JauntyQ.SqlParser.IR;
 namespace JauntyQ.Generator;
 public static partial class CodeEmitter
 {
-    private static void EmitColumnAssignments(System.Text.StringBuilder sb, ProjectionModel projection, string indent)
+    private static void EmitColumnAssignments(System.Text.StringBuilder sb, ProjectionModel projection, string indent, DatabaseSchema? schema = null)
     {
         for (int i = 0; i < projection.Columns.Count; i++)
         {
             var col = projection.Columns[i];
-            string readerCall = GetReaderCall(col.Type, col.Ordinal);
+            string readerCall = GetReaderCall(col.Type, col.Ordinal, schema);
             string comma = i < projection.Columns.Count - 1 ? "," : "";
             sb.AppendLine($"{indent}{IdentifierGuard.Escape(col.Name)} = {readerCall}{comma}");
         }
     }
 
-    private static string GetReaderCall(string csharpType, int ordinal)
+    private static string GetReaderCall(string csharpType, int ordinal, DatabaseSchema? schema = null)
     {
         // Handle nullable types
         bool isNullable = csharpType.EndsWith("?");
@@ -43,13 +43,19 @@ public static partial class CodeEmitter
             // every case (System.Net.IPAddress, System.TimeSpan, int[],
             // string[], Guid[]), so an explicit cast (matching the existing
             // "byte[]" case just below) is all that's missing.
-            "System.TimeSpan" => $"(System.TimeSpan)reader.GetValue({ordinal})",
+            "System.TimeSpan" => $"({ShortenValueTypeName(schema, "System.TimeSpan")})reader.GetValue({ordinal})",
+            // IPAddress is the one DialectMapper value type that stays fully
+            // qualified even at the point of emission: unlike DateTime/Guid/
+            // TimeSpan/DateTimeOffset (all resolvable via the `using System;`
+            // every per-file emission already adds), a bare "IPAddress" needs
+            // its own `using System.Net;`, which is not worth adding solely
+            // for this rare (Postgres inet/cidr) case.
             "System.Net.IPAddress" => $"(System.Net.IPAddress)reader.GetValue({ordinal})",
             // DialectMapper maps SQL Server "datetimeoffset" and Postgres "time
             // with time zone" to System.DateTimeOffset (task #26), which has no
             // dedicated IDataReader.Get* method either -- same CS0266 hazard as
             // TimeSpan/IPAddress above if left as bare GetValue.
-            "System.DateTimeOffset" => $"(System.DateTimeOffset)reader.GetValue({ordinal})",
+            "System.DateTimeOffset" => $"({ShortenValueTypeName(schema, "System.DateTimeOffset")})reader.GetValue({ordinal})",
             // DialectMapper maps MySQL's UNSIGNED int/bigint/smallint to
             // uint/ulong/ushort (their signed CLR counterparts can't hold the
             // full unsigned range) -- MySqlConnector's GetValue returns

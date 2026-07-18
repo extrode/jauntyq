@@ -14,14 +14,14 @@ public static partial class CodeEmitter
         bool isAsync,
         string? procName = null,
         IdentityInfo? identity = null,
-        string? dialect = null)
+        DatabaseSchema? schema = null)
     {
         string modifier = isStatic ? "public static" : "public";
         string asyncModifier = isAsync ? " async" : "";
-        string syncReturn = identity != null ? identity.Value.CSharpType : "int";
-        string returnType = isAsync ? $"System.Threading.Tasks.Task<{syncReturn}>" : syncReturn;
+        string syncReturn = identity != null ? ShortenValueTypeName(schema, identity.Value.CSharpType) : "int";
+        string returnType = isAsync ? $"{TypeRef(schema, "Task", "System.Threading.Tasks")}<{syncReturn}>" : syncReturn;
         string methodName = isAsync ? $"{query.Name}Async" : query.Name;
-        string paramList = BuildParamList(paramInfos, isStatic, isAsync, trailingNullableDefaults: true);
+        string paramList = BuildParamList(paramInfos, isStatic, isAsync, trailingNullableDefaults: true, schema: schema);
 
         sb.AppendLine($"        {modifier}{asyncModifier} {returnType} {methodName}({paramList})");
         sb.AppendLine("        {");
@@ -29,7 +29,7 @@ public static partial class CodeEmitter
         EmitValueGuards(sb, paramInfos);
 
         // Connection lifecycle
-        sb.AppendLine($"            bool weOpened = {connVar}.State != System.Data.ConnectionState.Open;");
+        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
             ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
             : $"            if (weOpened) {connVar}.Open();");
@@ -37,7 +37,7 @@ public static partial class CodeEmitter
         sb.AppendLine("            {");
 
         // Create command
-        sb.AppendLine($"                using var cmd = {connVar}.CreateCommand();");
+        sb.AppendLine($"                using DbCommand cmd = {connVar}.CreateCommand();");
         if (!isStatic)
         {
             sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
@@ -49,35 +49,35 @@ public static partial class CodeEmitter
         if (procName != null)
         {
             sb.AppendLine($"                cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procName)}\";");
-            sb.AppendLine("                cmd.CommandType = System.Data.CommandType.StoredProcedure;");
+            sb.AppendLine("                cmd.CommandType = CommandType.StoredProcedure;");
         }
         else if (identity != null)
         {
             string identitySql = BuildIdentityInsertSql(
                 StripLeadingSqlComments(originalSql), identity.Value.Dialect, identity.Value.ColumnName);
-            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(identitySql)}\";");
+            sb.AppendLine($"                cmd.CommandText = @\"{IndentSqlContinuationLines(EscapeVerbatimString(identitySql), 36)}\";");
         }
         else
         {
-            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(StripLeadingSqlComments(originalSql))}\";");
+            sb.AppendLine($"                cmd.CommandText = @\"{IndentSqlContinuationLines(EscapeVerbatimString(StripLeadingSqlComments(originalSql)), 36)}\";");
         }
 
-        EmitParameterBinding(sb, paramInfos, dialect);
+        EmitParameterBinding(sb, paramInfos, schema);
 
         // Execute
         sb.AppendLine();
         if (identity != null)
         {
-            string behavior = "System.Data.CommandBehavior.SingleRow | System.Data.CommandBehavior.SingleResult";
+            string behavior = "CommandBehavior.SingleRow | CommandBehavior.SingleResult";
             sb.AppendLine(isAsync
-                ? $"                using var reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
-                : $"                using var reader = cmd.ExecuteReader({behavior});");
+                ? $"                using DbDataReader reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
+                : $"                using DbDataReader reader = cmd.ExecuteReader({behavior});");
             string readCall = isAsync
                 ? "await reader.ReadAsync(cancellationToken).ConfigureAwait(false)"
                 : "reader.Read()";
             sb.AppendLine($"                if (!({readCall}))");
-            sb.AppendLine("                    throw new System.InvalidOperationException(\"INSERT did not return an identity value.\");");
-            sb.AppendLine($"                return {GetIdentityReaderCall(identity.Value)};");
+            sb.AppendLine("                    throw new InvalidOperationException(\"INSERT did not return an identity value.\");");
+            sb.AppendLine($"                return {GetIdentityReaderCall(identity.Value, schema)};");
         }
         else
         {
@@ -100,7 +100,7 @@ public static partial class CodeEmitter
     private static bool HasStaticTransactionParam(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic) =>
         isStatic && !paramInfos.Exists(p => string.Equals(p.Name, "transaction", StringComparison.OrdinalIgnoreCase));
 
-    private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync, bool trailingNullableDefaults = false, bool enumeratorCancellation = false)
+    private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync, bool trailingNullableDefaults = false, bool enumeratorCancellation = false, DatabaseSchema? schema = null)
     {
         // C# optional parameters must be trailing: give `= default` to the
         // longest suffix of nullable-column parameters so callers pass only
@@ -114,20 +114,20 @@ public static partial class CodeEmitter
 
         var sb = new System.Text.StringBuilder();
         if (isStatic)
-            sb.Append("System.Data.Common.DbConnection conn");
+            sb.Append("DbConnection conn");
 
         for (int i = 0; i < paramInfos.Count; i++)
         {
             var p = paramInfos[i];
             if (sb.Length > 0) sb.Append(", ");
-            sb.Append($"{p.CSharpType} {p.CSharpName}");
+            sb.Append($"{ShortenValueTypeName(schema, p.CSharpType)} {p.CSharpName}");
             if (i >= firstDefault) sb.Append(" = default");
         }
 
         if (HasStaticTransactionParam(paramInfos, isStatic))
         {
             if (sb.Length > 0) sb.Append(", ");
-            sb.Append("System.Data.Common.DbTransaction? transaction = null");
+            sb.Append("DbTransaction? transaction = null");
         }
 
         if (isAsync)
@@ -136,15 +136,16 @@ public static partial class CodeEmitter
             // Async streaming iterators annotate the token so the framework can
             // flow a token supplied via await foreach (...).WithCancellation(ct).
             if (enumeratorCancellation)
-                sb.Append("[System.Runtime.CompilerServices.EnumeratorCancellation] ");
-            sb.Append("System.Threading.CancellationToken cancellationToken = default");
+                sb.Append("[EnumeratorCancellation] ");
+            sb.Append("CancellationToken cancellationToken = default");
         }
 
         return sb.ToString();
     }
 
-    private static void EmitParameterBinding(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos, string? dialect = null)
+    private static void EmitParameterBinding(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos, DatabaseSchema? schema = null)
     {
+        string? dialect = schema?.Dialect;
         for (int i = 0; i < paramInfos.Count; i++)
         {
             var param = paramInfos[i];
@@ -153,7 +154,7 @@ public static partial class CodeEmitter
 
             if (param.IsEach)
             {
-                EmitEachParameterBinding(sb, param, varName, dialect);
+                EmitEachParameterBinding(sb, param, varName, schema);
                 continue;
             }
 
@@ -170,28 +171,29 @@ public static partial class CodeEmitter
                 // null to DBNull and pins a DbType so the null case still has a
                 // resolved type (provider-neutral System.Data.DbType, no mapping
                 // layer). Non-nullable value types keep the fast generic path.
+                string npgsqlParameterType = TypeRef(schema, "NpgsqlParameter", "Npgsql");
                 if (IsNonNullableValueType(param.CSharpType))
                 {
-                    sb.AppendLine($"                var {varName} = new global::Npgsql.NpgsqlParameter<{param.CSharpType}> {{ ParameterName = \"@{param.Name}\", TypedValue = {param.CSharpName} }};");
+                    sb.AppendLine($"                var {varName} = new {npgsqlParameterType}<{ShortenValueTypeName(schema, param.CSharpType)}> {{ ParameterName = \"@{param.Name}\", TypedValue = {param.CSharpName} }};");
                 }
                 else
                 {
-                    sb.AppendLine($"                var {varName} = new global::Npgsql.NpgsqlParameter {{ ParameterName = \"@{param.Name}\" }};");
+                    sb.AppendLine($"                var {varName} = new {npgsqlParameterType} {{ ParameterName = \"@{param.Name}\" }};");
                     string? pgAdoDbType = MapCSharpTypeToAdoDbType(param.CSharpType);
                     if (pgAdoDbType != null)
-                        sb.AppendLine($"                {varName}.DbType = System.Data.DbType.{pgAdoDbType};");
-                    sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? System.DBNull.Value;");
+                        sb.AppendLine($"                {varName}.DbType = DbType.{pgAdoDbType};");
+                    sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? DBNull.Value;");
                 }
                 sb.AppendLine($"                cmd.Parameters.Add({varName});");
                 continue;
             }
 
-            sb.AppendLine($"                var {varName} = cmd.CreateParameter();");
+            sb.AppendLine($"                DbParameter {varName} = cmd.CreateParameter();");
             sb.AppendLine($"                {varName}.ParameterName = \"@{param.Name}\";");
             string? adoDbType = MapCSharpTypeToAdoDbType(param.CSharpType);
             if (adoDbType != null)
             {
-                sb.AppendLine($"                {varName}.DbType = System.Data.DbType.{adoDbType};");
+                sb.AppendLine($"                {varName}.DbType = DbType.{adoDbType};");
             }
             EmitParameterSizing(sb, param, varName);
             // DbParameter.Value is object, so value types box exactly once per
@@ -205,7 +207,7 @@ public static partial class CodeEmitter
             }
             else
             {
-                sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? System.DBNull.Value;");
+                sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? DBNull.Value;");
             }
             sb.AppendLine($"                cmd.Parameters.Add({varName});");
         }
@@ -217,26 +219,28 @@ public static partial class CodeEmitter
     /// match the CommandText expansion built alongside it in
     /// CodeEmitter.Part8.cs's EmitCommandText.
     /// </summary>
-    private static void EmitEachParameterBinding(System.Text.StringBuilder sb, EmittedParam param, string varName, string? dialect)
+    private static void EmitEachParameterBinding(System.Text.StringBuilder sb, EmittedParam param, string varName, DatabaseSchema? schema)
     {
+        string? dialect = schema?.Dialect;
         string elementType = GetEachElementType(param.CSharpType);
         string loopVar = $"__ib_{param.Name}";
         string? adoDbType = MapCSharpTypeToAdoDbType(elementType);
 
         if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
         {
+            string npgsqlParameterType = TypeRef(schema, "NpgsqlParameter", "Npgsql");
             sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.CSharpName}.Count; {loopVar}++)");
             sb.AppendLine("                {");
             if (IsNonNullableValueType(elementType))
             {
-                sb.AppendLine($"                    cmd.Parameters.Add(new global::Npgsql.NpgsqlParameter<{elementType}> {{ ParameterName = \"@{param.Name}\" + {loopVar}, TypedValue = {param.CSharpName}[{loopVar}] }});");
+                sb.AppendLine($"                    cmd.Parameters.Add(new {npgsqlParameterType}<{ShortenValueTypeName(schema, elementType)}> {{ ParameterName = \"@{param.Name}\" + {loopVar}, TypedValue = {param.CSharpName}[{loopVar}] }});");
             }
             else
             {
-                sb.AppendLine($"                    var {varName} = new global::Npgsql.NpgsqlParameter {{ ParameterName = \"@{param.Name}\" + {loopVar} }};");
+                sb.AppendLine($"                    var {varName} = new {npgsqlParameterType} {{ ParameterName = \"@{param.Name}\" + {loopVar} }};");
                 if (adoDbType != null)
-                    sb.AppendLine($"                    {varName}.DbType = System.Data.DbType.{adoDbType};");
-                sb.AppendLine($"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? System.DBNull.Value;");
+                    sb.AppendLine($"                    {varName}.DbType = DbType.{adoDbType};");
+                sb.AppendLine($"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? DBNull.Value;");
                 sb.AppendLine($"                    cmd.Parameters.Add({varName});");
             }
             sb.AppendLine("                }");
@@ -245,10 +249,10 @@ public static partial class CodeEmitter
 
         sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.CSharpName}.Count; {loopVar}++)");
         sb.AppendLine("                {");
-        sb.AppendLine($"                    var {varName} = cmd.CreateParameter();");
+        sb.AppendLine($"                    DbParameter {varName} = cmd.CreateParameter();");
         sb.AppendLine($"                    {varName}.ParameterName = \"@{param.Name}\" + {loopVar};");
         if (adoDbType != null)
-            sb.AppendLine($"                    {varName}.DbType = System.Data.DbType.{adoDbType};");
+            sb.AppendLine($"                    {varName}.DbType = DbType.{adoDbType};");
         // -- @each params are always comparison (IN-list) params, never write
         // targets: same "size to fit the actual value" defense as a plain
         // comparison parameter (CodeEmitter.Part2.cs's EmitParameterSizing),
@@ -258,7 +262,7 @@ public static partial class CodeEmitter
             isWriteTarget: false, varName, $"{param.CSharpName}[{loopVar}]", indent: "                    ");
         sb.AppendLine(IsNonNullableValueType(elementType)
             ? $"                    {varName}.Value = {param.CSharpName}[{loopVar}];"
-            : $"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? System.DBNull.Value;");
+            : $"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? DBNull.Value;");
         sb.AppendLine($"                    cmd.Parameters.Add({varName});");
         sb.AppendLine("                }");
     }

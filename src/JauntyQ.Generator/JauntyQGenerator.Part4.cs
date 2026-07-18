@@ -112,7 +112,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 {
                     // Dialect-native upsert bypasses the minimal SQL parser;
                     // correctness comes from the schema snapshot itself.
-                    string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, schema.Tables[synth.TableName], schema.Dialect);
+                    string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, schema.Tables[synth.TableName], schema.Dialect, schema);
                     context.AddSource($"{synth.EntityName}.Upsert.auto.g.cs", SourceText.From(upsertSource, Encoding.UTF8));
                     entityNames.Add(synth.EntityName);
                     RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, "Upsert");
@@ -174,7 +174,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 string rowType = Inflector.RowTypeName(DialectMapper.ToPascalCase(table.Name));
                 string overloadSource = CodeEmitter.EmitPocoOverloads(
                     info.Entity, rowType, table, schema.Dialect,
-                    info.Insert, info.Update, info.Delete, info.Upsert);
+                    info.Insert, info.Update, info.Delete, info.Upsert, schema);
                 context.AddSource($"{info.Entity}.Poco.auto.g.cs", SourceText.From(overloadSource, Encoding.UTF8));
                 neededRowTables.Add(table.Name);
 
@@ -182,7 +182,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // for tables that have a synthetic Insert (and thus a row POCO).
                 if (info.Insert && !string.IsNullOrEmpty(schema.Dialect))
                 {
-                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, table, schema.Dialect);
+                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, table, schema.Dialect, schema);
                     context.AddSource($"{info.Entity}.BulkInsert.auto.g.cs", SourceText.From(bulkSource, Encoding.UTF8));
                 }
             }
@@ -277,7 +277,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 }
 
                 context.AddSource($"{entityPascal}.Row.g.cs",
-                    SourceText.From(CodeEmitter.EmitRowPoco(rowType, tableSchema, schema.Dialect), Encoding.UTF8));
+                    SourceText.From(CodeEmitter.EmitRowPoco(rowType, tableSchema, schema.Dialect, schema), Encoding.UTF8));
             }
         }
 

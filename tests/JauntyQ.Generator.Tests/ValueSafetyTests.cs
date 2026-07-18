@@ -427,7 +427,7 @@ public class ValueSafetyTests
         string source = QuerySource(result);
 
         Assert.Contains("if (product_name is null)", source);
-        Assert.Contains("throw new System.ArgumentNullException(nameof(product_name));", source);
+        Assert.Contains("throw new ArgumentNullException(nameof(product_name));", source);
     }
 
     [Fact]

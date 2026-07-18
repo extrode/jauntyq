@@ -45,24 +45,24 @@ public static partial class CodeEmitter
         else
         {
             mapperCall = $"__Map{query.Name}(reader)";
-            sb.AppendLine($"        private static {returnType} __Map{query.Name}(System.Data.Common.DbDataReader reader) => new {returnType}");
+            sb.AppendLine($"        private static {returnType} __Map{query.Name}(DbDataReader reader) => new {returnType}");
             sb.AppendLine("        {");
-            EmitColumnAssignments(sb, projection, indent: "            ");
+            EmitColumnAssignments(sb, projection, indent: "            ", schema);
             sb.AppendLine("        };");
             sb.AppendLine();
         }
 
         // Instance sync
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, isFirst, queryId, mapperCall, procName, schema?.Dialect, isStream);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: false, isFirst, queryId, mapperCall, procName, schema, isStream);
         sb.AppendLine();
         // Static sync
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, isFirst, queryId, mapperCall, procName, schema?.Dialect, isStream);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: false, isFirst, queryId, mapperCall, procName, schema, isStream);
         sb.AppendLine();
         // Instance async
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, isFirst, queryId, mapperCall, procName, schema?.Dialect, isStream);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "_conn", isStatic: false, isAsync: true, isFirst, queryId, mapperCall, procName, schema, isStream);
         sb.AppendLine();
         // Static async
-        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, isFirst, queryId, mapperCall, procName, schema?.Dialect, isStream);
+        EmitMethodBody(sb, query, projection, returnType, originalSql, paramInfos, "conn", isStatic: true, isAsync: true, isFirst, queryId, mapperCall, procName, schema, isStream);
     }
 
     private static void EmitMethodBody(
@@ -79,9 +79,10 @@ public static partial class CodeEmitter
         string queryId,
         string mapperCall,
         string? procName = null,
-        string? dialect = null,
+        DatabaseSchema? schema = null,
         bool isStream = false)
     {
+        string? dialect = schema?.Dialect;
         string modifier = isStatic ? "public static" : "public";
         // A streaming method is an iterator: sync -> IEnumerable<T> (no `async`),
         // async -> IAsyncEnumerable<T> with `async`. yield return inside the
@@ -92,29 +93,29 @@ public static partial class CodeEmitter
         string syncReturn;
         if (isStream)
             syncReturn = isAsync
-                ? $"System.Collections.Generic.IAsyncEnumerable<{returnType}>"
-                : $"System.Collections.Generic.IEnumerable<{returnType}>";
+                ? $"{TypeRef(schema, "IAsyncEnumerable", "System.Collections.Generic")}<{returnType}>"
+                : $"{TypeRef(schema, "IEnumerable", "System.Collections.Generic")}<{returnType}>";
         else
-            syncReturn = isFirst ? $"{returnType}?" : $"System.Collections.Generic.List<{returnType}>";
+            syncReturn = isFirst ? $"{returnType}?" : $"{TypeRef(schema, "List", "System.Collections.Generic")}<{returnType}>";
         // Non-stream async wraps the sync return in Task<>; stream async returns
         // IAsyncEnumerable<T> directly (it is itself awaitable-by-iteration).
         string declaredReturn = (isAsync && !isStream)
-            ? $"System.Threading.Tasks.Task<{syncReturn}>"
+            ? $"{TypeRef(schema, "Task", "System.Threading.Tasks")}<{syncReturn}>"
             : syncReturn;
         string methodName = isAsync ? $"{query.Name}Async" : query.Name;
         // Async streaming iterators need [EnumeratorCancellation] on the token so
         // `await foreach (... .WithCancellation(ct))` flows the token through.
         bool cancelAttr = isAsync && isStream;
-        string paramList = BuildParamList(paramInfos, isStatic, isAsync, enumeratorCancellation: cancelAttr);
+        string paramList = BuildParamList(paramInfos, isStatic, isAsync, enumeratorCancellation: cancelAttr, schema: schema);
 
         sb.AppendLine($"        {modifier}{asyncModifier} {declaredReturn} {methodName}({paramList})");
         sb.AppendLine("        {");
 
         EmitValueGuards(sb, paramInfos);
-        EmitEachListGuards(sb, paramInfos, returnType, isFirst, isStream, dialect);
+        EmitEachListGuards(sb, paramInfos, returnType, isFirst, isStream, schema);
 
         // Connection lifecycle
-        sb.AppendLine($"            bool weOpened = {connVar}.State != System.Data.ConnectionState.Open;");
+        sb.AppendLine($"            bool weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
             ? $"            if (weOpened) await {connVar}.OpenAsync(cancellationToken).ConfigureAwait(false);"
             : $"            if (weOpened) {connVar}.Open();");
@@ -122,7 +123,7 @@ public static partial class CodeEmitter
         sb.AppendLine("            {");
 
         // Create command
-        sb.AppendLine($"                using var cmd = {connVar}.CreateCommand();");
+        sb.AppendLine($"                using DbCommand cmd = {connVar}.CreateCommand();");
         if (!isStatic)
         {
             sb.AppendLine("                if (_db?.CurrentTransaction != null) cmd.Transaction = _db.CurrentTransaction;");
@@ -134,29 +135,29 @@ public static partial class CodeEmitter
         if (procName != null)
         {
             sb.AppendLine($"                cmd.CommandText = \"{IdentifierGuard.ToStringLiteral(procName)}\";");
-            sb.AppendLine("                cmd.CommandType = System.Data.CommandType.StoredProcedure;");
+            sb.AppendLine("                cmd.CommandType = CommandType.StoredProcedure;");
         }
         else
         {
             EmitCommandText(sb, StripLeadingSqlComments(originalSql), paramInfos);
         }
 
-        EmitParameterBinding(sb, paramInfos, dialect);
+        EmitParameterBinding(sb, paramInfos, schema);
 
         // Execute reader + one-time shape guard. SingleResult (and SingleRow
         // for @first) lets the provider optimize buffering for the shape we
         // are guaranteed to consume.
         string behavior = isFirst
-            ? "System.Data.CommandBehavior.SingleRow | System.Data.CommandBehavior.SingleResult"
-            : "System.Data.CommandBehavior.SingleResult";
+            ? "CommandBehavior.SingleRow | CommandBehavior.SingleResult"
+            : "CommandBehavior.SingleResult";
         sb.AppendLine();
         sb.AppendLine(isAsync
-            ? $"                using var reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
-            : $"                using var reader = cmd.ExecuteReader({behavior});");
-        sb.AppendLine($"                if (System.Threading.Volatile.Read(ref __{query.Name}Validated) == 0)");
+            ? $"                using DbDataReader reader = await cmd.ExecuteReaderAsync({behavior}, cancellationToken).ConfigureAwait(false);"
+            : $"                using DbDataReader reader = cmd.ExecuteReader({behavior});");
+        sb.AppendLine($"                if (Volatile.Read(ref __{query.Name}Validated) == 0)");
         sb.AppendLine("                {");
-        sb.AppendLine($"                    global::JauntyQ.Generated.JauntyQShapeGuard.Validate(reader, __{query.Name}Columns, \"{queryId}\");");
-        sb.AppendLine($"                    System.Threading.Volatile.Write(ref __{query.Name}Validated, 1);");
+        sb.AppendLine($"                    JauntyQShapeGuard.Validate(reader, __{query.Name}Columns, \"{queryId}\");");
+        sb.AppendLine($"                    Volatile.Write(ref __{query.Name}Validated, 1);");
         sb.AppendLine("                }");
 
         string readCall = isAsync
@@ -182,7 +183,7 @@ public static partial class CodeEmitter
         }
         else
         {
-            sb.AppendLine($"                var results = new System.Collections.Generic.List<{returnType}>();");
+            sb.AppendLine($"                var results = new {TypeRef(schema, "List", "System.Collections.Generic")}<{returnType}>();");
             sb.AppendLine($"                while ({readCall})");
             sb.AppendLine("                {");
             sb.AppendLine($"                    results.Add({mapperCall});");
@@ -203,9 +204,9 @@ public static partial class CodeEmitter
     /// the dialect's parameter budget in the message instead of an obscure
     /// server/provider error mid-command.
     /// </summary>
-    private static void EmitEachListGuards(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos, string returnType, bool isFirst, bool isStream, string? dialect)
+    private static void EmitEachListGuards(System.Text.StringBuilder sb, System.Collections.Generic.List<EmittedParam> paramInfos, string returnType, bool isFirst, bool isStream, DatabaseSchema? schema)
     {
-        int cap = EachParameterCap(dialect);
+        int cap = EachParameterCap(schema?.Dialect);
         bool any = false;
         foreach (var param in paramInfos)
         {
@@ -217,9 +218,9 @@ public static partial class CodeEmitter
             else if (isFirst)
                 sb.AppendLine("                return null;");
             else
-                sb.AppendLine($"                return new System.Collections.Generic.List<{returnType}>();");
+                sb.AppendLine($"                return new {TypeRef(schema, "List", "System.Collections.Generic")}<{returnType}>();");
             sb.AppendLine($"            if ({param.CSharpName}.Count > {cap})");
-            sb.AppendLine($"                throw new System.ArgumentException($\"-- @each list '{param.Name}' has {{{param.CSharpName}.Count}} elements, exceeding the {cap}-parameter budget for this database. Batch the call into smaller chunks.\", nameof({param.CSharpName}));");
+            sb.AppendLine($"                throw new ArgumentException($\"-- @each list '{param.Name}' has {{{param.CSharpName}.Count}} elements, exceeding the {cap}-parameter budget for this database. Batch the call into smaller chunks.\", nameof({param.CSharpName}));");
             any = true;
         }
         if (any)
@@ -256,14 +257,14 @@ public static partial class CodeEmitter
         var eachParams = paramInfos.FindAll(p => p.IsEach);
         if (eachParams.Count == 0)
         {
-            sb.AppendLine($"                cmd.CommandText = @\"{EscapeVerbatimString(sql)}\";");
+            sb.AppendLine($"                cmd.CommandText = @\"{IndentSqlContinuationLines(EscapeVerbatimString(sql), 36)}\";");
             return;
         }
 
         foreach (var ep in eachParams)
         {
             string loopVar = $"__i_{ep.Name}";
-            sb.AppendLine($"                var __each_{ep.Name} = new System.Text.StringBuilder();");
+            sb.AppendLine($"                var __each_{ep.Name} = new StringBuilder();");
             sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {ep.CSharpName}.Count; {loopVar}++)");
             sb.AppendLine("                {");
             sb.AppendLine($"                    if ({loopVar} > 0) __each_{ep.Name}.Append(',');");

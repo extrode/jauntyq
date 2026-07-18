@@ -68,12 +68,12 @@ public class BulkInsertTests
     public void BulkInsert_IsSynthesized_TakesIEnumerableAndExcludesIdentity()
     {
         var src = AllSources(Run());
-        Assert.Contains("int BulkInsert(System.Collections.Generic.IEnumerable<", src);
-        Assert.Contains("System.Threading.Tasks.Task<int> BulkInsertAsync(", src);
+        Assert.Contains("int BulkInsert(IEnumerable<", src);
+        Assert.Contains("Task<int> BulkInsertAsync(", src);
         Assert.Contains("BeginTransaction", src);
         // Identity WidgetId is excluded from the insert column list.
-        Assert.Contains("insert into Widgets (Name)", src);
-        Assert.DoesNotContain("insert into Widgets (WidgetId", src);
+        Assert.Contains("INSERT INTO Widgets (Name)", src);
+        Assert.DoesNotContain("INSERT INTO Widgets (WidgetId", src);
     }
 
     [Fact]
@@ -122,11 +122,11 @@ public class BulkInsertTests
     public void SqlServer_UsesSqlBulkCopy_OverSharedReaderAdapter()
     {
         var src = AllSources(Run(SchemaFor("sqlserver")));
-        Assert.Contains("global::Microsoft.Data.SqlClient.SqlBulkCopy", src);
+        Assert.Contains("SqlBulkCopy", src);
         Assert.Contains("__bulkCopy.DestinationTableName = \"Widgets\"", src);
         Assert.Contains("__bulkCopy.ColumnMappings.Add(\"Name\", \"Name\")", src);
         // Shared AOT-safe DbDataReader adapter, ordinal-based, reflection-free.
-        Assert.Contains(": System.Data.Common.DbDataReader", src);
+        Assert.Contains(": DbDataReader", src);
         Assert.Contains("public int RowsRead", src);
     }
 
@@ -134,12 +134,12 @@ public class BulkInsertTests
     public void MySql_UsesMySqlBulkCopy_OverSharedReaderAdapter_AndDocsLocalInfile()
     {
         var src = AllSources(Run(SchemaFor("mysql")));
-        Assert.Contains("global::MySqlConnector.MySqlBulkCopy", src);
+        Assert.Contains("MySqlBulkCopy", src);
         Assert.Contains("__bulkCopy.DestinationTableName = \"Widgets\"", src);
         // Explicit source-ordinal -> destination-name mapping (identity excluded).
-        Assert.Contains("new global::MySqlConnector.MySqlBulkCopyColumnMapping(0, \"Name\")", src);
-        Assert.Contains("new global::MySqlConnector.MySqlBulkCopyColumnMapping(1, \"Note\")", src);
-        Assert.Contains(": System.Data.Common.DbDataReader", src);
+        Assert.Contains("new MySqlBulkCopyColumnMapping(0, \"Name\")", src);
+        Assert.Contains("new MySqlBulkCopyColumnMapping(1, \"Note\")", src);
+        Assert.Contains(": DbDataReader", src);
         Assert.Contains("public int RowsRead", src);
         // The AllowLoadLocalInfile requirement must be documented on the method.
         Assert.Contains("AllowLoadLocalInfile=true", src);
@@ -259,7 +259,7 @@ public class BulkInsertTests
         var src = AllSources(Run(SchemaFor("sqlite")));
         // sqlite is unchanged: portable prepared-command loop in a transaction.
         Assert.Contains("BeginTransaction", src);
-        Assert.Contains("insert into Widgets (Name, Note)", src);
+        Assert.Contains("INSERT INTO Widgets (Name, Note)", src);
         Assert.DoesNotContain("SqlBulkCopy", src);
         Assert.DoesNotContain("BeginBinaryImport", src);
         Assert.DoesNotContain("MySqlBulkCopy", src);

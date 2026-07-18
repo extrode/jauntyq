@@ -85,7 +85,7 @@ public static class AutoCrud
 
             // GetAll — always (works for views and PK-less tables too)
             result.Add(new SyntheticQuery(entityName, "GetAll",
-                $"select {colList}\nfrom {table.Name}", table.Name));
+                $"SELECT {colList}\nFROM {table.Name}", table.Name));
 
             var pkCols = CrudColumnRules.PrimaryKeyColumns(columns);
 
@@ -105,17 +105,17 @@ public static class AutoCrud
                     continue;
 
                 result.Add(new SyntheticQuery(entityName, $"GetBy{DialectMapper.ToPascalCase(fk.FromColumn)}",
-                    $"select {colList}\nfrom {table.Name}\nwhere {table.Name}.{fk.FromColumn} = @{fk.FromColumn}", table.Name));
+                    $"SELECT {colList}\nFROM {table.Name}\nWHERE {table.Name}.{fk.FromColumn} = @{fk.FromColumn}", table.Name));
             }
 
             if (pkCols.Count == 0)
                 continue; // views / heap tables: read-only beyond GetAll (+ FK loaders)
 
-            string pkWhere = JoinColumns(pkCols, " and ", c => $"{table.Name}.{c.Name} = @{c.Name}");
+            string pkWhere = JoinColumns(pkCols, " AND ", c => $"{table.Name}.{c.Name} = @{c.Name}");
 
             // GetById — single row by primary key
             result.Add(new SyntheticQuery(entityName, "GetById",
-                $"-- @first\nselect {colList}\nfrom {table.Name}\nwhere {pkWhere}", table.Name));
+                $"-- @first\nSELECT {colList}\nFROM {table.Name}\nWHERE {pkWhere}", table.Name));
 
             // Optimistic concurrency: rowversion columns are database-assigned
             // tokens — never inserted or updated, but required in the WHERE of
@@ -134,7 +134,7 @@ public static class AutoCrud
                 bool returnsIdentity = !string.IsNullOrEmpty(schema.Dialect) && CrudColumnRules.SingleIdentityColumn(columns) != null;
                 string prefix = returnsIdentity ? "-- @identity\n" : "";
                 result.Add(new SyntheticQuery(entityName, "Insert",
-                    $"{prefix}insert into {table.Name} ({insertColList})\nvalues ({insertParams})", table.Name));
+                    $"{prefix}INSERT INTO {table.Name} ({insertColList})\nVALUES ({insertParams})", table.Name));
             }
 
             // Update — SET every non-PK column, WHERE the full primary key
@@ -155,15 +155,15 @@ public static class AutoCrud
             if (setCols.Count > 0)
             {
                 string setList = JoinColumns(setCols, ", ", c => $"{c.Name} = @{c.Name}");
-                string updateWhere = JoinColumns(whereCols, " and ", c => $"{c.Name} = @{c.Name}");
+                string updateWhere = JoinColumns(whereCols, " AND ", c => $"{c.Name} = @{c.Name}");
                 result.Add(new SyntheticQuery(entityName, "Update",
-                    $"update {table.Name}\nset {setList}\nwhere {updateWhere}", table.Name));
+                    $"UPDATE {table.Name}\nSET {setList}\nWHERE {updateWhere}", table.Name));
             }
 
             // Delete — WHERE the full primary key (plus rowversion token)
-            string deleteWhere = JoinColumns(whereCols, " and ", c => $"{c.Name} = @{c.Name}");
+            string deleteWhere = JoinColumns(whereCols, " AND ", c => $"{c.Name} = @{c.Name}");
             result.Add(new SyntheticQuery(entityName, "Delete",
-                $"delete from {table.Name}\nwhere {deleteWhere}", table.Name));
+                $"DELETE FROM {table.Name}\nWHERE {deleteWhere}", table.Name));
 
             // Upsert — dialect-native, keyed on the PK, or (when the PK is
             // entirely database-assigned) on a secondary UNIQUE index

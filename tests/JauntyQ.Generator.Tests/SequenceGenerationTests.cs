@@ -136,7 +136,7 @@ public class SequenceGenerationTests
         Assert.Contains("public SequenceAccessor Sequences =>", db);
         Assert.Contains("public sealed class SequenceAccessor", db);
         Assert.Contains("public long NextOrderNumber()", db);
-        Assert.Contains("public System.Threading.Tasks.Task<long> NextOrderNumberAsync(", db);
+        Assert.Contains("public Task<long> NextOrderNumberAsync(", db);
         Assert.Contains("SELECT NEXT VALUE FOR order_number", db);
 
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
@@ -174,7 +174,7 @@ public class SequenceGenerationTests
         Assert.NotNull(db);
         Assert.Contains("public SequenceAccessor Sequences =>", db);
         Assert.Contains("public long NextOrderNumber()", db);
-        Assert.Contains("public System.Threading.Tasks.Task<long> NextOrderNumberAsync(", db);
+        Assert.Contains("public Task<long> NextOrderNumberAsync(", db);
         Assert.Contains("SELECT NEXTVAL(order_number)", db);
 
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
