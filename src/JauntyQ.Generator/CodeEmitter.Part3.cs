@@ -48,10 +48,16 @@ public static partial class CodeEmitter
 
         // Connection lifecycle. AUD-R69-01: "__weOpened", "__cmd" -- pure
         // internal locals, never part of the public signature or return
-        // value, unconditionally renamed (a schema/query-derived name can
-        // never collide with a double-underscore-prefixed name -- confirmed
-        // live that "@weOpened"/"@cmd" collided with the un-prefixed
-        // versions before this fix).
+        // value, unconditionally renamed. Unlike the -- @call path (where
+        // ToPascalCase/ToCamelCase never emit an underscore, making a
+        // double-underscore prefix structurally collision-proof),
+        // EmittedParam.CSharpName on THIS path is the literal, unfolded SQL
+        // parameter name -- so a query parameter literally named
+        // "@__weOpened"/"@__cmd" still collides (confirmed live). This
+        // rename closes the plausible, schema/query-derived-name collisions
+        // this round targets (e.g. "@weOpened"/"@cmd"), not every
+        // conceivable dunder-prefixed literal; see AUD-R69-01's registry
+        // entry for the residual.
         sb.AppendLine($"            bool __weOpened = {connVar}.State != ConnectionState.Open;");
         sb.AppendLine(isAsync
             ? $"            if (__weOpened) await {connVar}.OpenAsync({tokenParamName}).ConfigureAwait(false);"
