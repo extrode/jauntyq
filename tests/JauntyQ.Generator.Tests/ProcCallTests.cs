@@ -66,6 +66,19 @@ public class ProcCallTests
         { ""name"": ""order_number"", ""dbType"": ""int"", ""isNullable"": false },
         { ""name"": ""OrderNumber"", ""dbType"": ""int"", ""isNullable"": false }
       ]
+    },
+    ""ArchiveWithAffectedOutParam"": {
+      ""name"": ""ArchiveWithAffectedOutParam"",
+      ""params"": [
+        { ""name"": ""CustomerId"", ""dbType"": ""nchar"", ""direction"": ""In"", ""isNullable"": false, ""maxLength"": 5 },
+        { ""name"": ""Affected"", ""dbType"": ""int"", ""direction"": ""Out"", ""isNullable"": false }
+      ],
+      ""results"": []
+    },
+    ""GetProductsWithResultsOutParam"": {
+      ""name"": ""GetProductsWithResultsOutParam"",
+      ""params"": [ { ""name"": ""Results"", ""dbType"": ""int"", ""direction"": ""Out"", ""isNullable"": false } ],
+      ""results"": [ { ""name"": ""ProductId"", ""dbType"": ""int"", ""isNullable"": false } ]
     }
   }
 }";
@@ -468,5 +481,90 @@ public class ProcCallTests
         Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
         Assert.Contains("'OrderNumber'", diag.GetMessage());
         Assert.DoesNotContain(result.Results[0].GeneratedSources, s => s.HintName.Contains("GetOrderSummary"));
+    }
+
+    /// <summary>
+    /// AUD-R67-01: a non-row-returning proc's async overload declares a
+    /// tuple return whose first element is the JauntyQ-introduced bookkeeping
+    /// name "affected" -- unchecked against the OTHER tuple elements, which
+    /// ARE schema-derived (each OUT/INOUT param's own camelCased name).
+    /// Confirmed live (before the fix) that an OUT param literally named
+    /// "Affected" produces a tuple type with two identically-named elements
+    /// -- a real CS8127 "Tuple element names must be unique" compiler error,
+    /// with zero JauntyQ diagnostic of any kind raised first. The sync
+    /// overload was unaffected (it already used the collision-safe
+    /// "__affected" local, not "affected"). Fixed by falling back to
+    /// "__affected" for JauntyQ's own tuple element specifically when a real
+    /// OUT/INOUT param would otherwise collide with it, while keeping the
+    /// friendly "affected" name in the (overwhelmingly common) non-colliding
+    /// case -- see AdjustStockAsync's own generated signature elsewhere in
+    /// this file, unaffected by this fix.
+    /// </summary>
+    [Fact]
+    public void Call_AsyncOutParamNamedAffected_DoesNotCollideWithBookkeepingTupleElement()
+    {
+        var result = Run("-- @call ArchiveWithAffectedOutParam\n", "db/Customers/ArchiveWithAffectedOutParam.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithAffectedOutParam.g.cs").SourceText.ToString();
+
+        // The colliding OUT param keeps its own friendly name; JauntyQ's own
+        // element backs off to the collision-safe fallback instead.
+        Assert.Contains("Task<(int __affected, int affected)> ArchiveWithAffectedOutParamAsync(", source);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        var compilation = CSharpCompilation.Create("ProcCallAffectedCollisionEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated proc-call code for an OUT param literally named 'Affected' failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    /// <summary>
+    /// AUD-R67-01: a row-returning proc's shared "var results = ..." local
+    /// (used by BOTH the sync and async overloads) was not checked against
+    /// real schema parameter names either. Confirmed live (before the fix)
+    /// that an OUT param literally named "Results" broke BOTH overloads, via
+    /// two different mechanisms: async got the same CS8127 tuple-name
+    /// collision as the "Affected" case above, while sync got a genuine
+    /// local/parameter redeclaration -- CS0136 ("a local ... named 'results'
+    /// cannot be declared in this scope") cascading into CS0029 ("cannot
+    /// convert 'int' to 'List&lt;...&gt;'") at the OUT-param readback line,
+    /// since the pre-fix code reused the same "results" name for both the
+    /// out parameter and the row-list local. Fixed by unconditionally
+    /// renaming the internal row-list local to "__results" (a schema name
+    /// can never camelCase to a name containing an underscore, so this can
+    /// never collide with a real parameter -- a pure-internal rename with
+    /// zero effect on the tuple TYPE's own, separately-computed, friendly
+    /// public element name) plus the same tuple-element-name fallback used
+    /// for the "Affected" case above.
+    /// </summary>
+    [Fact]
+    public void Call_OutParamNamedResults_DoesNotCollideWithRowListLocal_SyncAndAsync()
+    {
+        var result = Run("-- @call GetProductsWithResultsOutParam\n", "db/Products/GetProductsWithResultsOutParam.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Products.GetProductsWithResultsOutParam.g.cs").SourceText.ToString();
+
+        Assert.Contains("Task<(List<Result.GetProductsWithResultsOutParam> __results, int results)> GetProductsWithResultsOutParamAsync(", source);
+        Assert.Contains("var __results = new List<Result.GetProductsWithResultsOutParam>();", source);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        var compilation = CSharpCompilation.Create("ProcCallResultsCollisionEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated proc-call code for an OUT param literally named 'Results' failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
     }
 }
