@@ -14,8 +14,7 @@ namespace JauntyQ.Sakila.MySql.Tests;
 /// </summary>
 public sealed class SakilaMySqlFixture : IAsyncLifetime
 {
-    private readonly MySqlContainer _container =
-        new MySqlBuilder().WithImage("mysql:8.0").Build();
+    private MySqlContainer? _container;
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
@@ -32,12 +31,14 @@ public sealed class SakilaMySqlFixture : IAsyncLifetime
     {
         try
         {
-            await _container.StartAsync();
+            MySqlContainer container = new MySqlBuilder().WithImage("mysql:8.0").Build();
+            _container = container;
+            await container.StartAsync();
 
             string ddl = await File.ReadAllTextAsync(
                 Path.Combine(AppContext.BaseDirectory, "schema.mysql.sql"));
 
-            await using (var seed = new MySqlConnection(_container.GetConnectionString()))
+            await using (var seed = new MySqlConnection(container.GetConnectionString()))
             {
                 await seed.OpenAsync();
                 await using var cmd = seed.CreateCommand();
@@ -46,7 +47,7 @@ public sealed class SakilaMySqlFixture : IAsyncLifetime
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            _conn = new MySqlConnection(_container.GetConnectionString());
+            _conn = new MySqlConnection(container.GetConnectionString());
             await _conn.OpenAsync();
             _db = new JauntyDb(_conn);
             Available = true;
@@ -62,6 +63,7 @@ public sealed class SakilaMySqlFixture : IAsyncLifetime
     {
         if (_conn != null)
             await _conn.DisposeAsync();
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+        if (_container is not null)
+            try { await _container.DisposeAsync(); } catch { /* nothing started */ }
     }
 }

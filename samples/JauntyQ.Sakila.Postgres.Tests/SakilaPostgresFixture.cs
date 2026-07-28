@@ -14,8 +14,7 @@ namespace JauntyQ.Sakila.Postgres.Tests;
 /// </summary>
 public sealed class SakilaPostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container =
-        new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+    private PostgreSqlContainer? _container;
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
@@ -32,12 +31,14 @@ public sealed class SakilaPostgresFixture : IAsyncLifetime
     {
         try
         {
-            await _container.StartAsync();
+            PostgreSqlContainer container = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+            _container = container;
+            await container.StartAsync();
 
             string ddl = await File.ReadAllTextAsync(
                 Path.Combine(AppContext.BaseDirectory, "schema.postgres.sql"));
 
-            await using (var seed = new NpgsqlConnection(_container.GetConnectionString()))
+            await using (var seed = new NpgsqlConnection(container.GetConnectionString()))
             {
                 await seed.OpenAsync();
                 await using var cmd = seed.CreateCommand();
@@ -45,7 +46,7 @@ public sealed class SakilaPostgresFixture : IAsyncLifetime
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            _conn = new NpgsqlConnection(_container.GetConnectionString());
+            _conn = new NpgsqlConnection(container.GetConnectionString());
             await _conn.OpenAsync();
             _db = new JauntyDb(_conn);
             Available = true;
@@ -61,6 +62,7 @@ public sealed class SakilaPostgresFixture : IAsyncLifetime
     {
         if (_conn != null)
             await _conn.DisposeAsync();
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+        if (_container is not null)
+            try { await _container.DisposeAsync(); } catch { /* nothing started */ }
     }
 }

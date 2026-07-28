@@ -14,8 +14,7 @@ namespace JauntyQ.Sakila.MariaDb.Tests;
 /// </summary>
 public sealed class SakilaMariaDbFixture : IAsyncLifetime
 {
-    private readonly MariaDbContainer _container =
-        new MariaDbBuilder().WithImage("mariadb:11").Build();
+    private MariaDbContainer? _container;
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
@@ -32,12 +31,14 @@ public sealed class SakilaMariaDbFixture : IAsyncLifetime
     {
         try
         {
-            await _container.StartAsync();
+            MariaDbContainer container = new MariaDbBuilder().WithImage("mariadb:11").Build();
+            _container = container;
+            await container.StartAsync();
 
             string ddl = await File.ReadAllTextAsync(
                 Path.Combine(AppContext.BaseDirectory, "schema.mariadb.sql"));
 
-            await using (var seed = new MySqlConnection(_container.GetConnectionString()))
+            await using (var seed = new MySqlConnection(container.GetConnectionString()))
             {
                 await seed.OpenAsync();
                 await using var cmd = seed.CreateCommand();
@@ -46,7 +47,7 @@ public sealed class SakilaMariaDbFixture : IAsyncLifetime
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            _conn = new MySqlConnection(_container.GetConnectionString());
+            _conn = new MySqlConnection(container.GetConnectionString());
             await _conn.OpenAsync();
             _db = new JauntyDb(_conn);
             Available = true;
@@ -62,6 +63,7 @@ public sealed class SakilaMariaDbFixture : IAsyncLifetime
     {
         if (_conn != null)
             await _conn.DisposeAsync();
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+        if (_container is not null)
+            try { await _container.DisposeAsync(); } catch { /* nothing started */ }
     }
 }

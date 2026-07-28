@@ -14,8 +14,7 @@ namespace JauntyQ.AdventureWorksLite.SqlServer.Tests;
 /// </summary>
 public sealed class AdventureWorksLiteSqlServerFixture : IAsyncLifetime
 {
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder().Build();
+    private MsSqlContainer? _container;
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
@@ -27,8 +26,10 @@ public sealed class AdventureWorksLiteSqlServerFixture : IAsyncLifetime
     {
         try
         {
-            await _container.StartAsync();
-            ConnectionString = _container.GetConnectionString();
+            MsSqlContainer container = new MsSqlBuilder().Build();
+            _container = container;
+            await container.StartAsync();
+            ConnectionString = container.GetConnectionString();
 
             string script = await File.ReadAllTextAsync(
                 Path.Combine(AppContext.BaseDirectory, "schema.mssql.sql"));
@@ -85,6 +86,7 @@ public sealed class AdventureWorksLiteSqlServerFixture : IAsyncLifetime
     {
         if (_conn != null)
             await _conn.DisposeAsync();
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+        if (_container is not null)
+            try { await _container.DisposeAsync(); } catch { /* nothing started */ }
     }
 }

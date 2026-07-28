@@ -15,25 +15,26 @@ namespace JauntyQ.EShopOnWeb.Postgres.Tests;
 /// </summary>
 public sealed class EShopOnWebPostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container =
-        new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+    private PostgreSqlContainer? _container;
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
     public JauntyDb Db { get; private set; } = null!;
-    public string ConnectionString => _container.GetConnectionString();
+    public string ConnectionString => FixtureGate.RequireAvailable(_container, Available, SkipReason, nameof(EShopOnWebPostgresFixture)).GetConnectionString();
     private NpgsqlConnection? _conn;
 
     public async Task InitializeAsync()
     {
         try
         {
-            await _container.StartAsync();
+            PostgreSqlContainer container = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+            _container = container;
+            await container.StartAsync();
 
             string ddl = await File.ReadAllTextAsync(
                 Path.Combine(AppContext.BaseDirectory, "schema.postgres.sql"));
 
-            await using (var seed = new NpgsqlConnection(_container.GetConnectionString()))
+            await using (var seed = new NpgsqlConnection(container.GetConnectionString()))
             {
                 await seed.OpenAsync();
                 await using var cmd = seed.CreateCommand();
@@ -41,7 +42,7 @@ public sealed class EShopOnWebPostgresFixture : IAsyncLifetime
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            _conn = new NpgsqlConnection(_container.GetConnectionString());
+            _conn = new NpgsqlConnection(container.GetConnectionString());
             await _conn.OpenAsync();
             Db = new JauntyDb(_conn);
             Available = true;
@@ -57,6 +58,7 @@ public sealed class EShopOnWebPostgresFixture : IAsyncLifetime
     {
         if (_conn != null)
             await _conn.DisposeAsync();
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+        if (_container is not null)
+            try { await _container.DisposeAsync(); } catch { /* nothing started */ }
     }
 }
