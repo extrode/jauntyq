@@ -15,25 +15,26 @@ namespace JauntyQ.EShopOnWeb.SqlServer.Tests;
 /// </summary>
 public sealed class EShopOnWebSqlServerFixture : IAsyncLifetime
 {
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder().Build();
+    private MsSqlContainer? _container;
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
     public JauntyDb Db { get; private set; } = null!;
-    public string ConnectionString => _container.GetConnectionString();
+    public string ConnectionString => FixtureGate.RequireAvailable(_container, Available, SkipReason, nameof(EShopOnWebSqlServerFixture)).GetConnectionString();
     private SqlConnection? _conn;
 
     public async Task InitializeAsync()
     {
         try
         {
-            await _container.StartAsync();
+            MsSqlContainer container = new MsSqlBuilder().Build();
+            _container = container;
+            await container.StartAsync();
 
             string ddl = await File.ReadAllTextAsync(
                 Path.Combine(AppContext.BaseDirectory, "schema.mssql.sql"));
 
-            await using (var seed = new SqlConnection(_container.GetConnectionString()))
+            await using (var seed = new SqlConnection(container.GetConnectionString()))
             {
                 await seed.OpenAsync();
                 await using var cmd = seed.CreateCommand();
@@ -42,7 +43,7 @@ public sealed class EShopOnWebSqlServerFixture : IAsyncLifetime
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            _conn = new SqlConnection(_container.GetConnectionString());
+            _conn = new SqlConnection(container.GetConnectionString());
             await _conn.OpenAsync();
             Db = new JauntyDb(_conn);
             Available = true;
@@ -58,6 +59,7 @@ public sealed class EShopOnWebSqlServerFixture : IAsyncLifetime
     {
         if (_conn != null)
             await _conn.DisposeAsync();
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+        if (_container is not null)
+            try { await _container.DisposeAsync(); } catch { /* nothing started */ }
     }
 }

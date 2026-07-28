@@ -25,8 +25,7 @@ namespace JauntyQ.Conduit.SqlServer.Tests.Http;
 /// </summary>
 public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder().Build();
+    private MsSqlContainer? _container;
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
@@ -51,8 +50,10 @@ public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyn
     {
         try
         {
-            await _container.StartAsync();
-            ConnectionString = _container.GetConnectionString();
+            MsSqlContainer container = new MsSqlBuilder().Build();
+            _container = container;
+            await container.StartAsync();
+            ConnectionString = container.GetConnectionString();
 
             // schema.mssql.ddl.sql is a DDL-only copy of schema.mssql.sql (no seed rows):
             // HTTP tests create every user/article through the API itself, and would
@@ -90,7 +91,8 @@ public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyn
 
     async Task IAsyncLifetime.DisposeAsync()
     {
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+        if (_container is not null)
+            try { await _container.DisposeAsync(); } catch { /* nothing started */ }
         await base.DisposeAsync();
     }
 }

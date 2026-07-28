@@ -18,12 +18,11 @@ namespace JauntyQ.Conduit.SqlServer.Tests;
 /// </summary>
 public sealed class ConduitSqlServerFixture : IAsyncLifetime
 {
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder().Build();
+    private MsSqlContainer? _container;
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
-    public string ConnectionString => _container.GetConnectionString();
+    public string ConnectionString => FixtureGate.RequireAvailable(_container, Available, SkipReason, nameof(ConduitSqlServerFixture)).GetConnectionString();
     public JauntyDb Db { get; private set; } = null!;
     public SqlConnection Connection { get; private set; } = null!;
 
@@ -31,12 +30,14 @@ public sealed class ConduitSqlServerFixture : IAsyncLifetime
     {
         try
         {
-            await _container.StartAsync();
+            MsSqlContainer container = new MsSqlBuilder().Build();
+            _container = container;
+            await container.StartAsync();
 
             string ddl = await File.ReadAllTextAsync(
                 Path.Combine(AppContext.BaseDirectory, "schema.mssql.sql"));
 
-            await using (var seed = new SqlConnection(_container.GetConnectionString()))
+            await using (var seed = new SqlConnection(container.GetConnectionString()))
             {
                 await seed.OpenAsync();
                 await using var cmd = seed.CreateCommand();
@@ -45,7 +46,7 @@ public sealed class ConduitSqlServerFixture : IAsyncLifetime
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            Connection = new SqlConnection(_container.GetConnectionString());
+            Connection = new SqlConnection(container.GetConnectionString());
             await Connection.OpenAsync();
             Db = new JauntyDb(Connection);
             Available = true;
@@ -61,6 +62,7 @@ public sealed class ConduitSqlServerFixture : IAsyncLifetime
     {
         if (Connection != null)
             await Connection.DisposeAsync();
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+        if (_container is not null)
+            try { await _container.DisposeAsync(); } catch { /* nothing started */ }
     }
 }
