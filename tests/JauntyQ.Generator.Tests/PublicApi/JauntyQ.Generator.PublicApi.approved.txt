@@ -10,6 +10,7 @@ enum JauntyQ.Analysis.AnalysisSeverity
     field Error:AnalysisSeverity
     field Warning:AnalysisSeverity
 class JauntyQ.Analysis.AutoCrud
+    method DescribeUnusableTable(TableSchema,String):String
     method Synthesize(DatabaseSchema):List<SyntheticQuery>
 class JauntyQ.Analysis.AutoCrud+SyntheticQuery
     ctor .ctor(String,String,String,String,Boolean)
@@ -36,6 +37,7 @@ class JauntyQ.Analysis.DialectMapper
     method ToPascalCase(String):String
 class JauntyQ.Analysis.DialectReservedWords
     method IsReservedInDialect(String,String):Boolean
+    method IsReservedInDialect(String,String,SqlIdentifierPosition):Boolean
     method RequiresQuotingForCase(String,String):Boolean
 class JauntyQ.Analysis.Diff.ColumnChange
     ctor .ctor(String,ColumnSchema,ColumnSchema,IReadOnlyList<ColumnChangeKind>)
@@ -144,6 +146,9 @@ enum JauntyQ.Analysis.Migrations.MigrationStatementKind
     field Unsupported:MigrationStatementKind
 class JauntyQ.Analysis.Migrations.SchemaSimulator
     method Apply(DatabaseSchema,IEnumerable<ValueTuple<String,List<MigrationStatement>>>,List<AnalysisDiagnostic>):DatabaseSchema
+enum JauntyQ.Analysis.SqlIdentifierPosition
+    field Column:SqlIdentifierPosition
+    field Object:SqlIdentifierPosition
 class JauntyQ.Analysis.UpsertKeyResolver
     method Resolve(TableSchema):List<ColumnSchema>
 class JauntyQ.Generator.CSharpToSqlTypeMapper
@@ -220,6 +225,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT2012:DiagnosticDescriptor
     field JNT2013:DiagnosticDescriptor
     field JNT2014:DiagnosticDescriptor
+    field JNT2015:DiagnosticDescriptor
     field JNT3001:DiagnosticDescriptor
     field JNT3002:DiagnosticDescriptor
     field JNT3003:DiagnosticDescriptor

@@ -1050,6 +1050,130 @@ public class AutoCrudTests
         Assert.True(sawWidgetIdColumn, "Expected the 'widgets' table's CRUD to still be generated.");
     }
 
+    // AUD-R64-01 (T8 residual): three tables, each unusable for a different
+    // one of the reasons AutoCrud's bare-identifier gate rejects, and one
+    // ordinary table as the false-positive control. Before JNT2015 all three
+    // simply vanished from the generated API with nothing said anywhere.
+    private const string UnquotableIdentifierSchema = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""Order Details"": {
+      ""name"": ""Order Details"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""qty"": { ""name"": ""qty"", ""dbType"": ""int"", ""isNullable"": false }
+      }
+    },
+    ""territories"": {
+      ""name"": ""territories"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""Group"": { ""name"": ""Group"", ""dbType"": ""nvarchar"", ""isNullable"": false }
+      }
+    },
+    ""audits"": {
+      ""name"": ""audits"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""backup"": { ""name"": ""backup"", ""dbType"": ""nvarchar"", ""isNullable"": false }
+      }
+    },
+    ""widgets"": {
+      ""name"": ""widgets"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""name"": { ""name"": ""name"", ""dbType"": ""nvarchar"", ""isNullable"": false }
+      }
+    }
+  },
+  ""foreignKeys"": []
+}";
+
+    /// <summary>
+    /// AUD-R64-01 (T8 residual, JNT2015). Round 64 made AutoCrud skip any
+    /// table it cannot name unquoted, which was the right call -- v1 has no
+    /// quoting support, and emitting SQL the engine rejects is worse than
+    /// emitting nothing. But the skip was a bare `continue`: the table was
+    /// absent from `db.`, no diagnostic fired, and the only symptom was a
+    /// member that a consumer expected to exist and did not.
+    ///
+    /// That mattered more once the T8 probe corrected the reserved-word lists
+    /// in BOTH directions. An over-inclusive list entry is not a free safety
+    /// margin -- it is a table deleted from the API -- and it can only be
+    /// argued with if it is visible. Building this repo's own samples with
+    /// JNT2015 on immediately surfaced two real cases nobody had noticed:
+    /// Northwind's "Order Details" and AdventureWorks' SalesTerritory.Group.
+    /// </summary>
+    [Fact]
+    public void UnquotableIdentifier_ReportsJNT2015_PerTableWithTheReason()
+    {
+        var (result, compilation) = RunAutoCrudWithSchema(UnquotableIdentifierSchema, autoCrud: true);
+
+        var reported = result.Diagnostics.Where(d => d.Id == "JNT2015").ToList();
+        Assert.Equal(3, reported.Count);
+        Assert.All(reported, d => Assert.Equal(DiagnosticSeverity.Warning, d.Severity));
+
+        string spaced = Assert.Single(reported, d => d.GetMessage().Contains("'Order Details'")).GetMessage();
+        Assert.Contains("cannot appear in an unquoted SQL identifier", spaced);
+        Assert.Contains("db.OrderDetails", spaced);
+
+        // "Group" is in SqlTokenizer's own keyword list, so JauntyQ's parser
+        // rejects it whatever the dialect.
+        string jauntyKeyword = Assert.Single(reported, d => d.GetMessage().Contains("'territories'")).GetMessage();
+        Assert.Contains("'Group'", jauntyKeyword);
+        Assert.Contains("JauntyQ's own SQL parser reserves", jauntyKeyword);
+
+        // "backup" is not a JauntyQ keyword at all -- only SQL Server
+        // reserves it. This is the arm that exercises DialectReservedWords.
+        string dialectKeyword = Assert.Single(reported, d => d.GetMessage().Contains("'audits'")).GetMessage();
+        Assert.Contains("'backup'", dialectKeyword);
+        Assert.Contains("reserved by sqlserver as a column name", dialectKeyword);
+
+        // False-positive control: the ordinary table is neither reported nor
+        // skipped.
+        Assert.DoesNotContain(reported, d => d.GetMessage().Contains("'widgets'"));
+        Assert.Contains(result.GeneratedTrees, t => t.FilePath.Contains("Widgets"));
+
+        // The skip stays non-breaking, exactly as round 64 made it.
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void UnquotableIdentifier_PostgresMixedCase_ReportsJNT2015()
+    {
+        // The fourth arm: PostgreSQL folds an unquoted reference to lower
+        // case, so a table created quoted as "Widgets" can never be reached
+        // bare. Reported for the same reason as the rest.
+        const string schema = @"{
+  ""dialect"": ""postgres"",
+  ""tables"": {
+    ""Widgets"": {
+      ""name"": ""Widgets"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""qty"": { ""name"": ""qty"", ""dbType"": ""int"", ""isNullable"": false }
+      }
+    }
+  },
+  ""foreignKeys"": []
+}";
+        var (result, _) = RunAutoCrudWithSchema(schema, autoCrud: true);
+
+        string msg = Assert.Single(result.Diagnostics.Where(d => d.Id == "JNT2015")).GetMessage();
+        Assert.Contains("'Widgets'", msg);
+        Assert.Contains("folds an unquoted reference to lower case", msg);
+    }
+
+    [Fact]
+    public void OrdinarySchema_DoesNotReportJNT2015()
+    {
+        // The §2.6 false-positive half: the nearest valid input must stay
+        // quiet, or the diagnostic is noise and consumers will suppress it.
+        var (result, _) = RunAutoCrudWithSchema(PkSchemaJson, autoCrud: true);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2015");
+    }
+
     // Two distinct, individually-legal column names that fold to the same
     // PascalCase property name via DialectMapper.ToPascalCase -- a real,
     // plausible shape for a table carrying both a legacy snake_case column

@@ -226,7 +226,7 @@ public static partial class CodeEmitter
             // (PostgreSQL only) containing an uppercase letter that would
             // silently fold away on an unquoted reference, must be skipped
             // the same way AutoCrud's own IsBareIdentifier gate now is.
-            if (JauntyQ.Analysis.DialectReservedWords.IsReservedInDialect(seq.Name, schema.Dialect))
+            if (JauntyQ.Analysis.DialectReservedWords.IsReservedInDialect(seq.Name, schema.Dialect, JauntyQ.Analysis.SqlIdentifierPosition.Object))
                 continue;
             if (JauntyQ.Analysis.DialectReservedWords.RequiresQuotingForCase(seq.Name, schema.Dialect))
                 continue;

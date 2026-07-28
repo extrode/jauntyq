@@ -197,6 +197,30 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         "Rename one of the columns, or alias it distinctly in a hand-written query."));
                 }
             }
+
+            // AUD-R64-01 (T8 residual, JNT2015): the sibling of the loop above
+            // for the other silent skip. AutoCrud.Synthesize refuses any table
+            // whose name, or any of whose column names, cannot be written
+            // unquoted -- a JauntyQ keyword, a word the target engine reserves,
+            // an illegal character, or (PostgreSQL) a mixed-case name an
+            // unquoted reference would fold away. Every one of those was a bare
+            // `continue`, so the table left no trace anywhere.
+            //
+            // The reason string comes from AutoCrud itself rather than being
+            // re-derived here: DescribeUnusableTable and the gate are the same
+            // code, so this cannot report a skip that did not happen or miss
+            // one that did.
+            foreach (var table in schema.Tables.Values)
+            {
+                string? why = AutoCrud.DescribeUnusableTable(table, schema.Dialect);
+                if (why != null)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2015, Location.None,
+                        $"No auto-CRUD is generated for table '{table.Name}' because {why}. " +
+                        $"'db.{DialectMapper.ToPascalCase(table.Name)}' is absent from the generated API. " +
+                        "Rename the table or column, or write its queries by hand with the identifier quoted."));
+                }
+            }
         }
 
         // Auto-CRUD: synthesize per-table CRUD for everything the user didn't write

@@ -234,6 +234,23 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // AUD-R64-01 (T8 residual): the same silent-skip shape as JNT2014, for the
+    // other reason AutoCrud refuses a table — a name it cannot emit unquoted.
+    // Round 64 chose that skip to keep the generator from emitting SQL the
+    // engine would reject, which was right, but the consequence (no entity, no
+    // CRUD, no explanation) was invisible. It matters more now that the T8
+    // probe corrected the lists in both directions: a reserved-word entry is no
+    // longer a free safety margin, it is a table removed from the API, and that
+    // has to be visible to be arguable. Warning, matching JNT2014 and for the
+    // same reason.
+    public static readonly DiagnosticDescriptor JNT2015 = new(
+        "JNT2015",
+        "Table Skipped For Unquotable Identifier",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(
