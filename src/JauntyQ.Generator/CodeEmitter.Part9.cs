@@ -211,7 +211,10 @@ public static partial class CodeEmitter
         return null;
     }
 
-    private static string ToCamelCase(string name)
+    // internal, not private: JauntyQGenerator.Part3.cs's JNT2013 duplicate-
+    // parameter check must fold names through the exact same expression the
+    // emitter uses, so the check and the emission cannot drift apart.
+    internal static string ToCamelCase(string name)
     {
         if (string.IsNullOrEmpty(name)) return name;
         return char.ToLowerInvariant(name[0]) + name.Substring(1);

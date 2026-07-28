@@ -159,6 +159,44 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         "Rename the tables so their PascalCased names no longer collide, or write their queries by hand."));
                 }
             }
+
+            // AUD-R75-03 (JNT2014): the column-level sibling of the JNT2010
+            // check above, and for the same reason -- a silently missing
+            // table.
+            //
+            // Three sites already refuse a table whose columns fold to one C#
+            // name, each correctly declining to emit broken code and each
+            // assuming another one reports it: AutoCrud.cs:98 skips
+            // synthesizing CRUD, Part5.cs:59's ResolveCanonicalRowType
+            // refuses to route any full-row query to it, and the JNT2011 arm
+            // below (this file, in the row-POCO loop) is meant to be the one
+            // that explains it. But that loop iterates neededRowTables, and
+            // Part5.cs:59 is precisely what keeps such a table OUT of
+            // neededRowTables -- so the JNT2011 row-POCO arm cannot fire for
+            // the case it was written for, and the table vanished from the
+            // generated API with no diagnostic at all.
+            //
+            // Reported here, where every table is visited regardless of
+            // whether any query reached it. WARNING, not Error, deliberately:
+            // round 64 chose this skip to be silent rather than breaking, and
+            // an Error here would fail the build of any existing consumer
+            // whose schema holds such a pair even in a table they never query.
+            // The consequence is now visible without that cost; JNT2010's
+            // Error severity for the table-name case is left as-is rather
+            // than harmonized, which is a known inconsistency recorded with
+            // this finding.
+            foreach (var table in schema.Tables.Values)
+            {
+                string? dupCol = FindDuplicateColumnPropertyName(
+                    table.Columns.Values, out string? firstRawCol, out string? secondRawCol);
+                if (dupCol != null)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2014, Location.None,
+                        $"Table '{table.Name}' has two columns, '{firstRawCol}' and '{secondRawCol}', that both map to the generated property '{dupCol}'. " +
+                        $"No row type or auto-CRUD can be emitted for it, so 'db.{DialectMapper.ToPascalCase(table.Name)}' is absent from the generated API. " +
+                        "Rename one of the columns, or alias it distinctly in a hand-written query."));
+                }
+            }
         }
 
         // Auto-CRUD: synthesize per-table CRUD for everything the user didn't write
@@ -463,14 +501,33 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// SELECT projection.
     /// </summary>
     private static string? FindDuplicateColumnPropertyName(System.Collections.Generic.IEnumerable<ColumnSchema> columns)
+        => FindDuplicateColumnPropertyName(columns, out _, out _);
+
+    /// <summary>
+    /// As above, but also yields the two RAW column names that collided.
+    /// JNT2014 reports the pair: naming only the folded property leaves the
+    /// reader hunting through a wide table for which two columns produced it,
+    /// which is the same reason JNT2010 lists its colliding table names.
+    /// </summary>
+    private static string? FindDuplicateColumnPropertyName(
+        System.Collections.Generic.IEnumerable<ColumnSchema> columns,
+        out string? firstRawName,
+        out string? secondRawName)
     {
-        var seen = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        var seen = new System.Collections.Generic.Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var col in columns)
         {
             string emitted = DialectMapper.ToPascalCase(col.Name);
-            if (!seen.Add(emitted))
+            if (seen.TryGetValue(emitted, out string? firstRaw))
+            {
+                firstRawName = firstRaw;
+                secondRawName = col.Name;
                 return emitted;
+            }
+            seen[emitted] = col.Name;
         }
+        firstRawName = null;
+        secondRawName = null;
         return null;
     }
 }

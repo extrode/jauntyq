@@ -21,6 +21,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// </summary>
     private static DiagnosticInfo? ValidateParameterNames(QueryModel queryModel, string entityName, string methodName)
     {
+        var seen = new System.Collections.Generic.Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var param in queryModel.Parameters)
         {
             if (!IdentifierGuard.IsValidIdentifier(param.Name))
@@ -28,7 +29,67 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 return DiagnosticInfo.From(JauntyDiagnostics.JNT2004,
                     $"Parameter '@{param.Name}' in {entityName}.{methodName} is not a valid C# identifier. Rename it to letters, digits, and underscores, not starting with a digit.");
             }
+
+            // JNT2012 (AUD-R75-02): on this path EmittedParam.CSharpName is the
+            // literal SQL parameter name -- no PascalCase/camelCase folding --
+            // so a "__"-prefixed name reaches the emitted identifiers directly
+            // and can collide with the generator's own bookkeeping locals. The
+            // -- @call path is structurally immune (ToPascalCase never
+            // re-emits an underscore) and so is not checked here.
+            if (param.Name.StartsWith("__", StringComparison.Ordinal))
+            {
+                return DiagnosticInfo.From(JauntyDiagnostics.JNT2012,
+                    $"Parameter '@{param.Name}' in {entityName}.{methodName} uses the reserved '__' prefix. " +
+                    $"JauntyQ emits its own bookkeeping identifiers (__conn, __cmd, __reader, __weOpened and others) in that namespace, " +
+                    $"so a '__'-prefixed parameter can silently collide with generated code. Rename it without the leading double underscore.");
+            }
+
+            // JNT2013 (AUD-R75-01): two parameters emitting the same C#
+            // identifier produce a duplicate formal (CS0100). Unfolded here,
+            // so this catches only a genuine repeat spelling; the folding case
+            // lives on the -- @call path (JauntyQGenerator.Part2.cs).
+            if (seen.TryGetValue(param.Name, out string? firstSpelling))
+            {
+                return DiagnosticInfo.From(JauntyDiagnostics.JNT2013,
+                    $"Parameters '@{firstSpelling}' and '@{param.Name}' in {entityName}.{methodName} both emit the C# parameter '{param.Name}'. " +
+                    $"Rename one of them.");
+            }
+            seen[param.Name] = param.Name;
         }
+        return null;
+    }
+
+    /// <summary>
+    /// JNT2013 (AUD-R75-01): returns the first C# parameter identifier that two
+    /// distinct stored-procedure parameters both fold to, else null.
+    ///
+    /// Folds with the exact expression the emitter uses at
+    /// <c>CodeEmitter.Part11.cs:60,76,119,183,235</c> so the check and the
+    /// emission cannot drift apart. Two shapes reach this:
+    /// <c>order_number</c>/<c>OrderNumber</c> (ToPascalCase strips separators),
+    /// and ToPascalCase's degenerate <c>if (sb.Length == 0) return "_";</c>
+    /// fallback, where any two names with no alphanumeric content both fold to
+    /// bare <c>_</c>.
+    /// </summary>
+    private static string? FindDuplicateParameterName(
+        System.Collections.Generic.IEnumerable<ProcedureParam> parameters,
+        out string? firstRawName,
+        out string? secondRawName)
+    {
+        var seen = new System.Collections.Generic.Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var p in parameters)
+        {
+            string folded = IdentifierGuard.Escape(CodeEmitter.ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
+            if (seen.TryGetValue(folded, out string? firstRaw))
+            {
+                firstRawName = firstRaw;
+                secondRawName = p.Name;
+                return folded;
+            }
+            seen[folded] = p.Name;
+        }
+        firstRawName = null;
+        secondRawName = null;
         return null;
     }
 

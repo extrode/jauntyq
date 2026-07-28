@@ -194,6 +194,46 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    // AUD-R75-02: the "__" prefix is reserved for the generator's own
+    // bookkeeping identifiers (__conn, __cmd, __weOpened, __reader, __Map,
+    // __each_, __i_ and 16 more). Rounds 69 and 70 each closed one collision
+    // by renaming a single bookkeeping local; that never converged, because a
+    // rename only covers the one name it touches. Reserving the whole
+    // namespace is what makes the fix hold when a 24th bookkeeping identifier
+    // is added later.
+    public static readonly DiagnosticDescriptor JNT2012 = new(
+        "JNT2012",
+        "Reserved Parameter Name Prefix",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Error,
+        true);
+
+    // AUD-R75-01: sibling of JNT2011 for a parameter list rather than a
+    // result set. Two individually-legal parameter names can fold to one C#
+    // identifier (DialectMapper.ToPascalCase strips separators), emitting a
+    // duplicate formal parameter.
+    public static readonly DiagnosticDescriptor JNT2013 = new(
+        "JNT2013",
+        "Duplicate Parameter Name",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Error,
+        true);
+
+    // AUD-R75-03: a table whose columns fold to one C# property name is
+    // skipped by three separate sites and used to vanish from the generated
+    // API with no diagnostic at all. Warning rather than Error: round 64 made
+    // that skip deliberately non-breaking, and an Error would fail the build
+    // of any consumer whose schema holds such a pair even in an unused table.
+    public static readonly DiagnosticDescriptor JNT2014 = new(
+        "JNT2014",
+        "Table Skipped For Colliding Column Names",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(
