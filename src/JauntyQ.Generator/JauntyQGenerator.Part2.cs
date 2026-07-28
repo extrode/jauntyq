@@ -154,6 +154,21 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
             }
 
+            // JNT2013: two distinct parameters folding to the same C# formal
+            // would emit a duplicate parameter into every EmitProcCall
+            // overload (CodeEmitter.Part11.cs) -- the parameter-list sibling
+            // of the result-column check immediately above. No rename by the
+            // generator can resolve this: both names are real and legitimate,
+            // so it has to be rejected and aliased in the procedure itself.
+            string? dupProcParam = FindDuplicateParameterName(procedure.Params, out string? firstRaw, out string? secondRaw);
+            if (dupProcParam != null)
+            {
+                callDiagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2013,
+                    $"Stored procedure '{procedure.Name}' has two parameters, '{firstRaw}' and '{secondRaw}', that map to the same generated parameter '{dupProcParam}'. " +
+                    $"The generated method cannot declare '{dupProcParam}' twice; rename one of them in the procedure definition."));
+                return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
+            }
+
             string callSource = CodeEmitter.EmitProcCall(entityName, methodName, procedure, schema.Dialect, schema);
             return new FileResult(
                 $"{entityName}.{methodName}.g.cs",

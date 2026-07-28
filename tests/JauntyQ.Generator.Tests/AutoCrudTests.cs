@@ -1097,6 +1097,22 @@ public class AutoCrudTests
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2011");
 
+        // AUD-R75-03 (round 75) modified this test. It previously asserted the
+        // skip produced NO diagnostic at all, per the doc comment above. That
+        // turned out to mean the table vanished from the generated API with
+        // nothing to explain it -- and the JNT2011 guard this comment credits
+        // could never fire, because Part4.cs's row-POCO loop iterates
+        // neededRowTables and Part5.cs:59 is exactly what excludes such a
+        // table from that set. The skip itself is unchanged and still
+        // non-breaking; it is now merely explained. The JNT2011 assertion
+        // above is kept as-is, since that specific guard still must not fire.
+        var jnt2014 = Assert.Single(result.Diagnostics.Where(d => d.Id == "JNT2014"));
+        Assert.Equal(DiagnosticSeverity.Warning, jnt2014.Severity);
+        string msg = jnt2014.GetMessage();
+        Assert.Contains("order_number", msg);
+        Assert.Contains("OrderNumber", msg);
+        Assert.Contains("db.Widgets", msg);
+
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         Assert.Empty(errors);
 
