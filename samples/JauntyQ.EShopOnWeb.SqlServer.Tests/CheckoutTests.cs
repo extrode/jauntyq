@@ -12,7 +12,8 @@ namespace JauntyQ.EShopOnWeb.SqlServer.Tests;
 /// (order items must not change if the catalog item they reference is
 /// edited later), and rollback under a forced mid-transaction failure.
 /// </summary>
-public class CheckoutTests : IClassFixture<EShopOnWebSqlServerFixture>
+[Collection("EShopOnWebSqlServer")]
+public class CheckoutTests
 {
     private readonly EShopOnWebSqlServerFixture _fx;
 

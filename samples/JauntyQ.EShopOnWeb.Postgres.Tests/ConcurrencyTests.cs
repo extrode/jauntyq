@@ -14,7 +14,8 @@ namespace JauntyQ.EShopOnWeb.Postgres.Tests;
 /// writes" and documents Postgres's default isolation-level behavior as a
 /// finding rather than a pass/fail assertion.
 /// </summary>
-public class ConcurrencyTests : IClassFixture<EShopOnWebPostgresFixture>
+[Collection("EShopOnWebPostgres")]
+public class ConcurrencyTests
 {
     private readonly EShopOnWebPostgresFixture _fx;
 

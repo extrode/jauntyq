@@ -11,7 +11,8 @@ namespace JauntyQ.MySql.Tests;
 /// local_infile=1; without either, MySqlBulkCopy fails at runtime — so a green
 /// run proves the requirement is wired up. Soft-skips when Docker is absent.
 /// </summary>
-public class BulkInsertTests : IClassFixture<MySqlFixture>
+[Collection("MySql")]
+public class BulkInsertTests
 {
     private readonly MySqlFixture _fx;
     public BulkInsertTests(MySqlFixture fx) => _fx = fx;

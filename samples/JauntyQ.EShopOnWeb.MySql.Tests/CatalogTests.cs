@@ -7,7 +7,8 @@ namespace JauntyQ.EShopOnWeb.MySql.Tests;
 /// (3), and CatalogItemNameSpecification (4) from eShopOnWeb, ported as
 /// hand-written .sql per the test log's Part 1 scope decisions.
 /// </summary>
-public class CatalogTests : IClassFixture<EShopOnWebMySqlFixture>
+[Collection("EShopOnWebMySql")]
+public class CatalogTests
 {
     private readonly EShopOnWebMySqlFixture _fx;
 

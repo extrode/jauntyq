@@ -10,7 +10,8 @@ namespace JauntyQ.Conduit.SqlServer.Tests;
 /// article. Seeded: jane+carol both favorite article 1 (count 2), jane also
 /// favorites article 2 (count 1), article 3 has no favorites (count 0).
 /// </summary>
-public class FavoriteTests : IClassFixture<ConduitSqlServerFixture>
+[Collection("ConduitSqlServer")]
+public class FavoriteTests
 {
     private readonly ConduitSqlServerFixture _fx;
     private readonly FavoriteRepository _repo;

@@ -2,7 +2,8 @@ using Xunit;
 
 namespace JauntyQ.EShopOnWeb.MariaDb.Tests;
 
-public class SmokeTests : IClassFixture<EShopOnWebMariaDbFixture>
+[Collection("EShopOnWebMariaDb")]
+public class SmokeTests
 {
     private readonly EShopOnWebMariaDbFixture _fx;
 

@@ -14,7 +14,8 @@ namespace JauntyQ.EShopOnWeb.MariaDb.Tests;
 /// writes" and documents MySQL's default isolation-level behavior as a
 /// finding rather than a pass/fail assertion.
 /// </summary>
-public class ConcurrencyTests : IClassFixture<EShopOnWebMariaDbFixture>
+[Collection("EShopOnWebMariaDb")]
+public class ConcurrencyTests
 {
     private readonly EShopOnWebMariaDbFixture _fx;
 

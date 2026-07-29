@@ -11,7 +11,8 @@ namespace JauntyQ.EShopOnWeb.SqlServer.Tests;
 /// and cross-checks page contents against GetCount for boundary
 /// correctness. 12 seeded catalog_item rows total.
 /// </summary>
-public class PaginationTests : IClassFixture<EShopOnWebSqlServerFixture>
+[Collection("EShopOnWebSqlServer")]
+public class PaginationTests
 {
     private readonly EShopOnWebSqlServerFixture _fx;
 

@@ -12,7 +12,8 @@ namespace JauntyQ.EShopOnWeb.MySql.Tests;
 /// ADO.NET over JauntyDb.Connection rather than fronting it with
 /// generated Insert calls.
 /// </summary>
-public class OrderTests : IClassFixture<EShopOnWebMySqlFixture>
+[Collection("EShopOnWebMySql")]
+public class OrderTests
 {
     private readonly EShopOnWebMySqlFixture _fx;
 

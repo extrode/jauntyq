@@ -12,7 +12,8 @@ namespace JauntyQ.EShopOnWeb.Postgres.Tests;
 /// ADO.NET over JauntyDb.Connection rather than fronting it with
 /// generated Insert calls.
 /// </summary>
-public class OrderTests : IClassFixture<EShopOnWebPostgresFixture>
+[Collection("EShopOnWebPostgres")]
+public class OrderTests
 {
     private readonly EShopOnWebPostgresFixture _fx;
 

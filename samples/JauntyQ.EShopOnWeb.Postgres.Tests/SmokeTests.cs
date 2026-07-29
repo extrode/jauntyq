@@ -2,7 +2,8 @@ using Xunit;
 
 namespace JauntyQ.EShopOnWeb.Postgres.Tests;
 
-public class SmokeTests : IClassFixture<EShopOnWebPostgresFixture>
+[Collection("EShopOnWebPostgres")]
+public class SmokeTests
 {
     private readonly EShopOnWebPostgresFixture _fx;
 

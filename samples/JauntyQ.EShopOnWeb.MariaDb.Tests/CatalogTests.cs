@@ -7,7 +7,8 @@ namespace JauntyQ.EShopOnWeb.MariaDb.Tests;
 /// (3), and CatalogItemNameSpecification (4) from eShopOnWeb, ported as
 /// hand-written .sql per the test log's Part 1 scope decisions.
 /// </summary>
-public class CatalogTests : IClassFixture<EShopOnWebMariaDbFixture>
+[Collection("EShopOnWebMariaDb")]
+public class CatalogTests
 {
     private readonly EShopOnWebMariaDbFixture _fx;
 

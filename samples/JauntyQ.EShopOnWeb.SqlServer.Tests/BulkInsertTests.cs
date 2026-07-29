@@ -10,7 +10,8 @@ namespace JauntyQ.EShopOnWeb.SqlServer.Tests;
 /// back from the adapter since SqlBulkCopy provides none), spot-check value
 /// round-trips, sync + async. Soft-skips when Docker is absent.
 /// </summary>
-public class BulkInsertTests : IClassFixture<EShopOnWebSqlServerFixture>
+[Collection("EShopOnWebSqlServer")]
+public class BulkInsertTests
 {
     private readonly EShopOnWebSqlServerFixture _fx;
     public BulkInsertTests(EShopOnWebSqlServerFixture fx) => _fx = fx;

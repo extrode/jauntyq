@@ -14,7 +14,8 @@ namespace JauntyQ.EShopOnWeb.MySql.Tests;
 /// writes" and documents MySQL's default isolation-level behavior as a
 /// finding rather than a pass/fail assertion.
 /// </summary>
-public class ConcurrencyTests : IClassFixture<EShopOnWebMySqlFixture>
+[Collection("EShopOnWebMySql")]
+public class ConcurrencyTests
 {
     private readonly EShopOnWebMySqlFixture _fx;
 

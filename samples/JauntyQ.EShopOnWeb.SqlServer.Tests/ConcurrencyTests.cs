@@ -14,7 +14,8 @@ namespace JauntyQ.EShopOnWeb.SqlServer.Tests;
 /// writes" and documents SQL Server's default isolation-level behavior as a
 /// finding rather than a pass/fail assertion.
 /// </summary>
-public class ConcurrencyTests : IClassFixture<EShopOnWebSqlServerFixture>
+[Collection("EShopOnWebSqlServer")]
+public class ConcurrencyTests
 {
     private readonly EShopOnWebSqlServerFixture _fx;
 

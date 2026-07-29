@@ -2,7 +2,8 @@ using Xunit;
 
 namespace JauntyQ.EShopOnWeb.MySql.Tests;
 
-public class SmokeTests : IClassFixture<EShopOnWebMySqlFixture>
+[Collection("EShopOnWebMySql")]
+public class SmokeTests
 {
     private readonly EShopOnWebMySqlFixture _fx;
 

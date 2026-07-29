@@ -10,7 +10,8 @@ namespace JauntyQ.Conduit.Postgres.Tests;
 /// data-layer smoke test, see the test log Part 3 kickoff).
 /// Seeded users: jane=1, bob=2, carol=3, dave=4, all password "Password123!".
 /// </summary>
-public class UserTests : IClassFixture<ConduitPostgresFixture>
+[Collection("ConduitPostgres")]
+public class UserTests
 {
     private readonly ConduitPostgresFixture _fx;
     private readonly UserRepository _repo;

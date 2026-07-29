@@ -12,7 +12,8 @@ namespace JauntyQ.EShopOnWeb.MariaDb.Tests;
 /// (order items must not change if the catalog item they reference is
 /// edited later), and rollback under a forced mid-transaction failure.
 /// </summary>
-public class CheckoutTests : IClassFixture<EShopOnWebMariaDbFixture>
+[Collection("EShopOnWebMariaDb")]
+public class CheckoutTests
 {
     private readonly EShopOnWebMariaDbFixture _fx;
 

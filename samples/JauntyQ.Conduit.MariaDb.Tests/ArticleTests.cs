@@ -15,7 +15,8 @@ namespace JauntyQ.Conduit.MariaDb.Tests;
 /// Feed (Article/GetFeed.sql) and favorite/unfavorite actions are covered in
 /// later milestones - this covers everything else.
 /// </summary>
-public class ArticleTests : IClassFixture<ConduitMariaDbFixture>
+[Collection("ConduitMariaDb")]
+public class ArticleTests
 {
     private readonly ConduitMariaDbFixture _fx;
     private readonly ArticleRepository _repo;

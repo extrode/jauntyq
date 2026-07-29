@@ -12,7 +12,8 @@ namespace JauntyQ.EShopOnWeb.MariaDb.Tests;
 /// ADO.NET over JauntyDb.Connection rather than fronting it with
 /// generated Insert calls.
 /// </summary>
-public class OrderTests : IClassFixture<EShopOnWebMariaDbFixture>
+[Collection("EShopOnWebMariaDb")]
+public class OrderTests
 {
     private readonly EShopOnWebMariaDbFixture _fx;
 

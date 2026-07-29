@@ -10,7 +10,8 @@ namespace JauntyQ.Conduit.MariaDb.Tests;
 /// article. Seeded: jane+carol both favorite article 1 (count 2), jane also
 /// favorites article 2 (count 1), article 3 has no favorites (count 0).
 /// </summary>
-public class FavoriteTests : IClassFixture<ConduitMariaDbFixture>
+[Collection("ConduitMariaDb")]
+public class FavoriteTests
 {
     private readonly ConduitMariaDbFixture _fx;
     private readonly FavoriteRepository _repo;

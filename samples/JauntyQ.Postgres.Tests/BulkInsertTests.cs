@@ -8,7 +8,8 @@ namespace JauntyQ.Postgres.Tests;
 /// COPY) against a real Postgres engine: many rows inserted, row count returned,
 /// spot-check value round-trips, sync + async. Soft-skips when Docker is absent.
 /// </summary>
-public class BulkInsertTests : IClassFixture<PostgresFixture>
+[Collection("Postgres")]
+public class BulkInsertTests
 {
     private readonly PostgresFixture _fx;
     public BulkInsertTests(PostgresFixture fx) => _fx = fx;

@@ -7,7 +7,8 @@ namespace JauntyQ.EShopOnWeb.Postgres.Tests;
 /// eShopOnWeb, plus the write path (Basket/Insert, BasketItem/Insert)
 /// used by later checkout milestones.
 /// </summary>
-public class BasketTests : IClassFixture<EShopOnWebPostgresFixture>
+[Collection("EShopOnWebPostgres")]
+public class BasketTests
 {
     private readonly EShopOnWebPostgresFixture _fx;
 

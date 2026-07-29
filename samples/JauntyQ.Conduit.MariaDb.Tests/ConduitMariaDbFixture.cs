@@ -6,6 +6,18 @@ using Xunit;
 
 namespace JauntyQ.Conduit.MariaDb.Tests;
 
+
+/// <summary>
+/// Shared collection so every test class in this assembly runs against ONE
+/// Testcontainers-managed MariaDB. IClassFixture is per-class, so this
+/// assembly used to start one container per test class; across the nine
+/// container-backed assemblies retrofitted here that put ~100 databases on
+/// one Docker host and starved the suite into timeouts. Northwind has always
+/// done it this way.
+/// </summary>
+[CollectionDefinition("ConduitMariaDb")]
+public sealed class ConduitMariaDbCollection : ICollectionFixture<ConduitMariaDbFixture> { }
+
 /// <summary>
 /// Boots a real MariaDB instance via Testcontainers, applies the
 /// Conduit/RealWorld schema + seed data, and exposes a JauntyDb over it.

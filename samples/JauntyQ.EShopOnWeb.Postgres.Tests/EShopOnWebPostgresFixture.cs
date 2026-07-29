@@ -6,6 +6,18 @@ using Xunit;
 
 namespace JauntyQ.EShopOnWeb.Postgres.Tests;
 
+
+/// <summary>
+/// Shared collection so every test class in this assembly runs against ONE
+/// Testcontainers-managed PostgreSQL. IClassFixture is per-class, so this
+/// assembly used to start one container per test class; across the nine
+/// container-backed assemblies retrofitted here that put ~100 databases on
+/// one Docker host and starved the suite into timeouts. Northwind has always
+/// done it this way.
+/// </summary>
+[CollectionDefinition("EShopOnWebPostgres")]
+public sealed class EShopOnWebPostgresCollection : ICollectionFixture<EShopOnWebPostgresFixture> { }
+
 /// <summary>
 /// Boots a real PostgreSQL instance via Testcontainers, applies the eShopOnWeb
 /// data-layer schema + seed data, and exposes a JauntyDb over it. See

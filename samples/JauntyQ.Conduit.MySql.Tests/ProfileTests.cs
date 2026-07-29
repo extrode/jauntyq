@@ -10,7 +10,8 @@ namespace JauntyQ.Conduit.MySql.Tests;
 /// key exercised across any of this repo's sample projects. Seeded:
 /// jane(1) follows bob(2) and carol(3), but not dave(4).
 /// </summary>
-public class ProfileTests : IClassFixture<ConduitMySqlFixture>
+[Collection("ConduitMySql")]
+public class ProfileTests
 {
     private readonly ConduitMySqlFixture _fx;
     private readonly ProfileRepository _repo;
