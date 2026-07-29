@@ -63,7 +63,7 @@ public static class AutoCrud
             // v1 synthesizes bare (unquoted) identifiers so the SQL is exactly
             // what a user would write by hand and flows through the minimal
             // parser unchanged. Tables/columns that need quoting are skipped.
-            if (!IsBareIdentifier(table.Name, schema.Dialect, SqlIdentifierPosition.Object))
+            if (DescribeTableName(table.Name, schema.Dialect) != null)
                 continue;
 
             var columns = new List<ColumnSchema>();
@@ -264,6 +264,29 @@ public static class AutoCrud
         => DescribeIdentifier(name, dialect, position) == null;
 
     /// <summary>
+    /// Why <paramref name="name"/> cannot be used as a table name here, or null
+    /// if it can.
+    ///
+    /// A table name is not only an object name. GetById and every FK loader
+    /// qualify the column in the WHERE clause with it -- <c>WHERE raise.id =
+    /// @id</c> -- and that is expression position, where the column-only
+    /// reservations bite. Verified live against SQLite 3.45.3: with the table
+    /// created as <c>"raise"</c>, <c>SELECT id, nm FROM raise</c> parses, while
+    /// <c>SELECT id, nm FROM raise WHERE raise.id = 1</c> is
+    /// <c>near ".": syntax error</c>. Same for current_date, current_time and
+    /// current_timestamp. The original probe only exercised the FROM position,
+    /// so it did not see this; an independent review caught it and the probe was
+    /// re-run in the qualified form to confirm.
+    ///
+    /// So a table name must clear BOTH positions. Only column names can use the
+    /// split, which is where it pays for itself: MySQL reserves <c>value</c> as
+    /// an object name but not as a column name.
+    /// </summary>
+    private static string? DescribeTableName(string name, string? dialect)
+        => DescribeIdentifier(name, dialect, SqlIdentifierPosition.Object)
+        ?? DescribeIdentifier(name, dialect, SqlIdentifierPosition.Column);
+
+    /// <summary>
     /// AUD-R64-01 (T8 residual, 2026-07-29): the reason <paramref name="name"/>
     /// cannot be emitted bare, or null when it can. <see
     /// cref="IsBareIdentifier"/> is defined as "this returned null", so the
@@ -308,9 +331,15 @@ public static class AutoCrud
     /// </summary>
     public static string? DescribeUnusableTable(TableSchema table, string? dialect)
     {
-        string? why = DescribeIdentifier(table.Name, dialect, SqlIdentifierPosition.Object);
+        string? why = DescribeTableName(table.Name, dialect);
         if (why != null)
             return $"its name {why}";
+
+        // Synthesize also skips a table with no usable columns at all, and that
+        // skip was silent for the same reason the others were. Reachable from a
+        // hand-authored or partially-extracted schema snapshot.
+        if (table.Columns.Count == 0)
+            return "has no columns, so there is nothing to select, insert or update";
 
         foreach (var col in table.Columns.Values)
         {

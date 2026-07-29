@@ -215,21 +215,35 @@ public class DialectReservedWordsTests
         Assert.Empty(AutoCrud.Synthesize(schema));
     }
 
-    [Fact]
-    public void AutoCrud_Sqlite_EmitsTableWhoseKeywordIsSafeInThatPosition()
+    [Theory]
+    [InlineData("raise")]
+    [InlineData("current_date")]
+    [InlineData("current_time")]
+    [InlineData("current_timestamp")]
+    public void AutoCrud_Sqlite_SkipsTableNamedForAColumnOnlyKeyword(string tableName)
     {
-        // "raise" is reserved as a SQLite COLUMN name (the parser demands
-        // "raise(") but fine as a table name. The positional check is what
-        // keeps this table in the API.
+        // These four are reserved as SQLite COLUMN names, not object names, so
+        // "SELECT id, label FROM raise" parses fine. An earlier cut of this fix
+        // therefore let the table through on the strength of the FROM position
+        // alone -- and generated a GetById whose WHERE clause SQLite rejects,
+        // because the table name is ALSO emitted as a qualifier there:
         //
-        // "cast" would be the more obvious example and does NOT work here:
-        // SqlTokenizer.IsReservedKeyword lists CAST, so JauntyQ's own gate
-        // rejects it regardless of dialect. Two independent gates, and this
-        // test is about the dialect one.
+        //   SELECT id, nm FROM raise                      -- parses
+        //   SELECT id, nm FROM raise WHERE raise.id = 1   -- near ".": syntax error
+        //
+        // Verified live against SQLite 3.45.3 for all four words. A false
+        // accept, i.e. generated SQL the engine rejects at runtime, which is
+        // the one direction this gate must never fail in. The table name is now
+        // checked against both positions.
+        //
+        // "cast" is the more obvious member of this set and is not in the
+        // theory: SqlTokenizer.IsReservedKeyword lists CAST, so JauntyQ's own
+        // gate rejects it regardless of dialect, and this test is about the
+        // dialect gate.
         var schema = new DatabaseSchema { Dialect = "sqlite" };
-        schema.Tables["raise"] = new TableSchema
+        schema.Tables[tableName] = new TableSchema
         {
-            Name = "raise",
+            Name = tableName,
             Columns = new Dictionary<string, ColumnSchema>
             {
                 ["id"] = new ColumnSchema { Name = "id", DbType = "integer", IsPrimaryKey = true },
@@ -237,7 +251,26 @@ public class DialectReservedWordsTests
             }
         };
 
-        Assert.NotEmpty(AutoCrud.Synthesize(schema));
+        Assert.Empty(AutoCrud.Synthesize(schema));
+        Assert.NotNull(AutoCrud.DescribeUnusableTable(schema.Tables[tableName], "sqlite"));
+    }
+
+    [Fact]
+    public void AutoCrud_TableWithNoColumns_IsSkippedWithAStatedReason()
+    {
+        // Synthesize has always skipped this, silently. It is the same
+        // silent-drop shape JNT2015 exists to end, so it needs a reason too.
+        var schema = new DatabaseSchema { Dialect = "sqlite" };
+        schema.Tables["empty_t"] = new TableSchema
+        {
+            Name = "empty_t",
+            Columns = new Dictionary<string, ColumnSchema>()
+        };
+
+        Assert.Empty(AutoCrud.Synthesize(schema));
+        string? why = AutoCrud.DescribeUnusableTable(schema.Tables["empty_t"], "sqlite");
+        Assert.NotNull(why);
+        Assert.Contains("no columns", why);
     }
 
     [Fact]
