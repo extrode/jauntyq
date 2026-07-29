@@ -86,7 +86,7 @@ public static partial class CodeEmitter
             sb.AppendLine("            {");
             foreach (var col in procedure.Results)
             {
-                string ct = DialectMapper.MapColumnToCSharp(col, dialect);
+                string ct = DialectMapper.MapColumnToCSharp(col, dialect, schema);
                 sb.AppendLine($"                public required {ShortenValueTypeName(schema, ct)} {IdentifierGuard.Escape(DialectMapper.ToPascalCase(col.Name))} {{ get; set; }}");
             }
             sb.AppendLine("            }");
@@ -99,7 +99,7 @@ public static partial class CodeEmitter
             for (int i = 0; i < procedure.Results.Count; i++)
             {
                 var col = procedure.Results[i];
-                string ct = DialectMapper.MapColumnToCSharp(col, dialect);
+                string ct = DialectMapper.MapColumnToCSharp(col, dialect, schema);
                 string comma = i < procedure.Results.Count - 1 ? "," : "";
                 sb.AppendLine($"            {IdentifierGuard.Escape(DialectMapper.ToPascalCase(col.Name))} = {GetReaderCall(ct, i, schema)}{comma}");
             }

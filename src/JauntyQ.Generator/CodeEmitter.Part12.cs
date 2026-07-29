@@ -1,4 +1,4 @@
-using JauntyQ.Schema;
+﻿using JauntyQ.Schema;
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
@@ -73,7 +73,7 @@ public static partial class CodeEmitter
         for (int i = 0; i < cols.Count; i++)
         {
             var c = cols[i];
-            string ct = DialectMapper.MapColumnToCSharp(c, dialect);
+            string ct = DialectMapper.MapColumnToCSharp(c, dialect, schema);
             sb.AppendLine($"                    DbParameter p{i} = cmd.CreateParameter();");
             sb.AppendLine($"                    p{i}.ParameterName = \"@{c.Name}\";");
             string? ado = MapCSharpTypeToAdoDbType(ct);
@@ -86,9 +86,9 @@ public static partial class CodeEmitter
         for (int i = 0; i < cols.Count; i++)
         {
             var c = cols[i];
-            string ct = DialectMapper.MapColumnToCSharp(c, dialect);
+            string ct = DialectMapper.MapColumnToCSharp(c, dialect, schema);
             string prop = IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name));
-            sb.AppendLine(IsNonNullableValueType(ct)
+            sb.AppendLine(IsNonNullableValueType(ct, schema)
                 ? $"                        p{i}.Value = row.{prop};"
                 : $"                        p{i}.Value = (object?)row.{prop} ?? DBNull.Value;");
         }

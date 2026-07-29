@@ -166,13 +166,13 @@ public static partial class CodeEmitter
                 if (SchemaLookup.TryGetTable(schema, tableName, out var tableSchema) &&
                     SchemaLookup.TryGetColumn(tableSchema!, columnName, out var colSchema))
                 {
-                    return DialectMapper.MapColumnToCSharp(colSchema!, schema.Dialect);
+                    return DialectMapper.MapColumnToCSharp(colSchema!, schema.Dialect, schema);
                 }
                 // Not a schema table: the qualifier may name a CTE whose
                 // virtual column traces back to a real one.
                 var qualifiedViaCte = ProjectionBuilder.ResolveThroughCtes(tableName, columnName, query.Ctes, schema, depth: 0);
                 if (qualifiedViaCte != null)
-                    return DialectMapper.MapColumnToCSharp(qualifiedViaCte, schema.Dialect);
+                    return DialectMapper.MapColumnToCSharp(qualifiedViaCte, schema.Dialect, schema);
             }
         }
         else
@@ -183,7 +183,7 @@ public static partial class CodeEmitter
                 if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema) &&
                     SchemaLookup.TryGetColumn(tableSchema!, columnName, out var colSchema))
                 {
-                    return DialectMapper.MapColumnToCSharp(colSchema!, schema.Dialect);
+                    return DialectMapper.MapColumnToCSharp(colSchema!, schema.Dialect, schema);
                 }
             }
 
@@ -193,7 +193,7 @@ public static partial class CodeEmitter
             {
                 var viaCte = ProjectionBuilder.ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
                 if (viaCte != null)
-                    return DialectMapper.MapColumnToCSharp(viaCte, schema.Dialect);
+                    return DialectMapper.MapColumnToCSharp(viaCte, schema.Dialect, schema);
             }
         }
 

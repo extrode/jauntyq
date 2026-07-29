@@ -352,7 +352,7 @@ public static partial class CodeEmitter
         sb.AppendLine("    {");
         foreach (var col in tableSchema.Columns.Values)
         {
-            string csharpType = DialectMapper.MapColumnToCSharp(col, dialect);
+            string csharpType = DialectMapper.MapColumnToCSharp(col, dialect, schema);
             // `required` only where CS8618 applies (non-nullable reference
             // types); value types stay optional so POCO-based Insert doesn't
             // force callers to zero-fill database-assigned keys.
@@ -367,7 +367,7 @@ public static partial class CodeEmitter
         int colCount = tableSchema.Columns.Count;
         foreach (var col in tableSchema.Columns.Values)
         {
-            string csharpType = DialectMapper.MapColumnToCSharp(col, dialect);
+            string csharpType = DialectMapper.MapColumnToCSharp(col, dialect, schema);
             string comma = ordinal < colCount - 1 ? "," : "";
             sb.AppendLine($"            {IdentifierGuard.Escape(DialectMapper.ToPascalCase(col.Name))} = {GetReaderCall(csharpType, ordinal, schema)}{comma}");
             ordinal++;

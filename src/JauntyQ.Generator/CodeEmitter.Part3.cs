@@ -1,4 +1,4 @@
-using JauntyQ.Schema;
+﻿using JauntyQ.Schema;
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
@@ -233,7 +233,7 @@ public static partial class CodeEmitter
                 // resolved type (provider-neutral System.Data.DbType, no mapping
                 // layer). Non-nullable value types keep the fast generic path.
                 string npgsqlParameterType = TypeRef(schema, "NpgsqlParameter", "Npgsql");
-                if (IsNonNullableValueType(param.CSharpType))
+                if (IsNonNullableValueType(param.CSharpType, schema))
                 {
                     sb.AppendLine($"                var {varName} = new {npgsqlParameterType}<{ShortenValueTypeName(schema, param.CSharpType)}> {{ ParameterName = \"@{param.Name}\", TypedValue = {param.CSharpName} }};");
                 }
@@ -262,7 +262,7 @@ public static partial class CodeEmitter
             // non-nullable value types the DBNull coalesce is dead code, so
             // emit a plain assignment; the (object?) dance is only needed
             // where null is actually possible.
-            if (IsNonNullableValueType(param.CSharpType))
+            if (IsNonNullableValueType(param.CSharpType, schema))
             {
                 sb.AppendLine($"                {varName}.Value = {param.CSharpName};");
             }
@@ -294,7 +294,7 @@ public static partial class CodeEmitter
             string npgsqlParameterType = TypeRef(schema, "NpgsqlParameter", "Npgsql");
             sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.CSharpName}.Count; {loopVar}++)");
             sb.AppendLine("                {");
-            if (IsNonNullableValueType(elementType))
+            if (IsNonNullableValueType(elementType, schema))
             {
                 sb.AppendLine($"                    __cmd.Parameters.Add(new {npgsqlParameterType}<{ShortenValueTypeName(schema, elementType)}> {{ ParameterName = \"@{param.Name}\" + {loopVar}, TypedValue = {param.CSharpName}[{loopVar}] }});");
             }
@@ -323,7 +323,7 @@ public static partial class CodeEmitter
         // stored value and falsely match it.
         EmitParameterSizing(sb, elementType, param.MaxLength, param.Precision, param.Scale,
             isWriteTarget: false, varName, $"{param.CSharpName}[{loopVar}]", indent: "                    ");
-        sb.AppendLine(IsNonNullableValueType(elementType)
+        sb.AppendLine(IsNonNullableValueType(elementType, schema)
             ? $"                    {varName}.Value = {param.CSharpName}[{loopVar}];"
             : $"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? DBNull.Value;");
         sb.AppendLine($"                    __cmd.Parameters.Add({varName});");

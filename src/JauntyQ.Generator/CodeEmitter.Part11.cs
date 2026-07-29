@@ -231,6 +231,10 @@ public static partial class CodeEmitter
             // (CS0136) with the bare "p0" local for the first bound
             // parameter. Pure-internal, zero API impact.
             string varName = $"__p{idx++}";
+            // ProcedureParam carries a DbType and no column reference, so no
+            // enumName can reach here and the IsNonNullableValueType calls
+            // below deliberately pass no schema (spec 013, out of scope):
+            // a proc parameter of enum type keeps its pre-013 mapping.
             string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
             string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
             sb.AppendLine($"                DbParameter {varName} = __cmd.CreateParameter();");
