@@ -63,14 +63,14 @@ public static class AutoCrud
             // v1 synthesizes bare (unquoted) identifiers so the SQL is exactly
             // what a user would write by hand and flows through the minimal
             // parser unchanged. Tables/columns that need quoting are skipped.
-            if (!IsBareIdentifier(table.Name, schema.Dialect))
+            if (DescribeTableName(table.Name, schema.Dialect) != null)
                 continue;
 
             var columns = new List<ColumnSchema>();
             bool allColumnsUsable = true;
             foreach (var col in table.Columns.Values)
             {
-                if (!IsBareIdentifier(col.Name, schema.Dialect))
+                if (!IsBareIdentifier(col.Name, schema.Dialect, SqlIdentifierPosition.Column))
                 {
                     allColumnsUsable = false;
                     break;
@@ -115,7 +115,7 @@ public static class AutoCrud
             {
                 if (!string.Equals(fk.FromTable, table.Name, StringComparison.OrdinalIgnoreCase))
                     continue;
-                if (!IsBareIdentifier(fk.FromColumn, schema.Dialect) || !fkColumnsSeen.Add(fk.FromColumn))
+                if (!IsBareIdentifier(fk.FromColumn, schema.Dialect, SqlIdentifierPosition.Column) || !fkColumnsSeen.Add(fk.FromColumn))
                     continue;
                 if (pkCols.Count == 1 && string.Equals(pkCols[0].Name, fk.FromColumn, StringComparison.OrdinalIgnoreCase))
                     continue;
@@ -251,7 +251,7 @@ public static class AutoCrud
     /// every row, zero diagnostic anywhere — verified live against
     /// postgres:16), MySQL/SQL Server raise a runtime syntax error instead
     /// (verified live against mysql:8.0). Now also checks <see
-    /// cref="DialectReservedWords.IsReservedInDialect"/> — a second,
+    /// cref="DialectReservedWords.IsReservedInDialect(string, string?, SqlIdentifierPosition)"/> — a second,
     /// independent gate from the JauntyQ-tokenizer one, since a name must
     /// clear both. Separately, PostgreSQL lower-cases every unquoted
     /// identifier it parses, so a name created quoted with any uppercase
@@ -260,24 +260,95 @@ public static class AutoCrud
     /// SQL Server/SQLite's unquoted matching is case-insensitive with no
     /// silent rename, so this does not generalize to other dialects).
     /// </summary>
-    private static bool IsBareIdentifier(string name, string? dialect)
+    private static bool IsBareIdentifier(string name, string? dialect, SqlIdentifierPosition position)
+        => DescribeIdentifier(name, dialect, position) == null;
+
+    /// <summary>
+    /// Why <paramref name="name"/> cannot be used as a table name here, or null
+    /// if it can.
+    ///
+    /// A table name is not only an object name. GetById and every FK loader
+    /// qualify the column in the WHERE clause with it -- <c>WHERE raise.id =
+    /// @id</c> -- and that is expression position, where the column-only
+    /// reservations bite. Verified live against SQLite 3.45.3: with the table
+    /// created as <c>"raise"</c>, <c>SELECT id, nm FROM raise</c> parses, while
+    /// <c>SELECT id, nm FROM raise WHERE raise.id = 1</c> is
+    /// <c>near ".": syntax error</c>. Same for current_date, current_time and
+    /// current_timestamp. The original probe only exercised the FROM position,
+    /// so it did not see this; an independent review caught it and the probe was
+    /// re-run in the qualified form to confirm.
+    ///
+    /// So a table name must clear BOTH positions. Only column names can use the
+    /// split, which is where it pays for itself: MySQL reserves <c>value</c> as
+    /// an object name but not as a column name.
+    /// </summary>
+    private static string? DescribeTableName(string name, string? dialect)
+        => DescribeIdentifier(name, dialect, SqlIdentifierPosition.Object)
+        ?? DescribeIdentifier(name, dialect, SqlIdentifierPosition.Column);
+
+    /// <summary>
+    /// AUD-R64-01 (T8 residual, 2026-07-29): the reason <paramref name="name"/>
+    /// cannot be emitted bare, or null when it can. <see
+    /// cref="IsBareIdentifier"/> is defined as "this returned null", so the
+    /// gate and the explanation of the gate are one piece of code and cannot
+    /// drift — the drift that produced this finding in the first place.
+    ///
+    /// The returned fragment completes the sentence "...because its column
+    /// 'foo' <c>{fragment}</c>." and is user-facing (JNT2015).
+    /// </summary>
+    private static string? DescribeIdentifier(string name, string? dialect, SqlIdentifierPosition position)
     {
         if (string.IsNullOrEmpty(name))
-            return false;
+            return "is empty";
         if (!char.IsLetter(name[0]) && name[0] != '_')
-            return false;
+            return "does not begin with a letter or underscore, so it cannot be written unquoted";
         for (int i = 1; i < name.Length; i++)
         {
             if (!char.IsLetterOrDigit(name[i]) && name[i] != '_')
-                return false;
+                return $"contains '{name[i]}', which cannot appear in an unquoted SQL identifier";
         }
         if (SqlTokenizer.IsReservedKeyword(name))
-            return false;
-        if (DialectReservedWords.IsReservedInDialect(name, dialect))
-            return false;
+            return "is a keyword JauntyQ's own SQL parser reserves, so the synthesized statement would not parse";
+        if (DialectReservedWords.IsReservedInDialect(name, dialect, position))
+        {
+            string where = position == SqlIdentifierPosition.Column ? "as a column name" : "as an object name";
+            return $"is reserved by {dialect} {where} (verified against a live engine), so the synthesized statement would be rejected";
+        }
         if (DialectReservedWords.RequiresQuotingForCase(name, dialect))
-            return false;
-        return true;
+            return "contains uppercase letters, and PostgreSQL folds an unquoted reference to lower case, so it would resolve to a different object or none at all";
+        return null;
+    }
+
+    /// <summary>
+    /// AUD-R64-01 (T8 residual, 2026-07-29): why <see cref="Synthesize"/> will
+    /// refuse to emit any CRUD for <paramref name="table"/>, or null when it
+    /// will not refuse. Exposed so <c>JauntyQGenerator</c> can turn what was a
+    /// silent <c>continue</c> — a table simply absent from the generated API,
+    /// with nothing anywhere saying why — into JNT2015.
+    ///
+    /// This does not cover the folded-column-name collision, which has its own
+    /// diagnostic (JNT2014) and its own message.
+    /// </summary>
+    public static string? DescribeUnusableTable(TableSchema table, string? dialect)
+    {
+        string? why = DescribeTableName(table.Name, dialect);
+        if (why != null)
+            return $"its name {why}";
+
+        // Synthesize also skips a table with no usable columns at all, and that
+        // skip was silent for the same reason the others were. Reachable from a
+        // hand-authored or partially-extracted schema snapshot.
+        if (table.Columns.Count == 0)
+            return "has no columns, so there is nothing to select, insert or update";
+
+        foreach (var col in table.Columns.Values)
+        {
+            why = DescribeIdentifier(col.Name, dialect, SqlIdentifierPosition.Column);
+            if (why != null)
+                return $"its column '{col.Name}' {why}";
+        }
+
+        return null;
     }
 
     /// <summary>
