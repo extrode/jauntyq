@@ -261,8 +261,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                             "check), deadlock with error 1213 (one session's insert-intention lock meets the other's gap " +
                             "lock from the UPDATE), or silently write nothing (another session commits the row between this " +
                             "call's UPDATE and its INSERT, so neither statement applies the caller's values). Retry the call " +
-                            "on 1062 and 1213, treat a 0 return as a lost write, or drop the competing UNIQUE constraint so " +
-                            "the atomic ON DUPLICATE KEY UPDATE form is emitted instead."));
+                            "on 1062 and 1213 — it is idempotent — or drop the competing UNIQUE constraint so the atomic " +
+                            "ON DUPLICATE KEY UPDATE form is emitted instead. A 0 return is not by itself evidence of the " +
+                            "lost write: under UseAffectedRows=true an unchanged re-run also returns 0."));
                     }
 
                     // Dialect-native upsert bypasses the minimal SQL parser;

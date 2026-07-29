@@ -391,24 +391,24 @@ public class AutoCrudTests
     }
 
     /// <summary>
-    /// A UNIQUE over a strict superset of the key is redundant, not competing:
-    /// a row duplicating (region_id, country) already duplicates region_id, so
-    /// ON DUPLICATE KEY UPDATE has nothing ambiguous to match on and the atomic
-    /// form is kept. Set-equality comparison called this competing and cost the
-    /// table its atomicity for nothing.
+    /// A UNIQUE over a strict superset of the key takes the key-targeted form
+    /// as well, and this pins the conservative choice end to end. Treating a
+    /// superset as redundant is only sound for full-column indexes; MySQL
+    /// prefix key parts break it and the extractor cannot currently tell the
+    /// two apart, so `regions` gets the safe form and a JNT2018 it does not
+    /// strictly need. See UpsertKeyResolver.CoversKey.
     /// </summary>
     [Fact]
-    public void Upsert_MySql_UniqueOverSupersetOfKey_KeepsOnDuplicateKeyUpdate()
+    public void Upsert_MySql_UniqueOverSupersetOfKey_TakesKeyTargetedForm_Conservatively()
     {
         var (my, compilation) = RunAutoCrudWithSchema(CompetingSchemaJson);
 
         var source = TryGetSource(my, "Regions.Upsert.auto.g.cs");
         Assert.NotNull(source);
-        Assert.Contains("ON DUPLICATE KEY UPDATE country = VALUES(country), label = VALUES(label)", source);
-        Assert.DoesNotContain("NOT EXISTS", source);
-        Assert.DoesNotContain("FROM DUAL", source);
+        Assert.Contains("WHERE NOT EXISTS (SELECT 1 FROM regions WHERE region_id = @region_id)", source);
+        Assert.DoesNotContain("ON DUPLICATE KEY UPDATE", source);
 
-        Assert.DoesNotContain(my.Diagnostics, d => d.Id == "JNT2018" && d.GetMessage().Contains("'Regions.Upsert'"));
+        Assert.Contains(my.Diagnostics, d => d.Id == "JNT2018" && d.GetMessage().Contains("'Regions.Upsert'"));
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
@@ -425,13 +425,21 @@ public class AutoCrudTests
     {
         var (my, _) = RunAutoCrudWithSchema(CompetingSchemaJson);
 
-        var message = Assert.Single(my.Diagnostics.Where(d => d.Id == "JNT2018")).GetMessage();
+        var message = Assert.Single(
+            my.Diagnostics.Where(d => d.Id == "JNT2018" && d.GetMessage().Contains("'Tenants.Upsert'"))).GetMessage();
 
         Assert.Contains("1062", message);
         Assert.Contains("1213", message);
         Assert.Contains("silently write nothing", message);
         Assert.Contains("wrapping them in a transaction does not make them so", message);
         Assert.DoesNotContain("uses the ambient one", message);
+
+        // A 0 return is not by itself evidence of the lost-write race: the
+        // project's own probe records that an unchanged re-run legitimately
+        // returns 0 under UseAffectedRows=true. Advising callers to treat every
+        // 0 as a lost write would alarm on idempotent re-runs.
+        Assert.Contains("UseAffectedRows", message);
+        Assert.DoesNotContain("treat a 0 return as a lost write", message);
     }
 
     /// <summary>
