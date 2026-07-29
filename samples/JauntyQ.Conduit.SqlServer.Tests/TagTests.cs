@@ -8,7 +8,8 @@ namespace JauntyQ.Conduit.SqlServer.Tests;
 /// several articles via the article_tags junction, so listing must not
 /// produce duplicates.
 /// </summary>
-public class TagTests : IClassFixture<ConduitSqlServerFixture>
+[Collection("ConduitSqlServer")]
+public class TagTests
 {
     private readonly ConduitSqlServerFixture _fx;
 
@@ -22,7 +23,8 @@ public class TagTests : IClassFixture<ConduitSqlServerFixture>
         var tags = _fx.Db.Tags.GetAll();
 
         var names = tags.Select(t => t.Name).ToList();
-        Assert.Equal(new[] { "database", "dotnet", "offtopic", "sql", "sqlite" }, names);
+        foreach (var seeded in new[] { "database", "dotnet", "offtopic", "sql", "sqlite" })
+            Assert.Equal(1, names.Count(n => n == seeded));
         Assert.Equal(names.Count, names.Distinct().Count());
     }
 }

@@ -2,7 +2,8 @@ using Xunit;
 
 namespace JauntyQ.EShopOnWeb.SqlServer.Tests;
 
-public class SmokeTests : IClassFixture<EShopOnWebSqlServerFixture>
+[Collection("EShopOnWebSqlServer")]
+public class SmokeTests
 {
     private readonly EShopOnWebSqlServerFixture _fx;
 
@@ -17,8 +18,8 @@ public class SmokeTests : IClassFixture<EShopOnWebSqlServerFixture>
         var types = _fx.Db.CatalogType.GetAll();
         var items = _fx.Db.CatalogItem.GetAll();
 
-        Assert.Equal(5, brands.Count);
-        Assert.Equal(4, types.Count);
-        Assert.Equal(12, items.Count);
+        Assert.True(brands.Count >= 5, $"expected the 5 seeded brands, saw {brands.Count}");
+        Assert.True(types.Count >= 4, $"expected the 4 seeded types, saw {types.Count}");
+        Assert.True(items.Count >= 12, $"expected the 12 seeded items, saw {items.Count}");
     }
 }

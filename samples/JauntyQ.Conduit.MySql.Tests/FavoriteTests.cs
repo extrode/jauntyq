@@ -10,7 +10,8 @@ namespace JauntyQ.Conduit.MySql.Tests;
 /// article. Seeded: jane+carol both favorite article 1 (count 2), jane also
 /// favorites article 2 (count 1), article 3 has no favorites (count 0).
 /// </summary>
-public class FavoriteTests : IClassFixture<ConduitMySqlFixture>
+[Collection("ConduitMySql")]
+public class FavoriteTests
 {
     private readonly ConduitMySqlFixture _fx;
     private readonly FavoriteRepository _repo;

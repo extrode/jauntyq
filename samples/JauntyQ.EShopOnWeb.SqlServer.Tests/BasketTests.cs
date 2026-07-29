@@ -7,7 +7,8 @@ namespace JauntyQ.EShopOnWeb.SqlServer.Tests;
 /// eShopOnWeb, plus the write path (Basket/Insert, BasketItem/Insert)
 /// used by later checkout milestones.
 /// </summary>
-public class BasketTests : IClassFixture<EShopOnWebSqlServerFixture>
+[Collection("EShopOnWebSqlServer")]
+public class BasketTests
 {
     private readonly EShopOnWebSqlServerFixture _fx;
 

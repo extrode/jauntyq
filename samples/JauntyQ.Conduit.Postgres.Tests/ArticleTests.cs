@@ -15,7 +15,8 @@ namespace JauntyQ.Conduit.Postgres.Tests;
 /// Feed (Article/GetFeed.sql) and favorite/unfavorite actions are covered in
 /// later milestones - this covers everything else.
 /// </summary>
-public class ArticleTests : IClassFixture<ConduitPostgresFixture>
+[Collection("ConduitPostgres")]
+public class ArticleTests
 {
     private readonly ConduitPostgresFixture _fx;
     private readonly ArticleRepository _repo;

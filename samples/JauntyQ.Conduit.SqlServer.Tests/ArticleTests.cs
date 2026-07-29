@@ -15,7 +15,8 @@ namespace JauntyQ.Conduit.SqlServer.Tests;
 /// Feed (Article/GetFeed.sql) and favorite/unfavorite actions are covered in
 /// later milestones - this covers everything else.
 /// </summary>
-public class ArticleTests : IClassFixture<ConduitSqlServerFixture>
+[Collection("ConduitSqlServer")]
+public class ArticleTests
 {
     private readonly ConduitSqlServerFixture _fx;
     private readonly ArticleRepository _repo;

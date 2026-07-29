@@ -10,7 +10,8 @@ namespace JauntyQ.Conduit.MariaDb.Tests;
 /// key exercised across any of this repo's sample projects. Seeded:
 /// jane(1) follows bob(2) and carol(3), but not dave(4).
 /// </summary>
-public class ProfileTests : IClassFixture<ConduitMariaDbFixture>
+[Collection("ConduitMariaDb")]
+public class ProfileTests
 {
     private readonly ConduitMariaDbFixture _fx;
     private readonly ProfileRepository _repo;

@@ -37,7 +37,8 @@ namespace JauntyQ.MySql.Tests;
 /// this exception, exactly as it would for a portable-path constraint
 /// violation.
 /// </summary>
-public class BulkInsertAtomicityTests : IClassFixture<MySqlFixture>
+[Collection("MySql")]
+public class BulkInsertAtomicityTests
 {
     private readonly MySqlFixture _fx;
     public BulkInsertAtomicityTests(MySqlFixture fx) => _fx = fx;

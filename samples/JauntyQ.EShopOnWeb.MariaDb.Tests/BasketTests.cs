@@ -7,7 +7,8 @@ namespace JauntyQ.EShopOnWeb.MariaDb.Tests;
 /// eShopOnWeb, plus the write path (Basket/Insert, BasketItem/Insert)
 /// used by later checkout milestones.
 /// </summary>
-public class BasketTests : IClassFixture<EShopOnWebMariaDbFixture>
+[Collection("EShopOnWebMariaDb")]
+public class BasketTests
 {
     private readonly EShopOnWebMariaDbFixture _fx;
 

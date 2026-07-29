@@ -9,7 +9,8 @@ namespace JauntyQ.Postgres.Tests;
 /// mapping, RETURNING identity, ON CONFLICT upsert, and typed no-box params.
 /// Soft-skips when Docker is unavailable.
 /// </summary>
-public class PostgresLiveTests : IClassFixture<PostgresFixture>
+[Collection("Postgres")]
+public class PostgresLiveTests
 {
     private readonly PostgresFixture _fx;
     public PostgresLiveTests(PostgresFixture fx) => _fx = fx;

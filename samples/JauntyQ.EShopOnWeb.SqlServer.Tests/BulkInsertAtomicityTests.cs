@@ -19,7 +19,8 @@ namespace JauntyQ.EShopOnWeb.SqlServer.Tests;
 /// the rows preceding the violation are left committed despite the overall
 /// call throwing.
 /// </summary>
-public class BulkInsertAtomicityTests : IClassFixture<EShopOnWebSqlServerFixture>
+[Collection("EShopOnWebSqlServer")]
+public class BulkInsertAtomicityTests
 {
     private readonly EShopOnWebSqlServerFixture _fx;
     public BulkInsertAtomicityTests(EShopOnWebSqlServerFixture fx) => _fx = fx;

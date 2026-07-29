@@ -15,7 +15,8 @@ namespace JauntyQ.Conduit.MySql.Tests;
 /// Feed (Article/GetFeed.sql) and favorite/unfavorite actions are covered in
 /// later milestones - this covers everything else.
 /// </summary>
-public class ArticleTests : IClassFixture<ConduitMySqlFixture>
+[Collection("ConduitMySql")]
+public class ArticleTests
 {
     private readonly ConduitMySqlFixture _fx;
     private readonly ArticleRepository _repo;

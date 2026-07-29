@@ -10,7 +10,8 @@ namespace JauntyQ.Conduit.MariaDb.Tests;
 /// data-layer smoke test, see the test log Part 3 kickoff).
 /// Seeded users: jane=1, bob=2, carol=3, dave=4, all password "Password123!".
 /// </summary>
-public class UserTests : IClassFixture<ConduitMariaDbFixture>
+[Collection("ConduitMariaDb")]
+public class UserTests
 {
     private readonly ConduitMariaDbFixture _fx;
     private readonly UserRepository _repo;

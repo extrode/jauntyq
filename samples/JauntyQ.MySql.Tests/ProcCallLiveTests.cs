@@ -7,7 +7,8 @@ namespace JauntyQ.MySql.Tests;
 /// CommandType.StoredProcedure against MySQL, materializing the result set the
 /// snapshot declared. Soft-skips when Docker is unavailable.
 /// </summary>
-public class ProcCallLiveTests : IClassFixture<MySqlFixture>
+[Collection("MySql")]
+public class ProcCallLiveTests
 {
     private readonly MySqlFixture _fx;
     public ProcCallLiveTests(MySqlFixture fx) => _fx = fx;

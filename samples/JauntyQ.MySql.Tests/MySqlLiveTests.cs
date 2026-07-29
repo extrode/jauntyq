@@ -9,7 +9,8 @@ namespace JauntyQ.MySql.Tests;
 /// identity returns via SELECT last_insert_id() and upsert uses ON DUPLICATE
 /// KEY UPDATE. Soft-skips when Docker is unavailable.
 /// </summary>
-public class MySqlLiveTests : IClassFixture<MySqlFixture>
+[Collection("MySql")]
+public class MySqlLiveTests
 {
     private readonly MySqlFixture _fx;
     public MySqlLiveTests(MySqlFixture fx) => _fx = fx;

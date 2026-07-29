@@ -8,7 +8,8 @@ namespace JauntyQ.Conduit.Postgres.Tests;
 /// Add/list/delete over `comments`. Seeded: article 1 (intro-to-jauntyq)
 /// has 2 comments, from jane and carol, in chronological order.
 /// </summary>
-public class CommentTests : IClassFixture<ConduitPostgresFixture>
+[Collection("ConduitPostgres")]
+public class CommentTests
 {
     private readonly ConduitPostgresFixture _fx;
     private readonly CommentRepository _repo;

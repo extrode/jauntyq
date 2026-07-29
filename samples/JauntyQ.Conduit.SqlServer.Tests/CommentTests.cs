@@ -8,7 +8,8 @@ namespace JauntyQ.Conduit.SqlServer.Tests;
 /// Add/list/delete over `comments`. Seeded: article 1 (intro-to-jauntyq)
 /// has 2 comments, from jane and carol, in chronological order.
 /// </summary>
-public class CommentTests : IClassFixture<ConduitSqlServerFixture>
+[Collection("ConduitSqlServer")]
+public class CommentTests
 {
     private readonly ConduitSqlServerFixture _fx;
     private readonly CommentRepository _repo;

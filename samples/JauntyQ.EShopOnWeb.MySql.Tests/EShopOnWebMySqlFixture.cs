@@ -7,6 +7,16 @@ using Xunit;
 namespace JauntyQ.EShopOnWeb.MySql.Tests;
 
 /// <summary>
+/// Shared collection so every test class in this assembly runs against ONE
+/// Testcontainers-managed MySQL. IClassFixture is per-class, so the seven
+/// classes here previously started seven containers; across the sixteen
+/// container-backed assemblies that put ~107 databases on one Docker host and
+/// starved the whole suite. Northwind has always done it this way.
+/// </summary>
+[CollectionDefinition("EShopOnWebMySql")]
+public sealed class EShopOnWebMySqlCollection : ICollectionFixture<EShopOnWebMySqlFixture> { }
+
+/// <summary>
 /// Boots a real MySQL instance via Testcontainers, applies the eShopOnWeb
 /// data-layer schema + seed data, and exposes a JauntyDb over it. See
 /// the test log at the repo root for the flattening/scope

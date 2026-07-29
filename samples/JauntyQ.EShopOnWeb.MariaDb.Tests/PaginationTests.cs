@@ -11,7 +11,8 @@ namespace JauntyQ.EShopOnWeb.MariaDb.Tests;
 /// and cross-checks page contents against GetCount for boundary
 /// correctness. 12 seeded catalog_item rows total.
 /// </summary>
-public class PaginationTests : IClassFixture<EShopOnWebMariaDbFixture>
+[Collection("EShopOnWebMariaDb")]
+public class PaginationTests
 {
     private readonly EShopOnWebMariaDbFixture _fx;
 
