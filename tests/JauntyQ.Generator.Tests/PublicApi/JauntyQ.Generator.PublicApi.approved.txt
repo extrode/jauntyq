@@ -161,6 +161,7 @@ class JauntyQ.Generator.CodeEmitter
     method EmitBulkInsert(String,String,TableSchema,String,DatabaseSchema):String
     method EmitCrud(QueryModel,String,String,DatabaseSchema,DirectiveModel):String
     method EmitEntityCore(String):String
+    method EmitEnums(DatabaseSchema):String
     method EmitJauntyDb(IEnumerable<String>,DatabaseSchema):String
     method EmitPocoOverloads(String,String,TableSchema,String,Boolean,Boolean,Boolean,Boolean,DatabaseSchema):String
     method EmitProcCall(String,String,ProcedureSchema,String,DatabaseSchema):String

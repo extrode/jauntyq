@@ -1,4 +1,4 @@
-using JauntyQ.Schema;
+﻿using JauntyQ.Schema;
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
@@ -369,7 +369,7 @@ public static partial class CodeEmitter
         {
             string csharpType = DialectMapper.MapColumnToCSharp(col, dialect, schema);
             string comma = ordinal < colCount - 1 ? "," : "";
-            sb.AppendLine($"            {IdentifierGuard.Escape(DialectMapper.ToPascalCase(col.Name))} = {GetReaderCall(csharpType, ordinal, schema)}{comma}");
+            sb.AppendLine($"            {IdentifierGuard.Escape(DialectMapper.ToPascalCase(col.Name))} = {GetReaderCall(csharpType, ordinal, schema, columnIdentity: tableSchema.Name + "." + col.Name)}{comma}");
             ordinal++;
         }
         sb.AppendLine("        };");

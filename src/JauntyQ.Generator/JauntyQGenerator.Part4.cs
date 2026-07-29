@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
@@ -509,7 +509,17 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // auto-CRUD, so gating this on autoCrud would let the collision
         // through on exactly the hand-written-queries path.
         if (schema != null && schema.Enums.Count > 0)
+        {
             ReportEnumDiagnostics(context, schema);
+
+            // Spec 013 T10: the enums, their {EnumName}Values companions and
+            // the shared JauntyQEnumValueException, in one file. Null when no
+            // column references a captured type, so a snapshot that merely has
+            // enums declared adds no source.
+            string? enumSource = CodeEmitter.EmitEnums(schema);
+            if (enumSource != null)
+                context.AddSource("Enums.g.cs", SourceText.From(enumSource, Encoding.UTF8));
+        }
 
         // Emit JauntyDb class (also when the snapshot has sequences but no
         // emitted entities, so db.Sequences is still generated)
@@ -536,13 +546,11 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// </summary>
     private static void ReportEnumDiagnostics(SourceProductionContext context, DatabaseSchema schema)
     {
-        // Which captured types a column points at. Ordinal: enumName is a
-        // snapshot key, matched by the same comparer DatabaseSchema.Enums uses.
-        var referenced = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
-        foreach (var table in schema.Tables.Values)
-            foreach (var col in table.Columns.Values)
-                if (!string.IsNullOrEmpty(col.EnumName) && schema.Enums.ContainsKey(col.EnumName!))
-                    referenced.Add(col.EnumName!);
+        // Which captured types are actually emitted. Taken from the emitter
+        // itself, not re-derived: a diagnostic that disagrees with what gets
+        // emitted is worse than no diagnostic at all.
+        var referenced = new System.Collections.Generic.HashSet<string>(
+            CodeEmitter.ReferencedEnumNames(schema), StringComparer.Ordinal);
 
         // Every C# name already claimed in the generated namespace, mapped to
         // a description of what claimed it, so the message can say what the
