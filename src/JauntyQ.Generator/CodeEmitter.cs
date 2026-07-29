@@ -1,4 +1,4 @@
-using JauntyQ.Schema;
+﻿using JauntyQ.Schema;
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
@@ -147,7 +147,12 @@ public static partial class CodeEmitter
         sb.AppendLine("using System.Threading;");
         sb.AppendLine("using System.Threading.Tasks;");
         if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
+        {
             sb.AppendLine("using Npgsql;");
+            // Spec 013 T12a: NpgsqlDbType lives in NpgsqlTypes, not Npgsql,
+            // and enum parameters need NpgsqlDbType.Unknown.
+            sb.AppendLine("using NpgsqlTypes;");
+        }
         sb.AppendLine();
     }
 

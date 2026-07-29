@@ -76,7 +76,10 @@ public static partial class CodeEmitter
             string ct = DialectMapper.MapColumnToCSharp(c, dialect, schema);
             sb.AppendLine($"                    DbParameter p{i} = cmd.CreateParameter();");
             sb.AppendLine($"                    p{i}.ParameterName = \"@{c.Name}\";");
-            string? ado = MapCSharpTypeToAdoDbType(ct);
+            // Spec 013: an enum binds as its wire string, so it needs
+            // DbType.String -- MapCSharpTypeToAdoDbType has no arm for a
+            // snapshot-derived name and would leave the parameter untyped.
+            string? ado = IsEnumParameterType(ct, schema) ? "String" : MapCSharpTypeToAdoDbType(ct);
             if (ado != null)
                 sb.AppendLine($"                    p{i}.DbType = {dbTypeEnum}.{ado};");
             sb.AppendLine($"                    cmd.Parameters.Add(p{i});");
@@ -88,9 +91,22 @@ public static partial class CodeEmitter
             var c = cols[i];
             string ct = DialectMapper.MapColumnToCSharp(c, dialect, schema);
             string prop = IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name));
-            sb.AppendLine(IsNonNullableValueType(ct, schema)
-                ? $"                        p{i}.Value = row.{prop};"
-                : $"                        p{i}.Value = (object?)row.{prop} ?? DBNull.Value;");
+            // Spec 013 T12: bound as the wire string, like every other
+            // write site -- a boxed enum reaches the provider as its
+            // underlying integer.
+            string? enumWire = EnumWireCall(ct, schema, $"row.{prop}");
+            if (enumWire != null)
+            {
+                sb.AppendLine(ct.EndsWith("?")
+                    ? $"                        p{i}.Value = row.{prop} is null ? (object)DBNull.Value : {EnumWireCall(ct, schema, $"row.{prop}.Value")!};"
+                    : $"                        p{i}.Value = {enumWire};");
+            }
+            else
+            {
+                sb.AppendLine(IsNonNullableValueType(ct, schema)
+                    ? $"                        p{i}.Value = row.{prop};"
+                    : $"                        p{i}.Value = (object?)row.{prop} ?? DBNull.Value;");
+            }
         }
         sb.AppendLine(isAsync
             ? "                        __count += await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);"
