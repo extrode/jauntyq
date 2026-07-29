@@ -20,6 +20,8 @@ namespace JauntyQ.Schema;
 [JsonSerializable(typeof(ProcedureParam))]
 [JsonSerializable(typeof(ProcedureParamDirection))]
 [JsonSerializable(typeof(SequenceSchema))]
+[JsonSerializable(typeof(EnumSchema))]
+[JsonSerializable(typeof(EnumMember))]
 internal sealed partial class SchemaJsonContext : JsonSerializerContext
 {
 }

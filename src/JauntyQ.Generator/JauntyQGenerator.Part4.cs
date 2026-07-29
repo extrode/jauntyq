@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
@@ -503,6 +503,24 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
         }
 
+        // Spec 013, JNT2016/JNT2017: validate captured enums. Deliberately
+        // outside the autoCrud gate above -- an enum reaches the generated API
+        // through any query that selects an enum column, not just through
+        // auto-CRUD, so gating this on autoCrud would let the collision
+        // through on exactly the hand-written-queries path.
+        if (schema != null && schema.Enums.Count > 0)
+        {
+            ReportEnumDiagnostics(context, schema);
+
+            // Spec 013 T10: the enums, their {EnumName}Values companions and
+            // the shared JauntyQEnumValueException, in one file. Null when no
+            // column references a captured type, so a snapshot that merely has
+            // enums declared adds no source.
+            string? enumSource = CodeEmitter.EmitEnums(schema);
+            if (enumSource != null)
+                context.AddSource("Enums.g.cs", SourceText.From(enumSource, Encoding.UTF8));
+        }
+
         // Emit JauntyDb class (also when the snapshot has sequences but no
         // emitted entities, so db.Sequences is still generated)
         if (entityNames.Count > 0 || (schema != null && schema.Sequences.Count > 0))
@@ -511,6 +529,104 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             sortedEntities.Sort(StringComparer.Ordinal);
             var dbSource = CodeEmitter.EmitJauntyDb(sortedEntities, schema);
             context.AddSource("JauntyDb.g.cs", SourceText.From(dbSource, Encoding.UTF8));
+        }
+    }
+
+    /// <summary>
+    /// The name of the exception type emitted once per assembly and thrown by
+    /// every generated <c>{EnumName}Values.Parse</c> when the database hands
+    /// back a value the snapshot never captured (spec 013).
+    /// </summary>
+    internal const string EnumValueExceptionTypeName = "JauntyQEnumValueException";
+
+    /// <summary>
+    /// Spec 013 JNT2016/JNT2017. Runs over the enums that are actually
+    /// emitted — a captured type no column references contributes no C# name
+    /// and therefore cannot collide with anything.
+    /// </summary>
+    private static void ReportEnumDiagnostics(SourceProductionContext context, DatabaseSchema schema)
+    {
+        // Which captured types are actually emitted. Taken from the emitter
+        // itself, not re-derived: a diagnostic that disagrees with what gets
+        // emitted is worse than no diagnostic at all.
+        var referenced = new System.Collections.Generic.HashSet<string>(
+            CodeEmitter.ReferencedEnumNames(schema), StringComparer.Ordinal);
+
+        // Every C# name already claimed in the generated namespace, mapped to
+        // a description of what claimed it, so the message can say what the
+        // enum is colliding with rather than just that it collides.
+        var claimed = new System.Collections.Generic.Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var table in schema.Tables.Values)
+        {
+            string entity = DialectMapper.ToPascalCase(table.Name);
+            claimed[entity] = $"the entity accessor for table '{table.Name}'";
+            claimed[Inflector.RowTypeName(entity)] = $"the row type for table '{table.Name}'";
+        }
+
+        // Iterate the snapshot's own order, not the HashSet's: a source
+        // generator must report the same diagnostics in the same order on
+        // every run or incremental builds churn.
+        foreach (var pair in schema.Enums)
+        {
+            if (!referenced.Contains(pair.Key))
+                continue;
+            string enumName = pair.Key;
+            var enumSchema = pair.Value;
+
+            // JNT2016: two members folding to one C# identifier. Checked
+            // before the name collisions below because a duplicate member is a
+            // property of the type in isolation and does not depend on what
+            // else the snapshot holds.
+            var seenMembers = new System.Collections.Generic.Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var member in enumSchema.Members)
+            {
+                string folded = string.IsNullOrEmpty(member.CSharpName)
+                    ? EnumMemberNaming.Fold(member.Value)
+                    : member.CSharpName;
+                if (seenMembers.TryGetValue(folded, out string? firstValue))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2016, Location.None,
+                        $"Enum '{enumName}' has two members, '{firstValue}' and '{member.Value}', that both map to the generated member '{folded}'. " +
+                        $"The generated enum cannot declare '{folded}' twice; rename one of the database values."));
+                    break;
+                }
+                seenMembers[folded] = member.Value;
+            }
+
+            // JNT2017: the enum contributes two names of its own, plus the
+            // shared exception type. Report the first collision per enum --
+            // the fix is the same rename either way.
+            string typeName = DialectMapper.EnumTypeName(enumName);
+            string companion = typeName + "Values";
+            string? conflict = null;
+            if (claimed.TryGetValue(typeName, out string? owner))
+                conflict = $"the generated enum type '{typeName}' collides with {owner}";
+            else if (claimed.TryGetValue(companion, out string? companionOwner))
+                conflict = $"its generated companion class '{companion}' collides with {companionOwner}";
+            else if (string.Equals(typeName, EnumValueExceptionTypeName, StringComparison.Ordinal) ||
+                     string.Equals(companion, EnumValueExceptionTypeName, StringComparison.Ordinal))
+                conflict = $"it collides with the generated exception type '{EnumValueExceptionTypeName}'";
+
+            if (conflict != null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2017, Location.None,
+                    $"Enum '{enumName}' cannot be generated: {conflict}. " +
+                    "Rename the database type, the table, or the column so the generated names no longer collide."));
+                continue;
+            }
+
+            claimed[typeName] = $"the generated enum type for '{enumName}'";
+            claimed[companion] = $"the generated companion class for enum '{enumName}'";
+        }
+
+        // JauntyQEnumValueException itself is emitted once whenever any enum
+        // is, so a table claiming that name breaks the assembly no matter
+        // which enum is at fault. Reported separately, keyed off the table.
+        if (referenced.Count > 0 && claimed.TryGetValue(EnumValueExceptionTypeName, out string? exOwner))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2017, Location.None,
+                $"The generated exception type '{EnumValueExceptionTypeName}' collides with {exOwner}. " +
+                "Rename the table so the generated names no longer collide."));
         }
     }
 

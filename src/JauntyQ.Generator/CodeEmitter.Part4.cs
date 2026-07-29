@@ -167,13 +167,56 @@ public static partial class CodeEmitter
         sb.AppendLine("            }");
     }
 
-    private static bool IsNonNullableValueType(string csharpType) => csharpType switch
+    /// <summary>
+    /// True when <paramref name="csharpType"/> is a value type that cannot
+    /// hold null. Every parameter-binding and bulk-copy branch keys off this
+    /// to decide between a plain assignment and the
+    /// <c>(object?)x ?? DBNull.Value</c> / <c>x is null</c> reference-type
+    /// shapes.
+    ///
+    /// <paramref name="schema"/> is what makes a generated enum answer
+    /// correctly (spec 013). The list below is closed and cannot name a type
+    /// that did not exist when the generator was compiled, so without the
+    /// schema an emitted enum reports false and takes the reference-type
+    /// branches — which is not merely suboptimal: <c>CodeEmitter.Part13</c>'s
+    /// bulk-copy path then emits <c>if (row.Status is null)</c> against a
+    /// struct property, and the generated code does not compile at all.
+    /// </summary>
+    private static bool IsNonNullableValueType(string csharpType, DatabaseSchema? schema = null)
     {
-        "int" or "long" or "short" or "byte" or "bool" or "decimal" or "double" or "float"
-            or "uint" or "ulong" or "ushort"
-            or "System.DateTime" or "System.DateTimeOffset" or "System.TimeSpan" or "System.Guid" => true,
-        _ => false
-    };
+        switch (csharpType)
+        {
+            case "int" or "long" or "short" or "byte" or "bool" or "decimal" or "double" or "float"
+                or "uint" or "ulong" or "ushort"
+                or "System.DateTime" or "System.DateTimeOffset" or "System.TimeSpan" or "System.Guid":
+                return true;
+        }
+
+        return IsEmittedEnumType(csharpType, schema);
+    }
+
+    /// <summary>
+    /// True when <paramref name="csharpType"/> is the name of an enum this
+    /// generator emits for <paramref name="schema"/>. Matches the
+    /// non-nullable spelling only; a caller holding "OrderStatus?" trims the
+    /// '?' first, exactly as it does for every other value type.
+    /// </summary>
+    internal static bool IsEmittedEnumType(string csharpType, DatabaseSchema? schema)
+    {
+        if (schema == null || schema.Enums.Count == 0 || string.IsNullOrEmpty(csharpType))
+            return false;
+        if (csharpType.EndsWith("?"))
+            return false;
+
+        foreach (var e in schema.Enums.Values)
+        {
+            if (e.Members.Count > 0 &&
+                string.Equals(DialectMapper.EnumTypeName(e.Name), csharpType, System.StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Maps an emitted C# parameter type to System.Data.DbType so providers skip
@@ -227,7 +270,7 @@ public static partial class CodeEmitter
             // explicit qualifier must not be shadowed by the target table).
             var resolvedCol = ResolveBoundColumn(param, query, schema, out _);
             if (resolvedCol != null)
-                return DialectMapper.MapColumnToCSharp(resolvedCol, schema.Dialect);
+                return DialectMapper.MapColumnToCSharp(resolvedCol, schema.Dialect, schema);
 
             // Feature B fallback: for INSERT...SELECT the source tables are on
             // the model, and for a WITH chain the binding may resolve inside a
@@ -253,7 +296,7 @@ public static partial class CodeEmitter
         {
             if (SchemaLookup.TryGetTable(schema, table.TableName, out var ts) &&
                 SchemaLookup.TryGetColumn(ts!, columnName, out var col))
-                return DialectMapper.MapColumnToCSharp(col!, schema.Dialect);
+                return DialectMapper.MapColumnToCSharp(col!, schema.Dialect, schema);
         }
 
         foreach (var cte in query.Ctes)
@@ -262,7 +305,7 @@ public static partial class CodeEmitter
             {
                 if (SchemaLookup.TryGetTable(schema, table.TableName, out var ts) &&
                     SchemaLookup.TryGetColumn(ts!, columnName, out var col))
-                    return DialectMapper.MapColumnToCSharp(col!, schema.Dialect);
+                    return DialectMapper.MapColumnToCSharp(col!, schema.Dialect, schema);
             }
         }
 
@@ -273,7 +316,7 @@ public static partial class CodeEmitter
         {
             var viaCte = ProjectionBuilder.ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
             if (viaCte != null)
-                return DialectMapper.MapColumnToCSharp(viaCte, schema.Dialect);
+                return DialectMapper.MapColumnToCSharp(viaCte, schema.Dialect, schema);
         }
 
         return null;

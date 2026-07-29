@@ -125,7 +125,7 @@ public static partial class CodeEmitter
         var paramInfos = new System.Collections.Generic.List<EmittedParam>();
         foreach (var col in columns)
         {
-            paramInfos.Add(CreateEmittedParam(col.Name, DialectMapper.MapColumnToCSharp(col, dialect), col.IsNullable, col, tableSchema.Name, isWriteTarget: true));
+            paramInfos.Add(CreateEmittedParam(col.Name, DialectMapper.MapColumnToCSharp(col, dialect, schema), col.IsNullable, col, tableSchema.Name, isWriteTarget: true));
         }
 
         var stub = new QueryModel { Name = "Upsert" };

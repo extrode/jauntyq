@@ -29,11 +29,14 @@ class JauntyQ.Analysis.CrudColumnRules
     method UpsertColumns(IEnumerable<ColumnSchema>,List<ColumnSchema>):List<ColumnSchema>
     method UpsertSetColumns(List<ColumnSchema>,List<ColumnSchema>):List<ColumnSchema>
 class JauntyQ.Analysis.DialectMapper
+    method EnumTypeName(String):String
     method IsKnownDialect(String):Boolean
     method IsKnownSqlServerClrUdtType(String):Boolean
     method IsUnmappedDbType(String,Boolean,Nullable<Int32>,String):Boolean
     method MapColumnToCSharp(ColumnSchema,String):String
+    method MapColumnToCSharp(ColumnSchema,String,DatabaseSchema):String
     method MapDbTypeToCSharp(String,Boolean,Nullable<Int32>,String):String
+    method ResolveEnumTypeName(ColumnSchema,DatabaseSchema):String
     method ToPascalCase(String):String
 class JauntyQ.Analysis.DialectReservedWords
     method IsReservedInDialect(String,String):Boolean
@@ -158,6 +161,7 @@ class JauntyQ.Generator.CodeEmitter
     method EmitBulkInsert(String,String,TableSchema,String,DatabaseSchema):String
     method EmitCrud(QueryModel,String,String,DatabaseSchema,DirectiveModel):String
     method EmitEntityCore(String):String
+    method EmitEnums(DatabaseSchema):String
     method EmitJauntyDb(IEnumerable<String>,DatabaseSchema):String
     method EmitPocoOverloads(String,String,TableSchema,String,Boolean,Boolean,Boolean,Boolean,DatabaseSchema):String
     method EmitProcCall(String,String,ProcedureSchema,String,DatabaseSchema):String
@@ -226,6 +230,8 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT2013:DiagnosticDescriptor
     field JNT2014:DiagnosticDescriptor
     field JNT2015:DiagnosticDescriptor
+    field JNT2016:DiagnosticDescriptor
+    field JNT2017:DiagnosticDescriptor
     field JNT3001:DiagnosticDescriptor
     field JNT3002:DiagnosticDescriptor
     field JNT3003:DiagnosticDescriptor
@@ -289,6 +295,7 @@ enum JauntyQ.Generator.ValidationSeverity
 class JauntyQ.Schema.ColumnSchema
     ctor .ctor()
     prop DbType:String
+    prop EnumName:String
     prop IsComputed:Boolean
     prop IsIdentity:Boolean
     prop IsNullable:Boolean
@@ -302,10 +309,21 @@ class JauntyQ.Schema.ColumnSchema
 class JauntyQ.Schema.DatabaseSchema
     ctor .ctor()
     prop Dialect:String
+    prop Enums:Dictionary<String,EnumSchema>
     prop ForeignKeys:List<ForeignKeySchema>
     prop Procedures:Dictionary<String,ProcedureSchema>
     prop Sequences:Dictionary<String,SequenceSchema>
     prop Tables:Dictionary<String,TableSchema>
+class JauntyQ.Schema.EnumMember
+    ctor .ctor()
+    prop CSharpName:String
+    prop Value:String
+class JauntyQ.Schema.EnumMemberNaming
+    method Fold(String):String
+class JauntyQ.Schema.EnumSchema
+    ctor .ctor()
+    prop Members:List<EnumMember>
+    prop Name:String
 class JauntyQ.Schema.ForeignKeySchema
     ctor .ctor()
     prop FromColumn:String

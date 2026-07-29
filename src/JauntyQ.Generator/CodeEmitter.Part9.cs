@@ -1,4 +1,4 @@
-using JauntyQ.Schema;
+﻿using JauntyQ.Schema;
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
@@ -9,7 +9,8 @@ public static partial class CodeEmitter
         for (int i = 0; i < projection.Columns.Count; i++)
         {
             var col = projection.Columns[i];
-            string readerCall = GetReaderCall(col.Type, col.Ordinal, schema);
+            string readerCall = GetReaderCall(col.Type, col.Ordinal, schema,
+                columnIdentity: string.IsNullOrEmpty(col.SourceName) ? col.Name : col.SourceName);
             string comma = i < projection.Columns.Count - 1 ? "," : "";
             sb.AppendLine($"{indent}{IdentifierGuard.Escape(col.Name)} = {readerCall}{comma}");
         }
@@ -28,11 +29,32 @@ public static partial class CodeEmitter
     // literally named "@reader" collides with it, confirmed live) and reads
     // the identity value back via GetIdentityReaderCall -&gt; GetReaderCall;
     // that one call site passes readerVar: "__reader" explicitly.
-    private static string GetReaderCall(string csharpType, int ordinal, DatabaseSchema? schema = null, string readerVar = "reader")
+    //
+    // Spec 013: "columnIdentity" is how to name this column if a generated
+    // enum Parse rejects the database's value. GetReaderCall otherwise knows
+    // only a type and an ordinal, and "value 'refunded' is not a member" with
+    // no column named is useless on a wide row. Null (the default) for every
+    // path that cannot carry an enum -- proc results, identity read-back --
+    // where nothing is emitted that could use it.
+    private static string GetReaderCall(string csharpType, int ordinal, DatabaseSchema? schema = null, string readerVar = "reader", string? columnIdentity = null)
     {
         // Handle nullable types
         bool isNullable = csharpType.EndsWith("?");
         string baseType = isNullable ? csharpType.TrimEnd('?') : csharpType;
+
+        // Spec 013: a captured enum arrives as text on the wire in both
+        // dialects and is converted by its own emitted companion. Checked
+        // before the switch because the enum's C# name is snapshot-derived and
+        // could be anything, including a name the switch below already has an
+        // arm for.
+        if (IsEmittedEnumType(baseType, schema))
+        {
+            string identity = IdentifierGuard.ToStringLiteral(columnIdentity ?? $"ordinal {ordinal}");
+            string parse = $"{baseType}Values.Parse({readerVar}.GetString({ordinal}), \"{identity}\")";
+            return isNullable
+                ? $"{readerVar}.IsDBNull({ordinal}) ? default({csharpType}) : {parse}"
+                : parse;
+        }
 
         string getMethod = baseType switch
         {
@@ -166,13 +188,13 @@ public static partial class CodeEmitter
                 if (SchemaLookup.TryGetTable(schema, tableName, out var tableSchema) &&
                     SchemaLookup.TryGetColumn(tableSchema!, columnName, out var colSchema))
                 {
-                    return DialectMapper.MapColumnToCSharp(colSchema!, schema.Dialect);
+                    return DialectMapper.MapColumnToCSharp(colSchema!, schema.Dialect, schema);
                 }
                 // Not a schema table: the qualifier may name a CTE whose
                 // virtual column traces back to a real one.
                 var qualifiedViaCte = ProjectionBuilder.ResolveThroughCtes(tableName, columnName, query.Ctes, schema, depth: 0);
                 if (qualifiedViaCte != null)
-                    return DialectMapper.MapColumnToCSharp(qualifiedViaCte, schema.Dialect);
+                    return DialectMapper.MapColumnToCSharp(qualifiedViaCte, schema.Dialect, schema);
             }
         }
         else
@@ -183,7 +205,7 @@ public static partial class CodeEmitter
                 if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema) &&
                     SchemaLookup.TryGetColumn(tableSchema!, columnName, out var colSchema))
                 {
-                    return DialectMapper.MapColumnToCSharp(colSchema!, schema.Dialect);
+                    return DialectMapper.MapColumnToCSharp(colSchema!, schema.Dialect, schema);
                 }
             }
 
@@ -193,7 +215,7 @@ public static partial class CodeEmitter
             {
                 var viaCte = ProjectionBuilder.ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
                 if (viaCte != null)
-                    return DialectMapper.MapColumnToCSharp(viaCte, schema.Dialect);
+                    return DialectMapper.MapColumnToCSharp(viaCte, schema.Dialect, schema);
             }
         }
 

@@ -73,7 +73,7 @@ public static class ProjectionBuilder
                             projection.Columns.Add(new ProjectionColumn
                             {
                                 Name = DialectMapper.ToPascalCase(schemaCol.Name),
-                                Type = MapProjectedColumnType(schemaCol, dialect, starForceNullable),
+                                Type = MapProjectedColumnType(schemaCol, dialect, starForceNullable, schema),
                                 Ordinal = ordinal++,
                                 SourceName = schemaCol.Name
                             });
@@ -94,7 +94,7 @@ public static class ProjectionBuilder
 
             // Determine C# type
             string csharpType = schemaColumn != null
-                ? MapProjectedColumnType(schemaColumn, dialect, forceNullable)
+                ? MapProjectedColumnType(schemaColumn, dialect, forceNullable, schema)
                 : "object";
 
             projection.Columns.Add(new ProjectionColumn
@@ -187,10 +187,24 @@ public static class ProjectionBuilder
     /// with no match, so a projected non-nullable read would throw at runtime
     /// on a NULL value the join legitimately produces.
     /// </summary>
-    private static string MapProjectedColumnType(ColumnSchema column, string? dialect, bool forceNullable)
+    private static string MapProjectedColumnType(
+        ColumnSchema column, string? dialect, bool forceNullable, DatabaseSchema? schema)
     {
         if (!forceNullable || column.IsRowVersion)
-            return DialectMapper.MapColumnToCSharp(column, dialect);
+            return DialectMapper.MapColumnToCSharp(column, dialect, schema);
+
+        // Spec 013: the force-nullable branch drops straight to
+        // MapDbTypeToCSharp, which sees only the dbType string and knows
+        // nothing about a captured enum -- so an enum column on the optional
+        // side of a LEFT/RIGHT/FULL JOIN would silently keep the old
+        // object?/string? mapping while the same column mapped correctly
+        // everywhere else. Resolve the enum here too, and force the nullable
+        // annotation on it for the same reason every other type gets one: the
+        // join can legitimately produce a NULL the NOT NULL constraint never
+        // allowed in the table.
+        string? enumType = DialectMapper.ResolveEnumTypeName(column, schema);
+        if (enumType != null)
+            return enumType + "?";
 
         return DialectMapper.MapDbTypeToCSharp(column.DbType, isNullable: true,
             length: column.Precision ?? column.MaxLength, dialect: dialect);

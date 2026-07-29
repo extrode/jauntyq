@@ -1,4 +1,4 @@
-using JauntyQ.Schema;
+﻿using JauntyQ.Schema;
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
@@ -84,9 +84,9 @@ public static partial class CodeEmitter
         for (int i = 0; i < cols.Count; i++)
         {
             var c = cols[i];
-            string ct = DialectMapper.MapColumnToCSharp(c, dialect);
+            string ct = DialectMapper.MapColumnToCSharp(c, dialect, schema);
             string prop = IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name));
-            if (IsNonNullableValueType(ct))
+            if (IsNonNullableValueType(ct, schema))
             {
                 sb.AppendLine(isAsync
                     ? $"                        await __importer.WriteAsync(row.{prop}, cancellationToken).ConfigureAwait(false);"
@@ -99,7 +99,7 @@ public static partial class CodeEmitter
                 // nullable value type, unwrap to the underlying value so the
                 // importer's generic Write<T> sees the concrete T (e.g. int),
                 // not Nullable<int>.
-                bool nullableValueType = ct.EndsWith("?") && IsNonNullableValueType(ct.Substring(0, ct.Length - 1));
+                bool nullableValueType = ct.EndsWith("?") && IsNonNullableValueType(ct.Substring(0, ct.Length - 1), schema);
                 string writeExpr = nullableValueType ? $"row.{prop}.Value" : $"row.{prop}";
                 sb.AppendLine($"                        if (row.{prop} is null)");
                 sb.AppendLine(isAsync
@@ -324,9 +324,9 @@ public static partial class CodeEmitter
         for (int i = 0; i < cols.Count; i++)
         {
             var c = cols[i];
-            string ct = DialectMapper.MapColumnToCSharp(c, dialect);
+            string ct = DialectMapper.MapColumnToCSharp(c, dialect, schema);
             string prop = IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name));
-            if (IsNonNullableValueType(ct))
+            if (IsNonNullableValueType(ct, schema))
                 sb.AppendLine($"                    case {i}: return _current.{prop};");
             else
                 sb.AppendLine($"                    case {i}: return (object?)_current.{prop} ?? DBNull.Value;");
@@ -361,7 +361,7 @@ public static partial class CodeEmitter
         sb.AppendLine("                {");
         for (int i = 0; i < cols.Count; i++)
         {
-            string ct = ShortenValueTypeName(schema, DialectMapper.MapColumnToCSharp(cols[i], dialect));
+            string ct = ShortenValueTypeName(schema, DialectMapper.MapColumnToCSharp(cols[i], dialect, schema));
             string baseType = ct.EndsWith("?") ? ct.Substring(0, ct.Length - 1) : ct;
             sb.AppendLine($"                    case {i}: return typeof({baseType});");
         }

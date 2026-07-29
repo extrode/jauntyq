@@ -54,7 +54,65 @@ public static class DialectMapper
     /// 'timestamp', which would otherwise map to System.DateTime.
     /// </summary>
     public static string MapColumnToCSharp(JauntyQ.Schema.ColumnSchema column, string? dialect = null) =>
-        column.IsRowVersion ? "byte[]?" : MapDbTypeToCSharp(column.DbType, column.IsNullable, column.Precision ?? column.MaxLength, dialect);
+        MapColumnToCSharp(column, dialect, null);
+
+    /// <summary>
+    /// <paramref name="schema"/> is what lets a database enum column resolve to
+    /// its generated C# enum instead of a string or an untyped object (spec
+    /// 013). The member list exists nowhere in <see cref="JauntyQ.Schema.ColumnSchema.DbType"/> —
+    /// PostgreSQL reports only the type name, MySQL only the bare word "enum" —
+    /// so the column's <c>EnumName</c> reference has to be followed into
+    /// <see cref="JauntyQ.Schema.DatabaseSchema.Enums"/>, and that requires the
+    /// whole schema.
+    ///
+    /// Null <paramref name="schema"/> keeps the pre-013 behaviour exactly:
+    /// MySQL "enum" falls through to the string arm below, and a PostgreSQL
+    /// enum type name reaches the object fallback. That is deliberate for
+    /// callers with no schema in hand (parameter/identity type inference), but
+    /// it also means a caller that SHOULD pass a schema and doesn't degrades
+    /// silently rather than failing — which is why every emitter call site was
+    /// swept when this was added.
+    /// </summary>
+    public static string MapColumnToCSharp(
+        JauntyQ.Schema.ColumnSchema column, string? dialect, JauntyQ.Schema.DatabaseSchema? schema)
+    {
+        if (column.IsRowVersion)
+            return "byte[]?";
+
+        string? enumType = ResolveEnumTypeName(column, schema);
+        if (enumType != null)
+            return column.IsNullable ? enumType + "?" : enumType;
+
+        return MapDbTypeToCSharp(column.DbType, column.IsNullable, column.Precision ?? column.MaxLength, dialect);
+    }
+
+    /// <summary>
+    /// The generated C# enum type name for <paramref name="column"/>, or null
+    /// when it is not an enum column or the snapshot predates spec 013.
+    /// </summary>
+    public static string? ResolveEnumTypeName(
+        JauntyQ.Schema.ColumnSchema column, JauntyQ.Schema.DatabaseSchema? schema)
+    {
+        if (schema == null || string.IsNullOrEmpty(column.EnumName))
+            return null;
+        if (!schema.Enums.TryGetValue(column.EnumName!, out var enumSchema))
+            return null;
+        // A captured type with no members would emit an empty C# enum, which
+        // compiles but can hold no value the database could ever return. Treat
+        // it as uncaptured rather than emitting a trap.
+        if (enumSchema.Members.Count == 0)
+            return null;
+
+        return EnumTypeName(enumSchema.Name);
+    }
+
+    /// <summary>
+    /// The C# type name for a captured enum. PostgreSQL contributes a
+    /// snake_case type name ("order_status" -> "OrderStatus"); MySQL
+    /// contributes an already-folded {Table}{Column} name, which
+    /// <see cref="ToPascalCase"/> leaves alone.
+    /// </summary>
+    public static string EnumTypeName(string enumName) => ToPascalCase(enumName);
 
     /// <summary>
     /// <paramref name="length"/> is the declared bit/char length for types
