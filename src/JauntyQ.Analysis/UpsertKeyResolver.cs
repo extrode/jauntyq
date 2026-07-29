@@ -122,14 +122,14 @@ public static class UpsertKeyResolver
             if (c.IsPrimaryKey)
                 pkNames.Add(c.Name);
         }
-        if (pkNames.Count > 0 && !SameColumnSet(pkNames, keyNames))
+        if (pkNames.Count > 0 && !CoversKey(pkNames, keyNames))
             return true;
 
         foreach (var index in tableSchema.Indexes)
         {
             if (!index.IsUnique || index.Columns.Count == 0)
                 continue;
-            if (!SameColumnSet(index.Columns, keyNames))
+            if (!CoversKey(index.Columns, keyNames))
                 return true;
         }
 
@@ -137,21 +137,35 @@ public static class UpsertKeyResolver
     }
 
     /// <summary>
-    /// Set equality, order-insensitive and OrdinalIgnoreCase — matching
-    /// <see cref="Resolve"/>'s own column lookup, since a UNIQUE constraint's
-    /// column order is not part of its identity for conflict-matching purposes
-    /// (<c>UNIQUE (a, b)</c> and <c>UNIQUE (b, a)</c> reject the same rows).
+    /// True when <paramref name="constraintCols"/> contains every column in
+    /// <paramref name="keyNames"/> — i.e. the constraint cannot be violated
+    /// without the key's own constraint being violated by the same row, so it
+    /// is not a competing conflict target.
+    /// <para>
+    /// Superset, not equality. A <c>UNIQUE (id, tenant_id)</c> alongside a key
+    /// of <c>(id)</c> — the usual reason being a composite FK that needs
+    /// something to reference — can only reject a row that duplicates both
+    /// columns, and such a row already duplicates <c>id</c>. Treating it as
+    /// competing cost the table its atomic <c>ON DUPLICATE KEY UPDATE</c> and
+    /// raised a JNT2018 telling the caller to drop a constraint they need.
+    /// A strict <em>subset</em> is the opposite case and is genuinely
+    /// competing: it rejects rows the key permits.
+    /// </para>
+    /// <para>
+    /// Order-insensitive and OrdinalIgnoreCase, matching <see cref="Resolve"/>'s
+    /// own column lookup — a UNIQUE constraint's column order is not part of
+    /// its identity for conflict matching (<c>UNIQUE (a, b)</c> and
+    /// <c>UNIQUE (b, a)</c> reject the same rows).
+    /// </para>
     /// </summary>
-    private static bool SameColumnSet(List<string> left, List<string> right)
+    private static bool CoversKey(List<string> constraintCols, List<string> keyNames)
     {
-        if (left.Count != right.Count)
-            return false;
-        foreach (var name in left)
+        foreach (var key in keyNames)
         {
             bool found = false;
-            foreach (var other in right)
+            foreach (var col in constraintCols)
             {
-                if (string.Equals(name, other, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(key, col, StringComparison.OrdinalIgnoreCase))
                 {
                     found = true;
                     break;

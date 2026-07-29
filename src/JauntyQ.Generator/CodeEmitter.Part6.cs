@@ -143,11 +143,25 @@ public static partial class CodeEmitter
                 // FROM DUAL because MySQL rejects a WHERE on a SELECT with no
                 // FROM. Both engines accept it.
                 //
-                // This form is not atomic the way ON DUPLICATE KEY UPDATE is:
-                // two sessions upserting the same new key can both see NOT
-                // EXISTS true and both insert, and one takes error 1062.
-                // JNT2018 says so at generation time; the generated method
-                // already honours an ambient transaction, which is the remedy.
+                // This form is not atomic the way ON DUPLICATE KEY UPDATE is,
+                // and an ambient transaction does not make it so -- that claim
+                // was here until the independent review of AUD-R4-16 refuted
+                // it. Three distinct races, on the same new key:
+                //   1062 both sessions see NOT EXISTS true and both insert.
+                //   1213 in a transaction, the UPDATE's unique-key predicate
+                //        matches nothing and takes a gap lock; gap locks are
+                //        mutually compatible, so both sessions proceed, and
+                //        each INSERT's insert-intention lock then conflicts
+                //        with the other's gap lock. A transaction converts the
+                //        1062 into a deadlock rather than preventing it.
+                //   0    the other session commits between this one's UPDATE
+                //        (which matched nothing) and its INSERT (whose NOT
+                //        EXISTS is now false). Nothing is written, nothing
+                //        throws, and ExecuteNonQuery returns 0 -- the only
+                //        one of the three that fails silently.
+                // JNT2018 states all three and tells the caller to retry on
+                // 1062/1213, treat 0 as a lost write, or drop the competing
+                // UNIQUE so the atomic form is emitted instead.
                 {
                     string setClause = JoinColumns(setCols, ", ", c => $"{c.Name} = @{c.Name}");
                     string keyPredicate = JoinColumns(keyCols, " AND ", c => $"{c.Name} = @{c.Name}");

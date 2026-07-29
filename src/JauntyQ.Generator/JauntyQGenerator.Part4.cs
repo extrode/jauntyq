@@ -256,9 +256,13 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                             "but the table carries another UNIQUE constraint. MySQL's ON DUPLICATE KEY UPDATE names no conflict " +
                             "target and would match whichever UNIQUE the insert violates, so JauntyQ emits a key-targeted " +
                             "UPDATE-then-INSERT instead, matching what postgres, sqlite and sqlserver already do. Those two " +
-                            "statements are not atomic: concurrent upserts of the same new key can both pass the existence " +
-                            "check and one will fail with a duplicate-key error. Call it inside a transaction (the generated " +
-                            "method uses the ambient one), or drop the competing UNIQUE constraint."));
+                            "statements are not atomic, and wrapping them in a transaction does not make them so. Concurrent " +
+                            "upserts of the same new key can fail with duplicate-key error 1062 (both pass the existence " +
+                            "check), deadlock with error 1213 (one session's insert-intention lock meets the other's gap " +
+                            "lock from the UPDATE), or silently write nothing (another session commits the row between this " +
+                            "call's UPDATE and its INSERT, so neither statement applies the caller's values). Retry the call " +
+                            "on 1062 and 1213, treat a 0 return as a lost write, or drop the competing UNIQUE constraint so " +
+                            "the atomic ON DUPLICATE KEY UPDATE form is emitted instead."));
                     }
 
                     // Dialect-native upsert bypasses the minimal SQL parser;
