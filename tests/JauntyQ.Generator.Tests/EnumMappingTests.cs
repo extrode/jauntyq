@@ -346,7 +346,9 @@ public class EnumMappingTests
     {
         string src = GenerateAll(BulkSchemaJson("postgres"));
 
-        Assert.Contains("__importer.Write(row.Status)", src);
+        // T12 wraps the value in ToWire; T7's invariant is the absence of the
+        // null test, which would not compile against a struct property.
+        Assert.Contains("__importer.Write(OrderStatusValues.ToWire(row.Status))", src);
         Assert.DoesNotContain("if (row.Status is null)", src);
     }
 
@@ -360,8 +362,9 @@ public class EnumMappingTests
     {
         string src = GenerateAll(BulkSchemaJson("mysql"));
 
-        Assert.Contains("return _current.Status;", src);
+        Assert.Contains("return OrderStatusValues.ToWire(_current.Status);", src);
         Assert.DoesNotContain("(object?)_current.Status ?? DBNull.Value", src);
+        Assert.DoesNotContain("_current.Status is null", src);
     }
 
     /// <summary>
@@ -374,7 +377,8 @@ public class EnumMappingTests
     {
         string src = GenerateAll(BulkSchemaJson("sqlite"));
 
-        Assert.Contains(".Value = row.Status;", src);
+        Assert.Contains(".Value = OrderStatusValues.ToWire(row.Status);", src);
         Assert.DoesNotContain("(object?)row.Status ?? DBNull.Value", src);
+        Assert.DoesNotContain("row.Status is null", src);
     }
 }

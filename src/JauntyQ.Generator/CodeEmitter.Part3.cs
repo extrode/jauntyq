@@ -233,6 +233,29 @@ public static partial class CodeEmitter
                 // resolved type (provider-neutral System.Data.DbType, no mapping
                 // layer). Non-nullable value types keep the fast generic path.
                 string npgsqlParameterType = TypeRef(schema, "NpgsqlParameter", "Npgsql");
+
+                // Spec 013 T12/T12a. A Postgres enum column takes text on the
+                // wire, but an ordinary parameter carrying a plain string is
+                // rejected with 42804 ("column is of type order_status but
+                // expression is of type text") -- and setting DbType.String,
+                // which MapCSharpTypeToAdoDbType would do, is rejected the
+                // same way. Probed live against PostgreSQL 16 / Npgsql 8.0.6:
+                // NpgsqlDbType.Unknown with NO DbType is the one combination
+                // the server accepts, because it defers the type decision to
+                // the server's own text-to-enum coercion.
+                if (IsEnumParameterType(param.CSharpType, schema))
+                {
+                    string npgsqlDbTypeEnum = TypeRef(schema, "NpgsqlDbType", "NpgsqlTypes");
+                    sb.AppendLine($"                var {varName} = new {npgsqlParameterType} {{ ParameterName = \"@{param.Name}\" }};");
+                    sb.AppendLine($"                {varName}.NpgsqlDbType = {npgsqlDbTypeEnum}.Unknown;");
+                    string wire = EnumWireCall(param.CSharpType, schema, param.CSharpName)!;
+                    sb.AppendLine(param.CSharpType.EndsWith("?")
+                        ? $"                {varName}.Value = {param.CSharpName} is null ? (object)DBNull.Value : {EnumWireCall(param.CSharpType, schema, param.CSharpName + ".Value")!};"
+                        : $"                {varName}.Value = {wire};");
+                    sb.AppendLine($"                __cmd.Parameters.Add({varName});");
+                    continue;
+                }
+
                 if (IsNonNullableValueType(param.CSharpType, schema))
                 {
                     sb.AppendLine($"                var {varName} = new {npgsqlParameterType}<{ShortenValueTypeName(schema, param.CSharpType)}> {{ ParameterName = \"@{param.Name}\", TypedValue = {param.CSharpName} }};");
@@ -251,6 +274,23 @@ public static partial class CodeEmitter
 
             sb.AppendLine($"                DbParameter {varName} = __cmd.CreateParameter();");
             sb.AppendLine($"                {varName}.ParameterName = \"@{param.Name}\";");
+
+            // Spec 013 T12: the non-Postgres scalar path, which every MySQL
+            // query parameter and every CRUD write parameter takes. Bound as
+            // the wire string; MapCSharpTypeToAdoDbType has no arm for a
+            // snapshot-derived enum name and would otherwise leave the
+            // parameter with no DbType at all.
+            string? enumWire = EnumWireCall(param.CSharpType, schema, param.CSharpName);
+            if (enumWire != null)
+            {
+                sb.AppendLine($"                {varName}.DbType = {dbTypeEnum}.String;");
+                sb.AppendLine(param.CSharpType.EndsWith("?")
+                    ? $"                {varName}.Value = {param.CSharpName} is null ? (object)DBNull.Value : {EnumWireCall(param.CSharpType, schema, param.CSharpName + ".Value")!};"
+                    : $"                {varName}.Value = {enumWire};");
+                sb.AppendLine($"                __cmd.Parameters.Add({varName});");
+                continue;
+            }
+
             string? adoDbType = MapCSharpTypeToAdoDbType(param.CSharpType);
             if (adoDbType != null)
             {
@@ -288,6 +328,41 @@ public static partial class CodeEmitter
         string? adoDbType = MapCSharpTypeToAdoDbType(elementType);
         // AUD-R50-03 (residual): same DbType-shadowing guard as EmitParameterBinding.
         string dbTypeEnum = TypeRef(schema, "DbType", "System.Data");
+
+        // Spec 013 T12: WHERE status IN (-- @each) over an enum column is
+        // reachable on both dialects. Handled ahead of the dialect split
+        // because the conversion is the same either way; only the parameter
+        // type differs, and Postgres needs the same NpgsqlDbType.Unknown the
+        // scalar path does.
+        string? eachEnumWire = EnumWireCall(elementType, schema, $"{param.CSharpName}[{loopVar}]");
+        if (eachEnumWire != null)
+        {
+            sb.AppendLine($"                for (int {loopVar} = 0; {loopVar} < {param.CSharpName}.Count; {loopVar}++)");
+            sb.AppendLine("                {");
+            if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
+            {
+                string npgsqlParameterTypeForEnum = TypeRef(schema, "NpgsqlParameter", "Npgsql");
+                string npgsqlDbTypeEnum = TypeRef(schema, "NpgsqlDbType", "NpgsqlTypes");
+                sb.AppendLine($"                    var {varName} = new {npgsqlParameterTypeForEnum} {{ ParameterName = \"@{param.Name}\" + {loopVar} }};");
+                sb.AppendLine($"                    {varName}.NpgsqlDbType = {npgsqlDbTypeEnum}.Unknown;");
+            }
+            else
+            {
+                sb.AppendLine($"                    DbParameter {varName} = __cmd.CreateParameter();");
+                sb.AppendLine($"                    {varName}.ParameterName = \"@{param.Name}\" + {loopVar};");
+                sb.AppendLine($"                    {varName}.DbType = {dbTypeEnum}.String;");
+            }
+            // A nullable enum element is OrderStatus?, which ToWire cannot
+            // take: unwrap inside the null branch, as the scalar and COPY
+            // paths do. IN (NULL) never matches in SQL, but binding DBNull is
+            // still the only shape that compiles and round-trips.
+            sb.AppendLine(elementType.EndsWith("?")
+                ? $"                    {varName}.Value = {param.CSharpName}[{loopVar}] is null ? (object)DBNull.Value : {EnumWireCall(elementType, schema, $"{param.CSharpName}[{loopVar}].Value")!};"
+                : $"                    {varName}.Value = {eachEnumWire};");
+            sb.AppendLine($"                    __cmd.Parameters.Add({varName});");
+            sb.AppendLine("                }");
+            return;
+        }
 
         if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
         {

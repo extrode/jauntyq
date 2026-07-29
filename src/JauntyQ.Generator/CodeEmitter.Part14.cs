@@ -83,6 +83,36 @@ public static partial class CodeEmitter
     }
 
     /// <summary>
+    /// The emitted call converting <paramref name="valueExpr"/> to the value
+    /// the database stores, or null when the type is not a generated enum.
+    /// <paramref name="valueExpr"/> must already be non-null — a caller
+    /// holding a nullable enum unwraps it (<c>x.Value</c>) inside its own
+    /// null branch, exactly as the nullable-value-type paths already do.
+    ///
+    /// Every write site needs this. Binding the enum itself sends the
+    /// underlying integer, which no dialect accepts for a text-valued enum
+    /// column, and the failure surfaces as a type error from the server
+    /// naming neither the column nor the value.
+    /// </summary>
+    internal static string? EnumWireCall(string csharpType, DatabaseSchema? schema, string valueExpr)
+    {
+        string baseType = csharpType.EndsWith("?")
+            ? csharpType.Substring(0, csharpType.Length - 1)
+            : csharpType;
+        return IsEmittedEnumType(baseType, schema) ? $"{baseType}Values.ToWire({valueExpr})" : null;
+    }
+
+    /// <summary>
+    /// True when <paramref name="csharpType"/> is a generated enum in either
+    /// its nullable or non-nullable spelling. Write sites branch on this
+    /// before the ordinary value-type/reference-type split, because an enum
+    /// parameter is neither: it is bound as the string
+    /// <see cref="EnumWireCall"/> produces.
+    /// </summary>
+    internal static bool IsEnumParameterType(string csharpType, DatabaseSchema? schema)
+        => EnumWireCall(csharpType, schema, "x") != null;
+
+    /// <summary>
     /// Escapes a raw database value for an XML doc comment. Member values are
     /// snapshot-derived, so a value containing &lt; or &amp; would otherwise
     /// emit a malformed doc comment (CS1570) on every build.

@@ -86,7 +86,34 @@ public static partial class CodeEmitter
             var c = cols[i];
             string ct = DialectMapper.MapColumnToCSharp(c, dialect, schema);
             string prop = IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name));
-            if (IsNonNullableValueType(ct, schema))
+            // Spec 013 T12: binary COPY writes properties directly,
+            // bypassing parameter binding entirely, so it needs its own
+            // conversion. T0 probed live that the importer accepts an untyped
+            // string for an enum column, so no exclusion is needed -- just the
+            // wire value instead of the enum.
+            string? copyEnumWire = EnumWireCall(ct, schema, $"row.{prop}");
+            if (copyEnumWire != null)
+            {
+                if (ct.EndsWith("?"))
+                {
+                    string wireValue = EnumWireCall(ct, schema, $"row.{prop}.Value")!;
+                    sb.AppendLine($"                        if (row.{prop} is null)");
+                    sb.AppendLine(isAsync
+                        ? "                            await __importer.WriteNullAsync(cancellationToken).ConfigureAwait(false);"
+                        : "                            __importer.WriteNull();");
+                    sb.AppendLine("                        else");
+                    sb.AppendLine(isAsync
+                        ? $"                            await __importer.WriteAsync({wireValue}, cancellationToken).ConfigureAwait(false);"
+                        : $"                            __importer.Write({wireValue});");
+                }
+                else
+                {
+                    sb.AppendLine(isAsync
+                        ? $"                        await __importer.WriteAsync({copyEnumWire}, cancellationToken).ConfigureAwait(false);"
+                        : $"                        __importer.Write({copyEnumWire});");
+                }
+            }
+            else if (IsNonNullableValueType(ct, schema))
             {
                 sb.AppendLine(isAsync
                     ? $"                        await __importer.WriteAsync(row.{prop}, cancellationToken).ConfigureAwait(false);"
@@ -326,7 +353,17 @@ public static partial class CodeEmitter
             var c = cols[i];
             string ct = DialectMapper.MapColumnToCSharp(c, dialect, schema);
             string prop = IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name));
-            if (IsNonNullableValueType(ct, schema))
+            // Spec 013 T12: GetValue, GetFieldType and GetString must agree.
+            // GetString below is (string)GetValue, so handing back the wire
+            // value here is what makes all three consistent -- an adapter that
+            // reported typeof(OrderStatus) while returning a string would give
+            // MySqlBulkCopy contradictory metadata.
+            string? adapterEnumWire = EnumWireCall(ct, schema, $"_current.{prop}");
+            if (adapterEnumWire != null)
+                sb.AppendLine(ct.EndsWith("?")
+                    ? $"                    case {i}: return _current.{prop} is null ? (object)DBNull.Value : {EnumWireCall(ct, schema, $"_current.{prop}.Value")!};"
+                    : $"                    case {i}: return {adapterEnumWire};");
+            else if (IsNonNullableValueType(ct, schema))
                 sb.AppendLine($"                    case {i}: return _current.{prop};");
             else
                 sb.AppendLine($"                    case {i}: return (object?)_current.{prop} ?? DBNull.Value;");
@@ -363,6 +400,10 @@ public static partial class CodeEmitter
         {
             string ct = ShortenValueTypeName(schema, DialectMapper.MapColumnToCSharp(cols[i], dialect, schema));
             string baseType = ct.EndsWith("?") ? ct.Substring(0, ct.Length - 1) : ct;
+            // Spec 013: an enum column is handed to the provider as its wire
+            // string (GetValue above), so the declared field type must say so.
+            if (IsEnumParameterType(baseType, schema))
+                baseType = "string";
             sb.AppendLine($"                    case {i}: return typeof({baseType});");
         }
         sb.AppendLine($"                    default: throw new {indexOutOfRangeEx}(ordinal.ToString());");
