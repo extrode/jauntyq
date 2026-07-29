@@ -277,6 +277,24 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    // AUD-R4-16: a MySQL upsert on a table with a competing UNIQUE constraint
+    // cannot use ON DUPLICATE KEY UPDATE, which names no conflict target and
+    // would let the engine match a key the caller never asked about. The
+    // key-targeted replacement is two statements, and two statements are not
+    // atomic the way one is: concurrent upserts of the same new key can both
+    // pass the NOT EXISTS guard and one takes a duplicate-key error. Warning,
+    // matching JNT2014/JNT2015 and for the same reason -- a decision the
+    // consumer should be able to argue with (by wrapping the call in the
+    // transaction the generated method already honours, or by dropping the
+    // competing constraint) has to be visible to be arguable.
+    public static readonly DiagnosticDescriptor JNT2018 = new(
+        "JNT2018",
+        "Non-Atomic Key-Targeted MySQL Upsert",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(

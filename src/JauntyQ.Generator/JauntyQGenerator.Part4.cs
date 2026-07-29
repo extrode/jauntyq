@@ -235,9 +235,35 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
                 if (synth.IsUpsert)
                 {
+                    // AUD-R4-16 (JNT2018): reported here rather than in a table
+                    // loop of its own, because here is the one place that knows
+                    // an Upsert is actually being emitted for this table -- a
+                    // hand-written .sql file claiming the method above wins, and
+                    // then no key-targeted SQL exists to warn about. Same
+                    // predicate the emitter branches on, so the warning cannot
+                    // describe a form that was not emitted.
+                    var upsertTable = schema.Tables[synth.TableName];
+                    var upsertKey = UpsertKeyResolver.Resolve(upsertTable);
+                    if (upsertKey != null
+                        && string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase)
+                        && UpsertKeyResolver.HasCompetingUniqueConstraint(upsertTable, upsertKey))
+                    {
+                        var keyNames = new List<string>(upsertKey.Count);
+                        foreach (var c in upsertKey)
+                            keyNames.Add(c.Name);
+                        context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2018, Location.None,
+                            $"'{synth.EntityName}.Upsert' targets table '{upsertTable.Name}' on ({string.Join(", ", keyNames)}), " +
+                            "but the table carries another UNIQUE constraint. MySQL's ON DUPLICATE KEY UPDATE names no conflict " +
+                            "target and would match whichever UNIQUE the insert violates, so JauntyQ emits a key-targeted " +
+                            "UPDATE-then-INSERT instead, matching what postgres, sqlite and sqlserver already do. Those two " +
+                            "statements are not atomic: concurrent upserts of the same new key can both pass the existence " +
+                            "check and one will fail with a duplicate-key error. Call it inside a transaction (the generated " +
+                            "method uses the ambient one), or drop the competing UNIQUE constraint."));
+                    }
+
                     // Dialect-native upsert bypasses the minimal SQL parser;
                     // correctness comes from the schema snapshot itself.
-                    string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, schema.Tables[synth.TableName], schema.Dialect, schema);
+                    string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, upsertTable, schema.Dialect, schema);
                     context.AddSource($"{synth.EntityName}.Upsert.auto.g.cs", SourceText.From(upsertSource, Encoding.UTF8));
                     entityNames.Add(synth.EntityName);
                     RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, "Upsert");
