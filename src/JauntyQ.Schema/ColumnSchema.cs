@@ -67,4 +67,18 @@ public class ColumnSchema
     /// </summary>
     [JsonPropertyName("isComputed")]
     public bool IsComputed { get; set; }
+
+    /// <summary>
+    /// Key into <see cref="DatabaseSchema.Enums"/> when this column is of a
+    /// database enum type, null otherwise. Resolving the type through this
+    /// reference rather than re-parsing <see cref="DbType"/> is what lets the
+    /// mapper reach the member list, which <see cref="DbType"/> alone never
+    /// carries: PostgreSQL reports only the type name and MySQL only the bare
+    /// word "enum". Null on every non-enum column and on every snapshot taken
+    /// before spec 013, which is what makes those snapshots keep their old
+    /// mapping unchanged.
+    /// </summary>
+    [JsonPropertyName("enumName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EnumName { get; set; }
 }

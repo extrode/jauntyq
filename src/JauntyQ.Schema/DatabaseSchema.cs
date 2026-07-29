@@ -36,4 +36,16 @@ public class DatabaseSchema
     /// </summary>
     [JsonPropertyName("sequences")]
     public Dictionary<string, SequenceSchema> Sequences { get; set; } = new();
+
+    /// <summary>
+    /// Enumerated types the database enforces, keyed by name. Captured by
+    /// 'jaunty schema pull' so the generator can emit a real C# enum for a
+    /// column of that type. PostgreSQL native enums and MySQL inline column
+    /// enums populate this; SQL Server and SQLite have no native enum, so it
+    /// stays empty for them. A type declared but referenced by no column is
+    /// still captured — it is schema, and dropping it is still drift — but
+    /// only referenced ones are emitted.
+    /// </summary>
+    [JsonPropertyName("enums")]
+    public Dictionary<string, EnumSchema> Enums { get; set; } = new();
 }
