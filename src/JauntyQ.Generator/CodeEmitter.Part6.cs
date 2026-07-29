@@ -107,13 +107,55 @@ public static partial class CodeEmitter
             }
             case "mysql":
             {
-                // VALUES(col) works on both MySQL and MariaDB (the 8.0.20+
-                // alias form is not MariaDB-compatible). ON DUPLICATE KEY
-                // does not name the conflicting key: MySQL/MariaDB detect it
-                // from whichever UNIQUE constraint the insert violates.
-                string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = VALUES({c.Name})");
-                sql = $"INSERT INTO {tableSchema.Name} ({colList})\nVALUES ({paramList})\n" +
-                      $"ON DUPLICATE KEY UPDATE {updateSet}";
+                // AUD-R4-16: ON DUPLICATE KEY UPDATE names no conflict target
+                // -- MySQL/MariaDB match whichever UNIQUE the insert violates.
+                // With exactly one UNIQUE on the table that is the key
+                // ResolveUpsertKey picked, so the statement agrees with
+                // postgres/sqlite's ON CONFLICT (cols) and sqlserver's MERGE
+                // ... ON, and it stays. With a competing UNIQUE it does not
+                // agree, and a row can be matched on a key the caller never
+                // asked about.
+                if (!UpsertKeyResolver.HasCompetingUniqueConstraint(tableSchema, keyCols))
+                {
+                    // VALUES(col) works on both MySQL and MariaDB (the 8.0.20+
+                    // alias form is not MariaDB-compatible).
+                    string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = VALUES({c.Name})");
+                    sql = $"INSERT INTO {tableSchema.Name} ({colList})\nVALUES ({paramList})\n" +
+                          $"ON DUPLICATE KEY UPDATE {updateSet}";
+                    break;
+                }
+
+                // Key-targeted form, for the competing-UNIQUE case only. Two
+                // statements in one CommandText, which MySqlConnector executes
+                // under a default connection string on both engines, with
+                // @key bound once and referenced three times (all measured in
+                // MySqlUpsertProbeTests before this was written).
+                //
+                // NOT EXISTS, deliberately, and not ROW_COUNT() = 0: after an
+                // UPDATE that matched a row but changed no values ROW_COUNT()
+                // is 1 or 0 depending on the consumer's UseAffectedRows
+                // setting -- their connection string, not ours -- so an upsert
+                // re-run with identical values would fall through to the
+                // INSERT and take a duplicate-key error. NOT EXISTS asks the
+                // question the conflict key actually poses and is immune to
+                // that setting.
+                //
+                // FROM DUAL because MySQL rejects a WHERE on a SELECT with no
+                // FROM. Both engines accept it.
+                //
+                // This form is not atomic the way ON DUPLICATE KEY UPDATE is:
+                // two sessions upserting the same new key can both see NOT
+                // EXISTS true and both insert, and one takes error 1062.
+                // JNT2018 says so at generation time; the generated method
+                // already honours an ambient transaction, which is the remedy.
+                {
+                    string setClause = JoinColumns(setCols, ", ", c => $"{c.Name} = @{c.Name}");
+                    string keyPredicate = JoinColumns(keyCols, " AND ", c => $"{c.Name} = @{c.Name}");
+                    sql = $"UPDATE {tableSchema.Name} SET {setClause} WHERE {keyPredicate};\n" +
+                          $"INSERT INTO {tableSchema.Name} ({colList})\n" +
+                          $"SELECT {paramList} FROM DUAL\n" +
+                          $" WHERE NOT EXISTS (SELECT 1 FROM {tableSchema.Name} WHERE {keyPredicate})";
+                }
                 break;
             }
             default:

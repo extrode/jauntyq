@@ -108,4 +108,109 @@ public class UpsertKeyResolverTests
 
         Assert.Null(result);
     }
+
+    // ── AUD-R4-16: HasCompetingUniqueConstraint ───────────────────────────
+
+    /// <summary>
+    /// The shape that reopened AUD-R4-16, and the one that actually ships:
+    /// Conduit's <c>users</c> -- an identity-only PK plus two secondary unique
+    /// indexes. Resolve falls through to <c>email</c>, and both the PK and
+    /// <c>username</c> are then constraints MySQL's ON DUPLICATE KEY UPDATE
+    /// could match on instead.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_IdentityPkPlusTwoUniqueIndexes_IsTrue()
+    {
+        var table = Table(Col("Id", pk: true, identity: true), Col("Email"), Col("Username"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_Email", IsUnique = true, Columns = { "Email" } });
+        table.Indexes.Add(new IndexSchema { Name = "UX_Username", IsUnique = true, Columns = { "Username" } });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.Equal(new[] { "Email" }, key!.ConvertAll(c => c.Name));
+        Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+    }
+
+    /// <summary>
+    /// The single-UNIQUE case, which must stay false: it is what keeps every
+    /// existing MySQL sample's generated SQL byte-identical.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_OrdinaryPrimaryKeyAlone_IsFalse()
+    {
+        var table = Table(Col("Id", pk: true), Col("Name"));
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.False(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key!));
+    }
+
+    /// <summary>
+    /// An identity-only PK with exactly one secondary unique index still has a
+    /// competing constraint -- the PK itself. An insert supplying no identity
+    /// value cannot violate it, but one supplying an explicit id can, and
+    /// ON DUPLICATE KEY UPDATE would then match on the PK rather than the
+    /// resolved token.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_IdentityPkPlusOneUniqueIndex_IsTrue()
+    {
+        var table = Table(Col("Id", pk: true, identity: true), Col("Token"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_Token", IsUnique = true, Columns = { "Token" } });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.Equal(new[] { "Token" }, key!.ConvertAll(c => c.Name));
+        Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+    }
+
+    /// <summary>
+    /// A unique index that merely restates the primary key -- which every
+    /// engine reports, since a PK is implemented as one (Postgres
+    /// <c>users_pkey</c>, MySQL <c>PRIMARY</c>) -- is not a competing
+    /// constraint. Without set comparison this would make every table on
+    /// every dialect look ambiguous and take the two-statement path.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_UniqueIndexRestatingThePrimaryKey_IsFalse()
+    {
+        var table = Table(Col("Id", pk: true), Col("Name"));
+        table.Indexes.Add(new IndexSchema { Name = "PRIMARY", IsUnique = true, Columns = { "Id" } });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.False(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key!));
+    }
+
+    /// <summary>
+    /// Set equality is order-insensitive: <c>UNIQUE (a, b)</c> and
+    /// <c>UNIQUE (b, a)</c> reject exactly the same rows, so an index whose
+    /// columns are the key's in a different order is the same constraint, not
+    /// a competing one.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_CompositeKeyRestatedInAnotherOrder_IsFalse()
+    {
+        var table = Table(Col("A", pk: true), Col("B", pk: true), Col("Name"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_BA", IsUnique = true, Columns = { "B", "A" } });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.Equal(new[] { "A", "B" }, key!.ConvertAll(c => c.Name));
+        Assert.False(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+    }
+
+    /// <summary>
+    /// A non-unique index is not a conflict target on any engine.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_NonUniqueIndex_IsFalse()
+    {
+        var table = Table(Col("Id", pk: true), Col("City"));
+        table.Indexes.Add(new IndexSchema { Name = "IX_City", IsUnique = false, Columns = { "City" } });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.False(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key!));
+    }
 }

@@ -153,6 +153,7 @@ enum JauntyQ.Analysis.SqlIdentifierPosition
     field Column:SqlIdentifierPosition
     field Object:SqlIdentifierPosition
 class JauntyQ.Analysis.UpsertKeyResolver
+    method HasCompetingUniqueConstraint(TableSchema,List<ColumnSchema>):Boolean
     method Resolve(TableSchema):List<ColumnSchema>
 class JauntyQ.Generator.CSharpToSqlTypeMapper
     method Map(String):String
@@ -232,6 +233,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT2015:DiagnosticDescriptor
     field JNT2016:DiagnosticDescriptor
     field JNT2017:DiagnosticDescriptor
+    field JNT2018:DiagnosticDescriptor
     field JNT3001:DiagnosticDescriptor
     field JNT3002:DiagnosticDescriptor
     field JNT3003:DiagnosticDescriptor

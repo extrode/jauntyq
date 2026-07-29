@@ -255,11 +255,89 @@ public class AutoCrudTests
         Assert.Contains("INSERT INTO mail_queue (idempotency_key, payload)", pgSource);
         Assert.Contains("ON CONFLICT (idempotency_key) DO UPDATE SET payload = EXCLUDED.payload", pgSource);
 
+        // AUD-R4-16: mail_queue has an identity-only PK AND a secondary unique
+        // index, so the PK is a constraint competing with the resolved key.
+        // ON DUPLICATE KEY UPDATE names no conflict target and would let the
+        // engine match on `id` instead of `idempotency_key`; MySQL therefore
+        // takes the key-targeted form here, the same key postgres names in its
+        // ON CONFLICT above. This assertion read
+        // "ON DUPLICATE KEY UPDATE payload = VALUES(payload)" until 2026-07-30.
         var (my, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"mysql\""));
         var mySource = TryGetSource(my, "MailQueue.Upsert.auto.g.cs");
         Assert.NotNull(mySource);
+        Assert.Contains("UPDATE mail_queue SET payload = @payload WHERE idempotency_key = @idempotency_key;", mySource);
         Assert.Contains("INSERT INTO mail_queue (idempotency_key, payload)", mySource);
-        Assert.Contains("ON DUPLICATE KEY UPDATE payload = VALUES(payload)", mySource);
+        Assert.Contains("SELECT @idempotency_key, @payload FROM DUAL", mySource);
+        Assert.Contains("WHERE NOT EXISTS (SELECT 1 FROM mail_queue WHERE idempotency_key = @idempotency_key)", mySource);
+        Assert.DoesNotContain("ON DUPLICATE KEY UPDATE", mySource);
+    }
+
+    /// <summary>
+    /// AUD-R4-16's control, and the reason the fix is scoped to the competing
+    /// case: <c>customers</c> has an ordinary non-identity PK and no other
+    /// unique index, so ON DUPLICATE KEY UPDATE cannot match anything the
+    /// resolved key does not, and the emitted SQL must be byte-identical to
+    /// what shipped before. Every existing MySQL and MariaDB sample depends on
+    /// this staying true.
+    /// </summary>
+    [Fact]
+    public void Upsert_MySql_SingleUniqueConstraint_KeepsOnDuplicateKeyUpdate()
+    {
+        var (my, compilation) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"mysql\""));
+
+        var source = TryGetSource(my, "Customers.Upsert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("INSERT INTO customers (customer_id, company_name)", source);
+        Assert.Contains("ON DUPLICATE KEY UPDATE company_name = VALUES(company_name)", source);
+        Assert.DoesNotContain("NOT EXISTS", source);
+        Assert.DoesNotContain("FROM DUAL", source);
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    /// <summary>
+    /// AUD-R4-16: the key-targeted form is two statements and therefore not
+    /// atomic, so JNT2018 says so at generation time. It must fire for the
+    /// competing-constraint table and stay silent for the single-unique one --
+    /// a warning that fires everywhere is a warning nobody reads.
+    /// </summary>
+    [Fact]
+    public void Upsert_MySql_CompetingUnique_ReportsJNT2018_OnlyForThatTable()
+    {
+        var (my, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", "\"mysql\""));
+
+        var warnings = my.Diagnostics.Where(d => d.Id == "JNT2018").ToList();
+
+        // Exactly one: mail_queue. NOT seen_token, which has the same competing
+        // shape (identity-only PK plus one unique index) but gets no Upsert at
+        // all -- once the identity and key columns are dropped there is nothing
+        // left to SET, so AutoCrud's gate skips synthesis. The warning is
+        // reported where the Upsert is emitted rather than from a table scan,
+        // precisely so it cannot describe SQL that was never generated.
+        Assert.Single(warnings);
+        Assert.All(warnings, w => Assert.Equal(DiagnosticSeverity.Warning, w.Severity));
+        Assert.Contains(warnings, w => w.GetMessage().Contains("'MailQueue.Upsert'") && w.GetMessage().Contains("(idempotency_key)"));
+        Assert.DoesNotContain(warnings, w => w.GetMessage().Contains("'Customers.Upsert'"));
+        Assert.DoesNotContain(warnings, w => w.GetMessage().Contains("'SeenToken.Upsert'"));
+        Assert.Null(TryGetSource(my, "SeenToken.Upsert.auto.g.cs"));
+    }
+
+    /// <summary>
+    /// The other three dialects already name their conflict key, so none of
+    /// them changes shape and none of them warrants JNT2018.
+    /// </summary>
+    [Theory]
+    [InlineData("sqlserver")]
+    [InlineData("postgres")]
+    [InlineData("sqlite")]
+    public void Upsert_NonMySqlDialects_AreUnaffectedByKeyTargeting(string dialect)
+    {
+        var (result, _) = RunAutoCrudWithSchema(PkSchemaJson.Replace("\"sqlserver\"", $"\"{dialect}\""));
+
+        var source = TryGetSource(result, "MailQueue.Upsert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.DoesNotContain("FROM DUAL", source);
+        Assert.Empty(result.Diagnostics.Where(d => d.Id == "JNT2018"));
     }
 
     [Fact]
