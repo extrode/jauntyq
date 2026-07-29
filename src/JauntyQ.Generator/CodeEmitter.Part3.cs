@@ -352,7 +352,13 @@ public static partial class CodeEmitter
                 sb.AppendLine($"                    {varName}.ParameterName = \"@{param.Name}\" + {loopVar};");
                 sb.AppendLine($"                    {varName}.DbType = {dbTypeEnum}.String;");
             }
-            sb.AppendLine($"                    {varName}.Value = {eachEnumWire};");
+            // A nullable enum element is OrderStatus?, which ToWire cannot
+            // take: unwrap inside the null branch, as the scalar and COPY
+            // paths do. IN (NULL) never matches in SQL, but binding DBNull is
+            // still the only shape that compiles and round-trips.
+            sb.AppendLine(elementType.EndsWith("?")
+                ? $"                    {varName}.Value = {param.CSharpName}[{loopVar}] is null ? (object)DBNull.Value : {EnumWireCall(elementType, schema, $"{param.CSharpName}[{loopVar}].Value")!};"
+                : $"                    {varName}.Value = {eachEnumWire};");
             sb.AppendLine($"                    __cmd.Parameters.Add({varName});");
             sb.AppendLine("                }");
             return;

@@ -141,6 +141,11 @@ public class EnumWriteBindingTests
         Assert.Contains("OrderStatusValues.ToWire(status[", src);
     }
 
+    /// <summary>
+    /// Scoped to the each loop's own parameter variable. The bare literal
+    /// "NpgsqlDbType.Unknown;" also appears in the auto-CRUD scalar binding,
+    /// so asserting on it alone passes even if the each path never sets it.
+    /// </summary>
     [Fact]
     public void EachParameter_OnPostgres_AlsoUsesNpgsqlDbTypeUnknown()
     {
@@ -148,7 +153,49 @@ public class EnumWriteBindingTests
             ("db/Orders/ByStatuses.sql",
              "-- @each status\nselect id, status from orders where status in (@status)"));
 
-        Assert.Contains("NpgsqlDbType.Unknown;", src);
+        Assert.Matches(
+            @"ParameterName = ""@status"" \+ __ib_status \};\s*\r?\n\s*\w+\.NpgsqlDbType = NpgsqlDbType\.Unknown;",
+            src);
+    }
+
+    /// <summary>
+    /// The MySQL half of the each split. Same looseness problem: "DbType.String;"
+    /// alone is also emitted by the auto-CRUD bulk-insert prelude.
+    /// </summary>
+    [Fact]
+    public void EachParameter_OnMySql_SetsDbTypeString()
+    {
+        string src = Sources("mysql",
+            ("db/Orders/ByStatuses.sql",
+             "-- @each status\nselect id, status from orders where status in (@status)"));
+
+        Assert.Matches(
+            @"ParameterName = ""@status"" \+ __ib_status;\s*\r?\n\s*\w+\.DbType = DbType\.String;",
+            src);
+    }
+
+    /// <summary>
+    /// A nullable enum column on the right of IN. The element type is
+    /// OrderStatus?, which ToWire cannot accept: the unwrap has to happen
+    /// inside a null branch, exactly as the scalar and COPY paths do. Without
+    /// it the consumer's own compile fails with CS1503, so this is a test the
+    /// generator's string output can catch before a consumer does.
+    /// </summary>
+    [Theory]
+    [InlineData("postgres")]
+    [InlineData("mysql")]
+    public void EachParameter_OverNullableEnumColumn_UnwrapsInsideNullBranch(string dialect)
+    {
+        string src = Sources(dialect,
+            ("db/Orders/ByPriors.sql",
+             "-- @each prior_status\nselect id, status from orders where prior_status in (@prior_status)"));
+
+        Assert.Contains(
+            "prior_status[__ib_prior_status] is null ? (object)DBNull.Value : OrderStatusValues.ToWire(prior_status[__ib_prior_status].Value)",
+            src);
+        // The bare form is what does not compile.
+        Assert.DoesNotContain(
+            "OrderStatusValues.ToWire(prior_status[__ib_prior_status]);", src);
     }
 
     // ---- T12: POCO insert and bulk paths ---------------------------------
@@ -207,5 +254,13 @@ public class EnumWriteBindingTests
         Assert.DoesNotContain(".Value = status;", src);
         Assert.DoesNotContain("TypedValue = status", src);
         Assert.DoesNotContain("__importer.Write(row.Status)", src);
+        // The nullable spellings of the same four, which the non-nullable
+        // checks above do not cover -- a site that forgot ToWire on a nullable
+        // enum emits the ordinary reference-type coalesce instead.
+        Assert.DoesNotContain(".Value = (object?)row.PriorStatus ?? DBNull.Value;", src);
+        Assert.DoesNotContain(".Value = (object?)prior_status ?? DBNull.Value;", src);
+        Assert.DoesNotContain("__importer.Write(row.PriorStatus.Value)", src);
+        Assert.DoesNotContain("return _current.Status;", src);
+        Assert.DoesNotContain("return _current.PriorStatus;", src);
     }
 }
