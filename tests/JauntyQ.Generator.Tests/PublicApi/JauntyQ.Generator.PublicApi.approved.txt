@@ -229,6 +229,8 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT2013:DiagnosticDescriptor
     field JNT2014:DiagnosticDescriptor
     field JNT2015:DiagnosticDescriptor
+    field JNT2016:DiagnosticDescriptor
+    field JNT2017:DiagnosticDescriptor
     field JNT3001:DiagnosticDescriptor
     field JNT3002:DiagnosticDescriptor
     field JNT3003:DiagnosticDescriptor

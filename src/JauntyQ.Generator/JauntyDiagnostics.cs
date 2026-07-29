@@ -251,6 +251,32 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // Spec 013: sibling of JNT2011/JNT2013 for a captured database enum. Two
+    // individually-legal member values can fold to one C# identifier
+    // ("in progress" and "in-progress" both -> InProgress; "" and "-" both ->
+    // "_"), which would emit a duplicate enum member (CS0102) and a duplicate
+    // switch case in the generated Parse.
+    public static readonly DiagnosticDescriptor JNT2016 = new(
+        "JNT2016",
+        "Duplicate Enum Member Name",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Error,
+        true);
+
+    // Spec 013: an enum contributes three names to the generated namespace --
+    // the enum itself, its {EnumName}Values companion, and (once, for the
+    // assembly) JauntyQEnumValueException. Any of them can collide with a row
+    // type, an entity accessor or another enum. Silently renaming is the
+    // anti-pattern JNT2015 was created to end, so report instead.
+    public static readonly DiagnosticDescriptor JNT2017 = new(
+        "JNT2017",
+        "Enum Type Name Collision",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(
