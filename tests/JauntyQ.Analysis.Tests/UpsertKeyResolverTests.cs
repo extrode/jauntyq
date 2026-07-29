@@ -213,4 +213,79 @@ public class UpsertKeyResolverTests
 
         Assert.False(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key!));
     }
+
+    /// <summary>
+    /// The independent review of AUD-R4-16 found the secondary-index branch
+    /// unreachable by test: every case asserting true above has a primary key
+    /// that differs from the resolved key, so it returns on the PK check and
+    /// the <c>Indexes</c> loop never runs. This is the shape that reaches it --
+    /// an ordinary (non-identity) PK which IS the resolved key, so the PK check
+    /// passes, plus a secondary UNIQUE that competes. An inverted condition in
+    /// that loop would previously have gone unnoticed while silently emitting
+    /// untargeted ON DUPLICATE KEY UPDATE.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_OrdinaryPkIsTheKey_PlusSecondaryUnique_IsTrue()
+    {
+        var table = Table(Col("Id", pk: true), Col("Email"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_Email", IsUnique = true, Columns = { "Email" } });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.Equal(new[] { "Id" }, key!.ConvertAll(c => c.Name));
+        Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+    }
+
+    /// <summary>
+    /// A UNIQUE over a strict SUPERSET of the key cannot fire independently:
+    /// a row duplicating both <c>Id</c> and <c>Tenant</c> already duplicates
+    /// <c>Id</c>, so ON DUPLICATE KEY UPDATE has nothing ambiguous to match on.
+    /// Comparing by set equality called this competing and cost the table its
+    /// atomic form for nothing.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_UniqueIndexOverSupersetOfKey_IsFalse()
+    {
+        var table = Table(Col("Id", pk: true), Col("Tenant"), Col("Name"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_Id_Tenant", IsUnique = true, Columns = { "Id", "Tenant" } });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.Equal(new[] { "Id" }, key!.ConvertAll(c => c.Name));
+        Assert.False(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+    }
+
+    /// <summary>
+    /// The opposite direction, and the reason the superset rule is not simply
+    /// "ignore anything overlapping the key": a UNIQUE over a strict SUBSET is
+    /// stricter than the key and rejects rows the key permits, so it is
+    /// genuinely competing.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_UniqueIndexOverSubsetOfKey_IsTrue()
+    {
+        var table = Table(Col("A", pk: true), Col("B", pk: true), Col("Name"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_A", IsUnique = true, Columns = { "A" } });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.Equal(new[] { "A", "B" }, key!.ConvertAll(c => c.Name));
+        Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+    }
+
+    /// <summary>
+    /// The superset rule applies to the primary key too, on the same reasoning.
+    /// The key is passed directly rather than via <see
+    /// cref="UpsertKeyResolver.Resolve"/>, which would choose the PK itself for
+    /// this table and never produce the combination under test.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_PrimaryKeyOverSupersetOfKey_IsFalse()
+    {
+        var table = Table(Col("Email", pk: true), Col("Tenant", pk: true));
+
+        var key = new List<ColumnSchema> { table.Columns["Email"] };
+
+        Assert.False(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+    }
 }

@@ -69,6 +69,51 @@ public class AutoCrudTests
   ]
 }";
 
+    /// <summary>
+    /// Two AUD-R4-16 shapes the shared <see cref="PkSchemaJson"/> does not
+    /// contain, kept separate so adding them cannot perturb the entity and
+    /// diagnostic counts every other test in this file asserts against.
+    /// <para>
+    /// <c>tenants</c> has an ordinary non-identity PK -- so the resolved key IS
+    /// the primary key -- plus a competing secondary UNIQUE. That combination
+    /// is the only one that reaches <c>HasCompetingUniqueConstraint</c>'s index
+    /// loop; every table in PkSchemaJson returns on the PK check first.
+    /// </para>
+    /// <para>
+    /// <c>regions</c> carries a UNIQUE over a strict superset of its key, which
+    /// cannot be violated without the PK being violated by the same row and so
+    /// is not competing at all.
+    /// </para>
+    /// </summary>
+    private const string CompetingSchemaJson = @"{
+  ""dialect"": ""mysql"",
+  ""tables"": {
+    ""tenants"": {
+      ""name"": ""tenants"",
+      ""columns"": {
+        ""tenant_id"": { ""name"": ""tenant_id"", ""dbType"": ""varchar"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""slug"": { ""name"": ""slug"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""display_name"": { ""name"": ""display_name"", ""dbType"": ""varchar"", ""isNullable"": false }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_tenants_slug"", ""columns"": [""slug""], ""isUnique"": true }
+      ]
+    },
+    ""regions"": {
+      ""name"": ""regions"",
+      ""columns"": {
+        ""region_id"": { ""name"": ""region_id"", ""dbType"": ""varchar"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""country"": { ""name"": ""country"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""label"": { ""name"": ""label"", ""dbType"": ""varchar"", ""isNullable"": false }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_regions_id_country"", ""columns"": [""region_id"", ""country""], ""isUnique"": true }
+      ]
+    }
+  },
+  ""foreignKeys"": []
+}";
+
     private static (GeneratorDriverRunResult result, Compilation compilation) RunAutoCrud(
         bool autoCrud = true, params (string path, string sql)[] sqlFiles)
         => RunAutoCrudWithSchema(PkSchemaJson, autoCrud, sqlFiles);
@@ -320,6 +365,73 @@ public class AutoCrudTests
         Assert.DoesNotContain(warnings, w => w.GetMessage().Contains("'Customers.Upsert'"));
         Assert.DoesNotContain(warnings, w => w.GetMessage().Contains("'SeenToken.Upsert'"));
         Assert.Null(TryGetSource(my, "SeenToken.Upsert.auto.g.cs"));
+    }
+
+    /// <summary>
+    /// The secondary-index branch, end to end. Reported by the independent
+    /// review of AUD-R4-16 as emitter-untested: the only generator test taking
+    /// the key-targeted path was mail_queue, whose identity-only PK differs
+    /// from the resolved key and so short-circuits on the PK check before the
+    /// index loop runs. tenants reaches the loop.
+    /// </summary>
+    [Fact]
+    public void Upsert_MySql_OrdinaryPkPlusSecondaryUnique_UsesKeyTargetedForm()
+    {
+        var (my, compilation) = RunAutoCrudWithSchema(CompetingSchemaJson);
+
+        var source = TryGetSource(my, "Tenants.Upsert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("UPDATE tenants SET slug = @slug, display_name = @display_name WHERE tenant_id = @tenant_id;", source);
+        Assert.Contains("SELECT @tenant_id, @slug, @display_name FROM DUAL", source);
+        Assert.Contains("WHERE NOT EXISTS (SELECT 1 FROM tenants WHERE tenant_id = @tenant_id)", source);
+        Assert.DoesNotContain("ON DUPLICATE KEY UPDATE", source);
+
+        Assert.Contains(my.Diagnostics, d => d.Id == "JNT2018" && d.GetMessage().Contains("'Tenants.Upsert'"));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    /// <summary>
+    /// A UNIQUE over a strict superset of the key is redundant, not competing:
+    /// a row duplicating (region_id, country) already duplicates region_id, so
+    /// ON DUPLICATE KEY UPDATE has nothing ambiguous to match on and the atomic
+    /// form is kept. Set-equality comparison called this competing and cost the
+    /// table its atomicity for nothing.
+    /// </summary>
+    [Fact]
+    public void Upsert_MySql_UniqueOverSupersetOfKey_KeepsOnDuplicateKeyUpdate()
+    {
+        var (my, compilation) = RunAutoCrudWithSchema(CompetingSchemaJson);
+
+        var source = TryGetSource(my, "Regions.Upsert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("ON DUPLICATE KEY UPDATE country = VALUES(country), label = VALUES(label)", source);
+        Assert.DoesNotContain("NOT EXISTS", source);
+        Assert.DoesNotContain("FROM DUAL", source);
+
+        Assert.DoesNotContain(my.Diagnostics, d => d.Id == "JNT2018" && d.GetMessage().Contains("'Regions.Upsert'"));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    /// <summary>
+    /// JNT2018's remedy text, pinned. The independent review of AUD-R4-16
+    /// found the original advice -- "call it inside a transaction" -- actively
+    /// wrong: InnoDB gap locks turn the 1062 race into a 1213 deadlock rather
+    /// than preventing it, and a third interleaving loses the write silently.
+    /// A diagnostic that names a hazard and then prescribes a non-remedy is
+    /// worse than one that stays quiet, so the wording is asserted.
+    /// </summary>
+    [Fact]
+    public void Jnt2018_NamesAllThreeRaces_AndDoesNotPrescribeATransaction()
+    {
+        var (my, _) = RunAutoCrudWithSchema(CompetingSchemaJson);
+
+        var message = Assert.Single(my.Diagnostics.Where(d => d.Id == "JNT2018")).GetMessage();
+
+        Assert.Contains("1062", message);
+        Assert.Contains("1213", message);
+        Assert.Contains("silently write nothing", message);
+        Assert.Contains("wrapping them in a transaction does not make them so", message);
+        Assert.DoesNotContain("uses the ambient one", message);
     }
 
     /// <summary>
