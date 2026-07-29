@@ -237,14 +237,20 @@ public class UpsertKeyResolverTests
     }
 
     /// <summary>
-    /// A UNIQUE over a strict SUPERSET of the key cannot fire independently:
-    /// a row duplicating both <c>Id</c> and <c>Tenant</c> already duplicates
-    /// <c>Id</c>, so ON DUPLICATE KEY UPDATE has nothing ambiguous to match on.
-    /// Comparing by set equality called this competing and cost the table its
-    /// atomic form for nothing.
+    /// A UNIQUE over a strict SUPERSET of the key is treated as competing, and
+    /// this asserts the conservative choice rather than an ideal one. A
+    /// full-column <c>UNIQUE (Id, Tenant)</c> genuinely cannot fire
+    /// independently of a key of <c>(Id)</c>, and this briefly shipped as a
+    /// superset test on that reasoning. It is unsound on MySQL: a prefix key
+    /// part, <c>UNIQUE (Id(3), Tenant)</c>, fires on rows sharing only the
+    /// first three characters of <c>Id</c>, and <c>MySqlExtractor</c> does not
+    /// read <c>SUB_PART</c>, so it reaches this method looking exactly like the
+    /// full-column form. Dismissing it restored the AUD-R4-16 defect it was
+    /// meant to fix. The false positive pinned here — a redundant warning and a
+    /// lost atomic form — is the safe direction of the trade.
     /// </summary>
     [Fact]
-    public void HasCompeting_UniqueIndexOverSupersetOfKey_IsFalse()
+    public void HasCompeting_UniqueIndexOverSupersetOfKey_IsTrue_Conservatively()
     {
         var table = Table(Col("Id", pk: true), Col("Tenant"), Col("Name"));
         table.Indexes.Add(new IndexSchema { Name = "UX_Id_Tenant", IsUnique = true, Columns = { "Id", "Tenant" } });
@@ -252,7 +258,7 @@ public class UpsertKeyResolverTests
         var key = UpsertKeyResolver.Resolve(table);
 
         Assert.Equal(new[] { "Id" }, key!.ConvertAll(c => c.Name));
-        Assert.False(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+        Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
     }
 
     /// <summary>
@@ -274,18 +280,19 @@ public class UpsertKeyResolverTests
     }
 
     /// <summary>
-    /// The superset rule applies to the primary key too, on the same reasoning.
-    /// The key is passed directly rather than via <see
+    /// The same conservative treatment applies to a primary key covering a
+    /// superset of the resolved key — MySQL permits prefix key parts in a
+    /// PRIMARY KEY too. The key is passed directly rather than via <see
     /// cref="UpsertKeyResolver.Resolve"/>, which would choose the PK itself for
     /// this table and never produce the combination under test.
     /// </summary>
     [Fact]
-    public void HasCompeting_PrimaryKeyOverSupersetOfKey_IsFalse()
+    public void HasCompeting_PrimaryKeyOverSupersetOfKey_IsTrue_Conservatively()
     {
         var table = Table(Col("Email", pk: true), Col("Tenant", pk: true));
 
         var key = new List<ColumnSchema> { table.Columns["Email"] };
 
-        Assert.False(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+        Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
     }
 }

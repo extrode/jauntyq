@@ -137,29 +137,37 @@ public static class UpsertKeyResolver
     }
 
     /// <summary>
-    /// True when <paramref name="constraintCols"/> contains every column in
-    /// <paramref name="keyNames"/> — i.e. the constraint cannot be violated
-    /// without the key's own constraint being violated by the same row, so it
-    /// is not a competing conflict target.
+    /// Set equality, order-insensitive and OrdinalIgnoreCase — matching
+    /// <see cref="Resolve"/>'s own column lookup, since a UNIQUE constraint's
+    /// column order is not part of its identity for conflict-matching purposes
+    /// (<c>UNIQUE (a, b)</c> and <c>UNIQUE (b, a)</c> reject the same rows).
     /// <para>
-    /// Superset, not equality. A <c>UNIQUE (id, tenant_id)</c> alongside a key
-    /// of <c>(id)</c> — the usual reason being a composite FK that needs
-    /// something to reference — can only reject a row that duplicates both
-    /// columns, and such a row already duplicates <c>id</c>. Treating it as
-    /// competing cost the table its atomic <c>ON DUPLICATE KEY UPDATE</c> and
-    /// raised a JNT2018 telling the caller to drop a constraint they need.
-    /// A strict <em>subset</em> is the opposite case and is genuinely
-    /// competing: it rejects rows the key permits.
+    /// <b>Equality and not superset, deliberately.</b> A UNIQUE over a strict
+    /// superset of the key is redundant *if* it enforces uniqueness over the
+    /// full values of its columns: a row duplicating <c>(id, tenant_id)</c>
+    /// already duplicates <c>id</c>. This briefly shipped as a superset test,
+    /// and it is unsound on MySQL. A prefix key part — <c>UNIQUE (id(3),
+    /// tenant)</c> — fires when two rows share only the first three characters
+    /// of <c>id</c>, entirely independently of a key of <c>(id)</c>. And
+    /// <c>MySqlExtractor</c>'s index query (<c>MySqlExtractor.cs:177</c>)
+    /// selects <c>COLUMN_NAME</c> without <c>SUB_PART</c>, so such an index
+    /// arrives here indistinguishable from a full-column one. Dismissing it as
+    /// redundant emits the atomic <c>ON DUPLICATE KEY UPDATE</c> with no
+    /// JNT2018 and restores the exact AUD-R4-16 defect.
     /// </para>
     /// <para>
-    /// Order-insensitive and OrdinalIgnoreCase, matching <see cref="Resolve"/>'s
-    /// own column lookup — a UNIQUE constraint's column order is not part of
-    /// its identity for conflict matching (<c>UNIQUE (a, b)</c> and
-    /// <c>UNIQUE (b, a)</c> reject the same rows).
+    /// So equality is the conservative choice, and the cost is a known false
+    /// positive: a genuine full-column superset UNIQUE loses its atomic form
+    /// and raises a JNT2018 it does not need. The real fix is to capture
+    /// <c>SUB_PART</c> in the extractor and represent prefix key parts, at
+    /// which point the superset rule becomes safe — see <c>the todo list</c>.
     /// </para>
     /// </summary>
     private static bool CoversKey(List<string> constraintCols, List<string> keyNames)
     {
+        if (constraintCols.Count != keyNames.Count)
+            return false;
+
         foreach (var key in keyNames)
         {
             bool found = false;

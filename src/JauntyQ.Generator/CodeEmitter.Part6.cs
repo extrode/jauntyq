@@ -160,8 +160,11 @@ public static partial class CodeEmitter
                 //        throws, and ExecuteNonQuery returns 0 -- the only
                 //        one of the three that fails silently.
                 // JNT2018 states all three and tells the caller to retry on
-                // 1062/1213, treat 0 as a lost write, or drop the competing
-                // UNIQUE so the atomic form is emitted instead.
+                // 1062/1213 or drop the competing UNIQUE. It does NOT tell them
+                // to treat 0 as a lost write: MySqlUpsertProbeTests measured an
+                // unchanged re-run returning 0 under UseAffectedRows=true, so 0
+                // is ambiguous and alarming on it would fire on every
+                // idempotent re-run.
                 {
                     string setClause = JoinColumns(setCols, ", ", c => $"{c.Name} = @{c.Name}");
                     string keyPredicate = JoinColumns(keyCols, " AND ", c => $"{c.Name} = @{c.Name}");
