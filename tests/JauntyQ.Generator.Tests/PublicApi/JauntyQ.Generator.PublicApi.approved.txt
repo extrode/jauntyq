@@ -337,6 +337,7 @@ class JauntyQ.Schema.ForeignKeySchema
 class JauntyQ.Schema.IndexSchema
     ctor .ctor()
     prop Columns:List<String>
+    prop HasExpressionKeyPart:Boolean
     prop HasPrefixKeyPart:Boolean
     prop IsUnique:Boolean
     prop Name:String

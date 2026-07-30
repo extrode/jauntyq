@@ -95,6 +95,15 @@ public static class UpsertKeyResolver
             if (!index.IsUnique || index.Columns.Count == 0)
                 continue;
 
+            // A flagged index's Columns is only the real-column SUBSET of its
+            // key -- UNIQUE (customer_id, lower(email)) arrives as
+            // [customer_id], and customer_id alone is not unique. Never a key
+            // candidate. Silent, deliberately: pre-2026-07-30 such an index
+            // was absent from the snapshot entirely, so no-Upsert-no-
+            // diagnostic is the reading these tables already had.
+            if (index.HasExpressionKeyPart)
+                continue;
+
             var keyCols = new List<ColumnSchema>();
             bool allResolved = true;
             foreach (var colName in index.Columns)
@@ -149,6 +158,11 @@ public static class UpsertKeyResolver
         foreach (var index in tableSchema.Indexes)
         {
             if (!index.IsUnique || index.Columns.Count == 0 || !CoversKey(index.Columns, keyNames))
+                continue;
+            // An expression index's Columns is only the real-column subset of
+            // its key: UNIQUE (id, lower(x)) arriving as [id] set-equal to the
+            // PK proves nothing about full-column enforcement of the PK.
+            if (index.HasExpressionKeyPart)
                 continue;
             if (!index.HasPrefixKeyPart)
                 return null;
@@ -210,7 +224,20 @@ public static class UpsertKeyResolver
 
         foreach (var index in tableSchema.Indexes)
         {
-            if (!index.IsUnique || index.Columns.Count == 0)
+            if (!index.IsUnique)
+                continue;
+
+            // A UNIQUE with an expression key part always competes: it is
+            // never the key (Resolve skips it) and it constrains rows through
+            // an expression the key's columns say nothing about, so the
+            // engine can match a row the key would not. Checked before the
+            // empty-Columns guard below -- an ALL-expression unique index
+            // (UNIQUE (lower(email))) arrives with no columns at all and
+            // must not slip through it.
+            if (index.HasExpressionKeyPart)
+                return true;
+
+            if (index.Columns.Count == 0)
                 continue;
 
             // The key itself, or a full-column restatement of it in another

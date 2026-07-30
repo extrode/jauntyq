@@ -44,4 +44,22 @@ public class IndexSchema
     /// </summary>
     [JsonPropertyName("hasPrefixKeyPart")]
     public bool HasPrefixKeyPart { get; set; }
+
+    /// <summary>
+    /// True when any key part is an expression rather than a plain column —
+    /// MySQL <c>(lower(email))</c>, Postgres/SQLite <c>lower(email)</c>. The
+    /// model cannot carry the expression itself, so for a flagged index
+    /// <see cref="Columns"/> holds only the REAL-COLUMN SUBSET of the key, in
+    /// relative order, possibly empty for an all-expression index. That list
+    /// must never be read as the full key: no seekability, coverage or
+    /// uniqueness conclusion may be drawn from it (<c>UNIQUE (customer_id,
+    /// lower(email))</c> does not make <c>customer_id</c> unique). What a
+    /// flagged UNIQUE index does prove is that a competing unique constraint
+    /// exists — the reason such indexes are represented at all rather than
+    /// excluded as they were before 2026-07-30. False for snapshots that
+    /// predate the capture, which simply omitted these indexes — the same
+    /// reading they already got.
+    /// </summary>
+    [JsonPropertyName("hasExpressionKeyPart")]
+    public bool HasExpressionKeyPart { get; set; }
 }
