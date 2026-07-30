@@ -237,23 +237,46 @@ public class UpsertKeyResolverTests
     }
 
     /// <summary>
-    /// A UNIQUE over a strict SUPERSET of the key is treated as competing, and
-    /// this asserts the conservative choice rather than an ideal one. A
-    /// full-column <c>UNIQUE (Id, Tenant)</c> genuinely cannot fire
-    /// independently of a key of <c>(Id)</c>, and this briefly shipped as a
-    /// superset test on that reasoning. It is unsound on MySQL: a prefix key
-    /// part, <c>UNIQUE (Id(3), Tenant)</c>, fires on rows sharing only the
-    /// first three characters of <c>Id</c>, and <c>MySqlExtractor</c> does not
-    /// read <c>SUB_PART</c>, so it reaches this method looking exactly like the
-    /// full-column form. Dismissing it restored the AUD-R4-16 defect it was
-    /// meant to fix. The false positive pinned here — a redundant warning and a
-    /// lost atomic form — is the safe direction of the trade.
+    /// A full-column UNIQUE over a strict SUPERSET of the key is not competing:
+    /// violating <c>UNIQUE (Id, Tenant)</c> requires duplicating <c>Id</c>, and
+    /// with <c>Id</c> unique the row it matches is the key's own match — the
+    /// engine cannot diverge through it. This relaxation shipped ungated once,
+    /// was reverted because a prefix index (<c>UNIQUE (Id(3), Tenant)</c>)
+    /// arrived looking identical, and returned once <c>MySqlExtractor</c>
+    /// started capturing <c>SUB_PART</c> as <c>HasPrefixKeyPart</c>. The
+    /// flagged shape is pinned separately below.
     /// </summary>
     [Fact]
-    public void HasCompeting_UniqueIndexOverSupersetOfKey_IsTrue_Conservatively()
+    public void HasCompeting_FullColumnUniqueIndexOverSupersetOfKey_IsFalse()
     {
         var table = Table(Col("Id", pk: true), Col("Tenant"), Col("Name"));
         table.Indexes.Add(new IndexSchema { Name = "UX_Id_Tenant", IsUnique = true, Columns = { "Id", "Tenant" } });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.Equal(new[] { "Id" }, key!.ConvertAll(c => c.Name));
+        Assert.False(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+    }
+
+    /// <summary>
+    /// The same superset with a prefix key part IS competing — the exact shape
+    /// that got the ungated relaxation reverted. <c>UNIQUE (Id(3), Tenant)</c>
+    /// fires on rows sharing only the first three characters of <c>Id</c>,
+    /// entirely independently of a key of <c>(Id)</c>, so MySQL's untargeted
+    /// ON DUPLICATE KEY UPDATE can match a row the key would not. The
+    /// relaxation must stay gated on <c>HasPrefixKeyPart</c>.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_PrefixUniqueIndexOverSupersetOfKey_IsTrue()
+    {
+        var table = Table(Col("Id", pk: true), Col("Tenant"), Col("Name"));
+        table.Indexes.Add(new IndexSchema
+        {
+            Name = "UX_Id_Tenant",
+            IsUnique = true,
+            Columns = { "Id", "Tenant" },
+            HasPrefixKeyPart = true
+        });
 
         var key = UpsertKeyResolver.Resolve(table);
 
