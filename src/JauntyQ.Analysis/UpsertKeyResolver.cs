@@ -129,8 +129,28 @@ public static class UpsertKeyResolver
         {
             if (!index.IsUnique || index.Columns.Count == 0)
                 continue;
-            if (!CoversKey(index.Columns, keyNames))
-                return true;
+
+            // The key itself, or a restatement of it in another order: not a
+            // competitor. Kept even for HasPrefixKeyPart -- when the prefix
+            // index IS the only unique over the key's columns, the engine has
+            // nothing else to match on, so there is no ambiguity for JNT2018 to
+            // name (the prefix-vs-full-value mismatch is a different defect,
+            // recorded in the todo list).
+            if (CoversKey(index.Columns, keyNames))
+                continue;
+
+            // A full-column UNIQUE over a strict SUPERSET of the key cannot
+            // fire independently of it: violating (id, tenant) requires
+            // duplicating id, and if id is the unique key the matched row is
+            // the key's own match. A prefix superset can -- UNIQUE (id(3),
+            // tenant) fires on rows sharing only three characters of id --
+            // which is why this relaxation is gated on the extractor-captured
+            // flag rather than assumed, and why it briefly shipped ungated and
+            // was reverted (see CoversKey's history note).
+            if (!index.HasPrefixKeyPart && ContainsAllKeyColumns(index.Columns, keyNames))
+                continue;
+
+            return true;
         }
 
         return false;
@@ -142,32 +162,36 @@ public static class UpsertKeyResolver
     /// column order is not part of its identity for conflict-matching purposes
     /// (<c>UNIQUE (a, b)</c> and <c>UNIQUE (b, a)</c> reject the same rows).
     /// <para>
-    /// <b>Equality and not superset, deliberately.</b> A UNIQUE over a strict
-    /// superset of the key is redundant *if* it enforces uniqueness over the
-    /// full values of its columns: a row duplicating <c>(id, tenant_id)</c>
-    /// already duplicates <c>id</c>. This briefly shipped as a superset test,
-    /// and it is unsound on MySQL. A prefix key part — <c>UNIQUE (id(3),
-    /// tenant)</c> — fires when two rows share only the first three characters
-    /// of <c>id</c>, entirely independently of a key of <c>(id)</c>. And
-    /// <c>MySqlExtractor</c>'s index query (<c>MySqlExtractor.cs:177</c>)
-    /// selects <c>COLUMN_NAME</c> without <c>SUB_PART</c>, so such an index
-    /// arrives here indistinguishable from a full-column one. Dismissing it as
-    /// redundant emits the atomic <c>ON DUPLICATE KEY UPDATE</c> with no
-    /// JNT2018 and restores the exact AUD-R4-16 defect.
-    /// </para>
-    /// <para>
-    /// So equality is the conservative choice, and the cost is a known false
-    /// positive: a genuine full-column superset UNIQUE loses its atomic form
-    /// and raises a JNT2018 it does not need. The real fix is to capture
-    /// <c>SUB_PART</c> in the extractor and represent prefix key parts, at
-    /// which point the superset rule becomes safe — see <c>the todo list</c>.
+    /// <b>History.</b> The caller's superset relaxation briefly shipped
+    /// UNGATED as part of this method and was reverted the same day
+    /// (2026-07-30): with <c>SUB_PART</c> uncaptured, a prefix UNIQUE —
+    /// <c>UNIQUE (id(3), tenant)</c>, which fires on rows sharing only the
+    /// first three characters of <c>id</c>, independently of a key of
+    /// <c>(id)</c> — arrived here indistinguishable from the full-column form
+    /// and was dismissed as redundant, restoring the exact AUD-R4-16 defect.
+    /// <c>MySqlExtractor</c> now captures <c>SUB_PART</c> as
+    /// <c>IndexSchema.HasPrefixKeyPart</c>, and the relaxation lives in
+    /// <see cref="HasCompetingUniqueConstraint"/> gated on that flag. The
+    /// primary-key check keeps plain equality: pk names are column-level flags
+    /// with no prefix information, and a schema that never went through the
+    /// extractor (migration simulation) has no <c>PRIMARY</c> index entry to
+    /// carry the flag for it.
     /// </para>
     /// </summary>
     private static bool CoversKey(List<string> constraintCols, List<string> keyNames)
     {
-        if (constraintCols.Count != keyNames.Count)
-            return false;
+        return constraintCols.Count == keyNames.Count
+            && ContainsAllKeyColumns(constraintCols, keyNames);
+    }
 
+    /// <summary>
+    /// True when every key column appears among <paramref name="constraintCols"/>
+    /// (OrdinalIgnoreCase) — i.e. the constraint's columns are a (non-strict)
+    /// superset of the key's. Column names are unique within an index, so no
+    /// multiplicity handling is needed.
+    /// </summary>
+    private static bool ContainsAllKeyColumns(List<string> constraintCols, List<string> keyNames)
+    {
         foreach (var key in keyNames)
         {
             bool found = false;

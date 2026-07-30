@@ -335,6 +335,7 @@ class JauntyQ.Schema.ForeignKeySchema
 class JauntyQ.Schema.IndexSchema
     ctor .ctor()
     prop Columns:List<String>
+    prop HasPrefixKeyPart:Boolean
     prop IsUnique:Boolean
     prop Name:String
 class JauntyQ.Schema.ProcedureParam

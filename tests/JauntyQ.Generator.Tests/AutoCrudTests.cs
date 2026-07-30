@@ -114,6 +114,31 @@ public class AutoCrudTests
   ""foreignKeys"": []
 }";
 
+    /// <summary>
+    /// CompetingSchemaJson's <c>regions</c> with one difference: the superset
+    /// UNIQUE carries <c>hasPrefixKeyPart</c>, as MySqlExtractor now emits for
+    /// <c>UNIQUE (region_id(3), country)</c>. Such an index enforces uniqueness
+    /// over a prefix, so it CAN fire independently of the key and must not be
+    /// dismissed as a redundant superset.
+    /// </summary>
+    private const string PrefixSupersetSchemaJson = @"{
+  ""dialect"": ""mysql"",
+  ""tables"": {
+    ""regions"": {
+      ""name"": ""regions"",
+      ""columns"": {
+        ""region_id"": { ""name"": ""region_id"", ""dbType"": ""varchar"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""country"": { ""name"": ""country"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""label"": { ""name"": ""label"", ""dbType"": ""varchar"", ""isNullable"": false }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_regions_id_country"", ""columns"": [""region_id"", ""country""], ""isUnique"": true, ""hasPrefixKeyPart"": true }
+      ]
+    }
+  },
+  ""foreignKeys"": []
+}";
+
     private static (GeneratorDriverRunResult result, Compilation compilation) RunAutoCrud(
         bool autoCrud = true, params (string path, string sql)[] sqlFiles)
         => RunAutoCrudWithSchema(PkSchemaJson, autoCrud, sqlFiles);
@@ -391,17 +416,40 @@ public class AutoCrudTests
     }
 
     /// <summary>
-    /// A UNIQUE over a strict superset of the key takes the key-targeted form
-    /// as well, and this pins the conservative choice end to end. Treating a
-    /// superset as redundant is only sound for full-column indexes; MySQL
-    /// prefix key parts break it and the extractor cannot currently tell the
-    /// two apart, so `regions` gets the safe form and a JNT2018 it does not
-    /// strictly need. See UpsertKeyResolver.CoversKey.
+    /// A full-column UNIQUE over a strict superset of the key keeps the atomic
+    /// ON DUPLICATE KEY UPDATE and raises no JNT2018: violating
+    /// <c>(region_id, country)</c> requires duplicating <c>region_id</c>, so
+    /// the engine cannot match a row the key would not. This is the superset
+    /// relaxation that shipped ungated, was reverted the same day because a
+    /// prefix index arrived indistinguishable, and returned once
+    /// <c>MySqlExtractor</c> captured <c>SUB_PART</c> as
+    /// <c>HasPrefixKeyPart</c>. The flagged sibling below pins the other arm.
     /// </summary>
     [Fact]
-    public void Upsert_MySql_UniqueOverSupersetOfKey_TakesKeyTargetedForm_Conservatively()
+    public void Upsert_MySql_FullColumnUniqueOverSupersetOfKey_KeepsAtomicForm()
     {
         var (my, compilation) = RunAutoCrudWithSchema(CompetingSchemaJson);
+
+        var source = TryGetSource(my, "Regions.Upsert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("ON DUPLICATE KEY UPDATE", source);
+        Assert.DoesNotContain("WHERE NOT EXISTS", source);
+
+        Assert.DoesNotContain(my.Diagnostics, d => d.Id == "JNT2018" && d.GetMessage().Contains("'Regions.Upsert'"));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    /// <summary>
+    /// The same superset shape with <c>hasPrefixKeyPart</c> set takes the
+    /// key-targeted form and raises JNT2018 -- <c>UNIQUE (region_id(3),
+    /// country)</c> fires on rows sharing only a prefix of <c>region_id</c>,
+    /// entirely independently of the key, which is the exact case that got the
+    /// ungated relaxation reverted. If the gate is ever dropped this fails.
+    /// </summary>
+    [Fact]
+    public void Upsert_MySql_PrefixUniqueOverSupersetOfKey_TakesKeyTargetedForm()
+    {
+        var (my, compilation) = RunAutoCrudWithSchema(PrefixSupersetSchemaJson);
 
         var source = TryGetSource(my, "Regions.Upsert.auto.g.cs");
         Assert.NotNull(source);
