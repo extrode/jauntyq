@@ -24,40 +24,43 @@ public sealed class AdventureWorksLiteSqlServerFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        MsSqlContainer container;
         try
         {
-            MsSqlContainer container = new MsSqlBuilder().Build();
+            container = new MsSqlBuilder().Build();
             _container = container;
             await container.StartAsync();
-            ConnectionString = container.GetConnectionString();
-
-            string script = await File.ReadAllTextAsync(
-                Path.Combine(AppContext.BaseDirectory, "schema.mssql.sql"));
-
-            await using (var seed = new SqlConnection(ConnectionString))
-            {
-                await seed.OpenAsync();
-                foreach (var batch in SplitBatches(script))
-                {
-                    if (string.IsNullOrWhiteSpace(batch))
-                        continue;
-                    await using var cmd = seed.CreateCommand();
-                    cmd.CommandText = batch;
-                    cmd.CommandTimeout = 300;
-                    await cmd.ExecuteNonQueryAsync();
-                }
-            }
-
-            _conn = new SqlConnection(ConnectionString);
-            await _conn.OpenAsync();
-            Db = new JauntyDb(_conn);
-            Available = true;
         }
         catch (Exception ex)
         {
             Available = false;
             SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            return;
         }
+
+        ConnectionString = container.GetConnectionString();
+
+        string script = await File.ReadAllTextAsync(
+            Path.Combine(AppContext.BaseDirectory, "schema.mssql.sql"));
+
+        await using (var seed = new SqlConnection(ConnectionString))
+        {
+            await seed.OpenAsync();
+            foreach (var batch in SplitBatches(script))
+            {
+                if (string.IsNullOrWhiteSpace(batch))
+                    continue;
+                await using var cmd = seed.CreateCommand();
+                cmd.CommandText = batch;
+                cmd.CommandTimeout = 300;
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        _conn = new SqlConnection(ConnectionString);
+        await _conn.OpenAsync();
+        Db = new JauntyDb(_conn);
+        Available = true;
     }
 
     // schema.mssql.sql separates batches with a bare "GO"; CREATE SCHEMA and

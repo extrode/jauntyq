@@ -48,34 +48,37 @@ public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyn
 
     public async Task InitializeAsync()
     {
+        MariaDbContainer container;
         try
         {
-            MariaDbContainer container = new MariaDbBuilder().WithImage("mariadb:11").Build();
+            container = new MariaDbBuilder().WithImage("mariadb:11").Build();
             _container = container;
             await container.StartAsync();
-            ConnectionString = container.GetConnectionString();
-
-            // schema.mariadb.ddl.sql is a DDL-only copy of schema.mariadb.sql (no seed rows):
-            // HTTP tests create every user/article through the API itself, and would
-            // otherwise collide with schema.mariadb.sql's seeded usernames/emails
-            // (jane/bob/carol/dave etc.) meant for ConduitMariaDbFixture's direct-repository tests.
-            string ddl = await File.ReadAllTextAsync(
-                Path.Combine(AppContext.BaseDirectory, "schema.mariadb.ddl.sql"));
-
-            await using var conn = new MySqlConnection(ConnectionString);
-            await conn.OpenAsync();
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = ddl;
-            cmd.CommandTimeout = 300;
-            await cmd.ExecuteNonQueryAsync();
-
-            Available = true;
         }
         catch (Exception ex)
         {
             Available = false;
             SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            return;
         }
+
+        ConnectionString = container.GetConnectionString();
+
+        // schema.mariadb.ddl.sql is a DDL-only copy of schema.mariadb.sql (no seed rows):
+        // HTTP tests create every user/article through the API itself, and would
+        // otherwise collide with schema.mariadb.sql's seeded usernames/emails
+        // (jane/bob/carol/dave etc.) meant for ConduitMariaDbFixture's direct-repository tests.
+        string ddl = await File.ReadAllTextAsync(
+            Path.Combine(AppContext.BaseDirectory, "schema.mariadb.ddl.sql"));
+
+        await using var conn = new MySqlConnection(ConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = ddl;
+        cmd.CommandTimeout = 300;
+        await cmd.ExecuteNonQueryAsync();
+
+        Available = true;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

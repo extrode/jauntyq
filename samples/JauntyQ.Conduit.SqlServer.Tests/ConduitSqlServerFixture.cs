@@ -40,34 +40,36 @@ public sealed class ConduitSqlServerFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        MsSqlContainer container;
         try
         {
-            MsSqlContainer container = new MsSqlBuilder().Build();
+            container = new MsSqlBuilder().Build();
             _container = container;
             await container.StartAsync();
-
-            string ddl = await File.ReadAllTextAsync(
-                Path.Combine(AppContext.BaseDirectory, "schema.mssql.sql"));
-
-            await using (var seed = new SqlConnection(container.GetConnectionString()))
-            {
-                await seed.OpenAsync();
-                await using var cmd = seed.CreateCommand();
-                cmd.CommandText = ddl;
-                cmd.CommandTimeout = 300;
-                await cmd.ExecuteNonQueryAsync();
-            }
-
-            Connection = new SqlConnection(container.GetConnectionString());
-            await Connection.OpenAsync();
-            Db = new JauntyDb(Connection);
-            Available = true;
         }
         catch (Exception ex)
         {
             Available = false;
             SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            return;
         }
+
+        string ddl = await File.ReadAllTextAsync(
+            Path.Combine(AppContext.BaseDirectory, "schema.mssql.sql"));
+
+        await using (var seed = new SqlConnection(container.GetConnectionString()))
+        {
+            await seed.OpenAsync();
+            await using var cmd = seed.CreateCommand();
+            cmd.CommandText = ddl;
+            cmd.CommandTimeout = 300;
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        Connection = new SqlConnection(container.GetConnectionString());
+        await Connection.OpenAsync();
+        Db = new JauntyDb(Connection);
+        Available = true;
     }
 
     public async Task DisposeAsync()

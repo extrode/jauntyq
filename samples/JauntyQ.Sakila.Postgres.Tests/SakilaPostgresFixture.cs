@@ -29,33 +29,35 @@ public sealed class SakilaPostgresFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        PostgreSqlContainer container;
         try
         {
-            PostgreSqlContainer container = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+            container = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
             _container = container;
             await container.StartAsync();
-
-            string ddl = await File.ReadAllTextAsync(
-                Path.Combine(AppContext.BaseDirectory, "schema.postgres.sql"));
-
-            await using (var seed = new NpgsqlConnection(container.GetConnectionString()))
-            {
-                await seed.OpenAsync();
-                await using var cmd = seed.CreateCommand();
-                cmd.CommandText = ddl;
-                await cmd.ExecuteNonQueryAsync();
-            }
-
-            _conn = new NpgsqlConnection(container.GetConnectionString());
-            await _conn.OpenAsync();
-            _db = new JauntyDb(_conn);
-            Available = true;
         }
         catch (Exception ex)
         {
             Available = false;
             SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            return;
         }
+
+        string ddl = await File.ReadAllTextAsync(
+            Path.Combine(AppContext.BaseDirectory, "schema.postgres.sql"));
+
+        await using (var seed = new NpgsqlConnection(container.GetConnectionString()))
+        {
+            await seed.OpenAsync();
+            await using var cmd = seed.CreateCommand();
+            cmd.CommandText = ddl;
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        _conn = new NpgsqlConnection(container.GetConnectionString());
+        await _conn.OpenAsync();
+        _db = new JauntyDb(_conn);
+        Available = true;
     }
 
     public async Task DisposeAsync()

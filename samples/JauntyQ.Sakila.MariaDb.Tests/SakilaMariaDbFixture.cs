@@ -29,34 +29,36 @@ public sealed class SakilaMariaDbFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        MariaDbContainer container;
         try
         {
-            MariaDbContainer container = new MariaDbBuilder().WithImage("mariadb:11").Build();
+            container = new MariaDbBuilder().WithImage("mariadb:11").Build();
             _container = container;
             await container.StartAsync();
-
-            string ddl = await File.ReadAllTextAsync(
-                Path.Combine(AppContext.BaseDirectory, "schema.mariadb.sql"));
-
-            await using (var seed = new MySqlConnection(container.GetConnectionString()))
-            {
-                await seed.OpenAsync();
-                await using var cmd = seed.CreateCommand();
-                cmd.CommandText = ddl;
-                cmd.CommandTimeout = 300;
-                await cmd.ExecuteNonQueryAsync();
-            }
-
-            _conn = new MySqlConnection(container.GetConnectionString());
-            await _conn.OpenAsync();
-            _db = new JauntyDb(_conn);
-            Available = true;
         }
         catch (Exception ex)
         {
             Available = false;
             SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            return;
         }
+
+        string ddl = await File.ReadAllTextAsync(
+            Path.Combine(AppContext.BaseDirectory, "schema.mariadb.sql"));
+
+        await using (var seed = new MySqlConnection(container.GetConnectionString()))
+        {
+            await seed.OpenAsync();
+            await using var cmd = seed.CreateCommand();
+            cmd.CommandText = ddl;
+            cmd.CommandTimeout = 300;
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        _conn = new MySqlConnection(container.GetConnectionString());
+        await _conn.OpenAsync();
+        _db = new JauntyDb(_conn);
+        Available = true;
     }
 
     public async Task DisposeAsync()

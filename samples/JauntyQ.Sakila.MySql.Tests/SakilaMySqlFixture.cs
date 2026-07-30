@@ -29,34 +29,36 @@ public sealed class SakilaMySqlFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        MySqlContainer container;
         try
         {
-            MySqlContainer container = new MySqlBuilder().WithImage("mysql:8.0").Build();
+            container = new MySqlBuilder().WithImage("mysql:8.0").Build();
             _container = container;
             await container.StartAsync();
-
-            string ddl = await File.ReadAllTextAsync(
-                Path.Combine(AppContext.BaseDirectory, "schema.mysql.sql"));
-
-            await using (var seed = new MySqlConnection(container.GetConnectionString()))
-            {
-                await seed.OpenAsync();
-                await using var cmd = seed.CreateCommand();
-                cmd.CommandText = ddl;
-                cmd.CommandTimeout = 300;
-                await cmd.ExecuteNonQueryAsync();
-            }
-
-            _conn = new MySqlConnection(container.GetConnectionString());
-            await _conn.OpenAsync();
-            _db = new JauntyDb(_conn);
-            Available = true;
         }
         catch (Exception ex)
         {
             Available = false;
             SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            return;
         }
+
+        string ddl = await File.ReadAllTextAsync(
+            Path.Combine(AppContext.BaseDirectory, "schema.mysql.sql"));
+
+        await using (var seed = new MySqlConnection(container.GetConnectionString()))
+        {
+            await seed.OpenAsync();
+            await using var cmd = seed.CreateCommand();
+            cmd.CommandText = ddl;
+            cmd.CommandTimeout = 300;
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        _conn = new MySqlConnection(container.GetConnectionString());
+        await _conn.OpenAsync();
+        _db = new JauntyDb(_conn);
+        Available = true;
     }
 
     public async Task DisposeAsync()
