@@ -59,6 +59,7 @@ public sealed class PostgresEnumRoundTripFixture : IAsyncLifetime
                 prior_status order_status NULL,
                 note text
             );";
+        cmd.CommandTimeout = 300;
         await cmd.ExecuteNonQueryAsync();
 
         // Npgsql caches the server's type catalog when the first connection
@@ -353,6 +354,7 @@ public sealed class PostgresEnumDriftFixture : IAsyncLifetime
                 prior_status order_status NULL,
                 note text
             );";
+        cmd.CommandTimeout = 300;
         await cmd.ExecuteNonQueryAsync();
 
         // Npgsql caches the server's type catalog when the first connection

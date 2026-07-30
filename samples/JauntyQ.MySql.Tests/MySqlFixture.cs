@@ -71,12 +71,14 @@ public sealed class MySqlFixture : IAsyncLifetime
             await using (var cmd = seed.CreateCommand())
             {
                 cmd.CommandText = tablesDdl; // MySqlConnector runs ;-separated batches
+                cmd.CommandTimeout = 300;
                 await cmd.ExecuteNonQueryAsync();
             }
             if (!string.IsNullOrWhiteSpace(procDdl))
             {
                 await using var procCmd = seed.CreateCommand();
                 procCmd.CommandText = procDdl.Trim().TrimEnd(';');
+                procCmd.CommandTimeout = 300;
                 await procCmd.ExecuteNonQueryAsync();
             }
         }
