@@ -266,6 +266,13 @@ internal static class NPlusOneAnalyzer
         // equality-filtered.
         foreach (var index in tableSchema.Indexes)
         {
+            // An expression index's Columns is only the real-column subset of
+            // its key: all of [customer_id] equality-filtered does NOT make
+            // UNIQUE (customer_id, lower(email)) single-row. (A prefix unique
+            // needs no such guard -- prefix uniqueness implies full-value
+            // uniqueness, so single-row conclusions still hold.)
+            if (index.HasExpressionKeyPart)
+                continue;
             if (!index.IsUnique || index.Columns.Count == 0)
                 continue;
             bool allFiltered = true;
@@ -308,6 +315,11 @@ internal static class NPlusOneAnalyzer
 
         foreach (var index in tableSchema.Indexes)
         {
+            // Same subset hazard as IsSingleRowByUniqueKey: a flagged index's
+            // Columns understates its key, so it can't prove a scoped point
+            // read.
+            if (index.HasExpressionKeyPart)
+                continue;
             if (index.IsUnique && UniqueKeyMakesScoping(fact, group, index.Columns))
                 return true;
         }

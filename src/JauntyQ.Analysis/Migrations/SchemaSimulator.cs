@@ -279,10 +279,25 @@ public static class SchemaSimulator
                 if (!string.Equals(c, droppedColumnKey, StringComparison.OrdinalIgnoreCase))
                     remaining.Add(c);
             }
-            if (remaining.Count == 0)
+            // Only an index that HAD key columns and lost them all is removed.
+            // An all-expression index (HasExpressionKeyPart, Columns empty)
+            // survives: whether its expression references the dropped column
+            // is invisible to the model, and keeping a possibly-stale
+            // competing constraint is safer than silently losing a real one.
+            if (remaining.Count == 0 && ix.Columns.Count > 0)
                 continue;
             if (remaining.Count != ix.Columns.Count)
-                updated.Add(new IndexSchema { Name = ix.Name, Columns = remaining, IsUnique = ix.IsUnique });
+                updated.Add(new IndexSchema
+                {
+                    Name = ix.Name,
+                    Columns = remaining,
+                    IsUnique = ix.IsUnique,
+                    // The rebuilt copy must not shed the key-shape flags --
+                    // dropping them here would silently re-promote a prefix/
+                    // expression index to a full-column one mid-simulation.
+                    HasPrefixKeyPart = ix.HasPrefixKeyPart,
+                    HasExpressionKeyPart = ix.HasExpressionKeyPart
+                });
             else
                 updated.Add(ix);
         }
@@ -495,7 +510,12 @@ public static class SchemaSimulator
                 {
                     Name = ix.Name,
                     Columns = new List<string>(ix.Columns),
-                    IsUnique = ix.IsUnique
+                    IsUnique = ix.IsUnique,
+                    // Key-shape flags travel with the clone: losing them here
+                    // would re-promote a prefix/expression index to a
+                    // full-column one for every simulated migration.
+                    HasPrefixKeyPart = ix.HasPrefixKeyPart,
+                    HasExpressionKeyPart = ix.HasExpressionKeyPart
                 });
             }
 

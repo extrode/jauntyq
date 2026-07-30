@@ -465,6 +465,49 @@ public class AutoCrudTests
     }
 
     /// <summary>
+    /// The hole that motivated representing expression indexes: a UNIQUE with
+    /// an expression key part (captured as <c>hasExpressionKeyPart</c> with
+    /// the real-column subset) is a competing constraint MySQL's untargeted
+    /// ON DUPLICATE KEY UPDATE could match through — before 2026-07-30 it was
+    /// excluded at capture and this exact schema kept the atomic form. The
+    /// index's real-column subset is deliberately set-EQUAL to the key
+    /// (UNIQUE (region_id, lower(label)) arriving as [region_id] + flag): a
+    /// differing-columns index would compete under the generic rule and pin
+    /// nothing about the flag, whereas this shape flips back to the atomic
+    /// form the moment the flag check is dropped.
+    /// </summary>
+    [Fact]
+    public void Upsert_MySql_ExpressionUniqueIndex_TakesKeyTargetedForm()
+    {
+        const string schema = @"{
+  ""dialect"": ""mysql"",
+  ""tables"": {
+    ""regions"": {
+      ""name"": ""regions"",
+      ""columns"": {
+        ""region_id"": { ""name"": ""region_id"", ""dbType"": ""varchar"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""country"": { ""name"": ""country"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""label"": { ""name"": ""label"", ""dbType"": ""varchar"", ""isNullable"": false }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_regions_id_lower_label"", ""columns"": [""region_id""], ""isUnique"": true, ""hasExpressionKeyPart"": true }
+      ]
+    }
+  },
+  ""foreignKeys"": []
+}";
+        var (my, compilation) = RunAutoCrudWithSchema(schema);
+
+        var source = TryGetSource(my, "Regions.Upsert.auto.g.cs");
+        Assert.NotNull(source);
+        Assert.Contains("WHERE NOT EXISTS (SELECT 1 FROM regions WHERE region_id = @region_id)", source);
+        Assert.DoesNotContain("ON DUPLICATE KEY UPDATE", source);
+
+        Assert.Contains(my.Diagnostics, d => d.Id == "JNT2018" && d.GetMessage().Contains("'Regions.Upsert'"));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    /// <summary>
     /// An identity-only PK whose only fallback UNIQUE is a prefix index: the
     /// email(5) hole, decided 2026-07-30. No Upsert form — atomic or
     /// two-statement — can honour the full-value match the method's signature

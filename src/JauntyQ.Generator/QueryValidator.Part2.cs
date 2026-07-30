@@ -213,6 +213,14 @@ public static partial class QueryValidator
 
         foreach (var index in tableSchema.Indexes)
         {
+            // An expression index's Columns is only the real-column subset of
+            // its key, positions lost -- (lower(a), b) arrives as [b] at pos 0
+            // and would claim seekability falsely. Skipping keeps exactly the
+            // behavior these hints had when such indexes were excluded at
+            // capture.
+            if (index.HasExpressionKeyPart)
+                continue;
+
             int pos = index.Columns.FindIndex(c => string.Equals(c, column.Name, StringComparison.OrdinalIgnoreCase));
             if (pos < 0)
                 continue;

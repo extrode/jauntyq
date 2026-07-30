@@ -416,6 +416,80 @@ public class UpsertKeyResolverTests
         Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
     }
 
+    // ── Expression indexes: represented flagged, never the key, always competing ──
+
+    /// <summary>
+    /// A flagged index's Columns is only the real-column SUBSET of its key —
+    /// UNIQUE (Token, lower(Email)) arrives as [Token], and Token alone is not
+    /// unique — so Resolve must never pick it as the fallback key. Before
+    /// 2026-07-30 such indexes were excluded at capture; the skip preserves
+    /// exactly that reading.
+    /// </summary>
+    [Fact]
+    public void Resolve_ExpressionUniqueAsOnlyFallback_IsNotPickedAsKey()
+    {
+        var table = Table(Col("Id", pk: true, identity: true), Col("Token"), Col("Email"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_Token_LowerEmail", IsUnique = true, Columns = { "Token" }, HasExpressionKeyPart = true });
+
+        var result = UpsertKeyResolver.Resolve(table, out var prefixOnlyKey);
+
+        Assert.Null(result);
+        Assert.Null(prefixOnlyKey); // not the prefix refusal -- status-quo silent skip
+    }
+
+    /// <summary>
+    /// A UNIQUE with an expression key part is always competing: it is never
+    /// the key, and it constrains rows through an expression the key's columns
+    /// say nothing about. Deliberately the flag-DEPENDENT shape — the real-
+    /// column subset [Id] is set-equal to the key, which the unflagged rule
+    /// would dismiss as a restatement — so this test fails the moment the
+    /// flag check is dropped (a differing-columns index competes under the
+    /// generic rule and would pin nothing).
+    /// </summary>
+    [Fact]
+    public void HasCompeting_ExpressionUniqueIndex_SubsetEqualToKey_IsTrue()
+    {
+        var table = Table(Col("Id", pk: true), Col("Email"));
+        // UNIQUE (Id, lower(Email)) -- arrives as [Id] + flag.
+        table.Indexes.Add(new IndexSchema { Name = "UX_Id_LowerEmail", IsUnique = true, Columns = { "Id" }, HasExpressionKeyPart = true });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.Equal(new[] { "Id" }, key!.ConvertAll(c => c.Name));
+        Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+    }
+
+    /// <summary>
+    /// The ALL-expression shape — UNIQUE (lower(Email)) arrives flagged with
+    /// NO columns at all — must not slip through the empty-Columns guard that
+    /// (correctly) ignores degenerate column-less indexes otherwise.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_AllExpressionUniqueIndex_EmptyColumns_IsTrue()
+    {
+        var table = Table(Col("Id", pk: true), Col("Email"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_LowerEmail", IsUnique = true, HasExpressionKeyPart = true });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key!));
+    }
+
+    /// <summary>
+    /// A NON-unique expression index competes with nothing — it is not a
+    /// conflict target on any engine — and must not trip the flag check.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_NonUniqueExpressionIndex_IsFalse()
+    {
+        var table = Table(Col("Id", pk: true), Col("Email"));
+        table.Indexes.Add(new IndexSchema { Name = "IX_LowerEmail", IsUnique = false, HasExpressionKeyPart = true });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.False(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key!));
+    }
+
     /// <summary>
     /// The same conservative treatment applies to a primary key covering a
     /// superset of the resolved key — MySQL permits prefix key parts in a
