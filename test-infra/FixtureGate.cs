@@ -25,15 +25,57 @@ internal static class FixtureGate
     /// <summary>
     /// Call from a fixture's <b>startup</b> catch block (container start /
     /// connection open only — never wrapping seed-script or product-code
-    /// execution). Under CI it rethrows <paramref name="ex"/> preserving its
-    /// stack (so CI fails loudly); otherwise it returns the "Docker unavailable"
-    /// skip reason for the local soft-skip path.
+    /// execution; <c>FixtureContainerBuildSiteTests</c> enforces that). Rethrows
+    /// <paramref name="ex"/> preserving its stack under CI, and locally too
+    /// unless the daemon is genuinely absent; otherwise it returns the "Docker
+    /// unavailable" skip reason for the local soft-skip path.
     /// </summary>
     public static string SkipReasonOrThrow(Exception ex)
     {
-        if (StrictCi)
+        if (StrictCi || !IsDockerAbsent(ex))
             ExceptionDispatchInfo.Capture(ex).Throw();
         return $"Docker unavailable: {ex.GetType().Name}: {ex.Message}";
+    }
+
+    /// <summary>
+    /// True only when <paramref name="ex"/> says there is no Docker daemon to
+    /// talk to. Everything else — a bring-up timeout, cancellation, an image
+    /// pull failure, the host running out of memory — is a real failure of a run
+    /// that was supposed to happen, and must not be laundered into a skip.
+    ///
+    /// This distinction is the whole point. Before 2026-07-30 any exception
+    /// became "Docker unavailable", so a container that merely lost a race on a
+    /// saturated host produced that message while Docker was plainly up with 30
+    /// other containers running, and the assembly reported success. Two runs on
+    /// the same commit skipped 66 and 11 of the same 2960 tests, both green.
+    ///
+    /// Classified from the exception chain rather than by probing the daemon:
+    /// this file is linked into every test assembly (see the Directory.Build.props
+    /// pair) and most of them do not reference Testcontainers or Docker.DotNet,
+    /// so there is no client here to ask.
+    /// </summary>
+    private static bool IsDockerAbsent(Exception ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+        {
+            // Testcontainers' AbstractBuilder.Validate() throws exactly this when
+            // no endpoint resolves, which is the ordinary "Docker Desktop is not
+            // running" path on a developer machine.
+            if (e is ArgumentException { ParamName: "DockerEndpointAuthConfig" })
+                return true;
+
+            string m = e.Message;
+            if (m.Contains("Docker is either not running or misconfigured", StringComparison.OrdinalIgnoreCase)
+                || m.Contains("Cannot connect to the Docker daemon", StringComparison.OrdinalIgnoreCase)
+                || m.Contains("docker daemon is not running", StringComparison.OrdinalIgnoreCase)
+                // Unix socket refused, and the Windows named pipe not existing.
+                || m.Contains("No connection could be made because the target machine actively refused it", StringComparison.OrdinalIgnoreCase)
+                || m.Contains("Connection refused", StringComparison.OrdinalIgnoreCase)
+                || m.Contains("The system cannot find the file specified", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>
