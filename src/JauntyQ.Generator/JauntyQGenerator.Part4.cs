@@ -221,6 +221,26 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         "Rename the table or column, or write its queries by hand with the identifier quoted."));
                 }
             }
+
+            // JNT2019: the Upsert-shaped sibling of the JNT2015 loop above.
+            // UpsertKeyResolver.Resolve refuses a key enforced only by a
+            // prefix UNIQUE (MySQL SUB_PART), and that refusal is otherwise
+            // indistinguishable from "no key at all" -- a silent skip. The
+            // refusing index comes from the resolver itself, so this cannot
+            // report a refusal that did not happen or miss one that did.
+            foreach (var table in schema.Tables.Values)
+            {
+                UpsertKeyResolver.Resolve(table, out var prefixOnlyKey);
+                if (prefixOnlyKey != null)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2019, Location.None,
+                        $"No Upsert is generated for table '{table.Name}': the only constraint that could serve as its " +
+                        $"upsert key is '{prefixOnlyKey.Name}' ({string.Join(", ", prefixOnlyKey.Columns)}), a UNIQUE over a " +
+                        "column PREFIX, which the engine matches on rows sharing only the prefix -- not the full value the " +
+                        "method's signature would imply. Add a full-column UNIQUE constraint (or a bindable primary key), " +
+                        "or write the upsert by hand."));
+                }
+            }
         }
 
         // Auto-CRUD: synthesize per-table CRUD for everything the user didn't write

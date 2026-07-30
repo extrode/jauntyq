@@ -458,6 +458,52 @@ public class AutoCrudTests
 
         Assert.Contains(my.Diagnostics, d => d.Id == "JNT2018" && d.GetMessage().Contains("'Regions.Upsert'"));
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        // The superset shape resolves a key (the PK) -- refusal is only for a
+        // key ENFORCED by nothing but a prefix, so JNT2019 must stay quiet here.
+        Assert.DoesNotContain(my.Diagnostics, d => d.Id == "JNT2019");
+    }
+
+    /// <summary>
+    /// An identity-only PK whose only fallback UNIQUE is a prefix index: the
+    /// email(5) hole, decided 2026-07-30. No Upsert form — atomic or
+    /// two-statement — can honour the full-value match the method's signature
+    /// implies when the engine matches rows sharing only five characters, so
+    /// synthesis is refused outright and JNT2019 says so. The rest of the
+    /// table's CRUD is unaffected.
+    /// </summary>
+    [Fact]
+    public void Upsert_MySql_PrefixOnlyUniqueKey_IsRefused_WithJnt2019()
+    {
+        const string schema = @"{
+  ""dialect"": ""mysql"",
+  ""tables"": {
+    ""users"": {
+      ""name"": ""users"",
+      ""columns"": {
+        ""user_id"": { ""name"": ""user_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""email"": { ""name"": ""email"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""bio"": { ""name"": ""bio"", ""dbType"": ""varchar"", ""isNullable"": true }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_users_email_prefix"", ""columns"": [""email""], ""isUnique"": true, ""hasPrefixKeyPart"": true }
+      ]
+    }
+  },
+  ""foreignKeys"": []
+}";
+        var (my, compilation) = RunAutoCrudWithSchema(schema);
+
+        Assert.Null(TryGetSource(my, "Users.Upsert.auto.g.cs"));
+
+        var message = Assert.Single(my.Diagnostics.Where(d => d.Id == "JNT2019")).GetMessage();
+        Assert.Contains("'users'", message);
+        Assert.Contains("ux_users_email_prefix", message);
+        Assert.Contains("PREFIX", message);
+
+        // Insert still synthesizes: the refusal is Upsert's alone.
+        Assert.NotNull(TryGetSource(my, "Users.Insert.auto.g.cs"));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
     /// <summary>
