@@ -48,34 +48,37 @@ public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyn
 
     public async Task InitializeAsync()
     {
+        MsSqlContainer container;
         try
         {
-            MsSqlContainer container = new MsSqlBuilder().Build();
+            container = new MsSqlBuilder().Build();
             _container = container;
             await container.StartAsync();
-            ConnectionString = container.GetConnectionString();
-
-            // schema.mssql.ddl.sql is a DDL-only copy of schema.mssql.sql (no seed rows):
-            // HTTP tests create every user/article through the API itself, and would
-            // otherwise collide with schema.mssql.sql's seeded usernames/emails
-            // (jane/bob/carol/dave etc.) meant for ConduitSqlServerFixture's direct-repository tests.
-            string ddl = await File.ReadAllTextAsync(
-                Path.Combine(AppContext.BaseDirectory, "schema.mssql.ddl.sql"));
-
-            await using var conn = new SqlConnection(ConnectionString);
-            await conn.OpenAsync();
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = ddl;
-            cmd.CommandTimeout = 300;
-            await cmd.ExecuteNonQueryAsync();
-
-            Available = true;
         }
         catch (Exception ex)
         {
             Available = false;
             SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            return;
         }
+
+        ConnectionString = container.GetConnectionString();
+
+        // schema.mssql.ddl.sql is a DDL-only copy of schema.mssql.sql (no seed rows):
+        // HTTP tests create every user/article through the API itself, and would
+        // otherwise collide with schema.mssql.sql's seeded usernames/emails
+        // (jane/bob/carol/dave etc.) meant for ConduitSqlServerFixture's direct-repository tests.
+        string ddl = await File.ReadAllTextAsync(
+            Path.Combine(AppContext.BaseDirectory, "schema.mssql.ddl.sql"));
+
+        await using var conn = new SqlConnection(ConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = ddl;
+        cmd.CommandTimeout = 300;
+        await cmd.ExecuteNonQueryAsync();
+
+        Available = true;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

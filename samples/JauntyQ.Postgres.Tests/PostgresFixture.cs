@@ -45,29 +45,30 @@ public sealed class PostgresFixture : IAsyncLifetime
         {
             _container = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
             await _container.StartAsync();
-
-            string ddl = await File.ReadAllTextAsync(
-                Path.Combine(AppContext.BaseDirectory, "schema.postgres.sql"));
-
-            await using (var seed = new NpgsqlConnection(_container.GetConnectionString()))
-            {
-                await seed.OpenAsync();
-                await using var cmd = seed.CreateCommand();
-                cmd.CommandText = ddl;
-                await cmd.ExecuteNonQueryAsync();
-            }
-
-            _conn = new NpgsqlConnection(_container.GetConnectionString());
-            await _conn.OpenAsync();
-            Db = new JauntyDb(_conn);
-            Available = true;
         }
         catch (Exception ex)
         {
             // Docker not present / not reachable: soft-skip the live tests.
             Available = false;
             SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            return;
         }
+
+        string ddl = await File.ReadAllTextAsync(
+            Path.Combine(AppContext.BaseDirectory, "schema.postgres.sql"));
+
+        await using (var seed = new NpgsqlConnection(_container.GetConnectionString()))
+        {
+            await seed.OpenAsync();
+            await using var cmd = seed.CreateCommand();
+            cmd.CommandText = ddl;
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        _conn = new NpgsqlConnection(_container.GetConnectionString());
+        await _conn.OpenAsync();
+        Db = new JauntyDb(_conn);
+        Available = true;
     }
 
     public async Task DisposeAsync()
