@@ -28,6 +28,18 @@ public static partial class CodeEmitter
                 csharpType = "object";
 
             var sqlType = CSharpToSqlTypeMapper.Map(csharpType);
+            // AUD-R4-17: the C# type alone carries no numeric precision, so the
+            // mapper can only say decimal(18,2). When the parameter is bound to
+            // a schema column that records its real precision, emit the column's
+            // own decimal(p,s) instead -- a scaffold declaring decimal(18,2) for
+            // a decimal(10,4) column silently rounds the fraction digits the
+            // table itself accepts, before the body's comparison ever runs.
+            if (csharpType.TrimEnd('?') == "decimal")
+            {
+                var column = ResolveBoundColumn(param, query, schema, out _);
+                if (column is { Precision: > 0 })
+                    sqlType = $"decimal({column.Precision},{column.Scale ?? 0})";
+            }
             procParams.Add($"    @{param.Name} {sqlType}");
         }
 

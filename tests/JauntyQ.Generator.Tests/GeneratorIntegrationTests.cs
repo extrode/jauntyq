@@ -764,6 +764,47 @@ where p.category_id = c.category_id and c.category_name = @categoryName";
         Assert.Contains("@categoryId int", source);
     }
 
+    private const string DecimalSchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""products"": {
+      ""name"": ""products"",
+      ""columns"": {
+        ""product_id"": { ""name"": ""product_id"", ""dbType"": ""int"", ""isNullable"": false },
+        ""unit_price"": { ""name"": ""unit_price"", ""dbType"": ""decimal"", ""isNullable"": false, ""precision"": 10, ""scale"": 4 }
+      }
+    }
+  }
+}";
+
+    [Fact]
+    public void ProcDirective_DecimalParameter_UsesTheBoundColumnsPrecisionAndScale()
+    {
+        // AUD-R4-17: the scaffold used to hardcode decimal(18,2) for every
+        // decimal parameter. unit_price is decimal(10,4) in the schema, so a
+        // proc declaring its parameter as decimal(18,2) would round the 3rd
+        // and 4th fraction digits before the body's comparison ever ran.
+        var sql = "-- @proc\nselect p.product_id from products p where p.unit_price > @unitPrice";
+        var (result, _) = RunGenerator(sql, schemaJson: DecimalSchemaJson);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("@unitPrice decimal(10,4)", source);
+        Assert.DoesNotContain("decimal(18,2)", source);
+    }
+
+    [Fact]
+    public void ProcDirective_DecimalParameter_WithoutSchemaPrecision_KeepsTheMapperDefault()
+    {
+        // A snapshot that predates value-safety metadata carries no precision;
+        // the mapper's decimal(18,2) remains the (documented) fallback.
+        var schema = DecimalSchemaJson.Replace(@", ""precision"": 10, ""scale"": 4", "");
+        var sql = "-- @proc\nselect p.product_id from products p where p.unit_price > @unitPrice";
+        var (result, _) = RunGenerator(sql, schemaJson: schema);
+
+        var source = GetSource(result, "Products.GetProducts.g.cs");
+        Assert.Contains("@unitPrice decimal(18,2)", source);
+    }
+
     [Fact]
     public void ProcDirective_CrudInsert()
     {
