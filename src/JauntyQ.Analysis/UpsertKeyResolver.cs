@@ -11,11 +11,29 @@ namespace JauntyQ.Analysis;
 /// token instead). Null when neither exists: callers skip Upsert synthesis for
 /// that table. Schema-only, Roslyn-free, so both <c>AutoCrud</c> and the Roslyn
 /// <c>CodeEmitter</c> share one implementation.
+///
+/// A key enforced ONLY by a prefix UNIQUE (<see
+/// cref="IndexSchema.HasPrefixKeyPart"/> — MySQL <c>UNIQUE (email(5))</c>) is
+/// refused outright (decided 2026-07-30): the engine matches rows sharing only
+/// the prefix, full-value semantics the emitted method's signature implies but
+/// the index does not enforce, so no Upsert form — atomic or two-statement —
+/// can honour the contract. The <c>out</c> overload names the refusing index so
+/// the generator can report it (JNT2019) instead of a silent skip.
 /// </summary>
 public static class UpsertKeyResolver
 {
     public static List<ColumnSchema>? Resolve(TableSchema tableSchema)
+        => Resolve(tableSchema, out _);
+
+    /// <param name="tableSchema">The table to resolve an upsert key for.</param>
+    /// <param name="prefixOnlyKey">Non-null exactly when the return value is
+    /// null BECAUSE the only constraint that could have served as the key is a
+    /// prefix UNIQUE: the index that would have been chosen (fallback path) or
+    /// the prefix-flagged restatement of the PK (PK path). Null both when a key
+    /// resolves and when there is genuinely no key.</param>
+    public static List<ColumnSchema>? Resolve(TableSchema tableSchema, out IndexSchema? prefixOnlyKey)
     {
+        prefixOnlyKey = null;
         // AUD-R36-01: the primary key itself must be read straight off
         // tableSchema.Columns -- the same, unfiltered source CrudColumnRules.
         // PrimaryKeyColumns(...) uses for AutoCrud's GetById/Update/Delete
@@ -38,7 +56,26 @@ public static class UpsertKeyResolver
         if (pkCols.Count == 0)
             return null;
         if (!pkCols.TrueForAll(c => c.IsIdentity))
+        {
+            // MySQL permits prefix key parts in a PRIMARY KEY too
+            // (PRIMARY KEY (name(10))). Column-level PK flags carry no prefix
+            // information, but the extractor captures the PRIMARY index like
+            // any other -- so when that entry is prefix-flagged and no
+            // full-column set-equal UNIQUE stands in for it, the PK enforces
+            // only prefix uniqueness and the key is refused. A schema with no
+            // PRIMARY entry at all (migration simulation) has no evidence
+            // either way and resolves as before.
+            var pkNames = new List<string>(pkCols.Count);
+            foreach (var c in pkCols)
+                pkNames.Add(c.Name);
+            var prefixOnlyPk = FindPrefixOnlyPkEnforcement(tableSchema, pkNames);
+            if (prefixOnlyPk != null)
+            {
+                prefixOnlyKey = prefixOnlyPk;
+                return null;
+            }
             return pkCols;
+        }
 
         // The RowVersion/Computed exclusion still applies here, deliberately:
         // a secondary UNIQUE index used as an Upsert fallback match key must
@@ -52,6 +89,7 @@ public static class UpsertKeyResolver
                 columns.Add(c);
         }
 
+        IndexSchema? skippedPrefixCandidate = null;
         foreach (var index in tableSchema.Indexes)
         {
             if (!index.IsUnique || index.Columns.Count == 0)
@@ -69,10 +107,55 @@ public static class UpsertKeyResolver
                 }
                 keyCols.Add(col);
             }
-            if (allResolved)
-                return keyCols;
+            if (!allResolved)
+                continue;
+
+            // A prefix UNIQUE cannot serve as the key it would resolve to --
+            // it enforces uniqueness over a truncated prefix, so matching on
+            // it delivers prefix semantics under a full-value signature. Skip
+            // it and keep scanning: a later full-column UNIQUE still resolves
+            // (and the skipped index then correctly counts as competing in
+            // HasCompetingUniqueConstraint). Remembered so that when nothing
+            // else resolves, the refusal is reportable rather than
+            // indistinguishable from "no key at all".
+            if (index.HasPrefixKeyPart)
+            {
+                skippedPrefixCandidate ??= index;
+                continue;
+            }
+            return keyCols;
         }
+        prefixOnlyKey = skippedPrefixCandidate;
         return null;
+    }
+
+    /// <summary>
+    /// The prefix-flagged <c>PRIMARY</c> index entry proving the primary key
+    /// itself enforces only prefix uniqueness, or null when the PK is fine.
+    /// Null when any full-column unique set-equal to <paramref name="keyNames"/>
+    /// exists (the key's columns are enforced in full somewhere, so the flagged
+    /// entries are competitors, not the enforcement), when no <c>PRIMARY</c>
+    /// entry exists at all (a simulated schema — the PK constraint itself is
+    /// the enforcement and column flags carry no prefix information), or when
+    /// the flagged set-equal index is a SEPARATE prefix unique beside a
+    /// full-column PK (again a competitor: HasCompetingUniqueConstraint sees
+    /// it and the two-statement form's full-column WHERE handles it).
+    /// <c>PRIMARY</c> is MySQL's fixed name for the PK index, and MySQL's
+    /// extractor is the only one that ever sets the flag.
+    /// </summary>
+    private static IndexSchema? FindPrefixOnlyPkEnforcement(TableSchema tableSchema, List<string> keyNames)
+    {
+        IndexSchema? flaggedPrimary = null;
+        foreach (var index in tableSchema.Indexes)
+        {
+            if (!index.IsUnique || index.Columns.Count == 0 || !CoversKey(index.Columns, keyNames))
+                continue;
+            if (!index.HasPrefixKeyPart)
+                return null;
+            if (string.Equals(index.Name, "PRIMARY", StringComparison.OrdinalIgnoreCase))
+                flaggedPrimary = index;
+        }
+        return flaggedPrimary;
     }
 
     /// <summary>
@@ -81,7 +164,7 @@ public static class UpsertKeyResolver
     /// primary key when the resolved key is a secondary unique index instead.
     ///
     /// This is the condition under which MySQL's <c>ON DUPLICATE KEY UPDATE</c>
-    /// stops agreeing with the key <see cref="Resolve"/> picked, because it
+    /// stops agreeing with the key <see cref="Resolve(TableSchema)"/> picked, because it
     /// names no conflict target at all: the engine matches whichever UNIQUE the
     /// insert happens to violate, while postgres/sqlite <c>ON CONFLICT (cols)</c>
     /// and sqlserver <c>MERGE ... ON</c> both name the key explicitly. With one
@@ -90,7 +173,7 @@ public static class UpsertKeyResolver
     /// hand-written call site (Conduit's <c>users</c>: identity-only PK plus
     /// unique <c>email</c> and unique <c>username</c>).
     ///
-    /// Lives beside <see cref="Resolve"/>, and is Roslyn-free for the same
+    /// Lives beside <see cref="Resolve(TableSchema)"/>, and is Roslyn-free for the same
     /// reason: <c>AutoCrud</c> and the Roslyn <c>CodeEmitter</c> must both reach
     /// one implementation, or they disagree about the same table in the same
     /// pass.
@@ -130,13 +213,15 @@ public static class UpsertKeyResolver
             if (!index.IsUnique || index.Columns.Count == 0)
                 continue;
 
-            // The key itself, or a restatement of it in another order: not a
-            // competitor. Kept even for HasPrefixKeyPart -- when the prefix
-            // index IS the only unique over the key's columns, the engine has
-            // nothing else to match on, so there is no ambiguity for JNT2018 to
-            // name (the prefix-vs-full-value mismatch is a different defect,
-            // recorded in the todo list).
-            if (CoversKey(index.Columns, keyNames))
+            // The key itself, or a full-column restatement of it in another
+            // order: not a competitor. A PREFIX index over the same column set
+            // IS one -- UNIQUE (email(5)) fires on rows sharing five characters
+            // of a key of (email), rows the full-column constraint would never
+            // match. It can also never BE the key: Resolve skips prefix-flagged
+            // indexes (and refuses a PK enforced only by one), so an index
+            // reaching here flagged means the key is enforced in full elsewhere
+            // and this one genuinely competes.
+            if (!index.HasPrefixKeyPart && CoversKey(index.Columns, keyNames))
                 continue;
 
             // A full-column UNIQUE over a strict SUPERSET of the key cannot
@@ -158,7 +243,7 @@ public static class UpsertKeyResolver
 
     /// <summary>
     /// Set equality, order-insensitive and OrdinalIgnoreCase — matching
-    /// <see cref="Resolve"/>'s own column lookup, since a UNIQUE constraint's
+    /// <see cref="Resolve(TableSchema)"/>'s own column lookup, since a UNIQUE constraint's
     /// column order is not part of its identity for conflict-matching purposes
     /// (<c>UNIQUE (a, b)</c> and <c>UNIQUE (b, a)</c> reject the same rows).
     /// <para>
@@ -172,10 +257,13 @@ public static class UpsertKeyResolver
     /// <c>MySqlExtractor</c> now captures <c>SUB_PART</c> as
     /// <c>IndexSchema.HasPrefixKeyPart</c>, and the relaxation lives in
     /// <see cref="HasCompetingUniqueConstraint"/> gated on that flag. The
-    /// primary-key check keeps plain equality: pk names are column-level flags
-    /// with no prefix information, and a schema that never went through the
-    /// extractor (migration simulation) has no <c>PRIMARY</c> index entry to
-    /// carry the flag for it.
+    /// caller's primary-key check keeps plain equality: pk names are
+    /// column-level flags with no prefix information, and a schema that never
+    /// went through the extractor (migration simulation) has no <c>PRIMARY</c>
+    /// index entry to carry the flag for it. A prefix-flagged PK is instead
+    /// caught in <see cref="Resolve(TableSchema)"/> via
+    /// <see cref="FindPrefixOnlyPkEnforcement"/>, when the index entry exists to
+    /// prove it.
     /// </para>
     /// </summary>
     private static bool CoversKey(List<string> constraintCols, List<string> keyNames)

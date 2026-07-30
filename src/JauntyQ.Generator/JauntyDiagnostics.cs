@@ -295,6 +295,25 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // A prefix UNIQUE (MySQL UNIQUE (email(5)), captured as
+    // IndexSchema.HasPrefixKeyPart) enforces uniqueness over a truncated
+    // prefix, not the full value. When it is the ONLY constraint that could
+    // serve as a table's upsert key, no emitted form -- atomic or
+    // two-statement -- can honour the full-value match the method's signature
+    // implies: the engine matches rows sharing only the prefix. Decided
+    // 2026-07-30: refuse Upsert synthesis outright rather than emit a method
+    // whose contract the index cannot enforce. Warning, matching
+    // JNT2014/JNT2015/JNT2018 and for the same reason -- a decision the
+    // consumer can argue with (add a full-column UNIQUE, or hand-write the
+    // upsert) has to be visible to be arguable.
+    public static readonly DiagnosticDescriptor JNT2019 = new(
+        "JNT2019",
+        "Upsert Skipped For Prefix-Only Unique Key",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(

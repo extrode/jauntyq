@@ -302,6 +302,120 @@ public class UpsertKeyResolverTests
         Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
     }
 
+    // ── Prefix-only keys are refused (decided 2026-07-30) ─────────────────
+
+    /// <summary>
+    /// The email(5) hole: an identity-only PK whose only fallback UNIQUE is a
+    /// prefix index. The index enforces uniqueness over five characters, so an
+    /// Upsert matching on it would deliver prefix semantics under a full-value
+    /// signature — Resolve refuses and names the index so the generator can
+    /// report JNT2019 instead of a silent skip.
+    /// </summary>
+    [Fact]
+    public void Resolve_PrefixUniqueAsOnlyFallbackKey_RefusesAndNamesTheIndex()
+    {
+        var table = Table(Col("Id", pk: true, identity: true), Col("Email"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_Email_Prefix", IsUnique = true, Columns = { "Email" }, HasPrefixKeyPart = true });
+
+        var result = UpsertKeyResolver.Resolve(table, out var prefixOnlyKey);
+
+        Assert.Null(result);
+        Assert.NotNull(prefixOnlyKey);
+        Assert.Equal("UX_Email_Prefix", prefixOnlyKey!.Name);
+    }
+
+    /// <summary>
+    /// The skip keeps scanning: a later full-column UNIQUE still resolves as
+    /// the key, and the skipped prefix index then counts as competing (pinned
+    /// below) rather than as a refusal.
+    /// </summary>
+    [Fact]
+    public void Resolve_PrefixUniqueSkipped_LaterFullColumnUniqueStillResolves()
+    {
+        var table = Table(Col("Id", pk: true, identity: true), Col("Email"), Col("Token"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_Email_Prefix", IsUnique = true, Columns = { "Email" }, HasPrefixKeyPart = true });
+        table.Indexes.Add(new IndexSchema { Name = "UX_Token", IsUnique = true, Columns = { "Token" } });
+
+        var result = UpsertKeyResolver.Resolve(table, out var prefixOnlyKey);
+
+        Assert.Equal(new[] { "Token" }, result!.ConvertAll(c => c.Name));
+        Assert.Null(prefixOnlyKey);
+    }
+
+    /// <summary>
+    /// MySQL permits prefix key parts in a PRIMARY KEY too (PRIMARY KEY
+    /// (name(10))). Column-level PK flags carry no prefix information, but the
+    /// extractor captures the PRIMARY index entry like any other — when it is
+    /// flagged and no full-column set-equal UNIQUE exists, the PK enforces
+    /// only prefix uniqueness and the key is refused.
+    /// </summary>
+    [Fact]
+    public void Resolve_PkEnforcedOnlyByPrefixPrimaryIndex_Refuses()
+    {
+        var table = Table(Col("Name", pk: true), Col("City"));
+        table.Indexes.Add(new IndexSchema { Name = "PRIMARY", IsUnique = true, Columns = { "Name" }, HasPrefixKeyPart = true });
+
+        var result = UpsertKeyResolver.Resolve(table, out var prefixOnlyKey);
+
+        Assert.Null(result);
+        Assert.Equal("PRIMARY", prefixOnlyKey!.Name);
+    }
+
+    /// <summary>
+    /// A full-column UNIQUE set-equal to the prefix-flagged PK proves the key
+    /// IS enforced in full somewhere — the PK resolves, and the flagged
+    /// restatement competes instead (two-statement form, full-column WHERE).
+    /// </summary>
+    [Fact]
+    public void Resolve_PrefixPkWithFullColumnUniqueRestatement_StillResolves()
+    {
+        var table = Table(Col("Name", pk: true), Col("City"));
+        table.Indexes.Add(new IndexSchema { Name = "PRIMARY", IsUnique = true, Columns = { "Name" }, HasPrefixKeyPart = true });
+        table.Indexes.Add(new IndexSchema { Name = "UX_Name_Full", IsUnique = true, Columns = { "Name" } });
+
+        var result = UpsertKeyResolver.Resolve(table, out var prefixOnlyKey);
+
+        Assert.Equal(new[] { "Name" }, result!.ConvertAll(c => c.Name));
+        Assert.Null(prefixOnlyKey);
+        Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, result!));
+    }
+
+    /// <summary>
+    /// A simulated schema (migration parsing) has no index entries at all, so
+    /// there is no evidence of a prefix PK — it resolves exactly as before.
+    /// This is what keeps the refusal from touching non-extracted snapshots.
+    /// </summary>
+    [Fact]
+    public void Resolve_PkWithNoIndexEntries_ResolvesAsBefore()
+    {
+        var table = Table(Col("Name", pk: true), Col("City"));
+
+        var result = UpsertKeyResolver.Resolve(table, out var prefixOnlyKey);
+
+        Assert.Equal(new[] { "Name" }, result!.ConvertAll(c => c.Name));
+        Assert.Null(prefixOnlyKey);
+    }
+
+    /// <summary>
+    /// A prefix restatement of the key is competing, not redundant: with the
+    /// key enforced by the full-column PK, UNIQUE (Id(3)) still fires on rows
+    /// sharing three characters — rows the key would never match — so MySQL's
+    /// untargeted ON DUPLICATE KEY UPDATE can diverge through it. Contrast
+    /// with <see cref="HasCompeting_UniqueIndexRestatingThePrimaryKey_IsFalse"/>:
+    /// only the FULL-column restatement is exempt.
+    /// </summary>
+    [Fact]
+    public void HasCompeting_PrefixRestatementOfTheKey_IsTrue()
+    {
+        var table = Table(Col("Id", pk: true), Col("Name"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_Id_Prefix", IsUnique = true, Columns = { "Id" }, HasPrefixKeyPart = true });
+
+        var key = UpsertKeyResolver.Resolve(table);
+
+        Assert.Equal(new[] { "Id" }, key!.ConvertAll(c => c.Name));
+        Assert.True(UpsertKeyResolver.HasCompetingUniqueConstraint(table, key));
+    }
+
     /// <summary>
     /// The same conservative treatment applies to a primary key covering a
     /// superset of the resolved key — MySQL permits prefix key parts in a
