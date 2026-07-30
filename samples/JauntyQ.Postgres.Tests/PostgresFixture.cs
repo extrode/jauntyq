@@ -62,6 +62,7 @@ public sealed class PostgresFixture : IAsyncLifetime
             await seed.OpenAsync();
             await using var cmd = seed.CreateCommand();
             cmd.CommandText = ddl;
+            cmd.CommandTimeout = 300;
             await cmd.ExecuteNonQueryAsync();
         }
 
