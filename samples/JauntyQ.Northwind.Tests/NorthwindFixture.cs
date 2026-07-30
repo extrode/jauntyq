@@ -68,6 +68,12 @@ public sealed class NorthwindFixture : IAsyncLifetime
             {
                 await using var cmd = seed.CreateCommand();
                 cmd.CommandText = batch;
+                // CommandTimeout is per batch, not per script. The Orders batch is 830
+                // INSERTs in 303,884 bytes and takes ~4.4s idle, ~17.7s under a full
+                // solution run; SqlClient's 30s default left no headroom, and the whole
+                // assembly failed 69/69 with "Execution Timeout Expired". 300 matches the
+                // other seed-applying fixtures.
+                cmd.CommandTimeout = 300;
                 await cmd.ExecuteNonQueryAsync();
             }
         }
