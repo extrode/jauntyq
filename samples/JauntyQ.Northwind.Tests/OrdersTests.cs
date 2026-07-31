@@ -30,7 +30,7 @@ public class OrdersTests
     public void GetByCustomer_VINET_ReturnsOrders()
     {
         Skip.IfNot(_fixture.Available, _fixture.SkipReason);
-        var results = _fixture.Db.Orders.GetByCustomer("VINET");
+        var results = _fixture.Db.Orders.GetByCustomer(new[] { "VINET" });
         Assert.NotEmpty(results);
     }
 
@@ -38,7 +38,7 @@ public class OrdersTests
     public void GetByEmployee_ReturnsOrders()
     {
         Skip.IfNot(_fixture.Available, _fixture.SkipReason);
-        var results = _fixture.Db.Orders.GetByEmployee(1);
+        var results = _fixture.Db.Orders.GetByEmployee(new short?[] { 1 });
         Assert.NotEmpty(results);
     }
 }

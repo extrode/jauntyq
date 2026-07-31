@@ -13,7 +13,7 @@ public class OrderDetailsTests
     public void GetByOrder_10248_ReturnsDetails()
     {
         Skip.IfNot(_fixture.Available, _fixture.SkipReason);
-        var results = _fixture.Db.OrderDetails.GetByOrder(10248);
+        var results = _fixture.Db.OrderDetails.GetByOrder(new[] { 10248 });
         Assert.NotEmpty(results);
         Assert.All(results, d => Assert.Equal(10248, d.OrderId));
         Assert.All(results, d => Assert.NotNull(d.ProductName));
