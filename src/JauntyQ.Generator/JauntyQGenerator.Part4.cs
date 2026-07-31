@@ -428,7 +428,14 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     // switch entirely (MapColumnToCSharp special-cases them to
                     // byte[]?); checking the raw dbType here would otherwise
                     // false-positive on a column that's already handled.
-                    if (!ucol.IsRowVersion && DialectMapper.IsUnmappedDbType(ucol.DbType, ucol.IsNullable, ucol.Precision ?? ucol.MaxLength, schema.Dialect))
+                    // Spec 013: a column whose EnumName resolves against the
+                    // snapshot's captured enums maps to its generated C# enum
+                    // in MapColumnToCSharp, so its raw dbType (the Postgres
+                    // type name / MySQL's bare "enum") being absent from the
+                    // dbType switch is expected, not an unmapped-type gap.
+                    if (!ucol.IsRowVersion
+                        && DialectMapper.ResolveEnumTypeName(ucol, schema) == null
+                        && DialectMapper.IsUnmappedDbType(ucol.DbType, ucol.IsNullable, ucol.Precision ?? ucol.MaxLength, schema.Dialect))
                     {
                         // Round 14 audit: SQL Server CLR UDT columns
                         // (hierarchyid, geography, geometry) get a sharper

@@ -68,6 +68,28 @@ public class UnmappedColumnTypeTests
   }
 }";
 
+    private const string CapturedEnumColumnSchemaJson = @"{
+  ""dialect"": ""postgres"",
+  ""enums"": {
+    ""widget_status_enum"": {
+      ""name"": ""widget_status_enum"",
+      ""members"": [
+        { ""value"": ""new"", ""csharpName"": ""New"" },
+        { ""value"": ""done"", ""csharpName"": ""Done"" }
+      ]
+    }
+  },
+  ""tables"": {
+    ""widgets"": {
+      ""name"": ""widgets"",
+      ""columns"": {
+        ""widget_id"": { ""name"": ""widget_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""status"": { ""name"": ""status"", ""dbType"": ""widget_status_enum"", ""isNullable"": false, ""enumName"": ""widget_status_enum"" }
+      }
+    }
+  }
+}";
+
     private const string RowVersionSchemaJson = @"{
   ""dialect"": ""sqlserver"",
   ""tables"": {
@@ -131,6 +153,45 @@ public class UnmappedColumnTypeTests
             ("db/tables/Widget/GetById.sql", "select widget_id, metadata, origin from widgets where widget_id = @widget_id"));
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2007");
+    }
+
+    // Found live by the canonical Pagila suite (2026-08-01): film.rating is a
+    // captured mpaa_rating enum -- MapColumnToCSharp resolves it to the
+    // generated C# enum via the column's EnumName link (spec 013) -- yet the
+    // JNT2007 detector consulted only the raw dbType switch and flagged every
+    // enum-typed column as "degrades to 'object'", which the generated code
+    // demonstrably does not do. The unlinked sibling case (same dbType, no
+    // enumName / no captured enum) must keep warning; that is pinned by
+    // ColumnWithUnrecognizedDbType_ReportsJnt2007 above.
+    [Fact]
+    public void CapturedEnumColumn_NoJnt2007_AndPropertyIsGeneratedEnum()
+    {
+        var result = RunGenerator(CapturedEnumColumnSchemaJson,
+            ("db/tables/Widget/GetById.sql", "select widget_id, status from widgets where widget_id = @widget_id"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2007");
+
+        string allSources = string.Join("\n\n", result.Results[0].GeneratedSources
+            .Select(s => $"// ---- {s.HintName} ----\n{s.SourceText}"));
+        Assert.Contains("WidgetStatusEnum Status", allSources);
+        Assert.DoesNotContain("public object Status", allSources);
+    }
+
+    // Found live by canonical Pagila (2026-08-01): a NOT NULL column of an
+    // unmapped type maps to bare `object`, and the row POCO emitted it with
+    // no `required` modifier and no initializer -- leaking CS8618 out of
+    // GENERATED code into every consuming build. Strings and byte[] already
+    // carried `required`; the non-nullable object fallback must too.
+    [Fact]
+    public void NonNullableUnmappedColumn_RowPropertyIsRequired()
+    {
+        var result = RunGenerator(UnmappedColumnSchemaJson,
+            ("db/tables/Widget/GetById.sql", "select widget_id, status from widgets where widget_id = @widget_id"));
+
+        string allSources = string.Join("\n\n", result.Results[0].GeneratedSources
+            .Select(s => s.SourceText.ToString()));
+        Assert.Contains("public required object Status", allSources);
+        Assert.DoesNotContain("public object Status", allSources);
     }
 
     [Fact]
