@@ -120,6 +120,20 @@
             "slug"
           ],
           "isUnique": true
+        },
+        {
+          "name": "idx_articles_author_id",
+          "columns": [
+            "author_id"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "idx_articles_created_at",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false
         }
       ]
     },
@@ -190,6 +204,20 @@
           "name": "idx_comments_article_id",
           "columns": [
             "article_id"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "idx_comments_author_id",
+          "columns": [
+            "author_id"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "idx_comments_created_at",
+          "columns": [
+            "created_at"
           ],
           "isUnique": false
         }

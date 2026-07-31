@@ -1,3 +1,4 @@
+using System.Linq;
 using JauntyQ.Generated;
 
 namespace JauntyQ.Conduit.MariaDb.Tests.Repositories;
@@ -15,7 +16,7 @@ public sealed class FavoriteRepository
         => _db.Favorites.Delete(UserId: userId, ArticleId: articleId);
 
     public int GetCount(int articleId)
-        => (int)_db.Favorites.GetCountByArticleId(articleId)!.Total;
+        => (int)(_db.Favorites.GetCountByArticleId(new[] { articleId }).FirstOrDefault()?.Total ?? 0);
 
     public bool IsFavorited(int userId, int articleId)
         => _db.Favorites.Exists(UserId: userId, ArticleId: articleId)?.Total > 0;

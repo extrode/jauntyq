@@ -39,7 +39,7 @@ public sealed class ArticleRepository
     public Domain.ArticleView? GetBySlug(string slug, int? viewerId)
     {
         var row = _db.Articles.GetBySlug(slug);
-        return row is null ? null : ToView(row, viewerId);
+        return row is null ? null : ToViews(new[] { row }, viewerId)[0];
     }
 
     public int? GetIdBySlug(string slug) => _db.Articles.GetBySlug(slug)?.Id;
@@ -63,8 +63,7 @@ public sealed class ArticleRepository
     {
         var rows = _db.Articles.GetFiltered(Tag: tag, Author: author, FavoritedBy: favoritedBy, Skip: skip, Take: take);
         int total = (int)_db.Articles.GetCount(Tag: tag, Author: author, FavoritedBy: favoritedBy)!.Total;
-        var views = rows.Select(r => ToView(r, viewerId)).ToList();
-        return (views, total);
+        return (ToViews(rows, viewerId), total);
     }
 
     // Articles authored by users `userId` follows - exercises the
@@ -74,22 +73,34 @@ public sealed class ArticleRepository
     {
         var rows = _db.Articles.GetFeed(UserId: userId, Skip: skip, Take: take);
         int total = (int)_db.Articles.GetFeedCount(UserId: userId)!.Total;
-        var views = rows.Select(r => ToView(r, userId)).ToList();
-        return (views, total);
+        return (ToViews(rows, userId), total);
     }
 
-    private Domain.ArticleView ToView(Article row, int? viewerId)
+    private IReadOnlyList<Domain.ArticleView> ToViews(IReadOnlyList<Article> rows, int? viewerId)
     {
-        var tagNames = _db.ArticleTags.GetTagNamesByArticleId(row.Id).Select(t => t.Name).ToList();
-        bool favorited = viewerId is not null
-            && _db.Favorites.Exists(UserId: viewerId.Value, ArticleId: row.Id)?.Total > 0;
-        int favoritesCount = (int)_db.Favorites.GetCountByArticleId(row.Id)!.Total;
-        var author = _db.Users.GetById(row.AuthorId)!;
-        var authorProfile = _profiles.GetProfile(author.Username, viewerId)!;
+        var ids = rows.Select(r => r.Id).ToArray();
+        var tagNamesById = _db.ArticleTags.GetTagNamesByArticleId(ids)
+            .GroupBy(t => t.ArticleId)
+            .ToDictionary(g => g.Key, g => g.Select(t => t.Name).ToList());
+        var favoriteCountsById = _db.Favorites.GetCountByArticleId(ids)
+            .ToDictionary(f => f.ArticleId, f => (int)f.Total);
 
-        return new Domain.ArticleView(
-            row.Slug, row.Title, row.Description, row.Body, tagNames,
-            row.CreatedAt, row.UpdatedAt, favorited, favoritesCount, authorProfile);
+        var views = new List<Domain.ArticleView>(rows.Count);
+        foreach (var row in rows)
+        {
+            bool favorited = viewerId is not null
+                && _db.Favorites.Exists(UserId: viewerId.Value, ArticleId: row.Id)?.Total > 0;
+            var author = _db.Users.GetById(row.AuthorId)!;
+            var authorProfile = _profiles.GetProfile(author.Username, viewerId)!;
+
+            views.Add(new Domain.ArticleView(
+                row.Slug, row.Title, row.Description, row.Body,
+                tagNamesById.TryGetValue(row.Id, out var tagNames) ? tagNames : new List<string>(),
+                row.CreatedAt, row.UpdatedAt, favorited,
+                favoriteCountsById.TryGetValue(row.Id, out int favoritesCount) ? favoritesCount : 0,
+                authorProfile));
+        }
+        return views;
     }
 
     private int GetOrCreateTagId(string name)

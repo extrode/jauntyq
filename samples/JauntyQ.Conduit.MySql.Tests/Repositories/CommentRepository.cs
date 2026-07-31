@@ -19,7 +19,7 @@ public sealed class CommentRepository
         => _db.Comments.Insert(ArticleId: articleId, AuthorId: authorId, Body: body, CreatedAt: nowIso, UpdatedAt: nowIso);
 
     public IReadOnlyList<Domain.CommentView> GetByArticleId(int articleId, int? viewerId)
-        => _db.Comments.GetByArticleId(articleId).Select(c => ToView(c, viewerId)).ToList();
+        => _db.Comments.GetByArticleId(new[] { articleId }).Select(c => ToView(c, viewerId)).ToList();
 
     public void Delete(int commentId) => _db.Comments.Delete(commentId);
 
