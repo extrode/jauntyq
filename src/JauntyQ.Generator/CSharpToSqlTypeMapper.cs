@@ -13,21 +13,21 @@ public static class CSharpToSqlTypeMapper
 
         return baseType switch
         {
-            "int"             => "int",
-            "long"            => "bigint",
-            "short"           => "smallint",
-            "byte"            => "tinyint",
-            "bool"            => "bit",
-            "decimal"         => "decimal(18,2)",
-            "double"          => "float",
-            "float"           => "real",
-            "string"          => "nvarchar(MAX)",
+            "int" => "int",
+            "long" => "bigint",
+            "short" => "smallint",
+            "byte" => "tinyint",
+            "bool" => "bit",
+            "decimal" => "decimal(18,2)",
+            "double" => "float",
+            "float" => "real",
+            "string" => "nvarchar(MAX)",
             "System.DateTime" => "datetime2",
             "System.DateTimeOffset" => "datetimeoffset",
             "System.TimeSpan" => "time",
-            "System.Guid"     => "uniqueidentifier",
-            "byte[]"          => "varbinary(MAX)",
-            _                 => "sql_variant"
+            "System.Guid" => "uniqueidentifier",
+            "byte[]" => "varbinary(MAX)",
+            _ => "sql_variant"
         };
     }
 }

@@ -2,6 +2,7 @@ using JauntyQ.Schema;
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
+
 public static partial class CodeEmitter
 {
     /// <summary>
@@ -60,12 +61,12 @@ public static partial class CodeEmitter
         switch (dialect.ToLowerInvariant())
         {
             case "sqlserver":
-            {
-                int idx = FindValuesKeyword(trimmed);
-                if (idx < 0)
-                    return trimmed; // generator validated the shape; defensive only
-                return trimmed.Substring(0, idx) + $"OUTPUT INSERTED.{identityColumn}\n" + trimmed.Substring(idx);
-            }
+                {
+                    int idx = FindValuesKeyword(trimmed);
+                    if (idx < 0)
+                        return trimmed; // generator validated the shape; defensive only
+                    return trimmed.Substring(0, idx) + $"OUTPUT INSERTED.{identityColumn}\n" + trimmed.Substring(idx);
+                }
             case "postgres":
             case "sqlite":
                 return trimmed + $"\nRETURNING {identityColumn}";

@@ -179,11 +179,19 @@ public static class DialectMapper
         {
             switch (normalized)
             {
-                case "int": case "int4": case "integer": case "serial": case "serial4":
+                case "int":
+                case "int4":
+                case "integer":
+                case "serial":
+                case "serial4":
                     return isNullable ? "uint?" : "uint";
-                case "bigint": case "int8": case "bigserial": case "serial8":
+                case "bigint":
+                case "int8":
+                case "bigserial":
+                case "serial8":
                     return isNullable ? "ulong?" : "ulong";
-                case "smallint": case "int2":
+                case "smallint":
+                case "int2":
                     return isNullable ? "ushort?" : "ushort";
                     // "tinyint unsigned" (0..255) and "mediumint unsigned"
                     // (0..16777215) both already fit their signed mapping's

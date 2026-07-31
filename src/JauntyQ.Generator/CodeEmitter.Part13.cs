@@ -2,6 +2,7 @@
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
+
 public static partial class CodeEmitter
 {
     // Provider-native bulk-insert fast paths. Each mirrors the portable

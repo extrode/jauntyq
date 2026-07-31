@@ -2,6 +2,7 @@
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
+
 public static partial class CodeEmitter
 {
     private static void EmitColumnAssignments(System.Text.StringBuilder sb, ProjectionModel projection, string indent, DatabaseSchema? schema = null)
