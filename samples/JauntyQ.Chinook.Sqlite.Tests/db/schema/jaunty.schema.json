@@ -1,0 +1,908 @@
+{
+  "dialect": "sqlite",
+  "tables": {
+    "Album": {
+      "name": "Album",
+      "columns": {
+        "AlbumId": {
+          "name": "AlbumId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Title": {
+          "name": "Title",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 160,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "ArtistId": {
+          "name": "ArtistId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "IFK_AlbumArtistId",
+          "columns": [
+            "ArtistId"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "Artist": {
+      "name": "Artist",
+      "columns": {
+        "ArtistId": {
+          "name": "ArtistId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Name": {
+          "name": "Name",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 120,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": []
+    },
+    "Customer": {
+      "name": "Customer",
+      "columns": {
+        "CustomerId": {
+          "name": "CustomerId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "FirstName": {
+          "name": "FirstName",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "LastName": {
+          "name": "LastName",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 20,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Company": {
+          "name": "Company",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 80,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Address": {
+          "name": "Address",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 70,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "City": {
+          "name": "City",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "State": {
+          "name": "State",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Country": {
+          "name": "Country",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "PostalCode": {
+          "name": "PostalCode",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Phone": {
+          "name": "Phone",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 24,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Fax": {
+          "name": "Fax",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 24,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Email": {
+          "name": "Email",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 60,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "SupportRepId": {
+          "name": "SupportRepId",
+          "dbType": "int",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "IFK_CustomerSupportRepId",
+          "columns": [
+            "SupportRepId"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "Employee": {
+      "name": "Employee",
+      "columns": {
+        "EmployeeId": {
+          "name": "EmployeeId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "LastName": {
+          "name": "LastName",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 20,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "FirstName": {
+          "name": "FirstName",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 20,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Title": {
+          "name": "Title",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 30,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "ReportsTo": {
+          "name": "ReportsTo",
+          "dbType": "int",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "BirthDate": {
+          "name": "BirthDate",
+          "dbType": "datetime",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "HireDate": {
+          "name": "HireDate",
+          "dbType": "datetime",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Address": {
+          "name": "Address",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 70,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "City": {
+          "name": "City",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "State": {
+          "name": "State",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Country": {
+          "name": "Country",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "PostalCode": {
+          "name": "PostalCode",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Phone": {
+          "name": "Phone",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 24,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Fax": {
+          "name": "Fax",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 24,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Email": {
+          "name": "Email",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 60,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "IFK_EmployeeReportsTo",
+          "columns": [
+            "ReportsTo"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "Genre": {
+      "name": "Genre",
+      "columns": {
+        "GenreId": {
+          "name": "GenreId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Name": {
+          "name": "Name",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 120,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": []
+    },
+    "Invoice": {
+      "name": "Invoice",
+      "columns": {
+        "InvoiceId": {
+          "name": "InvoiceId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "CustomerId": {
+          "name": "CustomerId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "InvoiceDate": {
+          "name": "InvoiceDate",
+          "dbType": "datetime",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "BillingAddress": {
+          "name": "BillingAddress",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 70,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "BillingCity": {
+          "name": "BillingCity",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "BillingState": {
+          "name": "BillingState",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "BillingCountry": {
+          "name": "BillingCountry",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 40,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "BillingPostalCode": {
+          "name": "BillingPostalCode",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 10,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Total": {
+          "name": "Total",
+          "dbType": "decimal",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 10,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "IFK_InvoiceCustomerId",
+          "columns": [
+            "CustomerId"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "InvoiceLine": {
+      "name": "InvoiceLine",
+      "columns": {
+        "InvoiceLineId": {
+          "name": "InvoiceLineId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "InvoiceId": {
+          "name": "InvoiceId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "TrackId": {
+          "name": "TrackId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "UnitPrice": {
+          "name": "UnitPrice",
+          "dbType": "decimal",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 10,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Quantity": {
+          "name": "Quantity",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "IFK_InvoiceLineTrackId",
+          "columns": [
+            "TrackId"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "IFK_InvoiceLineInvoiceId",
+          "columns": [
+            "InvoiceId"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "MediaType": {
+      "name": "MediaType",
+      "columns": {
+        "MediaTypeId": {
+          "name": "MediaTypeId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Name": {
+          "name": "Name",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 120,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": []
+    },
+    "Playlist": {
+      "name": "Playlist",
+      "columns": {
+        "PlaylistId": {
+          "name": "PlaylistId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Name": {
+          "name": "Name",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 120,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": []
+    },
+    "PlaylistTrack": {
+      "name": "PlaylistTrack",
+      "columns": {
+        "PlaylistId": {
+          "name": "PlaylistId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "TrackId": {
+          "name": "TrackId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "IFK_PlaylistTrackTrackId",
+          "columns": [
+            "TrackId"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "IFK_PlaylistTrackPlaylistId",
+          "columns": [
+            "PlaylistId"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "sqlite_autoindex_PlaylistTrack_1",
+          "columns": [
+            "PlaylistId",
+            "TrackId"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "Track": {
+      "name": "Track",
+      "columns": {
+        "TrackId": {
+          "name": "TrackId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Name": {
+          "name": "Name",
+          "dbType": "varchar",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 200,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "AlbumId": {
+          "name": "AlbumId",
+          "dbType": "int",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "MediaTypeId": {
+          "name": "MediaTypeId",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "GenreId": {
+          "name": "GenreId",
+          "dbType": "int",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Composer": {
+          "name": "Composer",
+          "dbType": "varchar",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "maxLength": 220,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Milliseconds": {
+          "name": "Milliseconds",
+          "dbType": "int",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "Bytes": {
+          "name": "Bytes",
+          "dbType": "int",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "UnitPrice": {
+          "name": "UnitPrice",
+          "dbType": "decimal",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 10,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "IFK_TrackMediaTypeId",
+          "columns": [
+            "MediaTypeId"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "IFK_TrackGenreId",
+          "columns": [
+            "GenreId"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "IFK_TrackAlbumId",
+          "columns": [
+            "AlbumId"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    }
+  },
+  "foreignKeys": [
+    {
+      "fromTable": "Album",
+      "fromColumn": "ArtistId",
+      "toTable": "Artist",
+      "toColumn": "ArtistId"
+    },
+    {
+      "fromTable": "Customer",
+      "fromColumn": "SupportRepId",
+      "toTable": "Employee",
+      "toColumn": "EmployeeId"
+    },
+    {
+      "fromTable": "Employee",
+      "fromColumn": "ReportsTo",
+      "toTable": "Employee",
+      "toColumn": "EmployeeId"
+    },
+    {
+      "fromTable": "Invoice",
+      "fromColumn": "CustomerId",
+      "toTable": "Customer",
+      "toColumn": "CustomerId"
+    },
+    {
+      "fromTable": "InvoiceLine",
+      "fromColumn": "TrackId",
+      "toTable": "Track",
+      "toColumn": "TrackId"
+    },
+    {
+      "fromTable": "InvoiceLine",
+      "fromColumn": "InvoiceId",
+      "toTable": "Invoice",
+      "toColumn": "InvoiceId"
+    },
+    {
+      "fromTable": "PlaylistTrack",
+      "fromColumn": "TrackId",
+      "toTable": "Track",
+      "toColumn": "TrackId"
+    },
+    {
+      "fromTable": "PlaylistTrack",
+      "fromColumn": "PlaylistId",
+      "toTable": "Playlist",
+      "toColumn": "PlaylistId"
+    },
+    {
+      "fromTable": "Track",
+      "fromColumn": "MediaTypeId",
+      "toTable": "MediaType",
+      "toColumn": "MediaTypeId"
+    },
+    {
+      "fromTable": "Track",
+      "fromColumn": "GenreId",
+      "toTable": "Genre",
+      "toColumn": "GenreId"
+    },
+    {
+      "fromTable": "Track",
+      "fromColumn": "AlbumId",
+      "toTable": "Album",
+      "toColumn": "AlbumId"
+    }
+  ],
+  "procedures": {},
+  "sequences": {},
+  "enums": {}
+}
