@@ -69,7 +69,7 @@ public class OrderTests : IClassFixture<EShopOnWebSqliteFixture>
         Assert.Single(orders);
         Assert.Equal(buyerId, orders[0].BuyerId);
 
-        var items = _fx.Db.OrderItem.GetByOrderId(orders[0].Id);
+        var items = _fx.Db.OrderItem.GetByOrderId(new[] { orders[0].Id });
         Assert.Equal(2, items.Count);
         Assert.Equal(".NET Bot Black Sweatshirt", items[0].OrderedProductName);
     }
@@ -100,7 +100,7 @@ public class OrderTests : IClassFixture<EShopOnWebSqliteFixture>
         Assert.Equal(buyerId, order!.BuyerId);
         Assert.Equal("123 Main St", order.ShipToStreet);
 
-        var items = _fx.Db.OrderItem.GetByOrderId(orderId);
+        var items = _fx.Db.OrderItem.GetByOrderId(new[] { orderId });
         Assert.Single(items);
         Assert.Equal("Roslyn Red Sheet", items[0].OrderedProductName);
     }

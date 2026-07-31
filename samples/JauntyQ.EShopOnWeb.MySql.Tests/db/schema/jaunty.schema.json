@@ -30,6 +30,13 @@
             "id"
           ],
           "isUnique": true
+        },
+        {
+          "name": "idx_basket_buyer_id",
+          "columns": [
+            "buyer_id"
+          ],
+          "isUnique": false
         }
       ]
     },
@@ -224,6 +231,13 @@
             "id"
           ],
           "isUnique": true
+        },
+        {
+          "name": "idx_catalog_item_name",
+          "columns": [
+            "name"
+          ],
+          "isUnique": false
         }
       ]
     },
@@ -429,6 +443,13 @@
             "id"
           ],
           "isUnique": true
+        },
+        {
+          "name": "idx_orders_buyer_id",
+          "columns": [
+            "buyer_id"
+          ],
+          "isUnique": false
         }
       ]
     }
