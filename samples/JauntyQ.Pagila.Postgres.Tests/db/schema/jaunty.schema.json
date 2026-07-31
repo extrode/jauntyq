@@ -1,0 +1,6884 @@
+{
+  "dialect": "postgres",
+  "tables": {
+    "actor": {
+      "name": "actor",
+      "columns": {
+        "actor_id": {
+          "name": "actor_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "first_name": {
+          "name": "first_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_name": {
+          "name": "last_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "actor_pkey",
+          "columns": [
+            "actor_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_actor_last_name",
+          "columns": [
+            "last_name"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "address": {
+      "name": "address",
+      "columns": {
+        "address_id": {
+          "name": "address_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "address": {
+          "name": "address",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "address2": {
+          "name": "address2",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "district": {
+          "name": "district",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "city_id": {
+          "name": "city_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "postal_code": {
+          "name": "postal_code",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "phone": {
+          "name": "phone",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "address_pkey",
+          "columns": [
+            "address_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_city_id",
+          "columns": [
+            "city_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "category": {
+      "name": "category",
+      "columns": {
+        "category_id": {
+          "name": "category_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "category_pkey",
+          "columns": [
+            "category_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "city": {
+      "name": "city",
+      "columns": {
+        "city_id": {
+          "name": "city_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "city": {
+          "name": "city",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "country_id": {
+          "name": "country_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "city_pkey",
+          "columns": [
+            "city_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_country_id",
+          "columns": [
+            "country_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "country": {
+      "name": "country",
+      "columns": {
+        "country_id": {
+          "name": "country_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "country": {
+          "name": "country",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "country_pkey",
+          "columns": [
+            "country_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "customer": {
+      "name": "customer",
+      "columns": {
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "store_id": {
+          "name": "store_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "first_name": {
+          "name": "first_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_name": {
+          "name": "last_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "email": {
+          "name": "email",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "address_id": {
+          "name": "address_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "activebool": {
+          "name": "activebool",
+          "dbType": "boolean",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "create_date": {
+          "name": "create_date",
+          "dbType": "date",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "active": {
+          "name": "active",
+          "dbType": "integer",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "customer_pkey",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "customer_uuid_key",
+          "columns": [
+            "uuid"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_address_id",
+          "columns": [
+            "address_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_store_id",
+          "columns": [
+            "store_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_last_name",
+          "columns": [
+            "last_name"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "film": {
+      "name": "film",
+      "columns": {
+        "film_id": {
+          "name": "film_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "title": {
+          "name": "title",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "description": {
+          "name": "description",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "release_year": {
+          "name": "release_year",
+          "dbType": "integer",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "language_id": {
+          "name": "language_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "original_language_id": {
+          "name": "original_language_id",
+          "dbType": "integer",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_duration": {
+          "name": "rental_duration",
+          "dbType": "smallint",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_rate": {
+          "name": "rental_rate",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 4,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "length": {
+          "name": "length",
+          "dbType": "smallint",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "replacement_cost": {
+          "name": "replacement_cost",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rating": {
+          "name": "rating",
+          "dbType": "mpaa_rating",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false,
+          "enumName": "mpaa_rating"
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "special_features": {
+          "name": "special_features",
+          "dbType": "text[]",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "fulltext": {
+          "name": "fulltext",
+          "dbType": "tsvector",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "film_fulltext_idx",
+          "columns": [
+            "fulltext"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "film_pkey",
+          "columns": [
+            "film_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_language_id",
+          "columns": [
+            "language_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_original_language_id",
+          "columns": [
+            "original_language_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_title",
+          "columns": [
+            "title"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "film_actor": {
+      "name": "film_actor",
+      "columns": {
+        "actor_id": {
+          "name": "actor_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "film_id": {
+          "name": "film_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "film_actor_pkey",
+          "columns": [
+            "actor_id",
+            "film_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_film_id",
+          "columns": [
+            "film_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "film_category": {
+      "name": "film_category",
+      "columns": {
+        "film_id": {
+          "name": "film_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "film_category_pkey",
+          "columns": [
+            "film_id",
+            "category_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "film_embedding": {
+      "name": "film_embedding",
+      "columns": {
+        "film_id": {
+          "name": "film_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "embedding": {
+          "name": "embedding",
+          "dbType": "vector",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "film_embedding_embedding_hnsw_idx",
+          "columns": [
+            "embedding"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "film_embedding_pkey",
+          "columns": [
+            "film_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "inventory": {
+      "name": "inventory",
+      "columns": {
+        "inventory_id": {
+          "name": "inventory_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "film_id": {
+          "name": "film_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "store_id": {
+          "name": "store_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_store_id_film_id",
+          "columns": [
+            "store_id",
+            "film_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "inventory_pkey",
+          "columns": [
+            "inventory_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "language": {
+      "name": "language",
+      "columns": {
+        "language_id": {
+          "name": "language_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "language_pkey",
+          "columns": [
+            "language_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment": {
+      "name": "payment",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_uuid_key",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_01": {
+      "name": "payment_p2022_01",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_fk_payment_p2022_01_customer_id",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_payment_p2022_01_staff_id",
+          "columns": [
+            "staff_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_01_customer_id_idx",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_01_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_01_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_02": {
+      "name": "payment_p2022_02",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_fk_payment_p2022_02_customer_id",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_payment_p2022_02_staff_id",
+          "columns": [
+            "staff_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_02_customer_id_idx",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_02_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_02_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_03": {
+      "name": "payment_p2022_03",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_fk_payment_p2022_03_customer_id",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_payment_p2022_03_staff_id",
+          "columns": [
+            "staff_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_03_customer_id_idx",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_03_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_03_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_04": {
+      "name": "payment_p2022_04",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_fk_payment_p2022_04_customer_id",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_payment_p2022_04_staff_id",
+          "columns": [
+            "staff_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_04_customer_id_idx",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_04_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_04_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_05": {
+      "name": "payment_p2022_05",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_fk_payment_p2022_05_customer_id",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_payment_p2022_05_staff_id",
+          "columns": [
+            "staff_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_05_customer_id_idx",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_05_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_05_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_06": {
+      "name": "payment_p2022_06",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_fk_payment_p2022_06_customer_id",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_fk_payment_p2022_06_staff_id",
+          "columns": [
+            "staff_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_06_customer_id_idx",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_06_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_06_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_07": {
+      "name": "payment_p2022_07",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2022_07_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_07_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_08": {
+      "name": "payment_p2022_08",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2022_08_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_08_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_09": {
+      "name": "payment_p2022_09",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2022_09_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_09_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_10": {
+      "name": "payment_p2022_10",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2022_10_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_10_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_11": {
+      "name": "payment_p2022_11",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2022_11_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_11_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2022_12": {
+      "name": "payment_p2022_12",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2022_12_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2022_12_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_01": {
+      "name": "payment_p2023_01",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_01_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_01_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_02": {
+      "name": "payment_p2023_02",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_02_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_02_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_03": {
+      "name": "payment_p2023_03",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_03_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_03_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_04": {
+      "name": "payment_p2023_04",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_04_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_04_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_05": {
+      "name": "payment_p2023_05",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_05_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_05_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_06": {
+      "name": "payment_p2023_06",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_06_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_06_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_07": {
+      "name": "payment_p2023_07",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_07_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_07_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_08": {
+      "name": "payment_p2023_08",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_08_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_08_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_09": {
+      "name": "payment_p2023_09",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_09_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_09_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_10": {
+      "name": "payment_p2023_10",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_10_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_10_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_11": {
+      "name": "payment_p2023_11",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_11_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_11_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2023_12": {
+      "name": "payment_p2023_12",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2023_12_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2023_12_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_01": {
+      "name": "payment_p2024_01",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_01_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_01_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_02": {
+      "name": "payment_p2024_02",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_02_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_02_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_03": {
+      "name": "payment_p2024_03",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_03_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_03_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_04": {
+      "name": "payment_p2024_04",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_04_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_04_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_05": {
+      "name": "payment_p2024_05",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_05_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_05_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_06": {
+      "name": "payment_p2024_06",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_06_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_06_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_07": {
+      "name": "payment_p2024_07",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_07_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_07_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_08": {
+      "name": "payment_p2024_08",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_08_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_08_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_09": {
+      "name": "payment_p2024_09",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_09_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_09_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_10": {
+      "name": "payment_p2024_10",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_10_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_10_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_11": {
+      "name": "payment_p2024_11",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_11_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_11_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2024_12": {
+      "name": "payment_p2024_12",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2024_12_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2024_12_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_01": {
+      "name": "payment_p2025_01",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_01_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_01_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_02": {
+      "name": "payment_p2025_02",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_02_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_02_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_03": {
+      "name": "payment_p2025_03",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_03_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_03_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_04": {
+      "name": "payment_p2025_04",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_04_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_04_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_05": {
+      "name": "payment_p2025_05",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_05_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_05_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_06": {
+      "name": "payment_p2025_06",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_06_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_06_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_07": {
+      "name": "payment_p2025_07",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_07_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_07_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_08": {
+      "name": "payment_p2025_08",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_08_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_08_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_09": {
+      "name": "payment_p2025_09",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_09_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_09_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_10": {
+      "name": "payment_p2025_10",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_10_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_10_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_11": {
+      "name": "payment_p2025_11",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_11_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_11_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2025_12": {
+      "name": "payment_p2025_12",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2025_12_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2025_12_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2026_01": {
+      "name": "payment_p2026_01",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2026_01_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2026_01_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2026_02": {
+      "name": "payment_p2026_02",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2026_02_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2026_02_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2026_03": {
+      "name": "payment_p2026_03",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2026_03_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2026_03_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2026_04": {
+      "name": "payment_p2026_04",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2026_04_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2026_04_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2026_05": {
+      "name": "payment_p2026_05",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2026_05_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2026_05_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2026_06": {
+      "name": "payment_p2026_06",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2026_06_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2026_06_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "payment_p2026_07": {
+      "name": "payment_p2026_07",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "amount": {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "precision": 5,
+          "scale": 2,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "payment_p2026_07_pkey",
+          "columns": [
+            "payment_date",
+            "payment_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "payment_p2026_07_uuid_payment_date_idx",
+          "columns": [
+            "uuid",
+            "payment_date"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "rental": {
+      "name": "rental",
+      "columns": {
+        "rental_id": {
+          "name": "rental_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "rental_date": {
+          "name": "rental_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "inventory_id": {
+          "name": "inventory_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "return_date": {
+          "name": "return_date",
+          "dbType": "timestamp with time zone",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "uuid": {
+          "name": "uuid",
+          "dbType": "uuid",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_fk_inventory_id",
+          "columns": [
+            "inventory_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "idx_unq_rental_rental_date_inventory_id_customer_id",
+          "columns": [
+            "rental_date",
+            "inventory_id",
+            "customer_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "rental_pkey",
+          "columns": [
+            "rental_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "rental_uuid_key",
+          "columns": [
+            "uuid"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "staff": {
+      "name": "staff",
+      "columns": {
+        "staff_id": {
+          "name": "staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "first_name": {
+          "name": "first_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_name": {
+          "name": "last_name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "address_id": {
+          "name": "address_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "email": {
+          "name": "email",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "store_id": {
+          "name": "store_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "active": {
+          "name": "active",
+          "dbType": "boolean",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "username": {
+          "name": "username",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "password": {
+          "name": "password",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "picture": {
+          "name": "picture",
+          "dbType": "bytea",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "staff_pkey",
+          "columns": [
+            "staff_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    },
+    "store": {
+      "name": "store",
+      "columns": {
+        "store_id": {
+          "name": "store_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "manager_staff_id": {
+          "name": "manager_staff_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "address_id": {
+          "name": "address_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "last_update": {
+          "name": "last_update",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_unq_manager_staff_id",
+          "columns": [
+            "manager_staff_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "store_pkey",
+          "columns": [
+            "store_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ]
+    }
+  },
+  "foreignKeys": [
+    {
+      "fromTable": "address",
+      "fromColumn": "city_id",
+      "toTable": "city",
+      "toColumn": "city_id"
+    },
+    {
+      "fromTable": "city",
+      "fromColumn": "country_id",
+      "toTable": "country",
+      "toColumn": "country_id"
+    },
+    {
+      "fromTable": "customer",
+      "fromColumn": "address_id",
+      "toTable": "address",
+      "toColumn": "address_id"
+    },
+    {
+      "fromTable": "customer",
+      "fromColumn": "store_id",
+      "toTable": "store",
+      "toColumn": "store_id"
+    },
+    {
+      "fromTable": "film",
+      "fromColumn": "language_id",
+      "toTable": "language",
+      "toColumn": "language_id"
+    },
+    {
+      "fromTable": "film",
+      "fromColumn": "original_language_id",
+      "toTable": "language",
+      "toColumn": "language_id"
+    },
+    {
+      "fromTable": "film_actor",
+      "fromColumn": "actor_id",
+      "toTable": "actor",
+      "toColumn": "actor_id"
+    },
+    {
+      "fromTable": "film_actor",
+      "fromColumn": "film_id",
+      "toTable": "film",
+      "toColumn": "film_id"
+    },
+    {
+      "fromTable": "film_category",
+      "fromColumn": "category_id",
+      "toTable": "category",
+      "toColumn": "category_id"
+    },
+    {
+      "fromTable": "film_category",
+      "fromColumn": "film_id",
+      "toTable": "film",
+      "toColumn": "film_id"
+    },
+    {
+      "fromTable": "film_embedding",
+      "fromColumn": "film_id",
+      "toTable": "film",
+      "toColumn": "film_id"
+    },
+    {
+      "fromTable": "inventory",
+      "fromColumn": "film_id",
+      "toTable": "film",
+      "toColumn": "film_id"
+    },
+    {
+      "fromTable": "inventory",
+      "fromColumn": "store_id",
+      "toTable": "store",
+      "toColumn": "store_id"
+    },
+    {
+      "fromTable": "payment_p2022_01",
+      "fromColumn": "customer_id",
+      "toTable": "customer",
+      "toColumn": "customer_id"
+    },
+    {
+      "fromTable": "payment_p2022_01",
+      "fromColumn": "rental_id",
+      "toTable": "rental",
+      "toColumn": "rental_id"
+    },
+    {
+      "fromTable": "payment_p2022_01",
+      "fromColumn": "staff_id",
+      "toTable": "staff",
+      "toColumn": "staff_id"
+    },
+    {
+      "fromTable": "payment_p2022_02",
+      "fromColumn": "customer_id",
+      "toTable": "customer",
+      "toColumn": "customer_id"
+    },
+    {
+      "fromTable": "payment_p2022_02",
+      "fromColumn": "rental_id",
+      "toTable": "rental",
+      "toColumn": "rental_id"
+    },
+    {
+      "fromTable": "payment_p2022_02",
+      "fromColumn": "staff_id",
+      "toTable": "staff",
+      "toColumn": "staff_id"
+    },
+    {
+      "fromTable": "payment_p2022_03",
+      "fromColumn": "customer_id",
+      "toTable": "customer",
+      "toColumn": "customer_id"
+    },
+    {
+      "fromTable": "payment_p2022_03",
+      "fromColumn": "rental_id",
+      "toTable": "rental",
+      "toColumn": "rental_id"
+    },
+    {
+      "fromTable": "payment_p2022_03",
+      "fromColumn": "staff_id",
+      "toTable": "staff",
+      "toColumn": "staff_id"
+    },
+    {
+      "fromTable": "payment_p2022_04",
+      "fromColumn": "customer_id",
+      "toTable": "customer",
+      "toColumn": "customer_id"
+    },
+    {
+      "fromTable": "payment_p2022_04",
+      "fromColumn": "rental_id",
+      "toTable": "rental",
+      "toColumn": "rental_id"
+    },
+    {
+      "fromTable": "payment_p2022_04",
+      "fromColumn": "staff_id",
+      "toTable": "staff",
+      "toColumn": "staff_id"
+    },
+    {
+      "fromTable": "payment_p2022_05",
+      "fromColumn": "customer_id",
+      "toTable": "customer",
+      "toColumn": "customer_id"
+    },
+    {
+      "fromTable": "payment_p2022_05",
+      "fromColumn": "rental_id",
+      "toTable": "rental",
+      "toColumn": "rental_id"
+    },
+    {
+      "fromTable": "payment_p2022_05",
+      "fromColumn": "staff_id",
+      "toTable": "staff",
+      "toColumn": "staff_id"
+    },
+    {
+      "fromTable": "payment_p2022_06",
+      "fromColumn": "customer_id",
+      "toTable": "customer",
+      "toColumn": "customer_id"
+    },
+    {
+      "fromTable": "payment_p2022_06",
+      "fromColumn": "rental_id",
+      "toTable": "rental",
+      "toColumn": "rental_id"
+    },
+    {
+      "fromTable": "payment_p2022_06",
+      "fromColumn": "staff_id",
+      "toTable": "staff",
+      "toColumn": "staff_id"
+    },
+    {
+      "fromTable": "rental",
+      "fromColumn": "customer_id",
+      "toTable": "customer",
+      "toColumn": "customer_id"
+    },
+    {
+      "fromTable": "rental",
+      "fromColumn": "inventory_id",
+      "toTable": "inventory",
+      "toColumn": "inventory_id"
+    },
+    {
+      "fromTable": "rental",
+      "fromColumn": "staff_id",
+      "toTable": "staff",
+      "toColumn": "staff_id"
+    },
+    {
+      "fromTable": "staff",
+      "fromColumn": "address_id",
+      "toTable": "address",
+      "toColumn": "address_id"
+    },
+    {
+      "fromTable": "staff",
+      "fromColumn": "store_id",
+      "toTable": "store",
+      "toColumn": "store_id"
+    },
+    {
+      "fromTable": "store",
+      "fromColumn": "address_id",
+      "toTable": "address",
+      "toColumn": "address_id"
+    }
+  ],
+  "procedures": {},
+  "sequences": {
+    "actor_actor_id_seq": {
+      "name": "actor_actor_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 200
+    },
+    "address_address_id_seq": {
+      "name": "address_address_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 1005
+    },
+    "category_category_id_seq": {
+      "name": "category_category_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 16
+    },
+    "city_city_id_seq": {
+      "name": "city_city_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 600
+    },
+    "country_country_id_seq": {
+      "name": "country_country_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 109
+    },
+    "customer_customer_id_seq": {
+      "name": "customer_customer_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 999
+    },
+    "film_film_id_seq": {
+      "name": "film_film_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 1000
+    },
+    "inventory_inventory_id_seq": {
+      "name": "inventory_inventory_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 4581
+    },
+    "language_language_id_seq": {
+      "name": "language_language_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 6
+    },
+    "payment_payment_id_seq": {
+      "name": "payment_payment_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 102094
+    },
+    "rental_rental_id_seq": {
+      "name": "rental_rental_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 87559
+    },
+    "staff_staff_id_seq": {
+      "name": "staff_staff_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 1500
+    },
+    "store_store_id_seq": {
+      "name": "store_store_id_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 9223372036854775807,
+      "currentValue": 500
+    }
+  },
+  "enums": {
+    "mpaa_rating": {
+      "name": "mpaa_rating",
+      "members": [
+        {
+          "value": "G",
+          "csharpName": "G"
+        },
+        {
+          "value": "PG",
+          "csharpName": "PG"
+        },
+        {
+          "value": "PG-13",
+          "csharpName": "PG13"
+        },
+        {
+          "value": "R",
+          "csharpName": "R"
+        },
+        {
+          "value": "NC-17",
+          "csharpName": "NC17"
+        }
+      ]
+    }
+  }
+}

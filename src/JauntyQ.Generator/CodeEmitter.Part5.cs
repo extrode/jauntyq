@@ -357,7 +357,12 @@ public static partial class CodeEmitter
             // `required` only where CS8618 applies (non-nullable reference
             // types); value types stay optional so POCO-based Insert doesn't
             // force callers to zero-fill database-assigned keys.
-            string modifier = csharpType == "string" || csharpType == "byte[]" ? "required " : "";
+            // "object" is the non-nullable unmapped-type fallback (JNT2007);
+            // without `required` it leaks CS8618 out of generated code for
+            // every NOT NULL column of an unmapped type (found live by
+            // canonical Pagila's `fulltext tsvector NOT NULL`).
+            string modifier = csharpType == "string" || csharpType == "byte[]" || csharpType == "object"
+                ? "required " : "";
             sb.AppendLine($"        public {modifier}{ShortenValueTypeName(schema, csharpType)} {IdentifierGuard.Escape(DialectMapper.ToPascalCase(col.Name))} {{ get; set; }}");
         }
         sb.AppendLine();
