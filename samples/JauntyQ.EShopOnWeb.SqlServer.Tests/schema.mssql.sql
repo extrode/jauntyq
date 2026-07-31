@@ -96,3 +96,12 @@ INSERT INTO catalog_item (catalog_type_id, catalog_brand_id, description, name, 
     (3, 2, '.NET Foundation Sheet', '.NET Foundation Sheet', 12, 'http://catalogbaseurltobereplaced/images/products/10.png'),
     (3, 2, 'Cup<T> Sheet', 'Cup<T> Sheet', 8.5, 'http://catalogbaseurltobereplaced/images/products/11.png'),
     (2, 5, 'Prism White TShirt', 'Prism White TShirt', 12, 'http://catalogbaseurltobereplaced/images/products/12.png');
+
+CREATE INDEX idx_basket_buyer_id ON basket (buyer_id);
+CREATE INDEX idx_catalog_item_name ON catalog_item (name);
+CREATE INDEX idx_orders_buyer_id ON orders (buyer_id);
+CREATE INDEX idx_basket_item_basket_id ON basket_item (basket_id);
+CREATE INDEX idx_basket_item_catalog_item_id ON basket_item (catalog_item_id);
+CREATE INDEX idx_catalog_item_catalog_brand_id ON catalog_item (catalog_brand_id);
+CREATE INDEX idx_catalog_item_catalog_type_id ON catalog_item (catalog_type_id);
+CREATE INDEX idx_order_item_order_id ON order_item (order_id);

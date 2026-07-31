@@ -46,7 +46,7 @@ public class ConcurrencyTests
 
         await Task.WhenAll(taskA, taskB);
 
-        var items = _fx.Db.BasketItem.GetByBasketId(basketId);
+        var items = _fx.Db.BasketItem.GetByBasketId(new[] { basketId });
         Assert.Single(items);
         Assert.True(items[0].Quantity == 10 || items[0].Quantity == 20,
             $"Expected quantity to be exactly one writer's value (10 or 20), got corrupted value {items[0].Quantity}.");
@@ -87,7 +87,7 @@ public class ConcurrencyTests
             .ContinueWith(t => !t.IsFaulted && !t.IsCanceled);
         Assert.True(completed, "Concurrent transactional updates deadlocked or failed to complete within 30s.");
 
-        var items = _fx.Db.BasketItem.GetByBasketId(basketId);
+        var items = _fx.Db.BasketItem.GetByBasketId(new[] { basketId });
         Assert.Single(items);
         Assert.True(items[0].Quantity == 30 || items[0].Quantity == 40);
     }

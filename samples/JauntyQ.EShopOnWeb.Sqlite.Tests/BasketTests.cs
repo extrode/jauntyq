@@ -27,7 +27,7 @@ public class BasketTests : IClassFixture<EShopOnWebSqliteFixture>
         Assert.NotNull(basket);
         Assert.Equal("buyer-1a", basket!.BuyerId);
 
-        var items = _fx.Db.BasketItem.GetByBasketId(basketId);
+        var items = _fx.Db.BasketItem.GetByBasketId(new[] { basketId });
         Assert.Equal(2, items.Count);
         Assert.Equal(1, items[0].CatalogItemId);
         Assert.Equal(2, items[1].CatalogItemId);
@@ -56,7 +56,7 @@ public class BasketTests : IClassFixture<EShopOnWebSqliteFixture>
         Assert.NotNull(basket);
         Assert.Equal(basketId, basket!.Id);
 
-        var items = _fx.Db.BasketItem.GetByBasketId(basket.Id);
+        var items = _fx.Db.BasketItem.GetByBasketId(new[] { basket.Id });
         Assert.Single(items);
         Assert.Equal(5, items[0].Quantity);
     }

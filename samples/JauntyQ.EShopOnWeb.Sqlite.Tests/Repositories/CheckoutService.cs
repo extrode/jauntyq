@@ -29,7 +29,7 @@ public sealed class CheckoutService
         if (basket is null)
             throw new InvalidOperationException($"Basket {basketId} not found.");
 
-        var basketItems = _db.BasketItem.GetByBasketId(basketId);
+        var basketItems = _db.BasketItem.GetByBasketId(new[] { basketId });
         if (basketItems.Count == 0)
             throw new InvalidOperationException($"Basket {basketId} has no items.");
 

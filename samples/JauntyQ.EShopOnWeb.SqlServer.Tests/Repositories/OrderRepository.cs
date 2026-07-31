@@ -24,18 +24,20 @@ public sealed class OrderRepository
     {
         var row = _db.Orders.GetById(id);
         if (row is null) return null;
-        var items = _db.OrderItem.GetByOrderId(row.Id);
+        var items = _db.OrderItem.GetByOrderId(new[] { row.Id });
         return ToDomain(row, items);
     }
 
     public List<Domain.Order> GetByBuyerId(string buyerId)
     {
         var rows = _db.Orders.GetByBuyerId(buyerId);
+        var itemsByOrderId = _db.OrderItem.GetByOrderId(rows.Select(r => r.Id).ToArray())
+            .GroupBy(i => i.OrderId)
+            .ToDictionary(g => g.Key, g => g.ToList());
         var result = new List<Domain.Order>(rows.Count);
         foreach (var row in rows)
         {
-            var items = _db.OrderItem.GetByOrderId(row.Id);
-            result.Add(ToDomain(row, items));
+            result.Add(ToDomain(row, itemsByOrderId.TryGetValue(row.Id, out var items) ? items : new List<OrderItemRow>()));
         }
         return result;
     }

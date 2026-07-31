@@ -30,6 +30,13 @@
             "id"
           ],
           "isUnique": true
+        },
+        {
+          "name": "idx_basket_buyer_id",
+          "columns": [
+            "buyer_id"
+          ],
+          "isUnique": false
         }
       ]
     },
@@ -86,6 +93,20 @@
             "id"
           ],
           "isUnique": true
+        },
+        {
+          "name": "idx_basket_item_basket_id",
+          "columns": [
+            "basket_id"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "idx_basket_item_catalog_item_id",
+          "columns": [
+            "catalog_item_id"
+          ],
+          "isUnique": false
         }
       ]
     },
@@ -196,6 +217,27 @@
             "id"
           ],
           "isUnique": true
+        },
+        {
+          "name": "idx_catalog_item_name",
+          "columns": [
+            "name"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "idx_catalog_item_catalog_brand_id",
+          "columns": [
+            "catalog_brand_id"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "idx_catalog_item_catalog_type_id",
+          "columns": [
+            "catalog_type_id"
+          ],
+          "isUnique": false
         }
       ]
     },
@@ -304,6 +346,13 @@
             "id"
           ],
           "isUnique": true
+        },
+        {
+          "name": "idx_order_item_order_id",
+          "columns": [
+            "order_id"
+          ],
+          "isUnique": false
         }
       ]
     },
@@ -394,6 +443,13 @@
             "id"
           ],
           "isUnique": true
+        },
+        {
+          "name": "idx_orders_buyer_id",
+          "columns": [
+            "buyer_id"
+          ],
+          "isUnique": false
         }
       ]
     }

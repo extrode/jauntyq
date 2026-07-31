@@ -78,6 +78,10 @@ CREATE TABLE comments (
 -- Added in response to JauntyQ's JNT8004 index-advisor warning on
 -- Comments/GetByArticleId.sql's `where article_id = @ArticleId` filter.
 CREATE INDEX idx_comments_article_id ON comments (article_id);
+CREATE INDEX idx_comments_author_id ON comments (author_id);
+CREATE INDEX idx_comments_created_at ON comments (created_at);
+CREATE INDEX idx_articles_author_id ON articles (author_id);
+CREATE INDEX idx_articles_created_at ON articles (created_at);
 
 -- All seeded users share the same known test password ("Password123!") so
 -- UserTests can exercise a real hash-compare login path.
