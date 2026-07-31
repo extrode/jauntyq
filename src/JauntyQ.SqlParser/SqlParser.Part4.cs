@@ -2,6 +2,7 @@ using JauntyQ.SqlParser.IR;
 using JauntyQ.SqlParser.Tokens;
 
 namespace JauntyQ.SqlParser;
+
 public static partial class SqlParser
 {
     /// <summary>

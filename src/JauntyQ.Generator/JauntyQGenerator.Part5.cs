@@ -8,6 +8,7 @@ using JauntyQ.SqlParser.IR;
 using JauntyQ.SqlParser.Tokens;
 
 namespace JauntyQ.Generator;
+
 public partial class JauntyQGenerator : IIncrementalGenerator
 {
 

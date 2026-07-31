@@ -2,6 +2,7 @@ using JauntyQ.Schema;
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
+
 public static partial class CodeEmitter
 {
     /// <summary>
@@ -84,97 +85,97 @@ public static partial class CodeEmitter
         switch (dialect.ToLowerInvariant())
         {
             case "sqlserver":
-            {
-                string srcSelect = JoinColumns(columns, ", ", c => $"@{c.Name} AS {c.Name}");
-                string onClause = JoinColumns(keyCols, " AND ", c => $"target.{c.Name} = src.{c.Name}");
-                string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = src.{c.Name}");
-                string insertVals = JoinColumns(columns, ", ", c => $"src.{c.Name}");
-                sql = $"MERGE INTO {tableSchema.Name} WITH (HOLDLOCK) AS target\n" +
-                      $"USING (SELECT {srcSelect}) AS src\n" +
-                      $"ON {onClause}\n" +
-                      $"WHEN MATCHED THEN UPDATE SET {updateSet}\n" +
-                      $"WHEN NOT MATCHED THEN INSERT ({colList}) VALUES ({insertVals});";
-                break;
-            }
-            case "postgres":
-            case "sqlite":
-            {
-                string conflictCols = JoinColumns(keyCols, ", ", c => c.Name);
-                string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = EXCLUDED.{c.Name}");
-                sql = $"INSERT INTO {tableSchema.Name} ({colList})\nVALUES ({paramList})\n" +
-                      $"ON CONFLICT ({conflictCols}) DO UPDATE SET {updateSet}";
-                break;
-            }
-            case "mysql":
-            {
-                // AUD-R4-16: ON DUPLICATE KEY UPDATE names no conflict target
-                // -- MySQL/MariaDB match whichever UNIQUE the insert violates.
-                // With exactly one UNIQUE on the table that is the key
-                // ResolveUpsertKey picked, so the statement agrees with
-                // postgres/sqlite's ON CONFLICT (cols) and sqlserver's MERGE
-                // ... ON, and it stays. With a competing UNIQUE it does not
-                // agree, and a row can be matched on a key the caller never
-                // asked about.
-                if (!UpsertKeyResolver.HasCompetingUniqueConstraint(tableSchema, keyCols))
                 {
-                    // VALUES(col) works on both MySQL and MariaDB (the 8.0.20+
-                    // alias form is not MariaDB-compatible).
-                    string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = VALUES({c.Name})");
-                    sql = $"INSERT INTO {tableSchema.Name} ({colList})\nVALUES ({paramList})\n" +
-                          $"ON DUPLICATE KEY UPDATE {updateSet}";
+                    string srcSelect = JoinColumns(columns, ", ", c => $"@{c.Name} AS {c.Name}");
+                    string onClause = JoinColumns(keyCols, " AND ", c => $"target.{c.Name} = src.{c.Name}");
+                    string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = src.{c.Name}");
+                    string insertVals = JoinColumns(columns, ", ", c => $"src.{c.Name}");
+                    sql = $"MERGE INTO {tableSchema.Name} WITH (HOLDLOCK) AS target\n" +
+                          $"USING (SELECT {srcSelect}) AS src\n" +
+                          $"ON {onClause}\n" +
+                          $"WHEN MATCHED THEN UPDATE SET {updateSet}\n" +
+                          $"WHEN NOT MATCHED THEN INSERT ({colList}) VALUES ({insertVals});";
                     break;
                 }
-
-                // Key-targeted form, for the competing-UNIQUE case only. Two
-                // statements in one CommandText, which MySqlConnector executes
-                // under a default connection string on both engines, with
-                // @key bound once and referenced three times (all measured in
-                // MySqlUpsertProbeTests before this was written).
-                //
-                // NOT EXISTS, deliberately, and not ROW_COUNT() = 0: after an
-                // UPDATE that matched a row but changed no values ROW_COUNT()
-                // is 1 or 0 depending on the consumer's UseAffectedRows
-                // setting -- their connection string, not ours -- so an upsert
-                // re-run with identical values would fall through to the
-                // INSERT and take a duplicate-key error. NOT EXISTS asks the
-                // question the conflict key actually poses and is immune to
-                // that setting.
-                //
-                // FROM DUAL because MySQL rejects a WHERE on a SELECT with no
-                // FROM. Both engines accept it.
-                //
-                // This form is not atomic the way ON DUPLICATE KEY UPDATE is,
-                // and an ambient transaction does not make it so -- that claim
-                // was here until the independent review of AUD-R4-16 refuted
-                // it. Three distinct races, on the same new key:
-                //   1062 both sessions see NOT EXISTS true and both insert.
-                //   1213 in a transaction, the UPDATE's unique-key predicate
-                //        matches nothing and takes a gap lock; gap locks are
-                //        mutually compatible, so both sessions proceed, and
-                //        each INSERT's insert-intention lock then conflicts
-                //        with the other's gap lock. A transaction converts the
-                //        1062 into a deadlock rather than preventing it.
-                //   0    the other session commits between this one's UPDATE
-                //        (which matched nothing) and its INSERT (whose NOT
-                //        EXISTS is now false). Nothing is written, nothing
-                //        throws, and ExecuteNonQuery returns 0 -- the only
-                //        one of the three that fails silently.
-                // JNT2018 states all three and tells the caller to retry on
-                // 1062/1213 or drop the competing UNIQUE. It does NOT tell them
-                // to treat 0 as a lost write: MySqlUpsertProbeTests measured an
-                // unchanged re-run returning 0 under UseAffectedRows=true, so 0
-                // is ambiguous and alarming on it would fire on every
-                // idempotent re-run.
+            case "postgres":
+            case "sqlite":
                 {
-                    string setClause = JoinColumns(setCols, ", ", c => $"{c.Name} = @{c.Name}");
-                    string keyPredicate = JoinColumns(keyCols, " AND ", c => $"{c.Name} = @{c.Name}");
-                    sql = $"UPDATE {tableSchema.Name} SET {setClause} WHERE {keyPredicate};\n" +
-                          $"INSERT INTO {tableSchema.Name} ({colList})\n" +
-                          $"SELECT {paramList} FROM DUAL\n" +
-                          $" WHERE NOT EXISTS (SELECT 1 FROM {tableSchema.Name} WHERE {keyPredicate})";
+                    string conflictCols = JoinColumns(keyCols, ", ", c => c.Name);
+                    string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = EXCLUDED.{c.Name}");
+                    sql = $"INSERT INTO {tableSchema.Name} ({colList})\nVALUES ({paramList})\n" +
+                          $"ON CONFLICT ({conflictCols}) DO UPDATE SET {updateSet}";
+                    break;
                 }
-                break;
-            }
+            case "mysql":
+                {
+                    // AUD-R4-16: ON DUPLICATE KEY UPDATE names no conflict target
+                    // -- MySQL/MariaDB match whichever UNIQUE the insert violates.
+                    // With exactly one UNIQUE on the table that is the key
+                    // ResolveUpsertKey picked, so the statement agrees with
+                    // postgres/sqlite's ON CONFLICT (cols) and sqlserver's MERGE
+                    // ... ON, and it stays. With a competing UNIQUE it does not
+                    // agree, and a row can be matched on a key the caller never
+                    // asked about.
+                    if (!UpsertKeyResolver.HasCompetingUniqueConstraint(tableSchema, keyCols))
+                    {
+                        // VALUES(col) works on both MySQL and MariaDB (the 8.0.20+
+                        // alias form is not MariaDB-compatible).
+                        string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = VALUES({c.Name})");
+                        sql = $"INSERT INTO {tableSchema.Name} ({colList})\nVALUES ({paramList})\n" +
+                              $"ON DUPLICATE KEY UPDATE {updateSet}";
+                        break;
+                    }
+
+                    // Key-targeted form, for the competing-UNIQUE case only. Two
+                    // statements in one CommandText, which MySqlConnector executes
+                    // under a default connection string on both engines, with
+                    // @key bound once and referenced three times (all measured in
+                    // MySqlUpsertProbeTests before this was written).
+                    //
+                    // NOT EXISTS, deliberately, and not ROW_COUNT() = 0: after an
+                    // UPDATE that matched a row but changed no values ROW_COUNT()
+                    // is 1 or 0 depending on the consumer's UseAffectedRows
+                    // setting -- their connection string, not ours -- so an upsert
+                    // re-run with identical values would fall through to the
+                    // INSERT and take a duplicate-key error. NOT EXISTS asks the
+                    // question the conflict key actually poses and is immune to
+                    // that setting.
+                    //
+                    // FROM DUAL because MySQL rejects a WHERE on a SELECT with no
+                    // FROM. Both engines accept it.
+                    //
+                    // This form is not atomic the way ON DUPLICATE KEY UPDATE is,
+                    // and an ambient transaction does not make it so -- that claim
+                    // was here until the independent review of AUD-R4-16 refuted
+                    // it. Three distinct races, on the same new key:
+                    //   1062 both sessions see NOT EXISTS true and both insert.
+                    //   1213 in a transaction, the UPDATE's unique-key predicate
+                    //        matches nothing and takes a gap lock; gap locks are
+                    //        mutually compatible, so both sessions proceed, and
+                    //        each INSERT's insert-intention lock then conflicts
+                    //        with the other's gap lock. A transaction converts the
+                    //        1062 into a deadlock rather than preventing it.
+                    //   0    the other session commits between this one's UPDATE
+                    //        (which matched nothing) and its INSERT (whose NOT
+                    //        EXISTS is now false). Nothing is written, nothing
+                    //        throws, and ExecuteNonQuery returns 0 -- the only
+                    //        one of the three that fails silently.
+                    // JNT2018 states all three and tells the caller to retry on
+                    // 1062/1213 or drop the competing UNIQUE. It does NOT tell them
+                    // to treat 0 as a lost write: MySqlUpsertProbeTests measured an
+                    // unchanged re-run returning 0 under UseAffectedRows=true, so 0
+                    // is ambiguous and alarming on it would fire on every
+                    // idempotent re-run.
+                    {
+                        string setClause = JoinColumns(setCols, ", ", c => $"{c.Name} = @{c.Name}");
+                        string keyPredicate = JoinColumns(keyCols, " AND ", c => $"{c.Name} = @{c.Name}");
+                        sql = $"UPDATE {tableSchema.Name} SET {setClause} WHERE {keyPredicate};\n" +
+                              $"INSERT INTO {tableSchema.Name} ({colList})\n" +
+                              $"SELECT {paramList} FROM DUAL\n" +
+                              $" WHERE NOT EXISTS (SELECT 1 FROM {tableSchema.Name} WHERE {keyPredicate})";
+                    }
+                    break;
+                }
             default:
                 // JNT7003 rejects an unrecognized schema.Dialect (case-insensitively)
                 // before emission ever reaches here; defensive only.

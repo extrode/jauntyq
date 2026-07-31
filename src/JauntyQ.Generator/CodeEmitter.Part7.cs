@@ -2,6 +2,7 @@ using JauntyQ.Schema;
 using JauntyQ.SqlParser.IR;
 
 namespace JauntyQ.Generator;
+
 public static partial class CodeEmitter
 {
     /// <summary>
