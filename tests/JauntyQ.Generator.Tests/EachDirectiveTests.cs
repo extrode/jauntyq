@@ -217,7 +217,7 @@ public class EachDirectiveTests
         string src = QuerySource(result);
 
         Assert.Contains(
-            "p0.Size = p0_element.Length > 40 ? p0_element.Length : 40;",
+            "__p0.Size = __p0_element.Length > 40 ? __p0_element.Length : 40;",
             src);
     }
 
