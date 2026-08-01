@@ -294,4 +294,80 @@ create table gadgets (id int not null primary key, name nvarchar(20) not null);
         // Widened by V10 to 80: the value-safety guard reflects the final width.
         Assert.Contains("if (name.Length > 80)", Source(result, "Widgets.Insert.auto.g.cs"));
     }
+
+    private const string PostgresEnumSchemaJson = @"{
+  ""dialect"": ""postgres"",
+  ""enums"": {
+    ""order_status"": {
+      ""name"": ""order_status"",
+      ""members"": [
+        { ""value"": ""pending"", ""csharpName"": ""Pending"" },
+        { ""value"": ""shipped"", ""csharpName"": ""Shipped"" }
+      ]
+    }
+  },
+  ""tables"": {
+    ""orders"": {
+      ""name"": ""orders"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""integer"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""status"": { ""name"": ""status"", ""dbType"": ""order_status"", ""isNullable"": false, ""enumName"": ""order_status"" }
+      }
+    }
+  }
+}";
+
+    private const string MySqlEnumSchemaJson = @"{
+  ""dialect"": ""mysql"",
+  ""enums"": {
+    ""OrdersStatus"": {
+      ""name"": ""OrdersStatus"",
+      ""members"": [
+        { ""value"": ""pending"", ""csharpName"": ""Pending"" },
+        { ""value"": ""shipped"", ""csharpName"": ""Shipped"" }
+      ]
+    }
+  },
+  ""tables"": {
+    ""orders"": {
+      ""name"": ""orders"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""status"": { ""name"": ""status"", ""dbType"": ""enum"", ""isNullable"": false, ""enumName"": ""OrdersStatus"" }
+      }
+    }
+  }
+}";
+
+    [Fact]
+    public void PendingMigration_DoesNotErase_Enums_Postgres()
+    {
+        // SchemaSimulator.Clone must carry DatabaseSchema.Enums and each
+        // column's EnumName: cloned only because an unrelated migration exists,
+        // a Postgres enum column would otherwise degrade to the unmapped-type
+        // fallback -- a FALSE JNT2007 (the type exists and was captured) and an
+        // object-typed property where the previous build emitted the enum.
+        var result = Run(autoCrud: true, PostgresEnumSchemaJson,
+            ("db/migrations/0001_unrelated.sql", "create table audit_log (event_id int not null primary key)"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2007");
+        Assert.True(HasSource(result, "Enums.g.cs"));
+        Assert.Contains("public OrderStatus Status", Source(result, "Orders.Row.g.cs"));
+    }
+
+    [Fact]
+    public void PendingMigration_DoesNotErase_Enums_MySql()
+    {
+        // The MySQL shape is the silent one: DbType is the bare word "enum",
+        // which has its own string arm in DialectMapper -- with the linkage
+        // lost in the clone the column maps to string with NO diagnostic at
+        // all, the Enums.g.cs file vanishes, and every write site quietly
+        // stops binding the wire value.
+        var result = Run(autoCrud: true, MySqlEnumSchemaJson,
+            ("db/migrations/0001_unrelated.sql", "create table audit_log (event_id int not null primary key)"));
+
+        Assert.True(HasSource(result, "Enums.g.cs"));
+        Assert.Contains("public OrdersStatus Status", Source(result, "Orders.Row.g.cs"));
+        Assert.DoesNotContain("public required string Status", Source(result, "Orders.Row.g.cs"));
+    }
 }

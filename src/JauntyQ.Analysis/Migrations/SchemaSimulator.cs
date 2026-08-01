@@ -563,6 +563,13 @@ public static class SchemaSimulator
                 CurrentValue = seq.CurrentValue
             };
         }
+        foreach (var en in source.Enums.Values)
+        {
+            var cloneEnum = new EnumSchema { Name = en.Name };
+            foreach (var m in en.Members)
+                cloneEnum.Members.Add(new EnumMember { Value = m.Value, CSharpName = m.CSharpName });
+            clone.Enums[en.Name] = cloneEnum;
+        }
         return clone;
     }
 
@@ -578,7 +585,8 @@ public static class SchemaSimulator
         Scale = col.Scale,
         IsUnicode = col.IsUnicode,
         IsRowVersion = col.IsRowVersion,
-        IsComputed = col.IsComputed
+        IsComputed = col.IsComputed,
+        EnumName = col.EnumName
     };
 
     private static string Truncate(string text) =>
