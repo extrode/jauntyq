@@ -17,13 +17,21 @@ namespace JauntyQ.Analysis;
 /// refused outright (decided 2026-07-30): the engine matches rows sharing only
 /// the prefix, full-value semantics the emitted method's signature implies but
 /// the index does not enforce, so no Upsert form — atomic or two-statement —
-/// can honour the contract. The <c>out</c> overload names the refusing index so
-/// the generator can report it (JNT2019) instead of a silent skip.
+/// can honour the contract. The <c>out</c> overloads name the refusing index so
+/// the generator can report it (JNT2019) instead of a silent skip. The same
+/// visibility applies (2026-08-01) when the only fallback candidate is an
+/// expression UNIQUE (<see cref="IndexSchema.HasExpressionKeyPart"/> —
+/// <c>UNIQUE (lower(email))</c>): it can never be the key, because the engine
+/// matches on an expression's value no emitted method can bind a parameter to,
+/// and that refusal is reported as JNT2020.
 /// </summary>
 public static class UpsertKeyResolver
 {
     public static List<ColumnSchema>? Resolve(TableSchema tableSchema)
-        => Resolve(tableSchema, out _);
+        => Resolve(tableSchema, out _, out _);
+
+    public static List<ColumnSchema>? Resolve(TableSchema tableSchema, out IndexSchema? prefixOnlyKey)
+        => Resolve(tableSchema, out prefixOnlyKey, out _);
 
     /// <param name="tableSchema">The table to resolve an upsert key for.</param>
     /// <param name="prefixOnlyKey">Non-null exactly when the return value is
@@ -31,9 +39,17 @@ public static class UpsertKeyResolver
     /// prefix UNIQUE: the index that would have been chosen (fallback path) or
     /// the prefix-flagged restatement of the PK (PK path). Null both when a key
     /// resolves and when there is genuinely no key.</param>
-    public static List<ColumnSchema>? Resolve(TableSchema tableSchema, out IndexSchema? prefixOnlyKey)
+    /// <param name="expressionOnlyKey">Non-null exactly when the return value
+    /// is null, no prefix refusal applies, and the fallback scan saw at least
+    /// one unique expression index — the only candidates were uniques whose key
+    /// the snapshot carries only partially. At most one of the two out
+    /// parameters is ever non-null; the prefix refusal wins because that index
+    /// WOULD have been chosen, where an expression unique never could be.</param>
+    public static List<ColumnSchema>? Resolve(
+        TableSchema tableSchema, out IndexSchema? prefixOnlyKey, out IndexSchema? expressionOnlyKey)
     {
         prefixOnlyKey = null;
+        expressionOnlyKey = null;
         // AUD-R36-01: the primary key itself must be read straight off
         // tableSchema.Columns -- the same, unfiltered source CrudColumnRules.
         // PrimaryKeyColumns(...) uses for AutoCrud's GetById/Update/Delete
@@ -90,18 +106,28 @@ public static class UpsertKeyResolver
         }
 
         IndexSchema? skippedPrefixCandidate = null;
+        IndexSchema? skippedExpressionCandidate = null;
         foreach (var index in tableSchema.Indexes)
         {
-            if (!index.IsUnique || index.Columns.Count == 0)
+            if (!index.IsUnique)
                 continue;
 
             // A flagged index's Columns is only the real-column SUBSET of its
             // key -- UNIQUE (customer_id, lower(email)) arrives as
-            // [customer_id], and customer_id alone is not unique. Never a key
-            // candidate. Silent, deliberately: pre-2026-07-30 such an index
-            // was absent from the snapshot entirely, so no-Upsert-no-
-            // diagnostic is the reading these tables already had.
+            // [customer_id], and customer_id alone is not unique; the
+            // all-expression form UNIQUE (lower(email)) arrives with no
+            // columns at all. Never a key candidate either way -- checked
+            // before the empty-Columns guard so the all-expression form is
+            // still remembered. When nothing else resolves, the refusal is
+            // reportable (JNT2020) rather than indistinguishable from "no key
+            // at all".
             if (index.HasExpressionKeyPart)
+            {
+                skippedExpressionCandidate ??= index;
+                continue;
+            }
+
+            if (index.Columns.Count == 0)
                 continue;
 
             var keyCols = new List<ColumnSchema>();
@@ -135,6 +161,8 @@ public static class UpsertKeyResolver
             return keyCols;
         }
         prefixOnlyKey = skippedPrefixCandidate;
+        if (prefixOnlyKey == null)
+            expressionOnlyKey = skippedExpressionCandidate;
         return null;
     }
 

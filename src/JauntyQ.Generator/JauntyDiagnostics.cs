@@ -314,6 +314,24 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // An expression UNIQUE (UNIQUE (lower(email)), captured as
+    // IndexSchema.HasExpressionKeyPart with Columns holding only the
+    // real-column subset of its key) can never serve as a table's upsert
+    // key: the engine matches on an expression's value, which no emitted
+    // method can bind a parameter to. When it is the ONLY constraint that
+    // could have served, the skip used to be silent -- exactly the reading
+    // such tables had before 2026-07-30, when the index was excluded at
+    // capture entirely. Made visible 2026-08-01 for JNT2019's own reason:
+    // a decision the consumer can argue with (add a full-column UNIQUE, or
+    // hand-write the upsert) has to be visible to be arguable.
+    public static readonly DiagnosticDescriptor JNT2020 = new(
+        "JNT2020",
+        "Upsert Skipped For Expression-Only Unique Key",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(

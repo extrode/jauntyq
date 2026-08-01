@@ -550,6 +550,83 @@ public class AutoCrudTests
     }
 
     /// <summary>
+    /// An identity-only PK whose only fallback UNIQUE is an expression index —
+    /// UNIQUE (lower(email)), arriving with the flag and only the real-column
+    /// subset of its key. It can never be the upsert key (no generated method
+    /// can bind the expression's value), and since 2026-08-01 that refusal is
+    /// JNT2020 instead of a silent skip — JNT2019's sibling, same rationale.
+    /// The rest of the table's CRUD is unaffected.
+    /// </summary>
+    [Fact]
+    public void Upsert_ExpressionOnlyUniqueKey_IsRefused_WithJnt2020()
+    {
+        const string schema = @"{
+  ""dialect"": ""mysql"",
+  ""tables"": {
+    ""users"": {
+      ""name"": ""users"",
+      ""columns"": {
+        ""user_id"": { ""name"": ""user_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""email"": { ""name"": ""email"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""bio"": { ""name"": ""bio"", ""dbType"": ""varchar"", ""isNullable"": true }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_users_lower_email"", ""columns"": [], ""isUnique"": true, ""hasExpressionKeyPart"": true }
+      ]
+    }
+  },
+  ""foreignKeys"": []
+}";
+        var (my, compilation) = RunAutoCrudWithSchema(schema);
+
+        Assert.Null(TryGetSource(my, "Users.Upsert.auto.g.cs"));
+
+        var message = Assert.Single(my.Diagnostics.Where(d => d.Id == "JNT2020")).GetMessage();
+        Assert.Contains("'users'", message);
+        Assert.Contains("ux_users_lower_email", message);
+        Assert.Contains("EXPRESSION", message);
+        Assert.DoesNotContain(my.Diagnostics, d => d.Id == "JNT2019");
+
+        // Insert still synthesizes: the refusal is Upsert's alone.
+        Assert.NotNull(TryGetSource(my, "Users.Insert.auto.g.cs"));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    /// <summary>
+    /// The negative: a full-column UNIQUE beside the expression index resolves
+    /// as the key, so Upsert synthesizes and JNT2020 must stay quiet — the
+    /// expression index merely competes (two-statement form territory), it is
+    /// not a refusal.
+    /// </summary>
+    [Fact]
+    public void Upsert_ExpressionUniqueBesideFullColumnUnique_Synthesizes_NoJnt2020()
+    {
+        const string schema = @"{
+  ""dialect"": ""mysql"",
+  ""tables"": {
+    ""users"": {
+      ""name"": ""users"",
+      ""columns"": {
+        ""user_id"": { ""name"": ""user_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""email"": { ""name"": ""email"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""token"": { ""name"": ""token"", ""dbType"": ""varchar"", ""isNullable"": false }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_users_lower_email"", ""columns"": [], ""isUnique"": true, ""hasExpressionKeyPart"": true },
+        { ""name"": ""ux_users_token"", ""columns"": [""token""], ""isUnique"": true }
+      ]
+    }
+  },
+  ""foreignKeys"": []
+}";
+        var (my, compilation) = RunAutoCrudWithSchema(schema);
+
+        Assert.NotNull(TryGetSource(my, "Users.Upsert.auto.g.cs"));
+        Assert.DoesNotContain(my.Diagnostics, d => d.Id == "JNT2020");
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    /// <summary>
     /// JNT2018's remedy text, pinned. The independent review of AUD-R4-16
     /// found the original advice -- "call it inside a transaction" -- actively
     /// wrong: InnoDB gap locks turn the 1062 race into a 1213 deadlock rather
