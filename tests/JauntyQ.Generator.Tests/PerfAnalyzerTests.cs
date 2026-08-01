@@ -337,6 +337,30 @@ public class PerfAnalyzerTests
     }
 
     [Fact]
+    public void RangeSeekOnPk_ResidualStillWarns()
+    {
+        // "gadget_id > @min_id" is not a one-row seek: it reaches a whole
+        // range, and the residual predicate scans every row in it. Only an
+        // EQUALITY cover of the key proves the one-row claim -- a range
+        // operator on a key column must not suppress the residual's JNT8004.
+        var result = RunGadgets(
+            "select serial_no\nfrom gadgets\nwhere gadgets.gadget_id > @min_id and gadgets.row_version = @row_version");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("row_version"));
+    }
+
+    [Fact]
+    public void InListOnPk_ResidualStillWarns()
+    {
+        // IN over the PK is seek-per-element, but the suppression demands the
+        // strict "=" cover: erring toward warning is the function's contract.
+        var result = RunGadgets(
+            "select serial_no\nfrom gadgets\nwhere gadgets.gadget_id in (@id1, @id2) and gadgets.row_version = @row_version");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("row_version"));
+    }
+
+    [Fact]
     public void SelfJoin_PkSeekOnOneInstance_DoesNotSuppressTheOther()
     {
         // g1 is PK-covered (its notes join key and row_version would be free);

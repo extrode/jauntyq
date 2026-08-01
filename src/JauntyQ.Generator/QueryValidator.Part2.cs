@@ -110,11 +110,32 @@ public static partial class QueryValidator
             }
         }
 
+        // The residual-predicate suppression's own set: only predicates that
+        // prove a ONE-ROW seek when they cover a unique key. That is strict
+        // "=" parameters and ON/USING equijoin columns (JoinRef is only ever
+        // built from an "=" condition). Range/IN/LIKE parameters stay in
+        // filterColumns for index-coverage purposes but must not enter here:
+        // "pk > @min" covers the PK column without covering the KEY, and the
+        // residual predicate scans the whole range. The suppression only
+        // silences a warning, so every exclusion errs toward warning.
+        var equalitySeekColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void CollectEqualitySeekColumn(string tableAlias, string columnName)
+        {
+            var col = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
+            if (col != null && tableName != null)
+            {
+                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
+                equalitySeekColumns.Add(instanceKey + "|" + col.Name);
+            }
+        }
+
         foreach (var param in query.Parameters)
         {
             if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
                 continue;
             CollectFilterColumn(param.BoundTableAlias, param.BoundColumnName);
+            if (param.ComparisonOp == "=")
+                CollectEqualitySeekColumn(param.BoundTableAlias, param.BoundColumnName);
         }
         foreach (var hint in query.PerfHints)
         {
@@ -125,24 +146,26 @@ public static partial class QueryValidator
         {
             CollectFilterColumn(join.LeftTable, join.LeftColumn);
             CollectFilterColumn(join.RightTable, join.RightColumn);
+            CollectEqualitySeekColumn(join.LeftTable, join.LeftColumn);
+            CollectEqualitySeekColumn(join.RightTable, join.RightColumn);
         }
 
         foreach (var param in query.Parameters)
         {
             if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
                 continue;
-            CheckIndexed(query, param.BoundTableAlias, param.BoundColumnName, aliasToTable, schema, filterColumns, errors);
+            CheckIndexed(query, param.BoundTableAlias, param.BoundColumnName, aliasToTable, schema, filterColumns, equalitySeekColumns, errors);
         }
         foreach (var hint in query.PerfHints)
         {
             if (hint.Kind != PerfHintKind.ColumnComparedToColumn)
                 continue;
-            CheckIndexed(query, hint.BoundTableAlias, hint.BoundColumnName, aliasToTable, schema, filterColumns, errors);
+            CheckIndexed(query, hint.BoundTableAlias, hint.BoundColumnName, aliasToTable, schema, filterColumns, equalitySeekColumns, errors);
         }
         foreach (var join in query.Joins)
         {
-            CheckIndexed(query, join.LeftTable, join.LeftColumn, aliasToTable, schema, filterColumns, errors);
-            CheckIndexed(query, join.RightTable, join.RightColumn, aliasToTable, schema, filterColumns, errors);
+            CheckIndexed(query, join.LeftTable, join.LeftColumn, aliasToTable, schema, filterColumns, equalitySeekColumns, errors);
+            CheckIndexed(query, join.RightTable, join.RightColumn, aliasToTable, schema, filterColumns, equalitySeekColumns, errors);
         }
 
         // JNT8007: an ORDER BY on a column no index can order forces a runtime
@@ -176,6 +199,7 @@ public static partial class QueryValidator
         QueryModel query, string tableAlias, string columnName,
         Dictionary<string, string> aliasToTable, DatabaseSchema schema,
         HashSet<string> filterColumns,
+        HashSet<string> equalitySeekColumns,
         List<ValidationError> errors)
     {
         var column = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
@@ -194,7 +218,7 @@ public static partial class QueryValidator
         // scans nothing. Auto-CRUD's optimistic-concurrency shape --
         // WHERE pk = @ AND row_version = @ -- reaches this through the
         // rowversion column alone.
-        if (FilterSetCoversUniqueKey(instanceKey, tableSchema!, filterColumns))
+        if (FilterSetCoversUniqueKey(instanceKey, tableSchema!, equalitySeekColumns))
             return;
 
         string message = $"No index covers {tableName}.{column.Name} used as a filter/join key: " +
@@ -263,7 +287,7 @@ public static partial class QueryValidator
     /// so an uncovered key errs toward warning, never toward silence.
     /// </summary>
     private static bool FilterSetCoversUniqueKey(
-        string instanceKey, TableSchema tableSchema, HashSet<string> filterColumns)
+        string instanceKey, TableSchema tableSchema, HashSet<string> equalitySeekColumns)
     {
         bool hasPkColumn = false, allPkColumnsFiltered = true;
         foreach (var col in tableSchema.Columns.Values)
@@ -271,7 +295,7 @@ public static partial class QueryValidator
             if (!col.IsPrimaryKey)
                 continue;
             hasPkColumn = true;
-            if (!filterColumns.Contains(instanceKey + "|" + col.Name))
+            if (!equalitySeekColumns.Contains(instanceKey + "|" + col.Name))
             {
                 allPkColumnsFiltered = false;
                 break;
@@ -290,7 +314,7 @@ public static partial class QueryValidator
             bool allFiltered = true;
             foreach (var keyColumn in index.Columns)
             {
-                if (!filterColumns.Contains(instanceKey + "|" + keyColumn))
+                if (!equalitySeekColumns.Contains(instanceKey + "|" + keyColumn))
                 {
                     allFiltered = false;
                     break;
