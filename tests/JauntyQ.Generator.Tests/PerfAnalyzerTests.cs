@@ -233,6 +233,124 @@ public class PerfAnalyzerTests
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("product_name"));
     }
 
+    // ── JNT8004 residual-predicate suppression (2026-08-01) ─────────────
+    // A residual predicate beside a covered unique seek is free: when the
+    // query's equality filters on a table instance cover a complete PK or a
+    // complete non-prefix, non-expression UNIQUE index, the seek reaches at
+    // most one row and no other column on that instance warrants JNT8004.
+    // Fresh schema so the arms don't interact with SchemaJson's indexes:
+    // gadgets(gadget_id PK, serial_no UNIQUE-indexed, row_version, notes —
+    // both unindexed).
+
+    private const string GadgetsSchemaJson = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""gadgets"": {
+      ""name"": ""gadgets"",
+      ""columns"": {
+        ""gadget_id"": { ""name"": ""gadget_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""serial_no"": { ""name"": ""serial_no"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 20 },
+        ""row_version"": { ""name"": ""row_version"", ""dbType"": ""timestamp"", ""isNullable"": false },
+        ""notes"": { ""name"": ""notes"", ""dbType"": ""nvarchar"", ""isNullable"": true, ""maxLength"": 200 }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_gadgets_serial"", ""columns"": [""serial_no""], ""isUnique"": true }
+      ]
+    }
+  }
+}";
+
+    private static GeneratorDriverRunResult RunGadgets(string sql, string schemaJson = GadgetsSchemaJson) =>
+        Run(schemaJson, ("db/Gadgets/TestQuery.sql", sql));
+
+    [Fact]
+    public void ResidualBesidePkSeek_NoJNT8004()
+    {
+        // The optimistic-concurrency shape: PK covered, row_version residual.
+        var result = RunGadgets(
+            "select serial_no\nfrom gadgets\nwhere gadgets.gadget_id = @gadget_id and gadgets.row_version = @row_version");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8004");
+    }
+
+    [Fact]
+    public void ResidualBesideUniqueIndexSeek_NoJNT8004()
+    {
+        var result = RunGadgets(
+            "select gadget_id\nfrom gadgets\nwhere gadgets.serial_no = @serial_no and gadgets.notes = @notes");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8004");
+    }
+
+    [Fact]
+    public void ResidualAlone_NoCoveringSeek_StillWarns()
+    {
+        var result = RunGadgets(
+            "select gadget_id\nfrom gadgets\nwhere gadgets.row_version = @row_version");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("row_version"));
+    }
+
+    [Fact]
+    public void ResidualBesideNonUniqueIndexSeek_StillWarns()
+    {
+        // Same shape as the unique-arm pass, but the index enforces nothing:
+        // the seek can reach many rows, so the residual still scans them.
+        string nonUnique = GadgetsSchemaJson.Replace(@"""isUnique"": true", @"""isUnique"": false");
+        var result = RunGadgets(
+            "select gadget_id\nfrom gadgets\nwhere gadgets.serial_no = @serial_no and gadgets.notes = @notes",
+            nonUnique);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("notes"));
+    }
+
+    [Theory]
+    [InlineData(@"""hasPrefixKeyPart"": true")]
+    [InlineData(@"""hasExpressionKeyPart"": true")]
+    public void ResidualBesideFlaggedUniqueIndex_StillWarns(string flag)
+    {
+        // A prefix UNIQUE enforces uniqueness over truncated values only; an
+        // expression index's Columns is not its full key. Neither proves a
+        // one-row seek, so neither suppresses.
+        string flagged = GadgetsSchemaJson.Replace(
+            @"""isUnique"": true", @"""isUnique"": true, " + flag);
+        var result = RunGadgets(
+            "select gadget_id\nfrom gadgets\nwhere gadgets.serial_no = @serial_no and gadgets.notes = @notes",
+            flagged);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("notes"));
+    }
+
+    [Fact]
+    public void ResidualBesidePartialCompositePk_StillWarns()
+    {
+        // Composite PK (gadget_id, serial_no) with only gadget_id filtered:
+        // the key is not covered, the seek is not unique, the residual warns.
+        string compositePk = GadgetsSchemaJson.Replace(
+            @"""serial_no"": { ""name"": ""serial_no"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 20 }",
+            @"""serial_no"": { ""name"": ""serial_no"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 20, ""isPrimaryKey"": true }");
+        var result = RunGadgets(
+            "select serial_no\nfrom gadgets\nwhere gadgets.gadget_id = @gadget_id and gadgets.notes = @notes",
+            compositePk);
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("notes"));
+    }
+
+    [Fact]
+    public void SelfJoin_PkSeekOnOneInstance_DoesNotSuppressTheOther()
+    {
+        // g1 is PK-covered (its notes join key and row_version would be free);
+        // g2 is not — its PK is never constrained. Coverage is per table
+        // INSTANCE, never per table name: if g1's seek leaked to g2, both
+        // warnings below would vanish.
+        var result = RunGadgets(
+            "select g2.gadget_id\nfrom gadgets g1\njoin gadgets g2 on g1.notes = g2.notes\n" +
+            "where g1.gadget_id = @gadget_id and g2.row_version = @row_version");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("notes"));
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("row_version"));
+    }
+
     [Fact]
     public void SnapshotWithoutIndexMetadata_JNT8004Suppressed()
     {
@@ -321,9 +439,13 @@ public class PerfAnalyzerTests
         // own row instance was never filtered on launched_at at all -- no
         // real index can seek p2 that way. Each alias must be judged on its
         // own bound predicates.
+        // The join is on category_id (non-unique), not the PK: a PK self-join
+        // would give p2 a legitimate one-row seek and the 2026-08-01
+        // residual-predicate suppression would rightly silence this warning,
+        // masking the alias-conflation regression this test pins.
         var result = RunOne(
             "select p1.product_id\nfrom products p1\n" +
-            "join products p2 on p1.product_id = p2.product_id\n" +
+            "join products p2 on p1.category_id = p2.category_id\n" +
             "where p1.launched_at = @launchedAt and p2.product_name = @productName\n" +
             "-- @params launchedAt:System.DateTime, productName:string");
 

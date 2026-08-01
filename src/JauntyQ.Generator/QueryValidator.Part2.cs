@@ -187,6 +187,16 @@ public static partial class QueryValidator
         if (IsColumnIndexSupported(column, instanceKey, tableSchema!, filterColumns))
             return;
 
+        // A residual predicate beside a covered unique seek is free: when this
+        // query's equality filters on the SAME table instance already cover a
+        // complete primary key or unique index, the seek reaches at most one
+        // row (per outer row, for a join), so the extra check on this column
+        // scans nothing. Auto-CRUD's optimistic-concurrency shape --
+        // WHERE pk = @ AND row_version = @ -- reaches this through the
+        // rowversion column alone.
+        if (FilterSetCoversUniqueKey(instanceKey, tableSchema!, filterColumns))
+            return;
+
         string message = $"No index covers {tableName}.{column.Name} used as a filter/join key: " +
                          "this query scans. Add an index or filter on an indexed column.";
         // one warning per column per query
@@ -236,6 +246,57 @@ public static partial class QueryValidator
                 }
             }
             if (coveredUpToHere)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// True when the equality-filtered columns of <paramref name="instanceKey"/>
+    /// (this query's filter/join set) cover a complete primary key or a complete
+    /// non-prefix, non-expression unique index of the table — a seek that reaches
+    /// at most one row, making any residual predicate on the same instance free.
+    /// Prefix unique indexes are excluded because they enforce uniqueness over
+    /// truncated values only; expression indexes because their
+    /// <see cref="IndexSchema.Columns"/> is not the full key (both per the
+    /// <see cref="IndexSchema"/> flag contracts). Used only to SUPPRESS JNT8004,
+    /// so an uncovered key errs toward warning, never toward silence.
+    /// </summary>
+    private static bool FilterSetCoversUniqueKey(
+        string instanceKey, TableSchema tableSchema, HashSet<string> filterColumns)
+    {
+        bool hasPkColumn = false, allPkColumnsFiltered = true;
+        foreach (var col in tableSchema.Columns.Values)
+        {
+            if (!col.IsPrimaryKey)
+                continue;
+            hasPkColumn = true;
+            if (!filterColumns.Contains(instanceKey + "|" + col.Name))
+            {
+                allPkColumnsFiltered = false;
+                break;
+            }
+        }
+        if (hasPkColumn && allPkColumnsFiltered)
+            return true;
+
+        foreach (var index in tableSchema.Indexes)
+        {
+            if (!index.IsUnique || index.HasPrefixKeyPart || index.HasExpressionKeyPart)
+                continue;
+            if (index.Columns.Count == 0)
+                continue;
+
+            bool allFiltered = true;
+            foreach (var keyColumn in index.Columns)
+            {
+                if (!filterColumns.Contains(instanceKey + "|" + keyColumn))
+                {
+                    allFiltered = false;
+                    break;
+                }
+            }
+            if (allFiltered)
                 return true;
         }
         return false;
