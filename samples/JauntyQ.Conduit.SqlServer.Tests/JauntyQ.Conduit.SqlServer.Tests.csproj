@@ -45,9 +45,10 @@
          xUnit parallelizes test classes by default, so all 13 SQL Server
          containers start concurrently, heavy enough (unlike the Postgres/
          MySql/MariaDb siblings) to exhaust host memory ("insufficient system
-         memory in resource pool 'default'"), which the fixtures' try/catch
-         correctly reports as an environmental SKIP rather than a false PASS,
-         but leaves this suite's real coverage nondeterministic under load.
+         memory in resource pool 'default'"), which since 2026-07-30 is a
+         hard FAILURE, deliberately: the fixtures' catch was narrowed to
+         container bring-up and FixtureGate skips only on a genuinely absent
+         daemon, so memory exhaustion takes the suite red under load.
          Serializing class execution keeps only one container alive at a
          time: slower wall-clock, zero isolation risk, no OOM. -->
     <None Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
