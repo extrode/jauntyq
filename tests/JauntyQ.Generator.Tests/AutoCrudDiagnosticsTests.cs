@@ -53,11 +53,18 @@ public class AutoCrudDiagnosticsTests
     }
 
     [Fact]
-    public void SyntheticUpdate_UnindexedRowVersionInWhere_ReportsJNT8004()
+    public void SyntheticUpdate_RowVersionBesidePkSeek_NoJNT8004()
     {
+        // Inverted 2026-08-01 (was ReportsJNT8004): the synthetic Update's
+        // WHERE widget_id = @ AND row_version = @ seeks the primary key to at
+        // most one row, so the residual row_version check scans nothing.
+        // JNT8004 is now suppressed for a column when the query's equality
+        // filters on the same table instance cover a complete PK or unique
+        // index — this shape, reachable through auto-CRUD alone, was the
+        // motivating noise class.
         var result = Run();
 
-        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" &&
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8004" &&
             d.GetMessage().Contains("widgets.row_version"));
     }
 
