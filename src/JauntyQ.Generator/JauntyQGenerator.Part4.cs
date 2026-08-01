@@ -223,15 +223,17 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 }
             }
 
-            // JNT2019: the Upsert-shaped sibling of the JNT2015 loop above.
-            // UpsertKeyResolver.Resolve refuses a key enforced only by a
-            // prefix UNIQUE (MySQL SUB_PART), and that refusal is otherwise
-            // indistinguishable from "no key at all" -- a silent skip. The
-            // refusing index comes from the resolver itself, so this cannot
-            // report a refusal that did not happen or miss one that did.
+            // JNT2019/JNT2020: the Upsert-shaped siblings of the JNT2015 loop
+            // above. UpsertKeyResolver.Resolve refuses a key enforced only by
+            // a prefix UNIQUE (MySQL SUB_PART) and skips one whose only
+            // candidates are expression UNIQUEs, and either refusal is
+            // otherwise indistinguishable from "no key at all" -- a silent
+            // skip. The refusing index comes from the resolver itself, so this
+            // cannot report a refusal that did not happen or miss one that
+            // did; the resolver sets at most one of the two out parameters.
             foreach (var table in schema.Tables.Values)
             {
-                UpsertKeyResolver.Resolve(table, out var prefixOnlyKey);
+                UpsertKeyResolver.Resolve(table, out var prefixOnlyKey, out var expressionOnlyKey);
                 if (prefixOnlyKey != null)
                 {
                     context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2019, Location.None,
@@ -240,6 +242,15 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         "column PREFIX, which the engine matches on rows sharing only the prefix -- not the full value the " +
                         "method's signature would imply. Add a full-column UNIQUE constraint (or a bindable primary key), " +
                         "or write the upsert by hand."));
+                }
+                else if (expressionOnlyKey != null)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2020, Location.None,
+                        $"No Upsert is generated for table '{table.Name}': the only constraint that could serve as its " +
+                        $"upsert key is '{expressionOnlyKey.Name}', a UNIQUE with an EXPRESSION key part -- the schema " +
+                        "snapshot carries only its real columns, and no generated method can bind a parameter to the " +
+                        "expression's value the engine actually matches on. Add a full-column UNIQUE constraint (or a " +
+                        "bindable primary key), or write the upsert by hand."));
                 }
             }
         }

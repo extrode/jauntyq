@@ -156,6 +156,7 @@ class JauntyQ.Analysis.UpsertKeyResolver
     method HasCompetingUniqueConstraint(TableSchema,List<ColumnSchema>):Boolean
     method Resolve(TableSchema):List<ColumnSchema>
     method Resolve(TableSchema,IndexSchema&):List<ColumnSchema>
+    method Resolve(TableSchema,IndexSchema&,IndexSchema&):List<ColumnSchema>
 class JauntyQ.Generator.CSharpToSqlTypeMapper
     method Map(String):String
 class JauntyQ.Generator.CodeEmitter
@@ -236,6 +237,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT2017:DiagnosticDescriptor
     field JNT2018:DiagnosticDescriptor
     field JNT2019:DiagnosticDescriptor
+    field JNT2020:DiagnosticDescriptor
     field JNT3001:DiagnosticDescriptor
     field JNT3002:DiagnosticDescriptor
     field JNT3003:DiagnosticDescriptor

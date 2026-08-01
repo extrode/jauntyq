@@ -421,20 +421,95 @@ public class UpsertKeyResolverTests
     /// <summary>
     /// A flagged index's Columns is only the real-column SUBSET of its key —
     /// UNIQUE (Token, lower(Email)) arrives as [Token], and Token alone is not
-    /// unique — so Resolve must never pick it as the fallback key. Before
-    /// 2026-07-30 such indexes were excluded at capture; the skip preserves
-    /// exactly that reading.
+    /// unique — so Resolve must never pick it as the fallback key. Since
+    /// 2026-08-01 the refusal is named (JNT2020) instead of silent, for
+    /// JNT2019's own reason: a decision the consumer can argue with has to be
+    /// visible to be arguable.
     /// </summary>
     [Fact]
-    public void Resolve_ExpressionUniqueAsOnlyFallback_IsNotPickedAsKey()
+    public void Resolve_ExpressionUniqueAsOnlyFallback_RefusesAndNamesTheIndex()
     {
         var table = Table(Col("Id", pk: true, identity: true), Col("Token"), Col("Email"));
         table.Indexes.Add(new IndexSchema { Name = "UX_Token_LowerEmail", IsUnique = true, Columns = { "Token" }, HasExpressionKeyPart = true });
 
-        var result = UpsertKeyResolver.Resolve(table, out var prefixOnlyKey);
+        var result = UpsertKeyResolver.Resolve(table, out var prefixOnlyKey, out var expressionOnlyKey);
 
         Assert.Null(result);
-        Assert.Null(prefixOnlyKey); // not the prefix refusal -- status-quo silent skip
+        Assert.Null(prefixOnlyKey); // not the prefix refusal
+        Assert.Equal("UX_Token_LowerEmail", expressionOnlyKey!.Name);
+    }
+
+    /// <summary>
+    /// The ALL-expression shape — UNIQUE (lower(Email)) arrives flagged with NO
+    /// columns at all — must be remembered too: the empty-Columns guard that
+    /// ignores degenerate indexes sits after the expression check precisely so
+    /// this refusal does not vanish back into "no key at all".
+    /// </summary>
+    [Fact]
+    public void Resolve_AllExpressionUniqueAsOnlyFallback_EmptyColumns_RefusesAndNamesTheIndex()
+    {
+        var table = Table(Col("Id", pk: true, identity: true), Col("Email"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_LowerEmail", IsUnique = true, HasExpressionKeyPart = true });
+
+        var result = UpsertKeyResolver.Resolve(table, out _, out var expressionOnlyKey);
+
+        Assert.Null(result);
+        Assert.Equal("UX_LowerEmail", expressionOnlyKey!.Name);
+    }
+
+    /// <summary>
+    /// The skip keeps scanning: a later full-column UNIQUE still resolves as
+    /// the key, and no refusal is reported — the expression index then counts
+    /// as competing instead.
+    /// </summary>
+    [Fact]
+    public void Resolve_ExpressionUniqueSkipped_LaterFullColumnUniqueStillResolves()
+    {
+        var table = Table(Col("Id", pk: true, identity: true), Col("Email"), Col("Token"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_LowerEmail", IsUnique = true, HasExpressionKeyPart = true });
+        table.Indexes.Add(new IndexSchema { Name = "UX_Token", IsUnique = true, Columns = { "Token" } });
+
+        var result = UpsertKeyResolver.Resolve(table, out _, out var expressionOnlyKey);
+
+        Assert.Equal(new[] { "Token" }, result!.ConvertAll(c => c.Name));
+        Assert.Null(expressionOnlyKey);
+    }
+
+    /// <summary>
+    /// When both refusals could apply, the prefix one wins and the expression
+    /// out stays null — the prefix index WOULD have been chosen as the key
+    /// where an expression unique never could be, and the generator reports at
+    /// most one skip per table either way.
+    /// </summary>
+    [Fact]
+    public void Resolve_PrefixAndExpressionUniquesBothPresent_PrefixRefusalWins()
+    {
+        var table = Table(Col("Id", pk: true, identity: true), Col("Email"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_LowerEmail", IsUnique = true, HasExpressionKeyPart = true });
+        table.Indexes.Add(new IndexSchema { Name = "UX_Email_Prefix", IsUnique = true, Columns = { "Email" }, HasPrefixKeyPart = true });
+
+        var result = UpsertKeyResolver.Resolve(table, out var prefixOnlyKey, out var expressionOnlyKey);
+
+        Assert.Null(result);
+        Assert.Equal("UX_Email_Prefix", prefixOnlyKey!.Name);
+        Assert.Null(expressionOnlyKey);
+    }
+
+    /// <summary>
+    /// A table whose PK resolves never reports an expression refusal, whatever
+    /// indexes it carries — the refusal is the fallback scan's alone.
+    /// </summary>
+    [Fact]
+    public void Resolve_PkResolves_ExpressionUniquePresent_NoRefusalReported()
+    {
+        var table = Table(Col("Id", pk: true), Col("Email"));
+        table.Indexes.Add(new IndexSchema { Name = "UX_LowerEmail", IsUnique = true, HasExpressionKeyPart = true });
+
+        var result = UpsertKeyResolver.Resolve(table, out var prefixOnlyKey, out var expressionOnlyKey);
+
+        Assert.Equal(new[] { "Id" }, result!.ConvertAll(c => c.Name));
+        Assert.Null(prefixOnlyKey);
+        Assert.Null(expressionOnlyKey);
     }
 
     /// <summary>
