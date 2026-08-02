@@ -4,10 +4,11 @@ using Xunit;
 namespace JauntyQ.Generator.Tests;
 
 /// <summary>
-/// AUD-R79-01/-02: a directive line must be honoured, or reported — never
-/// both ignored and silent. These cover the two ways that promise was broken:
-/// trailing whitespace on the three no-value directives, and a bare
-/// <c>-- @call</c> with no procedure name to call.
+/// AUD-R79-01/-02/-03: a directive line must be honoured, or reported — never
+/// both ignored and silent, and never reported with advice the author already
+/// followed. These cover the three ways that promise was broken: trailing
+/// whitespace on the three no-value directives, a bare <c>-- @call</c> with no
+/// procedure name to call, and a tab between <c>@type</c>'s alias and dbtype.
 /// </summary>
 public class DirectiveTrailingWhitespaceTests
 {
@@ -138,5 +139,35 @@ public class DirectiveTrailingWhitespaceTests
         Assert.Null(directives.CallProcName);
         Assert.Null(directives.SuspiciousDirectives);
         Assert.Contains("@caller must hold a lock", cleaned);
+    }
+
+    // AUD-R79-03: alias/dbtype separator
+
+    [Theory]
+    [InlineData("-- @type total\tdecimal(10,2)\nSELECT 1 AS total")]
+    [InlineData("-- @type total \t decimal(10,2)\nSELECT 1 AS total")]
+    public void Type_TabSeparated_StillParses(string sql)
+    {
+        // A tab between alias and dbtype used to drop the directive entirely,
+        // and the build then failed with JNT3005 (an Error) telling the author
+        // to declare the alias with the very line they had written.
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.NotNull(directives.TypeDirectives);
+        var td = Assert.Single(directives.TypeDirectives!);
+        Assert.Equal("total", td.Alias);
+        Assert.Equal("decimal(10,2)", td.DbType);
+    }
+
+    [Fact]
+    public void Type_SpaceSeparatedMultiWord_Unchanged()
+    {
+        // False-positive guard: the multi-word dbtype case AUD-R9 closed must
+        // survive the separator change with its interior space intact.
+        var (directives, _) = DirectiveParser.Parse("-- @type avg_len double precision\nSELECT 1 AS avg_len");
+
+        var td = Assert.Single(directives.TypeDirectives!);
+        Assert.Equal("avg_len", td.Alias);
+        Assert.Equal("double precision", td.DbType);
     }
 }

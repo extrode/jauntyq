@@ -181,7 +181,13 @@ public static class DirectiveParser
     /// </summary>
     private static void ParseTypeDirective(DirectiveModel directives, string value)
     {
-        int space = value.IndexOf(' ');
+        // AUD-R79-03: any whitespace separates alias from dbtype, not a space
+        // only. A tab here used to drop the directive silently, and the build
+        // then failed with JNT3005 -- an Error whose message tells the author
+        // to "Declare it with: -- @type <alias> <dbtype>", which is the line
+        // they had already written. Advice the author has followed is worse
+        // than no advice.
+        int space = value.IndexOfAny(new[] { ' ', '\t' });
         if (space <= 0)
             return;
         var alias = value.Substring(0, space).Trim();
