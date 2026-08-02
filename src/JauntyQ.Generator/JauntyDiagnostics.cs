@@ -104,6 +104,31 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    /// <summary>
+    /// A second top-level statement gets its own Error-severity diagnostic for
+    /// the same reason as JNT1006/UNION and JNT1007/SUBQUERY: the generator
+    /// knows the emitted code is wrong, not merely unusual. SqlParser's main
+    /// loop dispatches on every SELECT/FROM/JOIN keyword in the token list, so
+    /// two SELECT statements in one file merge into a single QueryModel
+    /// carrying both projections and both table sets — the mapper is then
+    /// generated against ordinals no single result set has. An
+    /// INSERT/UPDATE/DELETE first statement fails the other way: the parser
+    /// returns as soon as it has parsed that statement, so the second is
+    /// dropped and never emitted at all. One file, one statement is the
+    /// contract; batching several statements into one method is a feature that
+    /// does not exist yet, not something to be arrived at by accident.
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT1008 = new(
+        "JNT1008",
+        "Multiple Statements In One File",
+        "This file contains more than one SQL statement. JauntyQ generates one method per file " +
+        "from one statement: a second statement's tables and columns are merged into the first " +
+        "statement's model (SELECT) or dropped entirely (INSERT/UPDATE/DELETE), so the generated " +
+        "code would not match either statement. Split each statement into its own .sql file.",
+        "JauntyQ.Parsing",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 2xxx: Schema Validation ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT2001 = new(
