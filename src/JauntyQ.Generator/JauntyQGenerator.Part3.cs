@@ -125,17 +125,39 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         if (directives?.TypeDirectives != null)
         {
             var exprAliases = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Plain (non-expression) output names are collected too, purely to
+            // tell the two failure modes apart in the message. The alias
+            // resolver scans this SELECT's own projection list only, so a value
+            // computed inside a CTE and re-projected by the outer SELECT
+            // arrives here as a PLAIN column -- the directive is unmatched, but
+            // nothing is misspelled, and "check the alias spelling" sent the
+            // author hunting a typo that does not exist.
+            var plainNames = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var col in sourceColumns)
-                if (col.IsExpression && !string.IsNullOrEmpty(col.OutputAlias))
-                    exprAliases.Add(col.OutputAlias);
+            {
+                if (col.IsExpression)
+                {
+                    if (!string.IsNullOrEmpty(col.OutputAlias))
+                        exprAliases.Add(col.OutputAlias);
+                    continue;
+                }
+                string name = !string.IsNullOrEmpty(col.OutputAlias) ? col.OutputAlias : col.ColumnName;
+                if (!string.IsNullOrEmpty(name) && name != "*")
+                    plainNames.Add(name);
+            }
 
             foreach (var td in directives.TypeDirectives)
             {
-                if (!exprAliases.Contains(td.Alias))
-                {
-                    result.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3006,
-                        $"-- @type names alias '{td.Alias}', but no expression projection item uses 'AS {td.Alias}'. Check the alias spelling."));
-                }
+                if (exprAliases.Contains(td.Alias))
+                    continue;
+
+                result.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3006,
+                    plainNames.Contains(td.Alias)
+                        ? $"-- @type names alias '{td.Alias}', which this SELECT projects as a plain column, not an expression. " +
+                          $"-- @type only types expression items in this statement's own projection list, so it cannot reach " +
+                          $"an expression computed inside a CTE (or any other subquery) and re-projected here. Write the " +
+                          $"expression in this SELECT's projection list, where the directive can see it."
+                        : $"-- @type names alias '{td.Alias}', but no expression projection item uses 'AS {td.Alias}'. Check the alias spelling."));
             }
         }
 

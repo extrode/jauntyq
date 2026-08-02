@@ -82,6 +82,19 @@ public static partial class QueryValidator
                 continue;
             }
 
+            // MULTI_STATEMENT joins UNION and SUBQUERY as an Error rather than
+            // a JNT1001 Warning: the merged (or truncated) model means the
+            // generated mapper matches neither statement. See JNT1008.
+            if (construct == "MULTI_STATEMENT")
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT1008,
+                    "This file contains more than one SQL statement. JauntyQ generates one method per file " +
+                    "from one statement: a second statement's tables and columns are merged into the first " +
+                    "statement's model (SELECT) or dropped entirely (INSERT/UPDATE/DELETE), so the generated " +
+                    "code would not match either statement. Split each statement into its own .sql file."));
+                continue;
+            }
+
             errors.Add(new ValidationError(JauntyDiagnostics.JNT1001,
                 $"Unsupported SQL construct: {construct}"));
         }

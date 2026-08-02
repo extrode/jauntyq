@@ -71,6 +71,53 @@ public static partial class SqlParser
         }
     }
 
+    /// <summary>
+    /// Records the MULTI_STATEMENT construct when a top-level <c>;</c> is
+    /// followed by more content, i.e. the file holds a second statement.
+    /// <para>
+    /// This is a correctness guard, not a style rule. <see cref="Parse"/>'s
+    /// main loop walks the WHOLE token list and dispatches on every
+    /// SELECT/FROM/JOIN/ORDER keyword it meets, so a second SELECT statement's
+    /// tables and projection items are appended to the FIRST statement's
+    /// model: one merged <c>QueryModel</c> with both statements' columns, and
+    /// a mapper generated against ordinals that no single result set has. The
+    /// INSERT/UPDATE/DELETE arms are worse in the other direction -- they
+    /// return early, so a second statement is dropped entirely and never
+    /// emitted. Both outcomes were silent before this check.
+    /// </para>
+    /// Trailing terminators are fine: "SELECT 1;" and even "SELECT 1;;" have
+    /// nothing but the End sentinel after the ';'. Comments never reach here
+    /// (SqlTokenizer strips them), and a ';' inside a string literal is a
+    /// Literal token, not a Symbol, so neither can trip this.
+    /// </summary>
+    private static void DetectMultipleStatements(List<Token> tokens, QueryModel model)
+    {
+        int depth = 0;
+        bool terminated = false;
+        foreach (var t in tokens)
+        {
+            if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; continue; }
+            if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; continue; }
+
+            // A ';' below depth 0 is malformed rather than a terminator; leave
+            // it to the ordinary parsers rather than claiming a new statement.
+            if (depth == 0 && t.Type == TokenType.Symbol && t.Value == ";")
+            {
+                terminated = true;
+                continue;
+            }
+
+            if (!terminated)
+                continue;
+            if (t.Type == TokenType.End || t.Type == TokenType.Unterminated)
+                continue;
+
+            if (!model.UnsupportedConstructs.Contains("MULTI_STATEMENT"))
+                model.UnsupportedConstructs.Add("MULTI_STATEMENT");
+            return;
+        }
+    }
+
     private static void DetectUnsupportedConstructs(List<Token> tokens, QueryModel model)
     {
         // Lift the supported WHERE-clause predicate subqueries out of the token

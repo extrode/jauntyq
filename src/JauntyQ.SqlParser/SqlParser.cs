@@ -22,6 +22,11 @@ public static partial class SqlParser
             }
         }
 
+        // A second top-level statement is recorded before anything else parses,
+        // and for the WITH path too: ParseWith strips every ';' from the final
+        // statement's tokens, so a check inside that path would never see one.
+        DetectMultipleStatements(tokens, model);
+
         // Leading WITH: parse the CTE chain and the final statement. The final
         // statement's type becomes the model's statement type. WITH RECURSIVE
         // is out of scope and short-circuits to an unsupported construct.
@@ -604,10 +609,18 @@ public static partial class SqlParser
         // handled above), so the overall expression is NOT bigint-shaped even
         // though it STARTS with one -- checking only the head let those slip
         // through as a false bigint claim.
+        // The window form "count(...) OVER (...)" is the same claim: a window
+        // COUNT returns the same type as the aggregate one, and still never
+        // returns NULL (an empty frame counts 0, it does not yield NULL). The
+        // OVER clause must consume the rest of the run for the same reason the
+        // plain call must — "count(*) OVER () + 1" is not bigint-shaped.
+        // Deliberately COUNT-only: ROW_NUMBER/RANK/DENSE_RANK are also
+        // integral and never-NULL, but their width differs by dialect in ways
+        // COUNT's does not, so they stay unresolved and still require -- @type.
         if (hi - lo >= 2 &&
             IsCountHead(run[lo]) &&
             run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(" &&
-            FindMatchingClose(run, lo + 1, hi) == hi - 1)
+            ConsumesRun(run, FindMatchingClose(run, lo + 1, hi), hi))
         {
             col.InferredDbType = "bigint";
             col.InferredNotNull = true;
@@ -689,6 +702,38 @@ public static partial class SqlParser
         }
         return -1;
     }
+
+    /// <summary>
+    /// True when a call whose arguments close at <paramref name="callClose"/>
+    /// consumes the whole expression run ending at <paramref name="hi"/> —
+    /// either directly, or through a trailing <c>OVER ( ... )</c> window clause
+    /// that itself closes at the end. Returns false for a malformed
+    /// <paramref name="callClose"/> of -1, and for <c>OVER w</c> (a named
+    /// window reference), whose definition lives in a WINDOW clause this
+    /// parser does not model.
+    /// </summary>
+    private static bool ConsumesRun(List<Token> run, int callClose, int hi)
+    {
+        if (callClose < 0)
+            return false;
+        if (callClose == hi - 1)
+            return true;
+
+        int over = callClose + 1;
+        if (over + 1 >= hi)
+            return false;
+        if (!IsOverKeyword(run[over]))
+            return false;
+        if (run[over + 1].Type != TokenType.Symbol || run[over + 1].Value != "(")
+            return false;
+
+        return FindMatchingClose(run, over + 1, hi) == hi - 1;
+    }
+
+    /// <summary>OVER is not in the tokenizer's keyword set, so it arrives as an Identifier; accept either.</summary>
+    private static bool IsOverKeyword(Token t) =>
+        (t.Type == TokenType.Keyword || t.Type == TokenType.Identifier) &&
+        string.Equals(t.Value, "OVER", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsCountHead(Token t) =>
         (t.Type == TokenType.Keyword && t.Value == "COUNT") ||
