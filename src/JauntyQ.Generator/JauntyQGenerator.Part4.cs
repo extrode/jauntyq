@@ -192,9 +192,16 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     table.Columns.Values, out string? firstRawCol, out string? secondRawCol);
                 if (dupCol != null)
                 {
+                    // AUD-R77-02: same absence claim, same correction as the
+                    // JNT2015 loop below. A projection query that does not
+                    // select both colliding columns still emits, and with it
+                    // the entity this sentence calls absent.
+                    string entity = DialectMapper.ToPascalCase(table.Name);
                     context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2014, Location.None,
                         $"Table '{table.Name}' has two columns, '{firstRawCol}' and '{secondRawCol}', that both map to the generated property '{dupCol}'. " +
-                        $"No row type or auto-CRUD can be emitted for it, so 'db.{DialectMapper.ToPascalCase(table.Name)}' is absent from the generated API. " +
+                        (entityNames.Contains(entity)
+                            ? $"No row type or auto-CRUD can be emitted for it, so 'db.{entity}' carries only the queries you wrote by hand. "
+                            : $"No row type or auto-CRUD can be emitted for it, so 'db.{entity}' is absent from the generated API. ") +
                         "Rename one of the columns, or alias it distinctly in a hand-written query."));
                 }
             }
@@ -216,10 +223,19 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 string? why = AutoCrud.DescribeUnusableTable(table, schema.Dialect);
                 if (why != null)
                 {
+                    // AUD-R77-02: the absence claim holds only when nothing
+                    // else emitted the entity. A hand-written query file
+                    // creates 'db.X' whether or not auto-CRUD would have, and
+                    // telling a consumer a member they can see in IntelliSense
+                    // does not exist is worse than saying nothing about it.
+                    string entity = DialectMapper.ToPascalCase(table.Name);
                     context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2015, Location.None,
                         $"No auto-CRUD is generated for table '{table.Name}' because {why}. " +
-                        $"'db.{DialectMapper.ToPascalCase(table.Name)}' is absent from the generated API. " +
-                        "Rename the table or column, or write its queries by hand with the identifier quoted."));
+                        (entityNames.Contains(entity)
+                            ? $"'db.{entity}' carries only the queries you wrote by hand. " +
+                              "Rename the table or column to get auto-CRUD as well."
+                            : $"'db.{entity}' is absent from the generated API. " +
+                              "Rename the table or column, or write its queries by hand with the identifier quoted.")));
                 }
             }
 
@@ -233,6 +249,17 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             // did; the resolver sets at most one of the two out parameters.
             foreach (var table in schema.Tables.Values)
             {
+                // AUD-R77-01: the same boundary JNT2018 respects one loop
+                // below. A hand-written Upsert.sql claims the slot, so an
+                // Upsert IS generated for this table and "No Upsert is
+                // generated" describes nothing that happened -- while the
+                // remedy the message offers, "write the upsert by hand", is
+                // what the consumer already did. JNT2015/JNT2014 above need no
+                // such guard: they report auto-CRUD being skipped for the whole
+                // table, which one hand-written query does not undo.
+                if (claimedMethods.Contains($"{DialectMapper.ToPascalCase(table.Name)}.Upsert"))
+                    continue;
+
                 UpsertKeyResolver.Resolve(table, out var prefixOnlyKey, out var expressionOnlyKey);
                 if (prefixOnlyKey != null)
                 {
