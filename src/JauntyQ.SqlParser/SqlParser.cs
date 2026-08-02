@@ -614,9 +614,14 @@ public static partial class SqlParser
         // returns NULL (an empty frame counts 0, it does not yield NULL). The
         // OVER clause must consume the rest of the run for the same reason the
         // plain call must — "count(*) OVER () + 1" is not bigint-shaped.
-        // Deliberately COUNT-only: ROW_NUMBER/RANK/DENSE_RANK are also
-        // integral and never-NULL, but their width differs by dialect in ways
-        // COUNT's does not, so they stay unresolved and still require -- @type.
+        // Deliberately COUNT-only. ROW_NUMBER/RANK/DENSE_RANK are integral and
+        // never-NULL too, but they do NOT share COUNT's dialect profile and so
+        // cannot share its bigint claim: measured on SQL Server 2022,
+        // COUNT(*) OVER() comes back int while ROW_NUMBER/RANK/DENSE_RANK come
+        // back bigint, so ProjectionBuilder's bigint->int downgrade (right for
+        // COUNT there) would be wrong for them. MySQL returns BIGINT UNSIGNED,
+        // whose top of range does not fit long at all. They stay unresolved and
+        // still require -- @type until there is a per-dialect width table.
         if (hi - lo >= 2 &&
             IsCountHead(run[lo]) &&
             run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(" &&
