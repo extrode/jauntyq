@@ -93,6 +93,88 @@ public class ValueSafetyTests
         Assert.True(HasQuerySource(result));
     }
 
+    // ── JNT5001: maxLength is counted in the engine's own unit ─────────
+
+    private static GeneratorDriverRunResult RunVarchar(string dialect, string sql)
+    {
+        string schema = @"{
+  ""dialect"": """ + dialect + @""",
+  ""tables"": {
+    ""notes"": {
+      ""name"": ""notes"",
+      ""columns"": {
+        ""note_id"": { ""name"": ""note_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""body"": { ""name"": ""body"", ""dbType"": ""nvarchar"", ""isNullable"": false, ""maxLength"": 40, ""isUnicode"": true }
+      }
+    }
+  }
+}";
+        var compilation = CSharpCompilation.Create("VarcharTestAssembly",
+            new[] { CSharpSyntaxTree.ParseText("") },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
+            .AddAdditionalTexts(ImmutableArray.Create<AdditionalText>(
+                new InMemoryAdditionalText("db/Notes/TestQuery.sql", sql),
+                new InMemoryAdditionalText("schema/jaunty.schema.json", schema)))
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
+        return driver.GetRunResult();
+    }
+
+    // U+1D54F MATHEMATICAL DOUBLE-STRUCK CAPITAL X: one character, one code
+    // point, two UTF-16 code units.
+    private const string AstralChar = "\U0001D54F";
+
+    private static string Repeat(string s, int count)
+    {
+        var sb = new System.Text.StringBuilder(s.Length * count);
+        for (int i = 0; i < count; i++)
+            sb.Append(s);
+        return sb.ToString();
+    }
+
+    [Theory]
+    [InlineData("postgres")]
+    [InlineData("mysql")]
+    [InlineData("sqlite")]
+    public void AstralLiteralWithinCharacterLimit_NoJNT5001(string dialect)
+    {
+        // 21 characters against varchar(40). Postgres, MySQL and SQLite all
+        // count maxLength in characters, so this fits with room to spare --
+        // but .NET's string.Length counts the 42 UTF-16 code units.
+        string value = Repeat(AstralChar, 21);
+        var result = RunVarchar(dialect, $"insert into notes (body) values ('{value}')");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5001");
+    }
+
+    [Fact]
+    public void AstralLiteralWithinCharacterLimit_SqlServer_JNT5001()
+    {
+        // SQL Server is the exception: nvarchar(n) is n UTF-16 code units, so
+        // 21 astral characters genuinely need 42 and genuinely do not fit.
+        string value = Repeat(AstralChar, 21);
+        var result = RunVarchar("sqlserver", $"insert into notes (body) values ('{value}')");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5001");
+    }
+
+    [Theory]
+    [InlineData("postgres")]
+    [InlineData("mysql")]
+    [InlineData("sqlite")]
+    public void AstralLiteralOverCharacterLimit_JNT5001(string dialect)
+    {
+        // 41 characters against varchar(40): over the limit in every unit.
+        string value = Repeat(AstralChar, 41);
+        var result = RunVarchar(dialect, $"insert into notes (body) values ('{value}')");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5001");
+    }
+
     // ── JNT5002: numeric literals vs precision/scale and integer ranges ─
 
     [Fact]
@@ -104,6 +186,39 @@ public class ValueSafetyTests
         var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
         Assert.Contains("products.unit_price", diag.GetMessage());
         Assert.False(HasQuerySource(result));
+    }
+
+    [Fact]
+    public void DecimalLiteralExcessScale_JNT5002()
+    {
+        // decimal(10,2) keeps two fractional digits: 1.234 is stored as 1.23.
+        // Every engine rounds silently, so nothing surfaces at runtime either.
+        var result = Run("update products\nset unit_price = 1.234\nwhere product_id = @product_id");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+        Assert.Contains("products.unit_price", diag.GetMessage());
+        Assert.Contains("scale 2", diag.GetMessage());
+        Assert.False(HasQuerySource(result));
+    }
+
+    [Fact]
+    public void NegativeDecimalLiteralExcessScale_JNT5002()
+    {
+        var result = Run("select product_id\nfrom products\nwhere products.unit_price = -1.234");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void DecimalLiteralTrailingZerosWithinScale_NoJNT5002()
+    {
+        // 1.500 is written with three fractional digits but is exactly
+        // representable at scale 2, so nothing is lost: counting digits
+        // instead of comparing values would make this a false positive.
+        var result = Run("update products\nset unit_price = 1.500\nwhere product_id = @product_id");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+        Assert.True(HasQuerySource(result));
     }
 
     [Fact]
