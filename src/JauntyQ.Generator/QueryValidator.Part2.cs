@@ -376,7 +376,7 @@ public static partial class QueryValidator
                 if (column.MaxLength is int max && max > 0)
                 {
                     // '' in the raw token is one escaped quote character
-                    int length = lit.Value.Replace("''", "'").Length;
+                    int length = MeasureLiteralLength(lit.Value.Replace("''", "'"), schema.Dialect);
                     if (length > max)
                     {
                         errors.Add(new ValidationError(JauntyDiagnostics.JNT5001,
@@ -390,6 +390,37 @@ public static partial class QueryValidator
                 ValidateNumericLiteral(lit, column, tableName!, schema.Dialect, errors);
             }
         }
+    }
+
+    /// <summary>
+    /// The length of a decoded string literal in the unit the target engine
+    /// measures <c>MaxLength</c> in.
+    ///
+    /// AUD-R78-02: SQL Server's <c>nchar</c>/<c>nvarchar(n)</c> is n UTF-16
+    /// code units, so a character outside the BMP genuinely costs two and
+    /// <see cref="string.Length"/> is the right count. PostgreSQL, MySQL and
+    /// SQLite all measure <c>varchar(n)</c> in characters, where that same
+    /// character costs one — counting code units there rejected valid SQL
+    /// with a false-positive JNT5001 <em>error</em>.
+    ///
+    /// SQL Server's non-Unicode <c>varchar(n)</c> is n bytes, where a
+    /// non-ASCII character may cost more than one, but how many depends on
+    /// the column's collation, which the snapshot does not carry. Counting
+    /// code units there is the conservative reading and is left unchanged.
+    /// </summary>
+    private static int MeasureLiteralLength(string decoded, string dialect)
+    {
+        if (string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase))
+            return decoded.Length;
+
+        int characters = 0;
+        for (int i = 0; i < decoded.Length; i++)
+        {
+            characters++;
+            if (char.IsHighSurrogate(decoded[i]) && i + 1 < decoded.Length && char.IsLowSurrogate(decoded[i + 1]))
+                i++;
+        }
+        return characters;
     }
 
     private static void ValidateNumericLiteral(
@@ -413,6 +444,29 @@ public static partial class QueryValidator
                 errors.Add(new ValidationError(JauntyDiagnostics.JNT5002,
                     $"Numeric literal {lit.Value} does not fit {tableName}.{column.Name} ({column.DbType}, precision {precision}, scale {scale}): " +
                     $"at most {precision - scale} digit(s) before the decimal point. It would overflow at runtime."));
+                return;
+            }
+
+            // AUD-R78-01: the fractional half of the same promise. This
+            // method's own summary says literals are proven "against decimal
+            // precision/scale", but only the integer part was ever checked --
+            // a literal with more fractional digits than the column's scale
+            // is rounded on write by every engine, silently, with no runtime
+            // error to notice either. That is exactly the loss JNT5001
+            // reports for an over-long string literal one arm above.
+            //
+            // Compared by VALUE, never by counting digits: 1.500 is written
+            // with three fractional digits yet is exactly representable at
+            // scale 2, and counting would make it a false positive. Scale
+            // above 28 is skipped because System.Decimal cannot represent it
+            // -- such a literal was already reshaped by decimal.TryParse
+            // above, so the comparison would report the parser's rounding
+            // rather than the column's.
+            if (scale >= 0 && scale <= 28 && Math.Round(value, scale) != value)
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT5002,
+                    $"Numeric literal {lit.Value} does not fit {tableName}.{column.Name} ({column.DbType}, precision {precision}, scale {scale}): " +
+                    $"at most {scale} digit(s) after the decimal point. It would be rounded on write and can never match on read."));
             }
             return;
         }
