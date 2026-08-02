@@ -593,6 +593,68 @@ public class AutoCrudTests
     }
 
     /// <summary>
+    /// The false-positive boundary JNT2018 already respects and its two
+    /// skip-shaped siblings did not: a hand-written Upsert.sql claims the slot,
+    /// so an Upsert IS generated for the table and "No Upsert is generated"
+    /// describes nothing that happened. The remedy the message offers — "write
+    /// the upsert by hand" — is precisely what this consumer already did.
+    /// </summary>
+    [Fact]
+    public void Upsert_PrefixOnlyUniqueKey_HandWrittenUpsertClaimsSlot_NoJnt2019()
+    {
+        const string schema = @"{
+  ""dialect"": ""mysql"",
+  ""tables"": {
+    ""users"": {
+      ""name"": ""users"",
+      ""columns"": {
+        ""user_id"": { ""name"": ""user_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""email"": { ""name"": ""email"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""bio"": { ""name"": ""bio"", ""dbType"": ""varchar"", ""isNullable"": true }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_users_email_prefix"", ""columns"": [""email""], ""isUnique"": true, ""hasPrefixKeyPart"": true }
+      ]
+    }
+  },
+  ""foreignKeys"": []
+}";
+        var (my, _) = RunAutoCrudWithSchema(schema, autoCrud: true,
+            ("db/Users/Upsert.sql", "insert into users (email, bio) values (@email, @bio)"));
+
+        Assert.DoesNotContain(my.Diagnostics, d => d.Id == "JNT2019");
+    }
+
+    /// <summary>
+    /// JNT2020's half of the same boundary, for the same reason.
+    /// </summary>
+    [Fact]
+    public void Upsert_ExpressionOnlyUniqueKey_HandWrittenUpsertClaimsSlot_NoJnt2020()
+    {
+        const string schema = @"{
+  ""dialect"": ""mysql"",
+  ""tables"": {
+    ""users"": {
+      ""name"": ""users"",
+      ""columns"": {
+        ""user_id"": { ""name"": ""user_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""email"": { ""name"": ""email"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""bio"": { ""name"": ""bio"", ""dbType"": ""varchar"", ""isNullable"": true }
+      },
+      ""indexes"": [
+        { ""name"": ""ux_users_lower_email"", ""columns"": [], ""isUnique"": true, ""hasExpressionKeyPart"": true }
+      ]
+    }
+  },
+  ""foreignKeys"": []
+}";
+        var (my, _) = RunAutoCrudWithSchema(schema, autoCrud: true,
+            ("db/Users/Upsert.sql", "insert into users (email, bio) values (@email, @bio)"));
+
+        Assert.DoesNotContain(my.Diagnostics, d => d.Id == "JNT2020");
+    }
+
+    /// <summary>
     /// The negative: a full-column UNIQUE beside the expression index resolves
     /// as the key, so Upsert synthesizes and JNT2020 must stay quiet — the
     /// expression index merely competes (two-statement form territory), it is
@@ -1550,6 +1612,33 @@ public class AutoCrudTests
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
+    /// <summary>
+    /// AUD-R77-02, the sibling of AUD-R77-01 one loop above: JNT2015's first
+    /// sentence stays true when a hand-written query reaches the table (auto-
+    /// CRUD really is skipped), but its second sentence — "'db.X' is absent
+    /// from the generated API" — is then false. A query file emits the entity
+    /// accessor whether or not auto-CRUD would have, so the consumer is told a
+    /// member they can see in IntelliSense does not exist.
+    /// </summary>
+    [Fact]
+    public void UnquotableIdentifier_HandWrittenQueryEmitsEntity_JNT2015DropsAbsenceClaim()
+    {
+        var (result, _) = RunAutoCrudWithSchema(UnquotableIdentifierSchema, autoCrud: true,
+            ("db/Territories/GetIds.sql", "select t.id from territories t"));
+
+        // The premise: the entity really is in the generated API.
+        string? db = TryGetSource(result, "JauntyDb.g.cs");
+        Assert.NotNull(db);
+        Assert.Contains("Territories", db!);
+
+        string msg = Assert.Single(
+            result.Diagnostics.Where(d => d.Id == "JNT2015" && d.GetMessage().Contains("'territories'"))).GetMessage();
+
+        // The skip itself is still worth reporting; only the absence claim is wrong.
+        Assert.Contains("No auto-CRUD is generated", msg);
+        Assert.DoesNotContain("absent from the generated API", msg);
+    }
+
     [Fact]
     public void UnquotableIdentifier_PostgresMixedCase_ReportsJNT2015()
     {
@@ -1626,6 +1715,25 @@ public class AutoCrudTests
     /// otherwise refuse to emit. The whole compilation stays clean rather
     /// than failing with an opaque CS0102/CS1912 cascade.
     /// </summary>
+    /// <summary>
+    /// AUD-R77-02's JNT2014 arm. A projection that avoids the colliding pair
+    /// emits normally, so the entity exists and the absence claim does not.
+    /// </summary>
+    [Fact]
+    public void CollidingColumnNames_HandWrittenProjectionEmitsEntity_JNT2014DropsAbsenceClaim()
+    {
+        var (result, _) = RunAutoCrudWithSchema(CollidingColumnNamesSchema, autoCrud: true,
+            ("db/Widgets/GetIds.sql", "select w.id from widgets w"));
+
+        string? db = TryGetSource(result, "JauntyDb.g.cs");
+        Assert.NotNull(db);
+        Assert.Contains("Widgets", db!);
+
+        string msg = Assert.Single(result.Diagnostics.Where(d => d.Id == "JNT2014")).GetMessage();
+        Assert.Contains("No row type or auto-CRUD can be emitted", msg);
+        Assert.DoesNotContain("absent from the generated API", msg);
+    }
+
     [Fact]
     public void CollidingColumnNames_SkipsWholeTable_CompilationStaysClean()
     {
