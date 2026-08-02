@@ -24,7 +24,23 @@ public static class DirectiveParser
 
             if (trimmed.StartsWith("--"))
             {
-                var commentBody = trimmed.Substring(2).TrimStart();
+                // AUD-R79-01: Trim, not TrimStart. `line.TrimStart()` above
+                // leaves trailing whitespace on the line, and the three
+                // no-value directives match by string.Equals -- so "-- @first "
+                // with one trailing space (ordinary in a hand-edited .sql file)
+                // matched nothing, was left in the SQL as a comment, and set
+                // no flag. JNT3008 did not catch it either: the word IS a
+                // known directive, so IsOneEditAway's a == b guard returns
+                // false and no near-miss message is produced. Neither applied
+                // nor diagnosed is exactly the silent-ignore the @each and
+                // @call gates in JauntyQGenerator.Part2.cs exist to prevent.
+                //
+                // Trimming the tail also routes the value-taking directives'
+                // bare-but-padded forms ("-- @result   ") to the suspicious
+                // check instead of their "@name " prefix match, which used to
+                // hand ParseResultDirective an empty value and set an empty
+                // ResultTypeName.
+                var commentBody = trimmed.Substring(2).Trim();
 
                 if (commentBody.StartsWith("@result ", StringComparison.OrdinalIgnoreCase))
                 {
@@ -72,12 +88,19 @@ public static class DirectiveParser
                     continue; // strip this line from cleaned SQL
                 }
 
-                // Word-boundary match: bare "@call"/"@proc" or "@call <name>" /
-                // "@proc <name>" only. A prefix match would swallow ordinary
-                // comments like "-- @proceed with caution" (IsProc + garbage
-                // name -> a baffling JNT2004) or "-- @caller note".
-                if (string.Equals(commentBody, "@call", StringComparison.OrdinalIgnoreCase)
-                    || commentBody.StartsWith("@call ", StringComparison.OrdinalIgnoreCase))
+                // Word-boundary match: "@call <name>" / bare "@proc" /
+                // "@proc <name>" only. A looser prefix match would swallow
+                // ordinary comments like "-- @proceed with caution" (IsProc +
+                // garbage name -> a baffling JNT2004) or "-- @caller note".
+                // AUD-R79-02: no bare-"@call" acceptance, unlike @proc below.
+                // @proc bare is meaningful (the procedure name is synthesized
+                // from entity + method), but @call's whole purpose is to name
+                // an EXISTING procedure: with no name, CallProcName stays null,
+                // the generator's `CallProcName != null` gate never fires, and
+                // the file was silently emitted as though the directive had
+                // not been written. Falling through to CheckSuspiciousDirective
+                // reports JNT3008 "requires a value" instead.
+                if (commentBody.StartsWith("@call ", StringComparison.OrdinalIgnoreCase))
                 {
                     // "@call" is 5 chars — the rest is the procedure name.
                     var rest = commentBody.Substring(5).Trim();
@@ -212,8 +235,11 @@ public static class DirectiveParser
     private static readonly string[] KnownDirectives =
         { "result", "params", "type", "each", "first", "identity", "stream", "call", "proc" };
 
+    // AUD-R79-02 added "call": it names an existing procedure and does nothing
+    // at all without one, so bare "-- @call" belongs here rather than in the
+    // silently-accepted set.
     private static readonly HashSet<string> ValueRequiredDirectives =
-        new(StringComparer.Ordinal) { "result", "params", "type", "each" };
+        new(StringComparer.Ordinal) { "result", "params", "type", "each", "call" };
 
     /// <summary>
     /// Records a JNT3008 warning when an unmatched <c>-- @word</c> comment is
