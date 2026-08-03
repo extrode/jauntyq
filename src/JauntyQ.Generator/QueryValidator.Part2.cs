@@ -441,7 +441,7 @@ public static partial class QueryValidator
         // happily, since the column's real range is -128..127. The range switch
         // is the single authority on which types are integer-shaped, so
         // deferring to it cannot drift the way a second hand-kept list would.
-        (decimal Min, decimal Max)? integerRange = ResolveIntegerRange(column.DbType, dialect);
+        (decimal Min, decimal Max)? integerRange = ResolveIntegerRange(column.DbType, dialect, column.Precision);
         if (integerRange.HasValue)
         {
             if (value < integerRange.Value.Min || value > integerRange.Value.Max)
@@ -499,13 +499,26 @@ public static partial class QueryValidator
     /// modifier word ("tinyint(1) unsigned" -> "tinyint"); MySQL's 'unsigned'
     /// modifier shifts the range.
     ///
-    /// Note what is deliberately absent: <c>bit</c> has no arm, so a MySQL
-    /// <c>bit(8)</c> still falls through to the precision arm and is checked on
-    /// its width rather than its true 0..255 range — wrong in both directions,
-    /// unchanged by this method's extraction, and recorded in the todo list
-    /// rather than fixed here.
+    /// <para>
+    /// <paramref name="columnPrecision"/> is consulted for exactly one type.
+    /// MySQL's <c>bit(n)</c> holds an n-bit UNSIGNED integer, 0..2^n-1, but
+    /// <c>NormalizeDbType</c> strips the <c>(n)</c> off the dbType string, so
+    /// the width survives only in <c>Precision</c> — the same channel the
+    /// <c>tinyint(1)</c> boolean sentinel rides (AUD-R20-01). Without an arm
+    /// here a <c>bit(8)</c> fell through to the precision arm and was checked
+    /// as "at most 8 digits", so it accepted 300 (overflows 0..255) and would
+    /// have rejected nothing it should.
+    /// </para>
+    /// <para>
+    /// Scoped to the mysql dialect by decision (2026-08-03), because
+    /// <c>bit</c> is not one type across engines: SQL Server's is 0..1, and
+    /// Postgres's <c>bit(n)</c> is a BIT STRING rather than a number at all.
+    /// Those keep their existing behaviour and stay recorded in the todo list;
+    /// widening this arm would commit JauntyQ to a per-dialect reading of
+    /// <c>bit</c> that <c>DialectMapper</c> does not yet make anywhere.
+    /// </para>
     /// </summary>
-    private static (decimal Min, decimal Max)? ResolveIntegerRange(string columnDbType, string dialect)
+    private static (decimal Min, decimal Max)? ResolveIntegerRange(string columnDbType, string dialect, int? columnPrecision)
     {
         string fullDbType = columnDbType.ToLowerInvariant();
         bool unsigned = fullDbType.Contains("unsigned");
@@ -554,10 +567,30 @@ public static partial class QueryValidator
             "mediumint" =>
                 unsigned ? (0m, 16777215m) : (-8388608m, 8388607m),
             "year" => (1901m, 2155m),
+            // MySQL bit(n): unsigned, 0..2^n-1. Width comes from Precision
+            // (see this method's summary). A null/out-of-band width yields no
+            // arm at all rather than a guessed range -- an unprovable bound
+            // must not become a JNT5002 Error. 64 is MySQL's own maximum.
+            "bit" when mysqlDialect && columnPrecision is int bits && bits >= 1 && bits <= 64 =>
+                (0m, TwoToThePowerMinusOne(bits)),
             _ => ((decimal, decimal)?)null
         };
 
         return range;
     }
 
+    /// <summary>
+    /// 2^<paramref name="bits"/> - 1 as an exact decimal, for bit widths up to
+    /// 64. Doubled in decimal rather than via Math.Pow, whose double result
+    /// stops being exact above 2^53 — a bit(64) bound computed that way would
+    /// be wrong in the last digits and could accept a literal the column
+    /// cannot hold.
+    /// </summary>
+    private static decimal TwoToThePowerMinusOne(int bits)
+    {
+        decimal max = 1m;
+        for (int i = 0; i < bits; i++)
+            max *= 2m;
+        return max - 1m;
+    }
 }
