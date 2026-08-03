@@ -99,6 +99,19 @@ public static partial class SqlParser
                     case "ORDER":
                         pos = ParseOrderBy(tokens, pos + 1, model);
                         break;
+                    // LIMIT/OFFSET and GROUP are recorded as flags and then
+                    // skipped exactly as the default arm skipped them before:
+                    // their operands are not needed, only the fact that the
+                    // statement pages or groups.
+                    case "LIMIT":
+                    case "OFFSET":
+                        model.HasRowLimit = true;
+                        pos++;
+                        break;
+                    case "GROUP":
+                        model.HasGroupBy = true;
+                        pos++;
+                        break;
                     default:
                         pos++;
                         break;

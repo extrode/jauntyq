@@ -265,6 +265,8 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT8006:DiagnosticDescriptor
     field JNT8007:DiagnosticDescriptor
     field JNT8008:DiagnosticDescriptor
+    field JNT8009:DiagnosticDescriptor
+    field JNT8010:DiagnosticDescriptor
     field JNT9001:DiagnosticDescriptor
     field JNT9002:DiagnosticDescriptor
     field JNT9003:DiagnosticDescriptor
@@ -452,7 +454,9 @@ class JauntyQ.SqlParser.IR.QueryModel
     prop Columns:List<ColumnRef>
     prop Ctes:List<CteRef>
     prop ExpressionsMissingAlias:List<String>
+    prop HasGroupBy:Boolean
     prop HasReturning:Boolean
+    prop HasRowLimit:Boolean
     prop Joins:List<JoinRef>
     prop Literals:List<LiteralBinding>
     prop Name:String

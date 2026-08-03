@@ -37,6 +37,25 @@ public class QueryModel
     public bool HasReturning { get; set; }
 
     /// <summary>
+    /// True when the statement takes a page: it carries <c>LIMIT</c> or
+    /// <c>OFFSET</c>. OFFSET on its own is what makes T-SQL's
+    /// <c>OFFSET n ROWS FETCH NEXT m ROWS ONLY</c> detectable, since
+    /// FETCH/NEXT/ROWS/ONLY are not tokenizer keywords. <c>TOP n</c> is
+    /// deliberately excluded — it is consumed and discarded by
+    /// <c>SkipProjectionModifiers</c>, and a bare TOP with no OFFSET takes the
+    /// whole result's head rather than a page of it.
+    /// </summary>
+    public bool HasRowLimit { get; set; }
+
+    /// <summary>
+    /// True when the statement carries a <c>GROUP BY</c>. Grouping collapses
+    /// rows, so per-row uniqueness says nothing about the uniqueness of the
+    /// result — which is why the pagination-stability check declines to reason
+    /// about a grouped statement.
+    /// </summary>
+    public bool HasGroupBy { get; set; }
+
+    /// <summary>
     /// Common table expressions declared with a leading WITH, in declaration
     /// order. Each contributes an in-scope virtual table for validation and,
     /// for the final statement, may be referenced in FROM/JOIN.
