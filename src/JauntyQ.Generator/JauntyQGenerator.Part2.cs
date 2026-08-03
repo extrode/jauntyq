@@ -295,6 +295,27 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
         }
 
+        // -- @first preconditions (JNT3003). @first reduces a result set to its
+        // first row, so it needs a result set: a SELECT, or a CRUD statement
+        // carrying RETURNING (which routes through Emit and does have rows).
+        // On a plain INSERT/UPDATE/DELETE it was SILENTLY dropped -- the same
+        // silent-ignore the @stream and @each gates above and below exist to
+        // prevent, left ungated because nothing observable goes wrong: a plain
+        // INSERT has no result shape for @first to change. Nothing observable
+        // going wrong is exactly why the author never finds out, which is the
+        // JNT2015/JNT2019/JNT2020 policy applied here -- a directive is
+        // applied or it is reported.
+        if (directives.IsFirst
+            && queryModel.StatementType != StatementType.Select
+            && !queryModel.HasReturning)
+        {
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3003,
+                "-- @first is only valid on a SELECT or on a statement with a RETURNING clause: " +
+                $"a plain {queryModel.StatementType.ToString().ToUpperInvariant()} produces no rows for it to " +
+                "reduce, so the directive would be silently ignored. Remove it, or add RETURNING."));
+            return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+        }
+
         // -- @each preconditions (JNT3003). Runtime IN-list expansion is
         // implemented for SELECT queries only; left ungated on a CRUD
         // statement, the directive would be SILENTLY ignored (the parameter
