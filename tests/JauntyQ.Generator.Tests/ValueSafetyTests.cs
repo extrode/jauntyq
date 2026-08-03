@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using JauntyQ.Generator;
@@ -610,5 +610,91 @@ public class ValueSafetyTests
         string source = QuerySource(result);
 
         Assert.DoesNotContain("throw new System.ArgumentNullException(nameof(reorder_level));", source);
+    }
+    // ── AUD-R20-01 second rider: MySQL bit(n) width vs its true range ──
+    //
+    // bit(n) parks its declared width in the SAME Precision channel the
+    // tinyint(1) boolean sentinel uses, because NormalizeDbType strips the
+    // "(n)" off the dbType string. With no bit arm in ResolveIntegerRange a
+    // bit(8) fell to the decimal precision arm and was checked as "at most 8
+    // DIGITS" -- so it accepted 300, which overflows the column's real
+    // 0..255. Scoped to mysql by decision: SQL Server's bit is 0..1 and
+    // Postgres's bit(n) is a bit string, both left unchanged.
+
+    private const string Bit8 = @", ""precision"": 8";
+    private const string Bit1 = @", ""precision"": 1";
+    private const string Bit64 = @", ""precision"": 64";
+
+    [Fact]
+    public void MySqlBit8_AboveByteRange_JNT5002()
+    {
+        var result = RunTinyint("mysql", "bit",
+            "insert into flags (flag_id, level) values (@flagId, 300)", Bit8);
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+        Assert.Contains("out of range", diag.GetMessage());
+    }
+
+    [Fact]
+    public void MySqlBit8_TopOfRange_NoJNT5002()
+    {
+        var result = RunTinyint("mysql", "bit",
+            "insert into flags (flag_id, level) values (@flagId, 255)", Bit8);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlBit8_Negative_JNT5002()
+    {
+        // bit(n) is UNSIGNED: -1 has no representation, and the old digit
+        // count could never have caught it.
+        var result = RunTinyint("mysql", "bit",
+            "insert into flags (flag_id, level) values (@flagId, -1)", Bit8);
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlBit1_TwoIsOutOfRange_JNT5002()
+    {
+        var result = RunTinyint("mysql", "bit",
+            "insert into flags (flag_id, level) values (@flagId, 2)", Bit1);
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlBit64_TopOfRange_NoJNT5002()
+    {
+        // 2^64-1 exactly. Computed by doubling in decimal, not Math.Pow,
+        // whose double result is inexact above 2^53 -- a wrong bound here
+        // would reject the one literal the column CAN hold.
+        var result = RunTinyint("mysql", "bit",
+            "insert into flags (flag_id, level) values (@flagId, 18446744073709551615)", Bit64);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void SqlServerBit_Unchanged_NoJNT5002()
+    {
+        // Deliberately NOT ranged: SQL Server's bit is 0..1, a different type
+        // wearing the same name. Left on its existing behaviour by decision.
+        var result = RunTinyint("sqlserver", "bit",
+            "insert into flags (flag_id, level) values (@flagId, 5)", Bit1);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlBit_NoWidth_NoRangeClaimed()
+    {
+        // No Precision at all -> no arm, rather than a guessed width. An
+        // unprovable bound must never become a JNT5002 Error.
+        var result = RunTinyint("mysql", "bit",
+            "insert into flags (flag_id, level) values (@flagId, 300)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
     }
 }
