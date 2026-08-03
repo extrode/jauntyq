@@ -110,32 +110,13 @@ public static partial class QueryValidator
             }
         }
 
-        // The residual-predicate suppression's own set: only predicates that
-        // prove a ONE-ROW seek when they cover a unique key. That is strict
-        // "=" parameters and ON/USING equijoin columns (JoinRef is only ever
-        // built from an "=" condition). Range/IN/LIKE parameters stay in
-        // filterColumns for index-coverage purposes but must not enter here:
-        // "pk > @min" covers the PK column without covering the KEY, and the
-        // residual predicate scans the whole range. The suppression only
-        // silences a warning, so every exclusion errs toward warning.
-        var equalitySeekColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        void CollectEqualitySeekColumn(string tableAlias, string columnName)
-        {
-            var col = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
-            if (col != null && tableName != null)
-            {
-                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
-                equalitySeekColumns.Add(instanceKey + "|" + col.Name);
-            }
-        }
+        var equalitySeekColumns = CollectEqualitySeekColumns(query, aliasToTable, schema);
 
         foreach (var param in query.Parameters)
         {
             if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
                 continue;
             CollectFilterColumn(param.BoundTableAlias, param.BoundColumnName);
-            if (param.ComparisonOp == "=")
-                CollectEqualitySeekColumn(param.BoundTableAlias, param.BoundColumnName);
         }
         foreach (var hint in query.PerfHints)
         {
@@ -146,8 +127,6 @@ public static partial class QueryValidator
         {
             CollectFilterColumn(join.LeftTable, join.LeftColumn);
             CollectFilterColumn(join.RightTable, join.RightColumn);
-            CollectEqualitySeekColumn(join.LeftTable, join.LeftColumn);
-            CollectEqualitySeekColumn(join.RightTable, join.RightColumn);
         }
 
         foreach (var param in query.Parameters)
@@ -193,6 +172,53 @@ public static partial class QueryValidator
             if (!errors.Exists(e => e.Code == "JNT8007" && e.Message == message))
                 errors.Add(new ValidationError(JauntyDiagnostics.JNT8007, message));
         }
+    }
+
+    /// <summary>
+    /// The (table instance, column) pairs this query constrains by STRICT
+    /// equality: "=" parameters and ON/USING equijoin columns (a JoinRef is
+    /// only ever built from an "=" condition). Range/IN/LIKE parameters are
+    /// excluded — "pk &gt; @min" constrains the PK column without constraining
+    /// the KEY, so it does not prove a one-row seek. Keyed
+    /// <c>instance|column</c>, the format <see cref="FilterSetCoversUniqueKey"/>
+    /// consumes; the instance is the alias when the reference carries one, so a
+    /// self-join's two aliases are never conflated.
+    ///
+    /// Lives here rather than inline in <see cref="ValidatePerformance"/>
+    /// because <see cref="ValidatePagination"/> needs it BEFORE that method's
+    /// index-metadata early return: a DDL-sourced schema carries no index
+    /// metadata at all but still carries primary keys, which is exactly what
+    /// the pagination checks reason from.
+    /// </summary>
+    private static HashSet<string> CollectEqualitySeekColumns(
+        QueryModel query, Dictionary<string, string> aliasToTable, DatabaseSchema schema)
+    {
+        var seekColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void Collect(string tableAlias, string columnName)
+        {
+            var col = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
+            if (col != null && tableName != null)
+            {
+                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
+                seekColumns.Add(instanceKey + "|" + col.Name);
+            }
+        }
+
+        foreach (var param in query.Parameters)
+        {
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
+                continue;
+            if (param.ComparisonOp == "=")
+                Collect(param.BoundTableAlias, param.BoundColumnName);
+        }
+        foreach (var join in query.Joins)
+        {
+            Collect(join.LeftTable, join.LeftColumn);
+            Collect(join.RightTable, join.RightColumn);
+        }
+
+        return seekColumns;
     }
 
     private static void CheckIndexed(
@@ -283,8 +309,15 @@ public static partial class QueryValidator
     /// Prefix unique indexes are excluded because they enforce uniqueness over
     /// truncated values only; expression indexes because their
     /// <see cref="IndexSchema.Columns"/> is not the full key (both per the
-    /// <see cref="IndexSchema"/> flag contracts). Used only to SUPPRESS JNT8004,
-    /// so an uncovered key errs toward warning, never toward silence.
+    /// <see cref="IndexSchema"/> flag contracts).
+    ///
+    /// Three callers, and in every one a "false" only ever means "do not
+    /// suppress": JNT8004 passes this query's equality filter set (an uncovered
+    /// key errs toward warning); JNT8009/JNT8010 pass the same set to decide a
+    /// query is already pinned to one row, and JNT8009 additionally passes its
+    /// ORDER BY column set to decide the sort is total. The column set is the
+    /// only thing that changes — the question "do these columns cover a unique
+    /// key of this table instance" is the same one each time.
     /// </summary>
     private static bool FilterSetCoversUniqueKey(
         string instanceKey, TableSchema tableSchema, HashSet<string> equalitySeekColumns)
@@ -324,6 +357,133 @@ public static partial class QueryValidator
                 return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// JNT8009/JNT8010: a query that takes a page with LIMIT/OFFSET but cannot
+    /// name a deterministic row order. Between rows the ORDER BY ranks equally
+    /// the engine may return any order it likes, and it need not pick the same
+    /// one twice — so across two page requests a row can arrive on both pages
+    /// or on neither. With no ORDER BY at all (JNT8010) the page is simply an
+    /// arbitrary subset. Both are silent at runtime and intermittent, which is
+    /// why they are worth a build warning.
+    ///
+    /// Called per statement from ValidateStatement, which already runs once per
+    /// CTE body — so a page taken INSIDE a CTE (the idiomatic
+    /// paginate-then-aggregate shape) is checked against its own base columns
+    /// rather than against the outer statement's unresolvable virtual ones.
+    ///
+    /// Deliberately narrow. Every gate below is a case where the inference does
+    /// not hold or cannot be proven, and the check stays silent rather than
+    /// guessing: the value of these codes is entirely in not firing on the
+    /// correct paginating queries people already have.
+    /// </summary>
+    private static void ValidatePagination(
+        QueryModel query,
+        Dictionary<string, string> aliasToTable,
+        DatabaseSchema schema,
+        HashSet<string> equalitySeekColumns,
+        bool isSubquery,
+        List<ValidationError> errors)
+    {
+        if (query.StatementType != StatementType.Select || !query.HasRowLimit)
+            return;
+
+        // A LIMIT inside a predicate subquery -- EXISTS (SELECT 1 ... LIMIT 1)
+        // -- is idiomatic and cannot be unstable: the subquery answers a
+        // yes/no or membership question, so which row satisfied it never
+        // reaches the caller.
+        if (isSubquery)
+            return;
+
+        // A join fans rows out and GROUP BY collapses them, so a unique key on
+        // the one base table proves nothing about the result's row identity.
+        // A well-written paginating CTE is single-table by construction, which
+        // is why this restriction costs almost nothing in practice.
+        if (query.Joins.Count > 0 || query.Tables.Count != 1 || query.HasGroupBy)
+            return;
+
+        var table = query.Tables[0];
+        if (!SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema))
+            return;
+        string instanceKey = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+
+        // Already filtered to at most one row: the "page" is that row however
+        // it is ordered, so neither code applies. This is the -- @first idiom
+        // (WHERE pk = @id LIMIT 1).
+        if (FilterSetCoversUniqueKey(instanceKey, tableSchema!, equalitySeekColumns))
+            return;
+
+        if (query.OrderBy.Count == 0)
+        {
+            // JNT8010 needs no uniqueness proof, only the fact that rows are
+            // being taken in no stated order -- so unlike JNT8009 it is just as
+            // valid for a DDL-sourced table with no captured index metadata.
+            string unordered =
+                $"{table.TableName} is paginated (LIMIT/OFFSET) with no ORDER BY: the rows in a page " +
+                "are an arbitrary subset and can differ between requests. Add an ORDER BY, tiebroken " +
+                "on a unique column.";
+            if (!errors.Exists(e => e.Code == "JNT8010" && e.Message == unordered))
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT8010, unordered));
+            return;
+        }
+
+        // The plain base-column items, keyed exactly as FilterSetCoversUniqueKey
+        // expects. Ordinals, expressions and projected aliases contribute
+        // nothing here; they are handled by the bail below.
+        var orderByColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var orderedNames = new List<string>();
+        bool allItemsArePlainColumns = true;
+        foreach (var item in query.OrderBy)
+        {
+            if (item.Kind != OrderByItemKind.PlainColumn)
+            {
+                allItemsArePlainColumns = false;
+                continue;
+            }
+
+            var column = ResolveColumn(query, item.BoundTableAlias, item.BoundColumnName, aliasToTable, schema, out string? tableName);
+            if (column == null || tableName == null)
+            {
+                // An item we cannot resolve might be the unique one.
+                allItemsArePlainColumns = false;
+                continue;
+            }
+
+            orderByColumns.Add(instanceKey + "|" + column.Name);
+            orderedNames.Add(column.Name);
+        }
+
+        // Total: the sorted-on columns cover a primary key or a complete unique
+        // index, so no two rows compare equal and the order is deterministic.
+        // Checked BEFORE the non-plain bail, because the common correct shape
+        // sorts on a computed rank FIRST and tiebreaks on the key after it --
+        // the alias in front does not make the key behind it any less unique.
+        if (FilterSetCoversUniqueKey(instanceKey, tableSchema!, orderByColumns))
+            return;
+
+        // An expression, ordinal or projected-alias item may itself be unique
+        // (ORDER BY lower(email) on a case-insensitively unique email), and
+        // nothing in the IR can tell us. Do not guess.
+        if (!allItemsArePlainColumns)
+            return;
+
+        // No captured indexes means secondary unique indexes are INVISIBLE, not
+        // absent: the MigrationParser drops standalone CREATE UNIQUE INDEX and
+        // inline UNIQUE constraints (JauntyQGenerator.Part7.cs), so a
+        // DDL-sourced table carries its primary key and nothing else. A
+        // tiebreak on a genuinely unique non-PK column is then unprovable, and
+        // firing would be a false positive on every such project. Stay silent.
+        if (tableSchema!.Indexes.Count == 0)
+            return;
+
+        string sorted = string.Join(", ", orderedNames);
+        string message =
+            $"{table.TableName} is paginated (LIMIT/OFFSET) but ORDER BY {sorted} is not unique: " +
+            "rows that sort equally have no defined order, so one can appear on two pages or on " +
+            "none. Add a tiebreak on a unique column (typically the primary key).";
+        if (!errors.Exists(e => e.Code == "JNT8009" && e.Message == message))
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT8009, message));
     }
 
     /// <summary>

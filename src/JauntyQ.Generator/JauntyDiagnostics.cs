@@ -577,6 +577,22 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    public static readonly DiagnosticDescriptor JNT8009 = new(
+        "JNT8009",
+        "Unstable Pagination",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT8010 = new(
+        "JNT8010",
+        "Unordered Pagination",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 9xxx: Migrations ──────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT9001 = new(

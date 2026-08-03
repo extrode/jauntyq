@@ -254,6 +254,13 @@ public static partial class QueryValidator
         // JNT8xxx: performance analysis (warnings only, never block)
         ValidatePerformance(query, aliasToTable, schema, errors);
 
+        // JNT8009/JNT8010: a page taken without a deterministic row order.
+        // Separate from ValidatePerformance because that method returns early
+        // when the snapshot carries no index metadata, and these two must still
+        // run for a DDL-sourced schema, which has primary keys but no indexes.
+        ValidatePagination(query, aliasToTable, schema,
+            CollectEqualitySeekColumns(query, aliasToTable, schema), isSubquery, errors);
+
         // WHERE-clause predicate subqueries: validate each inner SELECT as its
         // own statement scope (same CTE virtual tables in scope), then enforce
         // the IN single-column rule. The subquery contributes nothing to this
