@@ -84,12 +84,23 @@ public class DirectiveModel
     public bool IsStream { get; set; }
 
     /// <summary>
+    /// The query this one declares it filters identically to, from:
+    /// -- @mirrors ListPage  (or -- @mirrors Bookmarks.ListPage across entities)
+    /// Checked at the aggregate stage, where the whole corpus is visible: the
+    /// two WHERE clauses must reduce to the same set of predicate atoms
+    /// (JNT8011), and a pairing that cannot be compared at all is reported
+    /// rather than dropped (JNT3010). Null when the directive is absent.
+    /// </summary>
+    public string? MirrorsTarget { get; set; }
+
+    /// <summary>
     /// True if any directives were specified.
     /// </summary>
     public bool HasDirectives =>
         ResultTypeName != null || ResultIsVoid || InlineColumns != null
         || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity || IsStream
-        || CallProcName != null || TypeDirectives != null || EachParams != null;
+        || CallProcName != null || TypeDirectives != null || EachParams != null
+        || MirrorsTarget != null;
 
     /// <summary>
     /// JNT3008 warning messages for directive-lookalike comment lines that

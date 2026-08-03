@@ -431,6 +431,14 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    public static readonly DiagnosticDescriptor JNT3010 = new(
+        "JNT3010",
+        "Mirrored Query Not Comparable",
+        "{0}",
+        "JauntyQ.Projection",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 4xxx: Parameter Binding ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT4003 = new(
@@ -588,6 +596,14 @@ public static class JauntyDiagnostics
     public static readonly DiagnosticDescriptor JNT8010 = new(
         "JNT8010",
         "Unordered Pagination",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
+    public static readonly DiagnosticDescriptor JNT8011 = new(
+        "JNT8011",
+        "Predicate Drift",
         "{0}",
         "JauntyQ.Performance",
         DiagnosticSeverity.Warning,

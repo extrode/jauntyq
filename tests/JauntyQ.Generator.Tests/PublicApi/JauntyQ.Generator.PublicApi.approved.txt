@@ -182,6 +182,7 @@ class JauntyQ.Generator.Directives.DirectiveModel
     prop IsFirst:Boolean
     prop IsProc:Boolean
     prop IsStream:Boolean
+    prop MirrorsTarget:String
     prop ProcName:String
     prop ResultIsVoid:Boolean
     prop ResultTypeName:String
@@ -248,6 +249,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT3007:DiagnosticDescriptor
     field JNT3008:DiagnosticDescriptor
     field JNT3009:DiagnosticDescriptor
+    field JNT3010:DiagnosticDescriptor
     field JNT4003:DiagnosticDescriptor
     field JNT4004:DiagnosticDescriptor
     field JNT5001:DiagnosticDescriptor
@@ -267,6 +269,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT8008:DiagnosticDescriptor
     field JNT8009:DiagnosticDescriptor
     field JNT8010:DiagnosticDescriptor
+    field JNT8011:DiagnosticDescriptor
     field JNT9001:DiagnosticDescriptor
     field JNT9002:DiagnosticDescriptor
     field JNT9003:DiagnosticDescriptor
@@ -381,6 +384,16 @@ class JauntyQ.Schema.TableSchema
     prop Columns:Dictionary<String,ColumnSchema>
     prop Indexes:List<IndexSchema>
     prop Name:String
+struct JauntyQ.SqlParser.IR.AtomTerm
+    prop Kind:AtomTermKind
+    prop TableAlias:String
+    prop Text:String
+enum JauntyQ.SqlParser.IR.AtomTermKind
+    field Column:AtomTermKind
+    field Keyword:AtomTermKind
+    field Literal:AtomTermKind
+    field Operator:AtomTermKind
+    field Parameter:AtomTermKind
 class JauntyQ.SqlParser.IR.ColumnRef
     ctor .ctor()
     prop AggregateArgColumnName:String
@@ -449,6 +462,9 @@ enum JauntyQ.SqlParser.IR.PerfHintKind
     field ColumnComparedToColumn:PerfHintKind
     field FunctionOnColumn:PerfHintKind
     field LeadingWildcardLike:PerfHintKind
+class JauntyQ.SqlParser.IR.PredicateAtom
+    ctor .ctor()
+    prop Terms:List<AtomTerm>
 class JauntyQ.SqlParser.IR.QueryModel
     ctor .ctor()
     prop Columns:List<ColumnRef>
@@ -463,6 +479,7 @@ class JauntyQ.SqlParser.IR.QueryModel
     prop OrderBy:List<OrderByRef>
     prop Parameters:List<ParameterRef>
     prop PerfHints:List<PerfHint>
+    prop PredicateAtoms:List<PredicateAtom>
     prop Returning:List<ColumnRef>
     prop StatementType:StatementType
     prop Subqueries:List<SubqueryRef>

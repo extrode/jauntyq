@@ -36,6 +36,13 @@ public static partial class SqlParser
             return model;
         }
 
+        // Split the WHERE into comparable atoms for the -- @mirrors check
+        // (JNT8011). Deliberately FIRST of the three extractors below:
+        // DetectUnsupportedConstructs lifts the predicate subqueries out of the
+        // token stream, and that lift takes each subquery's leading NOT with it,
+        // so after this point EXISTS and NOT EXISTS look identical.
+        ExtractPredicateAtoms(tokens, model);
+
         // Detect unsupported constructs
         DetectUnsupportedConstructs(tokens, model);
 
