@@ -225,13 +225,23 @@ public static class DirectiveParser
         // to "Declare it with: -- @type <alias> <dbtype>", which is the line
         // they had already written. Advice the author has followed is worse
         // than no advice.
+        // A value that is all alias and no dbtype -- "-- @type total" -- used to
+        // return here in silence, having stripped the line from the SQL and
+        // recorded nothing: the directive's own silent-ignore. It cannot fall
+        // through to CheckSuspiciousDirective, whose message for a known
+        // value-taking name is "requires a value", and this one HAS a value; so
+        // it reports the shortfall it actually has.
         int space = value.IndexOfAny(new[] { ' ', '\t' });
-        if (space <= 0)
-            return;
-        var alias = value.Substring(0, space).Trim();
-        var dbType = value.Substring(space + 1).Trim();
+        var alias = space > 0 ? value.Substring(0, space).Trim() : value;
+        var dbType = space > 0 ? value.Substring(space + 1).Trim() : string.Empty;
         if (alias.Length == 0 || dbType.Length == 0)
+        {
+            directives.SuspiciousDirectives ??= new List<string>();
+            directives.SuspiciousDirectives.Add(
+                $"-- @type {value} names an alias but no db type; write '-- @type {alias} <dbtype>' " +
+                "(e.g. '-- @type total int'). The directive had no effect.");
             return;
+        }
 
         directives.TypeDirectives ??= new List<TypeDirective>();
         directives.TypeDirectives.Add(new TypeDirective(alias, dbType));
