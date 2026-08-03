@@ -267,7 +267,8 @@ public class ValueSafetyTests
 
     // ── tinyint is dialect-dependent: SQL Server 0..255, MySQL -128..127 ─
 
-    private static GeneratorDriverRunResult RunTinyint(string dialect, string dbType, string sql)
+    private static GeneratorDriverRunResult RunTinyint(
+        string dialect, string dbType, string sql, string extraFacets = "")
     {
         string schema = @"{
   ""dialect"": """ + dialect + @""",
@@ -276,7 +277,7 @@ public class ValueSafetyTests
       ""name"": ""flags"",
       ""columns"": {
         ""flag_id"": { ""name"": ""flag_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
-        ""level"": { ""name"": ""level"", ""dbType"": """ + dbType + @""", ""isNullable"": false }
+        ""level"": { ""name"": ""level"", ""dbType"": """ + dbType + @""", ""isNullable"": false" + extraFacets + @" }
       }
     }
   }
@@ -341,6 +342,62 @@ public class ValueSafetyTests
             "insert into flags (flag_id, level) values (@flagId, 200)");
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    // ── tinyint(1)'s Precision sentinel is not a real precision ─────────
+    //
+    // AUD-R20-01 folds MySQL's display-width-1 boolean signal into Precision
+    // (the channel bit(n)'s length already rides on), leaving DbType as a bare
+    // "tinyint". The precision arm of ValidateNumericLiteral ran ahead of the
+    // integer range switch and was ungated by type family, so it read that
+    // sentinel as "at most one digit before the decimal point" and reported a
+    // JNT5002 Error for a value the column stores happily.
+
+    private const string Tinyint1 = @", ""precision"": 1";
+
+    [Fact]
+    public void MySqlTinyint1_TwoDigitLiteral_NoJNT5002()
+    {
+        // MySQL stores -128..127 in a TINYINT(1); 12 is ordinary.
+        var result = RunTinyint("mysql", "tinyint",
+            "insert into flags (flag_id, level) values (@flagId, 12)", Tinyint1);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlTinyint1_NegativeTwoDigitLiteral_NoJNT5002()
+    {
+        var result = RunTinyint("mysql", "tinyint",
+            "insert into flags (flag_id, level) values (@flagId, -12)", Tinyint1);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlTinyint1_GenuinelyOutOfRange_StillJNT5002()
+    {
+        // The check must not be lost, only corrected: 200 does not fit a
+        // signed tinyint, and now fails on the range rather than on a
+        // digit count that meant something else.
+        var result = RunTinyint("mysql", "tinyint",
+            "insert into flags (flag_id, level) values (@flagId, 200)", Tinyint1);
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+        Assert.Contains("out of range", diag.GetMessage());
+    }
+
+    [Fact]
+    public void DecimalPrecision_StillEnforced()
+    {
+        // False-positive guard for the reorder: a real decimal column's
+        // precision check is what the arm exists for and must be untouched.
+        var result = RunTinyint("mysql", "decimal",
+            "insert into flags (flag_id, level) values (@flagId, 999.99)",
+            @", ""precision"": 4, ""scale"": 2");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+        Assert.Contains("digit(s) before the decimal point", diag.GetMessage());
     }
 
     // ── MySQL mediumint/year: previously missing from the range switch ──
