@@ -26,105 +26,66 @@ public static class DirectiveParser
             {
                 // AUD-R79-01: Trim, not TrimStart. `line.TrimStart()` above
                 // leaves trailing whitespace on the line, and the three
-                // no-value directives match by string.Equals -- so "-- @first "
-                // with one trailing space (ordinary in a hand-edited .sql file)
-                // matched nothing, was left in the SQL as a comment, and set
-                // no flag. JNT3008 did not catch it either: the word IS a
-                // known directive, so IsOneEditAway's a == b guard returns
-                // false and no near-miss message is produced. Neither applied
-                // nor diagnosed is exactly the silent-ignore the @each and
-                // @call gates in JauntyQGenerator.Part2.cs exist to prevent.
+                // no-value directives matched the whole comment body -- so
+                // "-- @first " with one trailing space (ordinary in a
+                // hand-edited .sql file) matched nothing, was left in the SQL
+                // as a comment, and set no flag. JNT3008 did not catch it
+                // either: the word IS a known directive, so IsOneEditAway's
+                // a == b guard returns false and no near-miss message is
+                // produced. Neither applied nor diagnosed is exactly the
+                // silent-ignore the @each and @call gates in
+                // JauntyQGenerator.Part2.cs exist to prevent.
                 //
                 // Trimming the tail also routes the value-taking directives'
                 // bare-but-padded forms ("-- @result   ") to the suspicious
-                // check instead of their "@name " prefix match, which used to
-                // hand ParseResultDirective an empty value and set an empty
-                // ResultTypeName.
+                // check, rather than handing ParseResultDirective an empty
+                // value and setting an empty ResultTypeName.
                 var commentBody = trimmed.Substring(2).Trim();
 
-                if (commentBody.StartsWith("@result ", StringComparison.OrdinalIgnoreCase))
+                if (!commentBody.StartsWith("@"))
                 {
-                    var value = commentBody.Substring(8).Trim();
-                    ParseResultDirective(directives, value);
+                    cleanedLines.Add(line);
+                    continue;
+                }
+
+                // The name token is '@' plus the letters that follow it, and
+                // the value is everything after that. Splitting once, here,
+                // replaces six literal "@name " prefix matches, each of which
+                // required the separator to be a SPACE: "-- @type<TAB>total
+                // decimal" matched nothing, so the line fell through to
+                // CheckSuspiciousDirective and reported JNT3008 "-- @type
+                // requires a value" -- accurate that the directive was not
+                // applied, inaccurate that no value was present. The author is
+                // then told to write the line they already wrote, which is the
+                // failure AUD-R79-03 named one level down (a tab INSIDE
+                // @type's value) and left here deliberately, because fixing it
+                // meant reshaping all six matches rather than widening that
+                // round's fix.
+                //
+                // The name must be terminated by whitespace or end-of-body.
+                // That is what keeps "-- @proceed with caution" an ordinary
+                // comment rather than @proc with the name "eed with caution"
+                // (AUD-R8-01's word-boundary rule, now structural instead of a
+                // consequence of prefix ordering) and "-- @type(x)" unmatched,
+                // exactly as before.
+                int nameEnd = 1;
+                while (nameEnd < commentBody.Length && char.IsLetter(commentBody[nameEnd]))
+                    nameEnd++;
+
+                if (nameEnd > 1
+                    && (nameEnd == commentBody.Length || char.IsWhiteSpace(commentBody[nameEnd]))
+                    && TryApplyDirective(
+                        directives,
+                        commentBody.Substring(1, nameEnd - 1).ToLowerInvariant(),
+                        commentBody.Substring(nameEnd).Trim()))
+                {
                     continue; // strip this line from cleaned SQL
                 }
 
-                if (commentBody.StartsWith("@params ", StringComparison.OrdinalIgnoreCase))
-                {
-                    var value = commentBody.Substring(8).Trim();
-                    ParseParamsDirective(directives, value);
-                    continue; // strip this line from cleaned SQL
-                }
-
-                if (commentBody.StartsWith("@type ", StringComparison.OrdinalIgnoreCase))
-                {
-                    var value = commentBody.Substring(6).Trim();
-                    ParseTypeDirective(directives, value);
-                    continue; // strip this line from cleaned SQL
-                }
-
-                if (commentBody.StartsWith("@each ", StringComparison.OrdinalIgnoreCase))
-                {
-                    var value = commentBody.Substring(6).Trim();
-                    ParseEachDirective(directives, value);
-                    continue; // strip this line from cleaned SQL
-                }
-
-                if (string.Equals(commentBody, "@first", StringComparison.OrdinalIgnoreCase))
-                {
-                    directives.IsFirst = true;
-                    continue; // strip this line from cleaned SQL
-                }
-
-                if (string.Equals(commentBody, "@identity", StringComparison.OrdinalIgnoreCase))
-                {
-                    directives.ReturnsIdentity = true;
-                    continue; // strip this line from cleaned SQL
-                }
-
-                if (string.Equals(commentBody, "@stream", StringComparison.OrdinalIgnoreCase))
-                {
-                    directives.IsStream = true;
-                    continue; // strip this line from cleaned SQL
-                }
-
-                // Word-boundary match: "@call <name>" / bare "@proc" /
-                // "@proc <name>" only. A looser prefix match would swallow
-                // ordinary comments like "-- @proceed with caution" (IsProc +
-                // garbage name -> a baffling JNT2004) or "-- @caller note".
-                // AUD-R79-02: no bare-"@call" acceptance, unlike @proc below.
-                // @proc bare is meaningful (the procedure name is synthesized
-                // from entity + method), but @call's whole purpose is to name
-                // an EXISTING procedure: with no name, CallProcName stays null,
-                // the generator's `CallProcName != null` gate never fires, and
-                // the file was silently emitted as though the directive had
-                // not been written. Falling through to CheckSuspiciousDirective
-                // reports JNT3008 "requires a value" instead.
-                if (commentBody.StartsWith("@call ", StringComparison.OrdinalIgnoreCase))
-                {
-                    // "@call" is 5 chars — the rest is the procedure name.
-                    var rest = commentBody.Substring(5).Trim();
-                    if (rest.Length > 0)
-                        directives.CallProcName = rest;
-                    continue; // strip this line from cleaned SQL
-                }
-
-                if (string.Equals(commentBody, "@proc", StringComparison.OrdinalIgnoreCase)
-                    || commentBody.StartsWith("@proc ", StringComparison.OrdinalIgnoreCase))
-                {
-                    directives.IsProc = true;
-                    // "@proc" is 5 chars — anything after is the optional name
-                    var rest = commentBody.Substring(5).Trim();
-                    if (rest.Length > 0)
-                        directives.ProcName = rest;
-                    continue; // strip this line from cleaned SQL
-                }
-
-                // Nothing matched: the line stays a plain comment. Before it
+                // Nothing applied: the line stays a plain comment. Before it
                 // does, check for a near-miss the author probably meant as a
                 // directive (JNT3008, surfaced by the generator).
-                if (commentBody.StartsWith("@"))
-                    CheckSuspiciousDirective(directives, commentBody);
+                CheckSuspiciousDirective(directives, commentBody);
             }
 
             cleanedLines.Add(line);
@@ -132,6 +93,83 @@ public static class DirectiveParser
 
         var cleanedSql = string.Join("\n", cleanedLines);
         return (directives, cleanedSql);
+    }
+
+    /// <summary>
+    /// Applies one directive by name, returning false when the line is not a
+    /// directive after all — in which case the caller keeps it as a plain
+    /// comment and runs the near-miss check.
+    ///
+    /// The value/no-value split is the pre-split behaviour restated: the four
+    /// value-taking directives and <c>@call</c> did nothing without a value
+    /// (AUD-R79-02 removed the bare-<c>@call</c> acceptance, since with no name
+    /// <c>CallProcName</c> stays null and the file is emitted as though the
+    /// directive were absent), <c>@proc</c> alone is meaningful because the
+    /// procedure name is synthesized from entity + method, and the three
+    /// no-value directives matched the whole comment body — so a trailing word
+    /// makes the line an ordinary comment rather than a directive with junk.
+    /// </summary>
+    private static bool TryApplyDirective(DirectiveModel directives, string name, string value)
+    {
+        switch (name)
+        {
+            case "result":
+                if (value.Length == 0)
+                    return false;
+                ParseResultDirective(directives, value);
+                return true;
+
+            case "params":
+                if (value.Length == 0)
+                    return false;
+                ParseParamsDirective(directives, value);
+                return true;
+
+            case "type":
+                if (value.Length == 0)
+                    return false;
+                ParseTypeDirective(directives, value);
+                return true;
+
+            case "each":
+                if (value.Length == 0)
+                    return false;
+                ParseEachDirective(directives, value);
+                return true;
+
+            case "call":
+                if (value.Length == 0)
+                    return false;
+                directives.CallProcName = value;
+                return true;
+
+            case "proc":
+                directives.IsProc = true;
+                if (value.Length > 0)
+                    directives.ProcName = value;
+                return true;
+
+            case "first":
+                if (value.Length > 0)
+                    return false;
+                directives.IsFirst = true;
+                return true;
+
+            case "identity":
+                if (value.Length > 0)
+                    return false;
+                directives.ReturnsIdentity = true;
+                return true;
+
+            case "stream":
+                if (value.Length > 0)
+                    return false;
+                directives.IsStream = true;
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     private static void ParseResultDirective(DirectiveModel directives, string value)
@@ -236,8 +274,8 @@ public static class DirectiveParser
     }
 
     // Every recognized directive name; the value-taking subset falls through
-    // to the suspicious check when written bare (their prefix match requires
-    // the trailing space).
+    // to the suspicious check when written bare (TryApplyDirective declines a
+    // value-taking directive whose value is empty).
     private static readonly string[] KnownDirectives =
         { "result", "params", "type", "each", "first", "identity", "stream", "call", "proc" };
 

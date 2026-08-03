@@ -170,4 +170,120 @@ public class DirectiveTrailingWhitespaceTests
         Assert.Equal("avg_len", td.Alias);
         Assert.Equal("double precision", td.DbType);
     }
+
+    // Round 79 residual: the separator between the directive NAME and its
+    // value. AUD-R79-03 fixed the tab INSIDE @type's value; the six
+    // value-taking directives were still matched with a literal "@name "
+    // prefix, so a tab straight after the name matched nothing and the line
+    // fell through to JNT3008 "requires a value" -- accurate that the
+    // directive was not applied, inaccurate that no value was present. Round
+    // 79 recorded it rather than widening its own fix.
+
+    [Fact]
+    public void Type_TabAfterDirectiveName_StillParses()
+    {
+        var (directives, cleaned) = DirectiveParser.Parse("-- @type\ttotal decimal(10,2)\nSELECT 1 AS total");
+
+        var td = Assert.Single(directives.TypeDirectives!);
+        Assert.Equal("total", td.Alias);
+        Assert.Equal("decimal(10,2)", td.DbType);
+        Assert.Null(directives.SuspiciousDirectives);
+        Assert.DoesNotContain("@type", cleaned);
+    }
+
+    [Fact]
+    public void Result_TabAfterDirectiveName_StillParses()
+    {
+        var (directives, _) = DirectiveParser.Parse("-- @result\tProductSummary\nSELECT 1");
+
+        Assert.Equal("ProductSummary", directives.ResultTypeName);
+        Assert.Null(directives.SuspiciousDirectives);
+    }
+
+    [Fact]
+    public void Params_TabAfterDirectiveName_StillParses()
+    {
+        var (directives, _) = DirectiveParser.Parse("-- @params\tid:int, name:string\nSELECT 1");
+
+        Assert.NotNull(directives.ExplicitParams);
+        Assert.Equal(2, directives.ExplicitParams!.Count);
+        Assert.Null(directives.SuspiciousDirectives);
+    }
+
+    [Fact]
+    public void Each_TabAfterDirectiveName_StillParses()
+    {
+        var (directives, _) = DirectiveParser.Parse("-- @each\tIds\nSELECT 1");
+
+        Assert.NotNull(directives.EachParams);
+        Assert.Equal("Ids", Assert.Single(directives.EachParams!));
+        Assert.Null(directives.SuspiciousDirectives);
+    }
+
+    [Fact]
+    public void Call_TabAfterDirectiveName_StillParses()
+    {
+        var (directives, _) = DirectiveParser.Parse("-- @call\tGetProductById\nSELECT 1");
+
+        Assert.Equal("GetProductById", directives.CallProcName);
+        Assert.Null(directives.SuspiciousDirectives);
+    }
+
+    [Fact]
+    public void Proc_TabAfterDirectiveName_StillParses()
+    {
+        var (directives, _) = DirectiveParser.Parse("-- @proc\tsp_GetProduct\nSELECT 1");
+
+        Assert.True(directives.IsProc);
+        Assert.Equal("sp_GetProduct", directives.ProcName);
+        Assert.Null(directives.SuspiciousDirectives);
+    }
+
+    // ── Boundaries the name/value split must not move ──
+
+    [Fact]
+    public void ProceedComment_StillNotADirective()
+    {
+        // The word-boundary property AUD-R8-01 established: "@proceed" is not
+        // "@proc" plus a name. Splitting on the name token makes this
+        // structural rather than a consequence of prefix ordering.
+        var (directives, cleaned) = DirectiveParser.Parse("-- @proceed with caution\nSELECT 1");
+
+        Assert.False(directives.IsProc);
+        Assert.Null(directives.ProcName);
+        Assert.Null(directives.SuspiciousDirectives);
+        Assert.Contains("@proceed with caution", cleaned);
+    }
+
+    [Theory]
+    [InlineData("first")]
+    [InlineData("identity")]
+    [InlineData("stream")]
+    public void NoValueDirective_WithTrailingWords_IsNotApplied(string name)
+    {
+        // The three no-value directives match the whole comment body today
+        // (string.Equals). "-- @first extra" is an ordinary comment, and must
+        // stay one -- the split must not turn "extra" into an accepted value.
+        var (directives, cleaned) = DirectiveParser.Parse($"-- @{name} extra\nSELECT 1");
+
+        Assert.False(directives.IsFirst);
+        Assert.False(directives.ReturnsIdentity);
+        Assert.False(directives.IsStream);
+        Assert.Contains($"@{name} extra", cleaned);
+    }
+
+    [Theory]
+    [InlineData("result")]
+    [InlineData("type")]
+    [InlineData("each")]
+    public void ValueTakingDirective_NameNotWhitespaceTerminated_ReportsSuspicious(string name)
+    {
+        // "-- @type(x)" matched nothing before the split and must match
+        // nothing after it: the character following the name has to be
+        // whitespace for the rest to be that directive's value.
+        var (directives, _) = DirectiveParser.Parse($"-- @{name}(x)\nSELECT 1");
+
+        Assert.NotNull(directives.SuspiciousDirectives);
+        Assert.Contains(directives.SuspiciousDirectives!, m => m.Contains($"@{name} requires a value"));
+    }
 }
