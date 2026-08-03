@@ -540,6 +540,65 @@ SELECT ProductId FROM Products";
         Assert.Contains($"@{typo}", cleaned); // stays a plain comment
     }
 
+    // ── JNT3008: "-- @type <alias>" with no dbtype ─────────────────────
+
+    [Theory]
+    [InlineData("-- @type total")]
+    [InlineData("-- @type\ttotal")]
+    public void TypeDirective_AliasButNoDbType_RegistersSuspicious(string directiveLine)
+    {
+        // The alias is present, so this cannot report "requires a value" the way
+        // a bare "-- @type" does -- the author wrote one. It used to strip the
+        // line and record nothing at all.
+        var sql = directiveLine + "\nselect count(*) as total from products";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        Assert.Null(directives.TypeDirectives);
+        var msg = Assert.Single(directives.SuspiciousDirectives!);
+        Assert.Contains("names an alias but no db type", msg);
+        Assert.Contains("-- @type total <dbtype>", msg);
+        Assert.DoesNotContain("requires a value", msg);
+    }
+
+    [Fact]
+    public void TypeDirective_WellFormed_StaysSilent()
+    {
+        var sql = "-- @type total int\nselect count(*) as total from products";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        var td = Assert.Single(directives.TypeDirectives!);
+        Assert.Equal("total", td.Alias);
+        Assert.Equal("int", td.DbType);
+        Assert.Null(directives.SuspiciousDirectives);
+    }
+
+    [Fact]
+    public void TypeDirective_MultiWordDbType_StillSilent()
+    {
+        // "double precision" is two tokens after the alias -- the split is on
+        // the FIRST whitespace only, so this must not read as a missing dbtype.
+        var sql = "-- @type score double precision\nselect 1 as score from products";
+        var (directives, _) = DirectiveParser.Parse(sql);
+
+        var td = Assert.Single(directives.TypeDirectives!);
+        Assert.Equal("double precision", td.DbType);
+        Assert.Null(directives.SuspiciousDirectives);
+    }
+
+    [Fact]
+    public void BareTypeDirective_StillReportsRequiresAValue()
+    {
+        // No value at all is the OTHER case, and keeps its own message: it is
+        // declined by TryApplyDirective and handled by the near-miss check.
+        var sql = "-- @type\nselect product_id from products";
+        var (directives, cleaned) = DirectiveParser.Parse(sql);
+
+        Assert.Null(directives.TypeDirectives);
+        var msg = Assert.Single(directives.SuspiciousDirectives!);
+        Assert.Contains("@type requires a value", msg);
+        Assert.Contains("-- @type", cleaned);
+    }
+
     [Fact]
     public void TwoEditsAway_StaysSilent_NotFlaggedAsNearMiss()
     {
