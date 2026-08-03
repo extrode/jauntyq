@@ -431,6 +431,27 @@ public static partial class QueryValidator
                 System.Globalization.CultureInfo.InvariantCulture, out decimal value))
             return;
 
+        // The integer families are settled FIRST, because Precision is not
+        // exclusively a decimal facet: AUD-R20-01 folds MySQL's display-width-1
+        // boolean signal into it (the channel bit(n)'s length already rides on)
+        // while leaving DbType a bare "tinyint". The precision arm below is
+        // ungated by type family, so running it first read that sentinel as
+        // "at most one digit before the decimal point" and reported a JNT5002
+        // Error for `level = 12` on a TINYINT(1) -- a value MySQL stores
+        // happily, since the column's real range is -128..127. The range switch
+        // is the single authority on which types are integer-shaped, so
+        // deferring to it cannot drift the way a second hand-kept list would.
+        (decimal Min, decimal Max)? integerRange = ResolveIntegerRange(column.DbType, dialect);
+        if (integerRange.HasValue)
+        {
+            if (value < integerRange.Value.Min || value > integerRange.Value.Max)
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT5002,
+                    $"Numeric literal {lit.Value} is out of range for {tableName}.{column.Name} ({column.DbType}). It would overflow at runtime."));
+            }
+            return;
+        }
+
         // decimal/numeric/money: integer digits must fit precision - scale
         if (column.Precision is int precision && precision > 0)
         {
@@ -470,11 +491,23 @@ public static partial class QueryValidator
             }
             return;
         }
+    }
 
-        // integer families: compile-time range check. The base type is the
-        // text before any '(n)' facet or modifier word ("tinyint(1) unsigned"
-        // -> "tinyint"); MySQL's 'unsigned' modifier shifts the range.
-        string fullDbType = column.DbType.ToLowerInvariant();
+    /// <summary>
+    /// The integer families' compile-time range, or null when the column is
+    /// not integer-shaped. The base type is the text before any '(n)' facet or
+    /// modifier word ("tinyint(1) unsigned" -> "tinyint"); MySQL's 'unsigned'
+    /// modifier shifts the range.
+    ///
+    /// Note what is deliberately absent: <c>bit</c> has no arm, so a MySQL
+    /// <c>bit(8)</c> still falls through to the precision arm and is checked on
+    /// its width rather than its true 0..255 range — wrong in both directions,
+    /// unchanged by this method's extraction, and recorded in the todo list
+    /// rather than fixed here.
+    /// </summary>
+    private static (decimal Min, decimal Max)? ResolveIntegerRange(string columnDbType, string dialect)
+    {
+        string fullDbType = columnDbType.ToLowerInvariant();
         bool unsigned = fullDbType.Contains("unsigned");
         string dbType = fullDbType;
         int cut = dbType.IndexOfAny(new[] { '(', ' ' });
@@ -524,11 +557,7 @@ public static partial class QueryValidator
             _ => ((decimal, decimal)?)null
         };
 
-        if (range.HasValue && (value < range.Value.Min || value > range.Value.Max))
-        {
-            errors.Add(new ValidationError(JauntyDiagnostics.JNT5002,
-                $"Numeric literal {lit.Value} is out of range for {tableName}.{column.Name} ({column.DbType}). It would overflow at runtime."));
-        }
+        return range;
     }
 
 }
