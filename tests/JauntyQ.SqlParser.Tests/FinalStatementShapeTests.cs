@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Reflection;
 using JauntyQ.SqlParser;
 using JauntyQ.SqlParser.IR;
 using Xunit;
@@ -61,5 +64,90 @@ public class FinalStatementShapeTests
 
         var cte = Assert.Single(model.Ctes);
         Assert.True(cte.Body.HasRowLimit);
+    }
+
+    // ── Member parity, the standing check ────────────────────────────────
+    //
+    // CopyFinalStatement is a hand-maintained memberwise copy with no analyzer
+    // enforcement, which is the same bug class the audit criteria §2.3
+    // calls "the single most frequently recurring in this project's history"
+    // for SchemaSimulator.Clone(). It expired exactly that way: HasRowLimit and
+    // HasGroupBy were added to QueryModel and the copy was never updated, so
+    // JNT8009/JNT8010 went silent on the final statement of a WITH until
+    // 2026-08-03.
+    //
+    // Blanket-copying is NOT the fix, which is why this is a classification
+    // test rather than a "copies everything" assertion: WithRecursive is set on
+    // the OUTER model by ParseWith and is always false on the inner one, so
+    // copying it would clobber true with false.
+
+    /// <summary>Members CopyFinalStatement must carry from the final statement.</summary>
+    private static readonly HashSet<string> Copied = new()
+    {
+        nameof(QueryModel.StatementType),
+        nameof(QueryModel.TargetTable),
+        nameof(QueryModel.Tables),
+        nameof(QueryModel.Columns),
+        nameof(QueryModel.Joins),
+        nameof(QueryModel.Parameters),
+        nameof(QueryModel.Literals),
+        nameof(QueryModel.PerfHints),
+        nameof(QueryModel.OrderBy),
+        nameof(QueryModel.PredicateAtoms),
+        nameof(QueryModel.UnsupportedConstructs),
+        nameof(QueryModel.ExpressionsMissingAlias),
+        nameof(QueryModel.Returning),
+        nameof(QueryModel.HasReturning),
+        nameof(QueryModel.HasRowLimit),
+        nameof(QueryModel.HasGroupBy),
+        nameof(QueryModel.Subqueries),
+    };
+
+    /// <summary>
+    /// Members deliberately NOT carried, each for a stated reason:
+    /// Name — the outer model already holds the query's own name, taken from the file;
+    /// Ctes — attached to the outer model by ParseWith and merged, not replaced;
+    /// WithRecursive — set on the OUTER model, always false on the inner one.
+    /// </summary>
+    private static readonly HashSet<string> DeliberatelyNotCopied = new()
+    {
+        nameof(QueryModel.Name),
+        nameof(QueryModel.Ctes),
+        nameof(QueryModel.WithRecursive),
+    };
+
+    [Fact]
+    public void EveryQueryModelMember_IsClassifiedCopiedOrDeliberatelyNot()
+    {
+        var unclassified = new List<string>();
+        foreach (var p in typeof(QueryModel).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            if (!Copied.Contains(p.Name) && !DeliberatelyNotCopied.Contains(p.Name))
+                unclassified.Add(p.Name);
+
+        Assert.True(unclassified.Count == 0,
+            "QueryModel members with no CopyFinalStatement decision recorded: "
+            + string.Join(", ", unclassified)
+            + ". Add each to Copied (and to CopyFinalStatement) or to DeliberatelyNotCopied "
+            + "with the reason. A member left out of both is the silent-drop bug this test exists for.");
+    }
+
+    [Fact]
+    public void TheTwoClassificationsAreDisjointAndCoverTheWholeType()
+    {
+        var all = new HashSet<string>();
+        foreach (var p in typeof(QueryModel).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            all.Add(p.Name);
+
+        foreach (var name in Copied)
+            Assert.Contains(name, all);
+        foreach (var name in DeliberatelyNotCopied)
+        {
+            Assert.Contains(name, all);
+            Assert.DoesNotContain(name, Copied);
+        }
+
+        // A stale entry left behind by a rename would otherwise sit here
+        // forever, quietly shrinking what the first test checks.
+        Assert.Equal(all.Count, Copied.Count + DeliberatelyNotCopied.Count);
     }
 }
