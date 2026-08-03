@@ -217,6 +217,26 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 ctx.ReportDiagnostic(diag);
         });
 
+        // Predicate drift (JNT8011) and un-comparable pairings (JNT3010): also
+        // cross-query, so it sits here beside the N+1 pass. Its own node rather
+        // than a wider nPlusOneInput tuple, so adding or removing a -- @mirrors
+        // directive does not invalidate the N+1 aggregate and vice versa.
+        var predicateDriftInput = perFile
+            .Select(static (r, _) => new PredicateDriftAnalyzer.Entry(
+                r.Summary.EntityName + "." + r.Summary.MethodName, r.Path, r.Query, r.MirrorsTarget))
+            .Collect()
+            .Combine(schemaState)
+            .WithTrackingName("JauntyQ_PredicateDrift");
+
+        context.RegisterSourceOutput(predicateDriftInput, static (ctx, pair) =>
+        {
+            var (entries, schema) = pair;
+            if (schema.Schema == null)
+                return;
+            foreach (var diag in PredicateDriftAnalyzer.Analyze(entries, schema.Schema))
+                ctx.ReportDiagnostic(diag);
+        });
+
         // Aggregated outputs (synthetics, POCO overloads, row POCOs, entity
         // cores, JauntyDb) depend only on each file's value-equatable shape
         // summary — body edits that keep the shape leave all of it cached.

@@ -160,6 +160,7 @@ public static partial class SqlParser
         to.Joins.AddRange(from.Joins);
         to.Literals.AddRange(from.Literals);
         to.PerfHints.AddRange(from.PerfHints);
+        to.PredicateAtoms.AddRange(from.PredicateAtoms);
         to.OrderBy.AddRange(from.OrderBy);
         to.Returning.AddRange(from.Returning);
         to.HasReturning = from.HasReturning;

@@ -143,6 +143,162 @@ public static partial class SqlParser
         }
     }
 
+    /// <summary>
+    /// Splits the WHERE region into top-level AND-conjuncts and records each as
+    /// a <see cref="PredicateAtom"/> of classified tokens. Read-only over
+    /// <paramref name="tokens"/>; the stream it sees is the one every other
+    /// extractor sees.
+    ///
+    /// Runs BEFORE <c>ExtractPredicateSubqueries</c>, deliberately: that pass
+    /// removes the whole <c>[NOT] IN (SELECT ...)</c> / <c>[NOT] EXISTS
+    /// (SELECT ...)</c> span including its leading NOT, and <see cref="SubqueryRef"/>
+    /// has no negation flag — so after it runs, EXISTS and NOT EXISTS are
+    /// indistinguishable. Reading the region first is the only place the NOT is
+    /// still there to record.
+    ///
+    /// Two conservatisms, both erring toward one large atom rather than several
+    /// wrong ones:
+    /// <list type="bullet">
+    /// <item>a depth-0 OR anywhere in the region makes the ENTIRE region a single
+    /// atom — a disjunction does not decompose into conjuncts, and reasoning
+    /// about the boolean algebra is out of scope;</item>
+    /// <item>BETWEEN's own AND is not a splitter, so <c>x BETWEEN @lo AND @hi</c>
+    /// stays one atom rather than becoming "x BETWEEN @lo" and a stray "@hi".</item>
+    /// </list>
+    /// </summary>
+    private static void ExtractPredicateAtoms(List<Token> tokens, QueryModel model)
+    {
+        // Identical bounding to ExtractPerfHints: WHERE to GROUP/ORDER/HAVING or
+        // end, depth-gated so a projection-list EXISTS(...) subquery's own
+        // clause keywords are never mistaken for this statement's.
+        int start = -1;
+        int end = tokens.Count;
+        int boundaryDepth = 0;
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == "(") { boundaryDepth++; continue; }
+            if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ")") { boundaryDepth--; continue; }
+            if (tokens[i].Type != TokenType.Keyword || boundaryDepth != 0)
+                continue;
+            if (start < 0 && tokens[i].Value == "WHERE")
+            {
+                start = i + 1;
+                continue;
+            }
+            if (start >= 0 && tokens[i].Value is "GROUP" or "ORDER" or "HAVING")
+            {
+                end = i;
+                break;
+            }
+        }
+        if (start < 0)
+            return;
+
+        bool hasTopLevelOr = false;
+        int scanDepth = 0;
+        for (int i = start; i < end; i++)
+        {
+            var t = tokens[i];
+            if (t.Type == TokenType.Symbol && t.Value == "(") { scanDepth++; continue; }
+            if (t.Type == TokenType.Symbol && t.Value == ")") { scanDepth--; continue; }
+            if (scanDepth == 0 && t.Type == TokenType.Keyword && t.Value == "OR")
+            {
+                hasTopLevelOr = true;
+                break;
+            }
+        }
+
+        var current = new PredicateAtom();
+        int depth = 0;
+        bool inBetween = false;
+        for (int i = start; i < end; i++)
+        {
+            var t = tokens[i];
+
+            // The End sentinel closes the stream; it carries an empty value and
+            // would otherwise land in the last atom as a blank term, so two
+            // otherwise-identical clauses would differ by whichever one had the
+            // predicate in final position.
+            if (t.Type == TokenType.End)
+                break;
+
+            if (t.Type == TokenType.Symbol && t.Value == "(")
+                depth++;
+            else if (t.Type == TokenType.Symbol && t.Value == ")")
+                depth--;
+            else if (depth == 0 && t.Type == TokenType.Keyword && t.Value == "BETWEEN")
+                inBetween = true;
+            else if (depth == 0 && t.Type == TokenType.Keyword && t.Value == "AND")
+            {
+                if (inBetween)
+                {
+                    // BETWEEN's second operand: part of this atom, not a split.
+                    inBetween = false;
+                }
+                else if (!hasTopLevelOr)
+                {
+                    if (current.Terms.Count > 0)
+                        model.PredicateAtoms.Add(current);
+                    current = new PredicateAtom();
+                    continue;
+                }
+            }
+
+            current.Terms.Add(ClassifyAtomTerm(t));
+        }
+        if (current.Terms.Count > 0)
+            model.PredicateAtoms.Add(current);
+    }
+
+    /// <summary>
+    /// Classifies one WHERE-region token for <see cref="ExtractPredicateAtoms"/>.
+    /// Identifiers keep their qualifier separately so the comparison can resolve
+    /// <c>b.user_id</c> and a bare <c>user_id</c> to the same column; everything
+    /// else is kept as written, with keywords upper-cased so two files that
+    /// disagree only on casing still compare equal.
+    /// </summary>
+    private static AtomTerm ClassifyAtomTerm(Token token)
+    {
+        switch (token.Type)
+        {
+            case TokenType.Identifier:
+                var (tableAlias, columnName) = SplitQualifiedName(token.Value);
+                return new AtomTerm { Kind = AtomTermKind.Column, Text = columnName, TableAlias = tableAlias };
+
+            case TokenType.Parameter:
+                // The tokenizer drops the leading '@'; put it back so the
+                // canonical form reads like the SQL the author wrote when it is
+                // quoted in a diagnostic message.
+                return new AtomTerm
+                {
+                    Kind = AtomTermKind.Parameter,
+                    Text = token.Value.StartsWith("@") ? token.Value : "@" + token.Value,
+                    TableAlias = string.Empty
+                };
+
+            case TokenType.Literal:
+            case TokenType.Number:
+                return new AtomTerm { Kind = AtomTermKind.Literal, Text = token.Value, TableAlias = string.Empty };
+
+            case TokenType.Symbol:
+                return new AtomTerm { Kind = AtomTermKind.Operator, Text = token.Value, TableAlias = string.Empty };
+
+            default:
+                // The tokenizer already upper-cases keyword values, so for the
+                // keywords this branch mostly sees, ToUpperInvariant is a
+                // no-op -- verified by perturbation: removing it reddens
+                // nothing. It stays for the degenerate token types that also
+                // land here (Unterminated, TooLarge, Unknown), whose text is
+                // whatever the input held.
+                return new AtomTerm
+                {
+                    Kind = AtomTermKind.Keyword,
+                    Text = token.Value.ToUpperInvariant(),
+                    TableAlias = string.Empty
+                };
+        }
+    }
+
     private static int FindMatchingParen(List<Token> tokens, int openIndex, int end)
     {
         int depth = 0;

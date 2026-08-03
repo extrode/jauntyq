@@ -12,6 +12,16 @@ public class QueryModel
     public List<LiteralBinding> Literals { get; } = new();
     public List<PerfHint> PerfHints { get; } = new();
     public List<OrderByRef> OrderBy { get; } = new();
+
+    /// <summary>
+    /// The WHERE clause split into top-level AND-conjuncts, each kept as
+    /// classified tokens. Populated for every statement that has a WHERE, and
+    /// consumed only by the <c>-- @mirrors</c> comparison (JNT8011): the rest of
+    /// the IR cannot see an unparameterized predicate such as
+    /// <c>deleted_at IS NULL</c>, so nothing else could compare two WHERE
+    /// clauses honestly.
+    /// </summary>
+    public List<PredicateAtom> PredicateAtoms { get; } = new();
     public List<string> UnsupportedConstructs { get; } = new();
 
     /// <summary>

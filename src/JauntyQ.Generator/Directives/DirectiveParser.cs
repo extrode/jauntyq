@@ -143,6 +143,12 @@ public static class DirectiveParser
                 directives.CallProcName = value;
                 return true;
 
+            case "mirrors":
+                if (value.Length == 0)
+                    return false;
+                directives.MirrorsTarget = value;
+                return true;
+
             case "proc":
                 directives.IsProc = true;
                 if (value.Length > 0)
@@ -287,13 +293,14 @@ public static class DirectiveParser
     // to the suspicious check when written bare (TryApplyDirective declines a
     // value-taking directive whose value is empty).
     private static readonly string[] KnownDirectives =
-        { "result", "params", "type", "each", "first", "identity", "stream", "call", "proc" };
+        { "result", "params", "type", "each", "first", "identity", "stream", "call", "proc", "mirrors" };
 
     // AUD-R79-02 added "call": it names an existing procedure and does nothing
     // at all without one, so bare "-- @call" belongs here rather than in the
-    // silently-accepted set.
+    // silently-accepted set. "mirrors" is the same shape -- it names the query
+    // to compare against and means nothing without one.
     private static readonly HashSet<string> ValueRequiredDirectives =
-        new(StringComparer.Ordinal) { "result", "params", "type", "each", "call" };
+        new(StringComparer.Ordinal) { "result", "params", "type", "each", "call", "mirrors" };
 
     /// <summary>
     /// Records a JNT3008 warning when an unmatched <c>-- @word</c> comment is

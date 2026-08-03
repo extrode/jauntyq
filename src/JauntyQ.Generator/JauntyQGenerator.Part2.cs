@@ -554,7 +554,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable),
             ComputeFingerprint(tokens),
             queryModel,
-            sqlFile.Path);
+            sqlFile.Path,
+            directives.MirrorsTarget);
     }
 
     /// <summary>

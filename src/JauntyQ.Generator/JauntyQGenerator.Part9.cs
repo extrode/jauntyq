@@ -37,7 +37,16 @@ internal sealed class FileResult
     /// </summary>
     public string? Path { get; }
 
-    public FileResult(string? hintName, string? source, ImmutableArray<DiagnosticInfo> diagnostics, FileSummary summary, string? fingerprint = null, QueryModel? query = null, string? path = null)
+    /// <summary>
+    /// The <c>-- @mirrors</c> target this file declared, verbatim (a bare
+    /// <c>Method</c> or a qualified <c>Entity.Method</c>). Kept for the
+    /// cross-query predicate-drift pass (JNT8011/JNT3010) at the aggregate
+    /// stage, which is the only place the named query is visible. Null when the
+    /// directive is absent.
+    /// </summary>
+    public string? MirrorsTarget { get; }
+
+    public FileResult(string? hintName, string? source, ImmutableArray<DiagnosticInfo> diagnostics, FileSummary summary, string? fingerprint = null, QueryModel? query = null, string? path = null, string? mirrorsTarget = null)
     {
         HintName = hintName;
         Source = source;
@@ -46,6 +55,7 @@ internal sealed class FileResult
         Fingerprint = fingerprint;
         Query = query;
         Path = path;
+        MirrorsTarget = mirrorsTarget;
     }
 
     public static FileResult None(string entityName, string methodName, bool claims) =>
