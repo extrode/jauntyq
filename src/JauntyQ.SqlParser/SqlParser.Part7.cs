@@ -164,6 +164,8 @@ public static partial class SqlParser
         to.OrderBy.AddRange(from.OrderBy);
         to.Returning.AddRange(from.Returning);
         to.HasReturning = from.HasReturning;
+        to.HasRowLimit = from.HasRowLimit;
+        to.HasGroupBy = from.HasGroupBy;
         to.ExpressionsMissingAlias.AddRange(from.ExpressionsMissingAlias);
         to.Subqueries.AddRange(from.Subqueries);
 

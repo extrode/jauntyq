@@ -369,4 +369,60 @@ public class PaginationStabilityTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8009" || d.Id == "JNT8010");
     }
 
+    // ── The page taken by the FINAL statement of a WITH ───────────────────
+
+    [Fact]
+    public void FinalStatementLimit_NoOrderBy_JNT8010()
+    {
+        // The CTE computes something unrelated and the page is taken by the
+        // final statement, straight off a real table. Every gate that guards
+        // these codes is satisfied, so silence here can only mean the outer
+        // model never learned the final statement pages at all.
+        var result = Run(
+            "with active as (\n" +
+            "    select events.event_id from events where events.correlation_id = @corr\n" +
+            ")\n" +
+            "select bookmarks.id, bookmarks.title\n" +
+            "from bookmarks\n" +
+            "where bookmarks.user_id = @userId\n" +
+            "limit 20 offset 40");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT8010");
+    }
+
+    [Fact]
+    public void FinalStatementLimit_UntiebrokenOrderBy_JNT8009()
+    {
+        var result = Run(
+            "with active as (\n" +
+            "    select events.event_id from events where events.correlation_id = @corr\n" +
+            ")\n" +
+            "select bookmarks.id, bookmarks.title\n" +
+            "from bookmarks\n" +
+            "where bookmarks.user_id = @userId\n" +
+            "order by bookmarks.created_at desc\n" +
+            "limit 20 offset 40");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT8009");
+    }
+
+    [Fact]
+    public void FinalStatementLimit_GroupBy_Silent()
+    {
+        // GROUP BY collapses rows, so the unique key on the base table proves
+        // nothing about the result's identity and both codes must stay quiet.
+        // This pins the pair: carrying HasRowLimit across without HasGroupBy
+        // turns every grouped page in a WITH into a false JNT8010.
+        var result = Run(
+            "with active as (\n" +
+            "    select events.event_id from events where events.correlation_id = @corr\n" +
+            ")\n" +
+            "select bookmarks.user_id, count(*) as total\n" +
+            "from bookmarks\n" +
+            "group by bookmarks.user_id\n" +
+            "limit 20");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8009" || d.Id == "JNT8010");
+    }
+
 }
