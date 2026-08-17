@@ -241,7 +241,10 @@ public class RegistryParityTests
     {
         var documented = Matches(
             ReadRepoFile("docs", "06-reference", "directives.md"),
-            @"^### `-- @([a-z]+)`");
+            // Spec 015: '-' is a directive-name character ("@allow-unindexed"),
+            // so the heading pattern has to admit one or this test cannot see
+            // the directive it is checking for.
+            @"^### `-- @([a-z-]+)`");
         var declared = DeclaredDirectives();
 
         Assert.True(documented.SetEquals(declared),

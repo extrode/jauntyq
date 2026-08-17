@@ -240,12 +240,43 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         var diagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>();
         diagnostics.AddRange(directiveWarnings);
         var errors = QueryValidator.Validate(queryModel, schema);
+
+        // Spec 015: -- @allow-unindexed <reason> accepts this query's unindexed
+        // filters deliberately. Applied HERE rather than inside QueryValidator
+        // because the validator takes no directives and threading them through
+        // every caller would spread a narrow policy across a wide surface --
+        // the suppression is a reporting decision, not an analysis one.
+        //
+        // Only JNT8004. Every other diagnostic this query raises still fires,
+        // which is what keeps the directive an accepted-scan marker rather than
+        // a general silencer.
+        bool allowUnindexed = directives.AllowUnindexedReason != null;
+        bool suppressedAnything = false;
+
         bool hasErrors = false;
         foreach (var error in errors)
         {
+            if (allowUnindexed && error.Code == "JNT8004")
+            {
+                suppressedAnything = true;
+                continue;
+            }
+
             diagnostics.Add(DiagnosticInfo.ForValidation(error));
             if (error.Severity == ValidationSeverity.Error)
                 hasErrors = true;
+        }
+
+        // JNT8012: the directive is present but nothing needed suppressing. An
+        // exemption that outlives the condition that justified it is how an
+        // escape hatch quietly becomes the default, so a dead one is reported
+        // rather than tolerated.
+        if (allowUnindexed && !suppressedAnything)
+        {
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT8012,
+                "-- @allow-unindexed is declared but no filter column on this query is unindexed, so it " +
+                "suppresses nothing. The index it was waiting for probably exists now: remove the directive. " +
+                $"(Stated reason: {directives.AllowUnindexedReason})"));
         }
 
         if (hasErrors || schema == null)

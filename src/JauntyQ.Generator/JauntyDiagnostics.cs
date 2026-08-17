@@ -625,6 +625,21 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // Spec 015: the companion to -- @allow-unindexed. The directive is present
+    // but JNT8004 never fired, so it silences nothing. Reported because an
+    // exemption outliving the condition that justified it is exactly how an
+    // escape hatch becomes the default -- the migration lands, the index
+    // exists, and the suppression stays in the file forever, now hiding a
+    // future regression instead of an accepted one. Warning, not Error: a stale
+    // suppression is untidy, not wrong.
+    public static readonly DiagnosticDescriptor JNT8012 = new(
+        "JNT8012",
+        "Unnecessary Unindexed Acceptance",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 9xxx: Migrations ──────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT9001 = new(

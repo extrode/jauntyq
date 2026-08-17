@@ -94,13 +94,31 @@ public class DirectiveModel
     public string? MirrorsTarget { get; set; }
 
     /// <summary>
+    /// The stated reason from: -- @allow-unindexed &lt;reason&gt;
+    /// Suppresses JNT8004 (unindexed filter column) for THIS query only, and
+    /// nothing else — every other diagnostic the query would raise still fires.
+    ///
+    /// The reason is mandatory (the bare directive is declined and reported as
+    /// JNT3008) and it is stored rather than discarded, because the point of
+    /// the directive is that the decision lives in the query file and shows up
+    /// in the diff. A suppression whose justification is not written down is a
+    /// NoWarn entry with extra steps.
+    ///
+    /// A directive on a query that has no unindexed filter is reported as
+    /// unnecessary (JNT8012): an exemption that outlives the condition that
+    /// justified it is exactly how an escape hatch becomes the default.
+    /// Null when the directive is absent.
+    /// </summary>
+    public string? AllowUnindexedReason { get; set; }
+
+    /// <summary>
     /// True if any directives were specified.
     /// </summary>
     public bool HasDirectives =>
         ResultTypeName != null || ResultIsVoid || InlineColumns != null
         || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity || IsStream
         || CallProcName != null || TypeDirectives != null || EachParams != null
-        || MirrorsTarget != null;
+        || MirrorsTarget != null || AllowUnindexedReason != null;
 
     /// <summary>
     /// JNT3008 warning messages for directive-lookalike comment lines that
