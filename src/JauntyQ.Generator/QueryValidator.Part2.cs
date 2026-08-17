@@ -633,6 +633,56 @@ public static partial class QueryValidator
                 System.Globalization.CultureInfo.InvariantCulture, out decimal value))
             return;
 
+        // `bit` outside MySQL, settled 2026-08-17. It is three different types
+        // wearing one name, and the 2026-08-03 decision to range only MySQL's
+        // left the other two checked by nothing at all: both extractors
+        // capture NUMERIC_PRECISION for decimal/numeric/money only, so a real
+        // snapshot gives a SQL Server or Postgres `bit` a null Precision, the
+        // range switch below returns null for it, and the precision arm after
+        // that is skipped too. (The "read as a digit count" the todo recorded
+        // needed a hand-built schema carrying a precision the extractor never
+        // emits.) Split here by how each engine actually FAILS, because that
+        // is the only thing the two cases have in common -- the name.
+        string bitDbType = column.DbType.ToLowerInvariant();
+        int bitCut = bitDbType.IndexOfAny(new[] { '(', ' ' });
+        if (bitCut >= 0)
+            bitDbType = bitDbType.Substring(0, bitCut);
+
+        if (bitDbType == "bit"
+            && string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
+        {
+            // Postgres bit(n) is a BIT STRING, not a number, and the server
+            // rejects a bare numeric literal outright rather than coercing
+            // it. So this is a type mismatch (JNT5003), not a range report,
+            // and it fires for 0 and 1 as readily as for 300 -- the value is
+            // irrelevant when no numeric value is assignable.
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT5003,
+                $"Numeric literal {lit.Value} cannot be assigned to {tableName}.{column.Name} ({column.DbType}): " +
+                "PostgreSQL's bit is a bit string, not a number. Write a bit-string literal such as B'1010'. " +
+                "The server rejects this statement at runtime."));
+            return;
+        }
+
+        if (bitDbType == "bit"
+            && string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase)
+            && value != 0m && value != 1m)
+        {
+            // SQL Server's bit holds 0 or 1, but nothing overflows: the
+            // engine coerces every nonzero number to 1 and writes it without
+            // complaint. So the loss is silent rather than fatal, which is
+            // exactly the shape of the fractional-rounding arm further down
+            // (AUD-R78-01) -- a statement that runs, succeeds, and stores
+            // something the author did not write. Same diagnostic and same
+            // severity as that arm, for the same reason; only the message
+            // differs, because "would overflow at runtime" is simply untrue
+            // here.
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT5002,
+                $"Numeric literal {lit.Value} does not fit {tableName}.{column.Name} ({column.DbType}): " +
+                "SQL Server's bit holds only 0 or 1 and silently coerces any other number to 1, " +
+                $"so this would be written as 1 rather than {lit.Value}."));
+            return;
+        }
+
         // The integer families are settled FIRST, because Precision is not
         // exclusively a decimal facet: AUD-R20-01 folds MySQL's display-width-1
         // boolean signal into it (the channel bit(n)'s length already rides on)
@@ -712,12 +762,15 @@ public static partial class QueryValidator
     /// have rejected nothing it should.
     /// </para>
     /// <para>
-    /// Scoped to the mysql dialect by decision (2026-08-03), because
-    /// <c>bit</c> is not one type across engines: SQL Server's is 0..1, and
-    /// Postgres's <c>bit(n)</c> is a BIT STRING rather than a number at all.
-    /// Those keep their existing behaviour and stay recorded in the todo list;
-    /// widening this arm would commit JauntyQ to a per-dialect reading of
-    /// <c>bit</c> that <c>DialectMapper</c> does not yet make anywhere.
+    /// Scoped to the mysql dialect by decision (2026-08-03) and STILL scoped
+    /// here, because <c>bit</c> is not one type across engines: SQL Server's
+    /// is 0..1, and Postgres's <c>bit(n)</c> is a BIT STRING rather than a
+    /// number at all. Neither belongs in a (Min, Max) channel — the whole
+    /// point of this switch is types where a numeric literal is assignable
+    /// and only its magnitude is in question. Both are handled ahead of the
+    /// call, in <c>ValidateNumericLiteral</c>, by how each engine actually
+    /// fails (2026-08-17): SQL Server as silent coercion to 1 under JNT5002,
+    /// Postgres as a type mismatch under JNT5003.
     /// </para>
     /// </summary>
     private static (decimal Min, decimal Max)? ResolveIntegerRange(string columnDbType, string dialect, int? columnPrecision)

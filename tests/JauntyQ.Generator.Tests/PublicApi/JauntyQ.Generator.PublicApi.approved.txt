@@ -257,6 +257,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT4004:DiagnosticDescriptor
     field JNT5001:DiagnosticDescriptor
     field JNT5002:DiagnosticDescriptor
+    field JNT5003:DiagnosticDescriptor
     field JNT6001:DiagnosticDescriptor
     field JNT6002:DiagnosticDescriptor
     field JNT7001:DiagnosticDescriptor
