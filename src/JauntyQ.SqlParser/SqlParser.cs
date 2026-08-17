@@ -140,7 +140,7 @@ public static partial class SqlParser
     }
 
     private static int ParseSelect(List<Token> tokens, int pos, QueryModel model)
-        => ParseProjectionList(tokens, SkipProjectionModifiers(tokens, pos), model, model.Columns);
+        => ParseProjectionList(tokens, SkipProjectionModifiers(tokens, pos, model), model, model.Columns);
 
     /// <summary>
     /// Captures the <c>ORDER BY</c> item list into <see cref="QueryModel.OrderBy"/>
@@ -287,14 +287,44 @@ public static partial class SqlParser
     /// condition before type inference runs). Neither modifier is needed
     /// downstream: the generator emits the original SQL text verbatim as the
     /// runtime CommandText, not a reconstruction from the parse tree.
+    ///
+    /// PostgreSQL's <c>DISTINCT ON (expr, ...)</c> is the one form that is NOT
+    /// merely skippable, and it is refused rather than skipped. Plain DISTINCT
+    /// does not change the result SHAPE, so dropping it is free; DISTINCT ON
+    /// takes a parenthesized expression list that sits between SELECT and the
+    /// projection, and skipping only the DISTINCT leaves ON as the first
+    /// projection token. Measured before the fix: the ON, its parenthesized
+    /// list and the real first column glue into ONE opaque expression item
+    /// (<c>ON ( d.id ) d.id</c>), so the query models one fewer real column
+    /// than it returns. Unaliased that lands on JNT3004 ("expression needs an
+    /// alias"), which is loud but blames the wrong thing; ALIASED it passes
+    /// validation entirely and the generated mapper types its first property
+    /// from expression-shape inference over that garbage instead of from the
+    /// schema. Recorded as missing grammar (JNT1009) for the same reason
+    /// LATERAL is: nothing about the consumer's schema is wrong.
     /// </summary>
-    private static int SkipProjectionModifiers(List<Token> tokens, int pos)
+    private static int SkipProjectionModifiers(List<Token> tokens, int pos, QueryModel model)
     {
         while (true)
         {
             if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "DISTINCT")
             {
                 pos++;
+
+                // DISTINCT ON (...) — record the refusal, then step over the
+                // whole modifier so the rest of the projection still parses as
+                // itself. Leaving it in place would add a second, misleading
+                // JNT3004 beside the real diagnostic.
+                if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword &&
+                    string.Equals(tokens[pos].Value, "ON", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!model.UnsupportedConstructs.Contains("DISTINCT ON"))
+                        model.UnsupportedConstructs.Add("DISTINCT ON");
+
+                    pos++;
+                    pos = SkipBalancedParens(tokens, pos);
+                }
+
                 continue;
             }
 
@@ -318,6 +348,39 @@ public static partial class SqlParser
 
             return pos;
         }
+    }
+
+    /// <summary>
+    /// Steps over a parenthesized group starting at <paramref name="pos"/>,
+    /// returning the position just past its matching close paren. Nested
+    /// parens are counted, so <c>DISTINCT ON (coalesce(a, b))</c> is consumed
+    /// whole. A group left unclosed by malformed SQL consumes to the end of
+    /// the stream rather than looping: the statement is refused either way,
+    /// and a tokenizer that ran out of input has already emitted its own
+    /// sentinel. Returns <paramref name="pos"/> unchanged when it does not
+    /// point at an opening paren, so a caller cannot lose a token to it.
+    /// </summary>
+    private static int SkipBalancedParens(List<Token> tokens, int pos)
+    {
+        if (pos >= tokens.Count || tokens[pos].Type != TokenType.Symbol || tokens[pos].Value != "(")
+            return pos;
+
+        int depth = 0;
+        while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
+        {
+            var t = tokens[pos];
+            if (t.Type == TokenType.Symbol && t.Value == "(")
+                depth++;
+            else if (t.Type == TokenType.Symbol && t.Value == ")")
+            {
+                depth--;
+                if (depth == 0)
+                    return pos + 1;
+            }
+
+            pos++;
+        }
+        return pos;
     }
 
     /// <summary>
