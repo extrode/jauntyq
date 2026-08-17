@@ -126,7 +126,15 @@ public static class AutoCrud
                     $"SELECT {colList}\nFROM {table.Name}\nWHERE {table.Name}.{fk.FromColumn} = @{fk.FromColumn}", table.Name));
             }
 
-            if (pkCols.Count == 0)
+            // Spec 015: a view is read-only whatever its columns look like.
+            // The pkCols gate below already stops writes for anything without
+            // a primary key, and an extracted view has none -- but that is a
+            // consequence, not a guarantee. A hand-authored or partially
+            // hand-edited snapshot can mark a view's column isPrimaryKey, and
+            // then every write below would be synthesized against a relation
+            // the engine refuses. Gate on what the relation IS, not on what its
+            // columns happen to say.
+            if (table.IsView || pkCols.Count == 0)
                 continue; // views / heap tables: read-only beyond GetAll (+ FK loaders)
 
             string pkWhere = JoinColumns(pkCols, " AND ", c => $"{table.Name}.{c.Name} = @{c.Name}");

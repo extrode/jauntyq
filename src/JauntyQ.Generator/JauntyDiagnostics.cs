@@ -357,6 +357,22 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // Spec 015: views entered the snapshot so they could be READ. A write
+    // against one is refused rather than skipped, and it is an Error rather
+    // than a Warning, because the two silent-skip diagnostics above (JNT2014,
+    // JNT2015) cover a table the GENERATOR declined to synthesize for -- the
+    // consumer never asked for those methods. This is the opposite case: the
+    // consumer wrote an INSERT/UPDATE/DELETE by hand and means it. Dropping it
+    // silently would generate a method whose SQL the engine rejects at runtime,
+    // and warning about it would let that method be called.
+    public static readonly DiagnosticDescriptor JNT2021 = new(
+        "JNT2021",
+        "Write To View",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(
