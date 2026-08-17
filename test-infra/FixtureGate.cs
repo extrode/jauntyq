@@ -56,6 +56,8 @@ internal static class FixtureGate
     /// </summary>
     private static bool IsDockerAbsent(Exception ex)
     {
+        bool sawRefusal = false;
+
         for (Exception? e = ex; e is not null; e = e.InnerException)
         {
             // Testcontainers' AbstractBuilder.Validate() throws exactly this when
@@ -65,13 +67,62 @@ internal static class FixtureGate
                 return true;
 
             string m = e.Message;
+
+            // Unambiguous: each of these names the daemon itself, so nothing
+            // else in a test run can produce them.
             if (m.Contains("Docker is either not running or misconfigured", StringComparison.OrdinalIgnoreCase)
                 || m.Contains("Cannot connect to the Docker daemon", StringComparison.OrdinalIgnoreCase)
-                || m.Contains("docker daemon is not running", StringComparison.OrdinalIgnoreCase)
-                // Unix socket refused, and the Windows named pipe not existing.
-                || m.Contains("No connection could be made because the target machine actively refused it", StringComparison.OrdinalIgnoreCase)
+                || m.Contains("docker daemon is not running", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Ambiguous, and this is the 2026-08-17 correction. A refused
+            // connection says a PORT was not listening; it does not say WHICH.
+            // The daemon's unix socket refusing and a container's mapped port
+            // refusing produce character-for-character the same message -- on
+            // Windows, SocketException 10061 for both. Ryuk is the common case:
+            // Testcontainers connects to its mapped port immediately after
+            // starting it, and under load that connect loses the race.
+            //
+            // Treated alone, these three laundered exactly the failure this
+            // class exists to catch. Measured: one full-solution run in eight
+            // skipped 101 tests across three assemblies while Docker was up
+            // with 27 containers running, and reported success.
+            if (m.Contains("No connection could be made because the target machine actively refused it", StringComparison.OrdinalIgnoreCase)
                 || m.Contains("Connection refused", StringComparison.OrdinalIgnoreCase)
                 || m.Contains("The system cannot find the file specified", StringComparison.OrdinalIgnoreCase))
+                sawRefusal = true;
+        }
+
+        // So a refusal only counts as an absent daemon when the exception also
+        // says the thing it could not reach was the daemon's endpoint.
+        return sawRefusal && NamesTheDockerEndpoint(ex);
+    }
+
+    /// <summary>
+    /// True when some frame of the chain names the Docker endpoint itself: the
+    /// Windows named pipe, the unix socket, or the TCP daemon ports. A container's
+    /// mapped port is an ephemeral localhost port and never matches.
+    ///
+    /// The trade this makes is deliberate. If an absent daemon ever surfaces as a
+    /// bare refusal naming no endpoint, the fixture now throws instead of skipping,
+    /// and a developer with Docker Desktop closed sees a loud failure rather than a
+    /// green run. That is the safe direction: the loud version is diagnosable in
+    /// seconds and the silent version cost us a suite that lied about 101 tests.
+    /// The ordinary Docker-is-off path is unaffected either way -- Testcontainers
+    /// reports it as the DockerEndpointAuthConfig <see cref="ArgumentException"/>
+    /// above, long before any socket is dialled.
+    /// </summary>
+    private static bool NamesTheDockerEndpoint(Exception ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+        {
+            string m = e.Message;
+            if (m.Contains("npipe://", StringComparison.OrdinalIgnoreCase)
+                || m.Contains("docker.sock", StringComparison.OrdinalIgnoreCase)
+                || m.Contains("docker_engine", StringComparison.OrdinalIgnoreCase)
+                || m.Contains("dockerDesktopLinuxEngine", StringComparison.OrdinalIgnoreCase)
+                || m.Contains(":2375", StringComparison.Ordinal)
+                || m.Contains(":2376", StringComparison.Ordinal))
                 return true;
         }
 
