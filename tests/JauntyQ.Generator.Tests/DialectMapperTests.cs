@@ -443,4 +443,51 @@ public class DialectMapperTests
     {
         Assert.Equal(expected, DialectMapper.IsKnownSqlServerClrUdtType(dbType));
     }
+
+    // ── DroppedMeaningfulCharacters (JNT2022's input) ──────────────────────
+
+    /// <summary>
+    /// The renames the mapping performs silently. These assert the CURRENT
+    /// generated name as well as the loss, so a later decision to keep Unicode
+    /// letters has to come back through here rather than change property names
+    /// underneath a consumer.
+    /// </summary>
+    [Theory]
+    [InlineData("größe", "GrE", "öß")]
+    [InlineData("café", "Caf", "é")]
+    [InlineData("日本語", "_", "日本語")]
+    [InlineData("año", "AO", "ñ")]
+    [InlineData("preço", "PreO", "ç")]
+    public void DroppedMeaningfulCharacters_ReportsTheLostLetters(
+        string columnName, string expectedProperty, string expectedDropped)
+    {
+        Assert.Equal(expectedProperty, DialectMapper.ToPascalCase(columnName));
+        Assert.Equal(expectedDropped, DialectMapper.DroppedMeaningfulCharacters(columnName));
+    }
+
+    /// <summary>
+    /// The separators and punctuation the mapping is MEANT to drop must not be
+    /// reported: warning about the underscore in every snake_case column would
+    /// bury the real case under one warning per column in the schema.
+    /// </summary>
+    [Theory]
+    [InlineData("order_id")]
+    [InlineData("Order Details")]
+    [InlineData("total-amount")]
+    [InlineData("price$usd")]
+    [InlineData("col#1")]
+    [InlineData("plain")]
+    [InlineData("")]
+    public void DroppedMeaningfulCharacters_IgnoresOrdinarySeparatorsAndPunctuation(string name)
+    {
+        Assert.Equal(string.Empty, DialectMapper.DroppedMeaningfulCharacters(name));
+    }
+
+    [Fact]
+    public void DroppedMeaningfulCharacters_ReportsEachLostCharacterOnce()
+    {
+        // "ää" is one lost character, not two entries: the message lists the
+        // characters, not the occurrences.
+        Assert.Equal("ä", DialectMapper.DroppedMeaningfulCharacters("bäckerei_läden"));
+    }
 }

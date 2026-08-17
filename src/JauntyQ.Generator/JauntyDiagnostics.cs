@@ -395,6 +395,33 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    // The last silent lossy rename, and the quietest of them:
+    // DialectMapper.ToPascalCase keeps ASCII letters and digits only, so every
+    // other Unicode letter is treated as a word separator and vanishes.
+    // "groesse" spelled "größe" generates the property GrE; "café" generates
+    // Caf; "日本語" generates "_". None of that collides, none of it fails to
+    // compile, and so JNT2011/JNT2014 -- which only ever see two names folding
+    // to ONE name -- cannot report any of it. The consumer gets a property
+    // whose name is a different word from their column and no indication why.
+    //
+    // Warning, matching JNT2014/JNT2015 and for their reason: the rename is
+    // long-standing behaviour and an Error would fail the build of any existing
+    // consumer whose schema holds such a column, including in a table they
+    // never query. Reporting it does not change a single generated name.
+    //
+    // NOT a fix. Whether ToPascalCase should keep Unicode letters outright --
+    // C# identifiers allow them, so "größe" could generate Größe -- is a
+    // separate decision, because it would change emitted property names for
+    // exactly the consumers this warns, and it moves the injection trust
+    // boundary documented on ToPascalCase. Recorded in the todo list.
+    public static readonly DiagnosticDescriptor JNT2022 = new(
+        "JNT2022",
+        "Lossy Identifier Rename",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(

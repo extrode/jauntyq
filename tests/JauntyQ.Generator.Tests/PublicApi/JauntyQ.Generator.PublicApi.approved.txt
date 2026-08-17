@@ -29,6 +29,7 @@ class JauntyQ.Analysis.CrudColumnRules
     method UpsertColumns(IEnumerable<ColumnSchema>,List<ColumnSchema>):List<ColumnSchema>
     method UpsertSetColumns(List<ColumnSchema>,List<ColumnSchema>):List<ColumnSchema>
 class JauntyQ.Analysis.DialectMapper
+    method DroppedMeaningfulCharacters(String):String
     method EnumTypeName(String):String
     method IsKnownDialect(String):Boolean
     method IsKnownSqlServerClrUdtType(String):Boolean
@@ -243,6 +244,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT2019:DiagnosticDescriptor
     field JNT2020:DiagnosticDescriptor
     field JNT2021:DiagnosticDescriptor
+    field JNT2022:DiagnosticDescriptor
     field JNT3001:DiagnosticDescriptor
     field JNT3002:DiagnosticDescriptor
     field JNT3003:DiagnosticDescriptor

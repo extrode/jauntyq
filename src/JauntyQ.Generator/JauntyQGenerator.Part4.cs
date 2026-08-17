@@ -206,6 +206,41 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 }
             }
 
+            // JNT2022: the third sibling of the two loops above, for the silent
+            // lossy rename neither of them can see. JNT2014 fires only when two
+            // names fold to one; a single column whose name loses its non-ASCII
+            // letters folds to a name that is merely WRONG, which collides with
+            // nothing and compiles fine.
+            //
+            // The dropped characters come from DialectMapper itself
+            // (DroppedMeaningfulCharacters shares the mapping's own
+            // keep-predicate), so this cannot report a loss the mapping does not
+            // take. Tables and columns both, because the table name becomes the
+            // entity name by the same route.
+            foreach (var table in schema.Tables.Values)
+            {
+                string droppedInTable = DialectMapper.DroppedMeaningfulCharacters(table.Name);
+                if (droppedInTable.Length > 0)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2022, Location.None,
+                        $"Table '{table.Name}' generates the entity 'db.{DialectMapper.ToPascalCase(table.Name)}': " +
+                        $"the character(s) '{droppedInTable}' are dropped because generated names keep ASCII letters and digits only. " +
+                        "The name still works, but it is not the name you wrote — rename the table if that matters."));
+                }
+
+                foreach (var column in table.Columns.Values)
+                {
+                    string droppedInColumn = DialectMapper.DroppedMeaningfulCharacters(column.Name);
+                    if (droppedInColumn.Length == 0)
+                        continue;
+
+                    context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2022, Location.None,
+                        $"Column '{table.Name}.{column.Name}' generates the property '{DialectMapper.ToPascalCase(column.Name)}': " +
+                        $"the character(s) '{droppedInColumn}' are dropped because generated names keep ASCII letters and digits only. " +
+                        "Rename the column, or alias it to an ASCII name in a hand-written query."));
+                }
+            }
+
             // AUD-R64-01 (T8 residual, JNT2015): the sibling of the loop above
             // for the other silent skip. AutoCrud.Synthesize refuses any table
             // whose name, or any of whose column names, cannot be written

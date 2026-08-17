@@ -21,8 +21,8 @@ public static class DialectMapper
         bool startOfWord = true;
         foreach (char c in snakeCaseName)
         {
-            bool isLetter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-            bool isDigit = c >= '0' && c <= '9';
+            bool isLetter = IsKeptLetter(c);
+            bool isDigit = IsKeptDigit(c);
             if (isLetter)
             {
                 sb.Append(startOfWord ? char.ToUpperInvariant(c) : c);
@@ -45,6 +45,51 @@ public static class DialectMapper
         if (sb[0] >= '0' && sb[0] <= '9')
             sb.Insert(0, '_');
         return sb.ToString();
+    }
+
+    private static bool IsKeptLetter(char c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+
+    private static bool IsKeptDigit(char c) => c >= '0' && c <= '9';
+
+    /// <summary>
+    /// The characters <see cref="ToPascalCase"/> discards from
+    /// <paramref name="name"/> that were carrying meaning — a Unicode letter or
+    /// digit outside ASCII — in first-seen order, or an empty string when the
+    /// rename loses nothing.
+    ///
+    /// Ordinary separators and punctuation are NOT reported: dropping the
+    /// underscore in <c>order_id</c> or the space in <c>Order Details</c> is
+    /// the mapping working, and <c>$</c> or <c>#</c> could not appear in a C#
+    /// identifier under any spelling. What this finds is the case where the
+    /// generated name is a silently different WORD — <c>größe</c> → <c>GrE</c>,
+    /// <c>café</c> → <c>Caf</c>, <c>日本語</c> → <c>_</c> — which compiles, does
+    /// not collide, and so was reported by nothing (JNT2011/JNT2014 only see
+    /// two names folding to one).
+    ///
+    /// Deliberately shares <see cref="IsKeptLetter"/> and
+    /// <see cref="IsKeptDigit"/> with the mapping itself rather than restating
+    /// the rule, so this cannot claim a loss the mapping does not take or miss
+    /// one it does.
+    /// </summary>
+    public static string DroppedMeaningfulCharacters(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return string.Empty;
+
+        System.Text.StringBuilder? dropped = null;
+        foreach (char c in name)
+        {
+            if (IsKeptLetter(c) || IsKeptDigit(c))
+                continue;
+            if (!char.IsLetterOrDigit(c))
+                continue; // an ordinary separator; the mapping is meant to drop it
+
+            dropped ??= new System.Text.StringBuilder(4);
+            if (dropped.ToString().IndexOf(c) < 0)
+                dropped.Append(c);
+        }
+
+        return dropped?.ToString() ?? string.Empty;
     }
 
     /// <summary>
