@@ -216,7 +216,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             var unterminatedDiag = ImmutableArray.CreateBuilder<DiagnosticInfo>();
             unterminatedDiag.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT1002,
-                $"Unterminated {tokens[unterminatedIndex].Value}: reached end of file before finding its closing delimiter."));
+                $"Unterminated {tokens[unterminatedIndex].Value}: reached end of file before finding its closing delimiter."
+                + BackslashEscapeHint(tokens[unterminatedIndex].Value, cleanedSql)));
             return FileResult.WithDiagnostics(entityName, methodName, unterminatedDiag.ToImmutable());
         }
 
@@ -643,5 +644,35 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Names the real cause when an unterminated string literal is actually a
+    /// MySQL backslash escape.
+    ///
+    /// The tokenizer recognizes only the ANSI <c>''</c> escape, so <c>\'</c>
+    /// leaves quote parity off by one and the scan runs to end of file —
+    /// measured 2026-08-17 and pinned by <c>TokenizerTests</c>'s three
+    /// backslash cases. The refusal itself is correct and deliberate; what was
+    /// wrong is that JNT1002 then blamed a missing quote the author can see is
+    /// present, sending them looking for a typo that is not there.
+    ///
+    /// Appended only to the <c>' ... '</c> arm (a backslash near an unclosed
+    /// block comment or bracket means nothing) and only when the file actually
+    /// contains the sequence. It is a hint, not a claim: the tokenizer has no
+    /// dialect context — see the <c>@@</c> branch in <see cref="SqlTokenizer"/>
+    /// — so this cannot tell a MySQL escape from a Windows path in a genuinely
+    /// unbalanced SQL Server file, and says "if this is MySQL" rather than
+    /// asserting. Honouring the escape properly needs dialect at the tokenizer,
+    /// which is a decision recorded in <c>the todo list</c>, not a patch.
+    /// </summary>
+    private static string BackslashEscapeHint(string unterminatedKind, string sql)
+    {
+        if (unterminatedKind != "' ... '" || !sql.Contains(@"\'"))
+            return string.Empty;
+
+        return @" This file contains \', which is MySQL's backslash escape — JauntyQ's tokenizer" +
+               " implements only the ANSI '' (doubled-quote) escape, so if this is MySQL SQL the" +
+               @" literal is not unterminated, it is unreadable. Write '' in place of \'.";
     }
 }
