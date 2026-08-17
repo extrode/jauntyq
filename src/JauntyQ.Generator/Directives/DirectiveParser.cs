@@ -68,8 +68,19 @@ public static class DirectiveParser
                 // (AUD-R8-01's word-boundary rule, now structural instead of a
                 // consequence of prefix ordering) and "-- @type(x)" unmatched,
                 // exactly as before.
+                // Spec 015: '-' is a name character after the first letter, so
+                // "@allow-unindexed" is one directive name rather than "@allow"
+                // with the value "-unindexed ...". Widening the class moves no
+                // existing line from comment to directive: "@first-thing" did
+                // not match before (the char after the name is not whitespace,
+                // so the guard below declined) and does not match now
+                // ("first-thing" is not a known name), so both readings leave
+                // it an ordinary comment. The leading char must still be a
+                // letter, which keeps "@-x" directive-shaped-but-unmatched.
                 int nameEnd = 1;
-                while (nameEnd < commentBody.Length && char.IsLetter(commentBody[nameEnd]))
+                while (nameEnd < commentBody.Length
+                    && (char.IsLetter(commentBody[nameEnd])
+                        || (commentBody[nameEnd] == '-' && nameEnd > 1)))
                     nameEnd++;
 
                 if (nameEnd > 1
@@ -147,6 +158,16 @@ public static class DirectiveParser
                 if (value.Length == 0)
                     return false;
                 directives.MirrorsTarget = value;
+                return true;
+
+            // Spec 015. The reason is mandatory, so the bare form declines here
+            // and falls through to CheckSuspiciousDirective (JNT3008) exactly
+            // as @call and @mirrors do. A suppression with no stated reason is
+            // the thing this directive exists to avoid being.
+            case "allow-unindexed":
+                if (value.Length == 0)
+                    return false;
+                directives.AllowUnindexedReason = value;
                 return true;
 
             case "proc":
@@ -293,14 +314,15 @@ public static class DirectiveParser
     // to the suspicious check when written bare (TryApplyDirective declines a
     // value-taking directive whose value is empty).
     private static readonly string[] KnownDirectives =
-        { "result", "params", "type", "each", "first", "identity", "stream", "call", "proc", "mirrors" };
+        { "result", "params", "type", "each", "first", "identity", "stream", "call", "proc", "mirrors",
+          "allow-unindexed" };
 
     // AUD-R79-02 added "call": it names an existing procedure and does nothing
     // at all without one, so bare "-- @call" belongs here rather than in the
     // silently-accepted set. "mirrors" is the same shape -- it names the query
     // to compare against and means nothing without one.
     private static readonly HashSet<string> ValueRequiredDirectives =
-        new(StringComparer.Ordinal) { "result", "params", "type", "each", "call", "mirrors" };
+        new(StringComparer.Ordinal) { "result", "params", "type", "each", "call", "mirrors", "allow-unindexed" };
 
     /// <summary>
     /// Records a JNT3008 warning when an unmatched <c>-- @word</c> comment is
@@ -312,8 +334,12 @@ public static class DirectiveParser
     /// </summary>
     private static void CheckSuspiciousDirective(DirectiveModel directives, string commentBody)
     {
+        // Same name class as the real scanner above, or a bare
+        // "-- @allow-unindexed" would be read here as the word "allow" and
+        // reported as a typo of nothing.
         int end = 1;
-        while (end < commentBody.Length && char.IsLetter(commentBody[end]))
+        while (end < commentBody.Length
+            && (char.IsLetter(commentBody[end]) || (commentBody[end] == '-' && end > 1)))
             end++;
         if (end == 1)
             return; // bare '@' or '@123' — not directive-shaped

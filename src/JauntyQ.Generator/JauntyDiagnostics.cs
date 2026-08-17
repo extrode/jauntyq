@@ -129,6 +129,28 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    /// <summary>
+    /// Spec 015: syntax the parser does not implement, reported as such.
+    ///
+    /// Split out of JNT2001 ("Table Not Found"), which was doing two unrelated
+    /// jobs. A consumer writing LEFT JOIN LATERAL was told their table did not
+    /// exist in their schema -- true of a relation the parser had invented from
+    /// the keyword, and useless as advice, because nothing about their schema
+    /// was wrong. "Your schema is missing something" and "my grammar is missing
+    /// something" call for opposite responses from the person reading it, so
+    /// they cannot share a code.
+    ///
+    /// JNT2001 keeps its meaning and its cases: a relation NAMED in the query
+    /// and absent from the schema.
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT1009 = new(
+        "JNT1009",
+        "Unsupported Syntax",
+        "{0}",
+        "JauntyQ.Parsing",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 2xxx: Schema Validation ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT2001 = new(
@@ -355,6 +377,22 @@ public static class JauntyDiagnostics
         "{0}",
         "JauntyQ.Schema",
         DiagnosticSeverity.Warning,
+        true);
+
+    // Spec 015: views entered the snapshot so they could be READ. A write
+    // against one is refused rather than skipped, and it is an Error rather
+    // than a Warning, because the two silent-skip diagnostics above (JNT2014,
+    // JNT2015) cover a table the GENERATOR declined to synthesize for -- the
+    // consumer never asked for those methods. This is the opposite case: the
+    // consumer wrote an INSERT/UPDATE/DELETE by hand and means it. Dropping it
+    // silently would generate a method whose SQL the engine rejects at runtime,
+    // and warning about it would let that method be called.
+    public static readonly DiagnosticDescriptor JNT2021 = new(
+        "JNT2021",
+        "Write To View",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Error,
         true);
 
     // ── 3xxx: Query Shape / Projection ────────────────────
@@ -604,6 +642,21 @@ public static class JauntyDiagnostics
     public static readonly DiagnosticDescriptor JNT8011 = new(
         "JNT8011",
         "Predicate Drift",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
+    // Spec 015: the companion to -- @allow-unindexed. The directive is present
+    // but JNT8004 never fired, so it silences nothing. Reported because an
+    // exemption outliving the condition that justified it is exactly how an
+    // escape hatch becomes the default -- the migration lands, the index
+    // exists, and the suppression stays in the file forever, now hiding a
+    // future regression instead of an accepted one. Warning, not Error: a stale
+    // suppression is untidy, not wrong.
+    public static readonly DiagnosticDescriptor JNT8012 = new(
+        "JNT8012",
+        "Unnecessary Unindexed Acceptance",
         "{0}",
         "JauntyQ.Performance",
         DiagnosticSeverity.Warning,

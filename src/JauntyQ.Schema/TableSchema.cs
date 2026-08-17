@@ -16,6 +16,27 @@ public class TableSchema
     /// </summary>
     [JsonPropertyName("indexes")]
     public List<IndexSchema> Indexes { get; set; } = new();
+
+    /// <summary>
+    /// True when this relation is a database view rather than a base table.
+    /// Materialized views set it too: spec 015 puts both on identical terms,
+    /// and a second flag distinguishing them would have no reader.
+    ///
+    /// Views are read-only. Insertability is <see cref="IsInsertable"/>, which
+    /// is DERIVED from this flag rather than stored: a stored "isInsertable"
+    /// would deserialize to false on every snapshot written before views
+    /// existed, silently making every table in them non-insertable. One field,
+    /// absent-means-base-table, is the only shape that survives an old snapshot.
+    /// </summary>
+    [JsonPropertyName("isView")]
+    public bool IsView { get; set; }
+
+    /// <summary>
+    /// False for a view, true for a base table. Not serialized — see the note
+    /// on <see cref="IsView"/> for why this must not become a stored field.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsInsertable => !IsView;
 }
 
 public class IndexSchema

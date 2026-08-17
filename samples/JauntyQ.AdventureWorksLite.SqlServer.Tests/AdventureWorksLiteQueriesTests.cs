@@ -239,20 +239,31 @@ public class AdventureWorksLiteQueriesTests : IClassFixture<AdventureWorksLiteSq
     {
         Skip.IfNot(_fx.Available, _fx.SkipReason);
 
-        // Direct, real-world confirmation of both cross-schema fixes at once:
-        // (1) scoping to "Production" never bleeds in Person/Sales/Purchasing
-        // tables that happen to share no names with it, and (2) the reporting
-        // view living in Sales is never surfaced as a table when Sales itself
-        // is pulled (the just-fixed VIEW-as-table bug, now proven against a
-        // real view rather than the synthetic jq_gizmo_view regression test).
+        // Direct, real-world confirmation of the schema-scoping fix: scoping to
+        // "Production" never bleeds in Person/Sales/Purchasing tables that
+        // happen to share no names with it.
         var production = await new SqlServerExtractor("Production").ExtractAsync(_fx.ConnectionString);
         Assert.Equal(new[] { "Product", "ProductCategory", "ProductSubcategory" },
             production.Tables.Keys.OrderBy(k => k));
 
+        // Spec 015 reversed the second half of this test. It used to assert
+        // that Sales' reporting view was never surfaced by a pull -- a
+        // deliberate exclusion that also made a query merely READING the view
+        // fail JNT2001 as a missing relation. Views are now captured and
+        // flagged instead, so this asserts the flag rather than the absence,
+        // against a real view rather than a synthetic one.
         var sales = await new SqlServerExtractor("Sales").ExtractAsync(_fx.ConnectionString);
-        Assert.Equal(new[] { "Customer", "SalesOrderDetail", "SalesOrderHeader", "SalesTerritory" },
-            sales.Tables.Keys.OrderBy(k => k));
-        Assert.DoesNotContain("vSalesOrderDetailExtended", sales.Tables.Keys);
+        Assert.Equal(
+            new[] { "Customer", "SalesOrderDetail", "SalesOrderHeader", "SalesTerritory", "vSalesOrderDetailExtended" },
+            sales.Tables.Keys.OrderBy(k => k, System.StringComparer.Ordinal));
+
+        var view = sales.Tables["vSalesOrderDetailExtended"];
+        Assert.True(view.IsView);
+        Assert.False(view.IsInsertable);
+
+        // The scoping fix and the view flag are independent: a base table in
+        // the same pull must not pick up the flag.
+        Assert.False(sales.Tables["SalesOrderDetail"].IsView);
     }
 
     [SkippableFact]

@@ -159,6 +159,27 @@ public static partial class QueryValidator
             }
         }
 
+        // JNT2021 (spec 015): a write whose target is a view. Views are in the
+        // snapshot so they can be read; a database refuses an INSERT/UPDATE/
+        // DELETE against a non-updatable view at runtime, and generating the
+        // method anyway just moves the failure to the caller.
+        //
+        // Keyed on TargetTable rather than the Tables list: an UPDATE that
+        // JOINs a view for its predicate is fine, and only the relation being
+        // written to matters. A CTE name is not a schema relation and
+        // TryGetTable simply misses it.
+        if (query.StatementType != StatementType.Select
+            && !string.IsNullOrEmpty(query.TargetTable)
+            && SchemaLookup.TryGetTable(schema, query.TargetTable!, out var targetSchema)
+            && targetSchema!.IsView)
+        {
+            string verb = query.StatementType.ToString().ToUpperInvariant();
+            errors.Add(new ValidationError(JauntyDiagnostics.JNT2021,
+                $"{verb} targets '{query.TargetTable}', which is a view. Views are captured read-only, " +
+                "so no write is generated for one. Write to the underlying table instead, or remove " +
+                "the query."));
+        }
+
         // JNT2002: Column exists + JNT2003: Ambiguous column
         foreach (var col in query.Columns)
         {

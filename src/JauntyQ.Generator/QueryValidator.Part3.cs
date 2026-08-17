@@ -82,6 +82,21 @@ public static partial class QueryValidator
                 continue;
             }
 
+            // LATERAL (spec 015): missing GRAMMAR, not a missing relation.
+            // Before this, the keyword was parsed as the joined table's name
+            // and the consumer met JNT2001 pointing at their schema -- for a
+            // table the parser had invented. Its own code so the two failures
+            // stay distinguishable without reading the message.
+            if (construct == "LATERAL")
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT1009,
+                    "LATERAL joins are not supported: the parser has no grammar for them, and nothing " +
+                    "about your schema is wrong. Rewrite as a plain JOIN, a WHERE-clause IN/EXISTS " +
+                    "predicate, or a GROUP BY with aggregates (which is supported, including over a " +
+                    "join). See docs/06-reference/supported-sql.md for the full accepted surface."));
+                continue;
+            }
+
             // MULTI_STATEMENT joins UNION and SUBQUERY as an Error rather than
             // a JNT1001 Warning: the merged (or truncated) model means the
             // generated mapper matches neither statement. See JNT1008.
