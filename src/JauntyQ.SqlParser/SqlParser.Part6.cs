@@ -163,7 +163,17 @@ public static partial class SqlParser
                                 model.UnsupportedConstructs.Add("SUBQUERY");
                         }
                         break;
+                    // The three set operations share one construct because they
+                    // share one failure: only the first branch is modeled, so
+                    // the generated mapper describes a column shape the query
+                    // may not return. INTERSECT and EXCEPT were worse than
+                    // UNION before this, not better -- neither was a tokenizer
+                    // keyword, so "FROM a INTERSECT SELECT ..." read INTERSECT
+                    // as a's ALIAS and the statement was silently mis-modeled
+                    // with no construct recorded at all.
                     case "UNION":
+                    case "INTERSECT":
+                    case "EXCEPT":
                         if (!model.UnsupportedConstructs.Contains("UNION"))
                             model.UnsupportedConstructs.Add("UNION");
                         break;

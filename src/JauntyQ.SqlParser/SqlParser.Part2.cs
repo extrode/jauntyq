@@ -5,6 +5,33 @@ namespace JauntyQ.SqlParser;
 
 public static partial class SqlParser
 {
+    /// <summary>
+    /// True when the token in a relation position is LATERAL: a construct the
+    /// grammar does not model, arriving as an ordinary Identifier because the
+    /// tokenizer's keyword set does not contain it.
+    ///
+    /// Spec 015 guarded only the join position, so <c>FROM LATERAL (...)</c>
+    /// and the comma form <c>FROM a, LATERAL (...)</c> still fell through to
+    /// the table-name branch and recorded a relation literally named
+    /// "lateral" — the exact "JNT2001 points at your schema for a table the
+    /// parser invented" failure 015 set out to remove. Guarding one position
+    /// made the fix depend on where the consumer happened to write it.
+    /// </summary>
+    private static bool IsLateralKeyword(Token token) =>
+        token.Type == TokenType.Identifier &&
+        string.Equals(token.Value, "LATERAL", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Records an unmodeled relation construct and consumes its keyword,
+    /// deliberately without adding a TableRef: inventing one is the bug.
+    /// </summary>
+    private static int RecordUnmodeledRelation(string construct, int pos, QueryModel model)
+    {
+        if (!model.UnsupportedConstructs.Contains(construct))
+            model.UnsupportedConstructs.Add(construct);
+        return pos + 1;
+    }
+
     private static int ParseFrom(List<Token> tokens, int pos, QueryModel model)
     {
         // Expect table name, optionally followed by alias, then zero or more
@@ -14,6 +41,9 @@ public static partial class SqlParser
         // one from model.Tables, breaking any qualified reference to it.
         while (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
         {
+            if (IsLateralKeyword(tokens[pos]))
+                return RecordUnmodeledRelation("LATERAL", pos, model);
+
             string tableName = StripQualifier(tokens[pos].Value);
             string alias = string.Empty;
             pos++;
@@ -54,6 +84,7 @@ public static partial class SqlParser
         // modeled — an outer join can produce this table's columns as NULL
         // even when the schema declares them NOT NULL.
         bool sawLeft = false, sawRight = false, sawFull = false;
+        bool sawCrossOrOuter = false;
         while (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword &&
                (tokens[pos].Value == "LEFT" || tokens[pos].Value == "RIGHT" ||
                 tokens[pos].Value == "INNER" || tokens[pos].Value == "OUTER" ||
@@ -63,6 +94,7 @@ public static partial class SqlParser
             if (tokens[pos].Value == "LEFT") sawLeft = true;
             else if (tokens[pos].Value == "RIGHT") sawRight = true;
             else if (tokens[pos].Value == "FULL") sawFull = true;
+            if (tokens[pos].Value == "CROSS" || tokens[pos].Value == "OUTER") sawCrossOrOuter = true;
             pos++;
         }
         JoinKind joinKind = sawFull ? JoinKind.Full : sawLeft ? JoinKind.Left : sawRight ? JoinKind.Right : JoinKind.None;
@@ -78,14 +110,23 @@ public static partial class SqlParser
         // derived table that follows LATERAL also raises SUBQUERY, and a
         // consumer reading "unsupported subquery" for a join form learns the
         // wrong thing about what to change.
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
-            string.Equals(tokens[pos].Value, "LATERAL", StringComparison.OrdinalIgnoreCase))
+        if (pos < tokens.Count && IsLateralKeyword(tokens[pos]))
+            return RecordUnmodeledRelation("LATERAL", pos, model);
+
+        // T-SQL's CROSS APPLY / OUTER APPLY is the same construct under
+        // another spelling, and failed the same way: CROSS and OUTER are
+        // consumed as join keywords above, leaving APPLY in the table-name
+        // position to be recorded as a relation named "apply".
+        //
+        // Gated on having actually seen CROSS or OUTER rather than matching
+        // the bare word: APPLY is reserved in T-SQL but not in the other four
+        // dialects, so "JOIN apply ON ..." against a table genuinely named
+        // apply must keep parsing. The gate makes the recognition positional,
+        // which is what distinguishes the operator from the identifier.
+        if (sawCrossOrOuter && pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
+            string.Equals(tokens[pos].Value, "APPLY", StringComparison.OrdinalIgnoreCase))
         {
-            if (!model.UnsupportedConstructs.Contains("LATERAL"))
-                model.UnsupportedConstructs.Add("LATERAL");
-            pos++;
-            // Deliberately no TableRef: inventing one is the bug being fixed.
-            return pos;
+            return RecordUnmodeledRelation("APPLY", pos, model);
         }
 
         // Table name

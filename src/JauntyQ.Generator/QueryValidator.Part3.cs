@@ -59,7 +59,8 @@ public static partial class QueryValidator
             if (construct == "UNION")
             {
                 errors.Add(new ValidationError(JauntyDiagnostics.JNT1006,
-                    "UNION/UNION ALL is not supported: the generator only models the first branch's " +
+                    "Set operations (UNION, UNION ALL, INTERSECT, EXCEPT) are not supported: the " +
+                    "generator only models the first branch's " +
                     "column shape, so a second branch with different nullability would silently generate " +
                     "code that reads NULL as non-nullable and throws at runtime. Split into separate " +
                     "queries, or model the combined result as an application-level merge."));
@@ -94,6 +95,21 @@ public static partial class QueryValidator
                     "about your schema is wrong. Rewrite as a plain JOIN, a WHERE-clause IN/EXISTS " +
                     "predicate, or a GROUP BY with aggregates (which is supported, including over a " +
                     "join). See docs/06-reference/supported-sql.md for the full accepted surface."));
+                continue;
+            }
+
+            // APPLY is LATERAL under T-SQL's spelling, and shares JNT1009 --
+            // but not the message. Telling someone who wrote CROSS APPLY that
+            // "LATERAL joins are not supported" makes them hunt for a keyword
+            // they never used.
+            if (construct == "APPLY")
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT1009,
+                    "CROSS APPLY / OUTER APPLY is not supported: the parser has no grammar for it, and " +
+                    "nothing about your schema is wrong. It is SQL Server's spelling of a LATERAL join. " +
+                    "Rewrite as a plain JOIN, a WHERE-clause IN/EXISTS predicate, or a GROUP BY with " +
+                    "aggregates (which is supported, including over a join). See " +
+                    "docs/06-reference/supported-sql.md for the full accepted surface."));
                 continue;
             }
 

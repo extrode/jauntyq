@@ -11,7 +11,7 @@ public static class SqlTokenizer
         "GROUP", "BY", "ORDER", "LIMIT", "OFFSET",
         "AS", "IN", "NOT", "NULL", "IS", "LIKE", "BETWEEN",
         "INSERT", "UPDATE", "DELETE", "SET", "INTO", "VALUES",
-        "HAVING", "DISTINCT", "TOP", "UNION", "ALL", "EXISTS",
+        "HAVING", "DISTINCT", "TOP", "UNION", "INTERSECT", "EXCEPT", "ALL", "EXISTS",
         "CASE", "WHEN", "THEN", "ELSE", "END",
         "ASC", "DESC", "COUNT", "SUM", "AVG", "MIN", "MAX",
         "CAST", "COALESCE", "NULLIF", "WITH", "RECURSIVE", "RETURNING"

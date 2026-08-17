@@ -519,7 +519,20 @@ public static class SchemaSimulator
                 });
             }
 
-            clone.Tables[table.Name] = new TableSchema { Name = table.Name, Columns = columns, Indexes = indexes };
+            // IsView carries through the clone. Without it every view came out
+            // of a simulation as an ordinary base table, so IsInsertable (which
+            // is derived as !IsView) flipped to true and the JNT2021 write
+            // refusal that spec 015 added would not fire against a simulated
+            // schema. Spec 015 widened all four extractors and missed this one
+            // hand-written copy, which is the only place a TableSchema is
+            // rebuilt field by field.
+            clone.Tables[table.Name] = new TableSchema
+            {
+                Name = table.Name,
+                Columns = columns,
+                Indexes = indexes,
+                IsView = table.IsView
+            };
         }
         foreach (var fk in source.ForeignKeys)
         {
