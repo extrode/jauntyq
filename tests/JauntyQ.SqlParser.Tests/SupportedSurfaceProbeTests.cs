@@ -1,4 +1,4 @@
-using JauntyQ.SqlParser;
+﻿using JauntyQ.SqlParser;
 using JauntyQ.SqlParser.IR;
 using Xunit;
 
@@ -149,6 +149,81 @@ public class SupportedSurfaceProbeTests
         Assert.Equal(StatementType.Update, model.StatementType);
         var only = Assert.Single(model.Tables);
         Assert.Equal("inbound_messages", only.TableName);
+    }
+
+    /// <summary>
+    /// PostgreSQL's <c>DISTINCT ON (...)</c> is refused as missing grammar.
+    ///
+    /// Measured before the fix (2026-08-18), which is why it is refused rather
+    /// than skipped: the ON, its parenthesized list and the first real column
+    /// glued into ONE expression item whose SQL was
+    /// <c>ON ( d.inbound_message_id ) d.inbound_message_id</c>, leaving the
+    /// query modeling one fewer real column than it returns. The aliased form
+    /// is the reason this is a correctness fix and not a message fix: an alias
+    /// satisfies the JNT3004 check that caught the other two shapes, so it
+    /// passed validation outright and the generated mapper typed its first
+    /// property from expression-shape inference over that text.
+    /// </summary>
+    [Theory]
+    [InlineData("bare", "select distinct on (d.inbound_message_id) d.inbound_message_id, d.status " +
+        "from inbound_deliveries d order by d.inbound_message_id, d.created_at desc")]
+    [InlineData("aliased — passed validation entirely before the fix",
+        "select distinct on (d.inbound_message_id) d.inbound_message_id as message_id, d.status " +
+        "from inbound_deliveries d order by d.inbound_message_id, d.created_at desc")]
+    [InlineData("unqualified", "select distinct on (status) status, id from inbound_deliveries order by status")]
+    [InlineData("multi-column key",
+        "select distinct on (a.x, a.y) a.x, a.y, a.z from things a order by a.x, a.y, a.z desc")]
+    [InlineData("function call in the key list",
+        "select distinct on (coalesce(a.x, a.y)) a.x, a.z from things a order by coalesce(a.x, a.y)")]
+    public void DistinctOn_IsRefusedAsMissingGrammar(string label, string sql)
+    {
+        var model = Parse(sql);
+
+        Assert.Contains("DISTINCT ON", model.UnsupportedConstructs);
+        _ = label;
+    }
+
+    /// <summary>
+    /// The other half of the DISTINCT ON fix, and the load-bearing half: the
+    /// modifier is stepped over completely, so the projection that follows it
+    /// parses as itself. Without this the refusal would arrive beside a
+    /// spurious JNT3004 blaming the consumer's first column for needing an
+    /// alias it already has no need of.
+    /// </summary>
+    [Fact]
+    public void DistinctOn_LeavesTheRestOfTheProjectionIntact()
+    {
+        var model = Parse(
+            "select distinct on (d.inbound_message_id) d.inbound_message_id, d.status " +
+            "from inbound_deliveries d order by d.inbound_message_id, d.created_at desc");
+
+        Assert.Equal(2, model.Columns.Count);
+        Assert.All(model.Columns, c => Assert.False(c.IsExpression,
+            $"'{c.ColumnName}{c.ExpressionSql}' was modeled as an expression; the DISTINCT ON " +
+            "modifier is still gluing itself onto the projection."));
+        Assert.Equal("inbound_message_id", model.Columns[0].ColumnName);
+        Assert.Equal("d", model.Columns[0].TableAlias);
+        Assert.Equal("status", model.Columns[1].ColumnName);
+    }
+
+    /// <summary>
+    /// Plain DISTINCT keeps its existing free pass — it does not change the
+    /// result shape, so it is skipped, not refused. A DISTINCT ON check that
+    /// fired here would refuse most of the accepted surface.
+    /// </summary>
+    [Theory]
+    [InlineData("plain distinct", "select distinct m.user_id from inbound_messages m")]
+    [InlineData("distinct over a join with an ON clause",
+        "select distinct m.id from inbound_messages m join inbound_deliveries d on d.inbound_message_id = m.id")]
+    [InlineData("distinct then a function call",
+        "select distinct coalesce(m.subject, 'x') as s from inbound_messages m")]
+    [InlineData("count(distinct col)", "select count(distinct m.user_id) as c from inbound_messages m")]
+    public void PlainDistinct_IsStillSkipped_NotRefused(string label, string sql)
+    {
+        var model = Parse(sql);
+
+        Assert.DoesNotContain("DISTINCT ON", model.UnsupportedConstructs);
+        _ = label;
     }
 
     // ── The shapes the report confirmed as working ─────────────────────────

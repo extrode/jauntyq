@@ -98,6 +98,24 @@ public static partial class QueryValidator
                 continue;
             }
 
+            // DISTINCT ON is PostgreSQL-only and also missing grammar, so it
+            // shares JNT1009 -- with its own message, since it has a rewrite
+            // that LATERAL does not. Before it was refused, the ON and its
+            // parenthesized list glued onto the first projected column as one
+            // opaque expression: loud but misdirected when that column had no
+            // alias (JNT3004), and SILENT when it had one.
+            if (construct == "DISTINCT ON")
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT1009,
+                    "PostgreSQL's 'DISTINCT ON (...)' is not supported: the parser has no grammar for " +
+                    "it, and nothing about your schema is wrong. Its expression list would otherwise be " +
+                    "read as part of your first selected column. Rewrite as a window function -- " +
+                    "'row_number() over (partition by <the DISTINCT ON columns> order by <your ORDER BY>)' " +
+                    "in a CTE, filtered to 1 in the outer query -- or select the distinct keys and their " +
+                    "rows in two queries. See docs/06-reference/supported-sql.md for the accepted surface."));
+                continue;
+            }
+
             // APPLY is LATERAL under T-SQL's spelling, and shares JNT1009 --
             // but not the message. Telling someone who wrote CROSS APPLY that
             // "LATERAL joins are not supported" makes them hunt for a keyword

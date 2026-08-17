@@ -95,6 +95,69 @@ public class GrammarVersusSchemaDiagnosticTests
         Assert.Contains("supported-sql.md", diag.GetMessage());
     }
 
+    // ── DISTINCT ON: the same class of failure, found 2026-08-18 ───────────
+
+    private const string DistinctOnQuery =
+        "select distinct on (inbound_deliveries.inbound_message_id)\n" +
+        "  inbound_deliveries.inbound_message_id, inbound_deliveries.status\n" +
+        "from inbound_deliveries\n" +
+        "order by inbound_deliveries.inbound_message_id, inbound_deliveries.id desc";
+
+    /// <summary>
+    /// The aliased form is the one that makes this a correctness fix. The two
+    /// unaliased shapes were caught by JNT3004 for the wrong reason ("this
+    /// expression needs an alias"); giving the column the alias JNT3004 asks
+    /// for made the file pass validation outright, and the generated mapper
+    /// then typed its first property by inferring a shape from the text
+    /// "ON ( ... ) inbound_deliveries.inbound_message_id".
+    /// </summary>
+    private const string AliasedDistinctOnQuery =
+        "select distinct on (inbound_deliveries.inbound_message_id)\n" +
+        "  inbound_deliveries.inbound_message_id as message_id, inbound_deliveries.status\n" +
+        "from inbound_deliveries\n" +
+        "order by inbound_deliveries.inbound_message_id, inbound_deliveries.id desc";
+
+    [Theory]
+    [InlineData("unaliased")]
+    [InlineData("aliased")]
+    public void DistinctOn_ReportsJNT1009(string form)
+    {
+        var result = Run(form == "aliased" ? AliasedDistinctOnQuery : DistinctOnQuery);
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT1009");
+        Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
+        Assert.Contains("DISTINCT ON", diag.GetMessage());
+        Assert.Contains("supported-sql.md", diag.GetMessage());
+    }
+
+    /// <summary>
+    /// The refusal must arrive alone. Before the parser stepped over the whole
+    /// modifier, the ON and its list glued onto the first projected column, so
+    /// an unaliased DISTINCT ON also drew JNT3004 telling the consumer to alias
+    /// a column that needs no alias — a true statement about a column they did
+    /// not write, which is the same misdirection JNT1009 exists to end.
+    /// </summary>
+    [Fact]
+    public void DistinctOn_DoesNotAlsoDemandAnAliasForTheFirstColumn()
+    {
+        var result = Run(DistinctOnQuery);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT3004");
+    }
+
+    /// <summary>
+    /// Plain DISTINCT does not change the result shape and is still skipped,
+    /// not refused — a check that fired on the DISTINCT keyword alone would
+    /// refuse a large part of the accepted surface.
+    /// </summary>
+    [Fact]
+    public void PlainDistinct_IsStillAccepted()
+    {
+        var result = Run("select distinct inbound_deliveries.status from inbound_deliveries");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT1009");
+    }
+
     // ── The other half of the split must stay sharp ────────────────────────
 
     [Fact]
