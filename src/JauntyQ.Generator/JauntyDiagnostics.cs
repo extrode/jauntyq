@@ -129,6 +129,28 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    /// <summary>
+    /// Spec 015: syntax the parser does not implement, reported as such.
+    ///
+    /// Split out of JNT2001 ("Table Not Found"), which was doing two unrelated
+    /// jobs. A consumer writing LEFT JOIN LATERAL was told their table did not
+    /// exist in their schema -- true of a relation the parser had invented from
+    /// the keyword, and useless as advice, because nothing about their schema
+    /// was wrong. "Your schema is missing something" and "my grammar is missing
+    /// something" call for opposite responses from the person reading it, so
+    /// they cannot share a code.
+    ///
+    /// JNT2001 keeps its meaning and its cases: a relation NAMED in the query
+    /// and absent from the schema.
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT1009 = new(
+        "JNT1009",
+        "Unsupported Syntax",
+        "{0}",
+        "JauntyQ.Parsing",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 2xxx: Schema Validation ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT2001 = new(

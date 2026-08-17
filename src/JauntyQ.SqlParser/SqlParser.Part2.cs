@@ -67,6 +67,27 @@ public static partial class SqlParser
         }
         JoinKind joinKind = sawFull ? JoinKind.Full : sawLeft ? JoinKind.Left : sawRight ? JoinKind.Right : JoinKind.None;
 
+        // Spec 015: LATERAL is not a tokenizer keyword, so it arrives here as
+        // an ordinary Identifier in the table-name position -- and the block
+        // below duly recorded a table literally named "lateral". The consumer
+        // then met JNT2001 "Table 'lateral' does not exist in schema", which
+        // sent them to look at their schema for a relation the PARSER had
+        // invented. The grammar is what is missing, so say that instead.
+        //
+        // Recorded as its own construct rather than folded into SUBQUERY: the
+        // derived table that follows LATERAL also raises SUBQUERY, and a
+        // consumer reading "unsupported subquery" for a join form learns the
+        // wrong thing about what to change.
+        if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
+            string.Equals(tokens[pos].Value, "LATERAL", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!model.UnsupportedConstructs.Contains("LATERAL"))
+                model.UnsupportedConstructs.Add("LATERAL");
+            pos++;
+            // Deliberately no TableRef: inventing one is the bug being fixed.
+            return pos;
+        }
+
         // Table name
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
         {

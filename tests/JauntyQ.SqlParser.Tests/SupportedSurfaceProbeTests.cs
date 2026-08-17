@@ -65,22 +65,25 @@ public class SupportedSurfaceProbeTests
     }
 
     /// <summary>
-    /// LATERAL is not in the grammar, and the parser reads the keyword as a
-    /// table name -- which is why the consumer met JNT2001 ("table does not
-    /// exist in schema") rather than a grammar diagnostic. Asserted so the
-    /// misdiagnosis is recorded at its source; fixing it should turn this red.
+    /// LATERAL is still unsupported, but it is now recorded as MISSING GRAMMAR
+    /// rather than as a table.
+    ///
+    /// This test previously asserted the opposite — that the parser produced a
+    /// relation literally named "lateral" — which is what sent the consumer to
+    /// JNT2001 and their own schema for a table the parser had invented. Spec
+    /// 015 T6 turned it red on purpose; this is the replacement.
     /// </summary>
     [Fact]
-    public void LateralJoin_IsParsedAsATableNamed_Lateral()
+    public void LateralJoin_IsRecordedAsMissingGrammar_NotAsATable()
     {
         var model = Parse(
             "select m.id, d.status from inbound_messages m " +
             "left join lateral (select d.status from inbound_deliveries d " +
             "where d.inbound_message_id = m.id limit 1) d on true");
 
-        Assert.Contains(model.Tables, t =>
+        Assert.Contains("LATERAL", model.UnsupportedConstructs);
+        Assert.DoesNotContain(model.Tables, t =>
             string.Equals(t.TableName, "lateral", System.StringComparison.OrdinalIgnoreCase));
-        Assert.Contains("SUBQUERY", model.UnsupportedConstructs);
     }
 
     // ── The shapes the report confirmed as working ─────────────────────────
