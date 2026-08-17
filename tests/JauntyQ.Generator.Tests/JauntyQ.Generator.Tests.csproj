@@ -20,8 +20,8 @@
          are claims about what a real server accepts, and both were wrong once
          already when asserted on emitted text alone. Same versions as
          tests/JauntyQ.Tests. -->
-    <PackageReference Include="Testcontainers.PostgreSql" Version="3.10.0" />
-    <PackageReference Include="Testcontainers.MySql" Version="3.10.0" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.14.0" />
+    <PackageReference Include="Testcontainers.MySql" Version="4.14.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\JauntyQ.Generator\JauntyQ.Generator.csproj" />
