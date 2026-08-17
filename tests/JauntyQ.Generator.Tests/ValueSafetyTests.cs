@@ -676,15 +676,106 @@ public class ValueSafetyTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
     }
 
+    // ── `bit` outside MySQL (2026-08-17) ──
+    //
+    // Split by how each engine fails, not by a shared range. Every case below
+    // passes NO precision facet, which is the shape a real snapshot has:
+    // SqlServerExtractor and PostgresExtractor both capture NUMERIC_PRECISION
+    // for decimal/numeric/money only, so a `bit` column arrives with Precision
+    // null. The previous SqlServerBit_Unchanged_NoJNT5002 passed Bit1 and so
+    // pinned a schema the extractor never emits (noted 2026-08-03, a reviewer
+    // review of 5aab943); asserting the real shape is part of this change.
+
     [Fact]
-    public void SqlServerBit_Unchanged_NoJNT5002()
+    public void SqlServerBit_NonBooleanValue_JNT5002_ReportsCoercionNotOverflow()
     {
-        // Deliberately NOT ranged: SQL Server's bit is 0..1, a different type
-        // wearing the same name. Left on its existing behaviour by decision.
         var result = RunTinyint("sqlserver", "bit",
-            "insert into flags (flag_id, level) values (@flagId, 5)", Bit1);
+            "insert into flags (flag_id, level) values (@flagId, 5)");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+        // The wording is the finding. SQL Server accepts 5 and writes 1, so
+        // "would overflow at runtime" -- what every other JNT5002 arm says --
+        // would be a false statement about what the engine does.
+        Assert.Contains("silently coerces", diag.GetMessage());
+        Assert.Contains("written as 1", diag.GetMessage());
+        Assert.DoesNotContain("overflow", diag.GetMessage());
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("1")]
+    public void SqlServerBit_ZeroOrOne_NoJNT5002(string literal)
+    {
+        var result = RunTinyint("sqlserver", "bit",
+            $"insert into flags (flag_id, level) values (@flagId, {literal})");
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void SqlServerBit_NegativeValue_JNT5002()
+    {
+        // -1 is nonzero, so SQL Server stores 1 for it too. Nothing about the
+        // magnitude matters -- only that the value is neither 0 nor 1.
+        var result = RunTinyint("sqlserver", "bit",
+            "insert into flags (flag_id, level) values (@flagId, -1)");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Theory]
+    [InlineData("300")]
+    [InlineData("1")]
+    [InlineData("0")]
+    public void PostgresBit_AnyNumericLiteral_JNT5003(string literal)
+    {
+        // A bit string takes no numeric value at all, so 0 and 1 are just as
+        // wrong as 300 -- the one case where the literal's value is
+        // irrelevant to the verdict.
+        var result = RunTinyint("postgres", "bit",
+            $"insert into flags (flag_id, level) values (@flagId, {literal})");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT5003");
+        Assert.Contains("bit string", diag.GetMessage());
+        Assert.Contains("B'1010'", diag.GetMessage());
+    }
+
+    [Fact]
+    public void PostgresBit_IsNotAlsoReportedAsOutOfRange()
+    {
+        // JNT5003 returns rather than falling through: one failure, one
+        // diagnostic. A second JNT5002 alongside it would describe the same
+        // literal as both unassignable and too large, which cannot both be
+        // the actionable reading.
+        var result = RunTinyint("postgres", "bit",
+            "insert into flags (flag_id, level) values (@flagId, 300)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlBit_IsUnaffectedByTheDialectSplit()
+    {
+        // The guard against the obvious regression: MySQL's bit(n) is a real
+        // unsigned integer and must still ride the range switch, not either
+        // new arm.
+        var result = RunTinyint("mysql", "bit",
+            "insert into flags (flag_id, level) values (@flagId, 300)", Bit8);
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5003");
+    }
+
+    [Fact]
+    public void SqliteBit_StillUnclaimed_NoDiagnostic()
+    {
+        // Only the two engines the decision covers changed. A dialect with no
+        // reading of `bit` must stay silent rather than inherit either one.
+        var result = RunTinyint("sqlite", "bit",
+            "insert into flags (flag_id, level) values (@flagId, 5)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5003");
     }
 
     [Fact]

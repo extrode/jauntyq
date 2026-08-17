@@ -513,6 +513,23 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    // Sibling of JNT5001/JNT5002 for the third way a literal can fail its
+    // column: not too long, not out of range, but the wrong KIND of value
+    // altogether -- one the engine rejects rather than truncates or
+    // overflows. Created 2026-08-17 for Postgres's bit(n), which is a bit
+    // string and refuses a bare number ("column is of type bit but
+    // expression is of type integer"). Error, because unlike JNT5001/JNT5002
+    // -- which report a statement that RUNS and quietly loses something --
+    // this one reports a statement the server will not execute at all, so
+    // there is no reading under which the build should pass.
+    public static readonly DiagnosticDescriptor JNT5003 = new(
+        "JNT5003",
+        "Literal Type Mismatch",
+        "{0}",
+        "JauntyQ.ValueSafety",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 6xxx: Configuration ───────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT6001 = new(
