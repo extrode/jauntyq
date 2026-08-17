@@ -298,6 +298,45 @@ public class SupportedSurfaceProbeTests
         Assert.Equal("b", model.Columns[1].ColumnName);
     }
 
+    /// <summary>
+    /// <c>SELECT ALL</c> is DISTINCT's ANSI complement — "do not deduplicate",
+    /// already the default — so it cannot change the result shape and is
+    /// skipped like DISTINCT. Measured 2026-08-18: before the fix it glued onto
+    /// the first column as the expression <c>ALL a.x</c> and was refused by
+    /// JNT3004 for wanting an alias.
+    /// </summary>
+    [Theory]
+    [InlineData("qualified", "select all a.x from things a")]
+    [InlineData("unqualified", "select all x, y from things")]
+    [InlineData("star", "select all * from things")]
+    public void SelectAll_IsSkipped_LikeDistinct(string label, string sql)
+    {
+        var model = Parse(sql);
+
+        Assert.All(model.Columns, c => Assert.False(c.IsExpression,
+            $"{label}: '{c.ExpressionSql}' was modeled as an expression"));
+        Assert.DoesNotContain(model.Columns, c =>
+            string.Equals(c.ColumnName, "all", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// T-SQL table hints were already handled correctly — pinned here because
+    /// they sit in the same "skipped modifier" position that produced three
+    /// defects in the SELECT list, and a regression would be silent.
+    /// </summary>
+    [Theory]
+    [InlineData("aliased", "select a.x from things a with (nolock) where a.x = @p", "a")]
+    [InlineData("unaliased", "select x from things with (nolock)", "")]
+    public void TableHints_DoNotBecomeTablesOrAliases(string label, string sql, string expectedAlias)
+    {
+        var model = Parse(sql);
+
+        var table = Assert.Single(model.Tables);
+        Assert.Equal("things", table.TableName);
+        Assert.Equal(expectedAlias, table.Alias);
+        _ = label;
+    }
+
     // ── The shapes the report confirmed as working ─────────────────────────
 
     [Fact]

@@ -328,6 +328,19 @@ public static partial class SqlParser
                 continue;
             }
 
+            // ALL is DISTINCT's ANSI complement -- "do not deduplicate", which
+            // is already the default -- so like DISTINCT it cannot change the
+            // result shape and is skipped. Guarded the same way PERCENT is: ALL
+            // is a tokenizer keyword, so a column of that name arrives as this
+            // very token, and only what follows tells them apart.
+            if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword &&
+                string.Equals(tokens[pos].Value, "ALL", StringComparison.OrdinalIgnoreCase) &&
+                IsFollowedByAnotherProjectionItem(tokens, pos))
+            {
+                pos++;
+                continue;
+            }
+
             if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "TOP")
             {
                 pos++;
