@@ -148,6 +148,14 @@ public static class ImpactClassifier
                         ? "became a computed/generated column (writes will be rejected)"
                         : "no longer computed/generated");
                     break;
+
+                default:
+                    // Mirrors WireKind's "changed" fallback. Without this a kind
+                    // with no arm contributes nothing, so a lone unrecognized kind
+                    // yields an empty description and the report understates the
+                    // change instead of naming it vaguely.
+                    parts.Add("changed");
+                    break;
             }
         }
         return string.Join("; ", parts);

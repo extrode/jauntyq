@@ -481,4 +481,26 @@ public class ImpactClassifierTests
         Assert.Equal(Classification.Risky, entry.Classification);
         Assert.Contains(entry.Reasons, r => r.SchemaObject == "orders.total" && r.ChangeKind == "precisionScale");
     }
+
+    [Fact]
+    public void DescribeChange_UnrecognizedColumnChangeKind_StillProducesANonEmptyEffect()
+    {
+        var baseline = Col("name", "varchar", 100);
+        var effective = Col("name", "varchar", 100);
+        var change = new ColumnChange("name", baseline, effective,
+            new[] { (ColumnChangeKind)999 });
+        var delta = new SchemaDelta(
+            new string[0], new string[0],
+            new[] { new TableDelta("users", new string[0], new string[0], new[] { change }) });
+
+        var report = Run(delta, Input("User.Get", Select("users", "name")));
+
+        var reason = Assert.Single(Assert.Single(report.Entries).Reasons);
+        Assert.Equal("changed", reason.ChangeKind);
+        Assert.False(string.IsNullOrWhiteSpace(reason.Effect),
+            "DescribeChange contributed nothing for a ColumnChangeKind it does not recognize, so the "
+            + "reason's Effect is empty: the CLI prints 'users.name: ' with nothing after the colon and "
+            + "the JNT9004 build message emits a trailing space. WireKind already degrades an unknown "
+            + "kind to the token \"changed\"; DescribeChange must not be the one site that says nothing.");
+    }
 }

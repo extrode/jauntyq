@@ -59,6 +59,16 @@ public static class SchemaSimulator
                     case MigrationStatementKind.AddPrimaryKey:
                         ApplyAddPrimaryKey(schema, stmt, fileName, errors);
                         break;
+
+                    default:
+                        // A MigrationStatementKind with no arm above. Reported
+                        // rather than skipped: an unapplied statement leaves the
+                        // effective schema silently understating the migration,
+                        // and every downstream consumer then analyses a baseline
+                        // that does not match reality.
+                        errors.Add(AnalysisDiagnostic.Warning("JNT9001",
+                            $"{fileName}: statement not simulated (effective schema may be incomplete): {Truncate(stmt.RawText)}"));
+                        break;
                 }
             }
         }

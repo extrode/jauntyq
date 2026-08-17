@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using JauntyQ.Analysis;
 using JauntyQ.Analysis.Migrations;
@@ -1378,5 +1379,61 @@ alter table products add supplier_note nvarchar(50) null;
         Assert.Equal(1, seq.MinValue);
         Assert.Equal(999999, seq.MaxValue);
         Assert.Equal(235, seq.CurrentValue);
+    }
+}
+
+[Trait("Category", "AuditRegression")]
+public class EnumDispatchExhaustivenessTests
+{
+    private static DatabaseSchema OneTableSchema()
+    {
+        var schema = new DatabaseSchema { Dialect = "sqlserver" };
+        schema.Tables["products"] = new TableSchema
+        {
+            Name = "products",
+            Columns = new Dictionary<string, ColumnSchema>
+            {
+                ["product_id"] = new() { Name = "product_id", DbType = "int", IsPrimaryKey = true }
+            }
+        };
+        return schema;
+    }
+
+    [Fact]
+    public void SchemaSimulator_UnknownStatementKind_EmitsNotSimulatedWarning()
+    {
+        var errors = new List<AnalysisDiagnostic>();
+        var stmt = new MigrationStatement
+        {
+            Kind = (MigrationStatementKind)999,
+            TableName = "products",
+            RawText = "SOME FUTURE DDL products"
+        };
+
+        SchemaSimulator.Apply(OneTableSchema(), new[] { ("0002_future.sql", new List<MigrationStatement> { stmt }) }, errors);
+
+        Assert.True(errors.Count > 0,
+            "SchemaSimulator.Apply silently ignored a MigrationStatementKind it does not handle. "
+            + "The switch in Apply has no default arm, so a kind added to the enum later is never "
+            + "applied and never reported: the effective schema is wrong and JNT9001 -- which exists "
+            + "to say 'statement not simulated (effective schema may be incomplete)' -- never fires. "
+            + "Every downstream consumer then analyses a baseline that silently does not match reality.");
+    }
+
+    [Fact]
+    public void SchemaSimulator_UnknownStatementKind_LeavesSchemaUntouched()
+    {
+        var errors = new List<AnalysisDiagnostic>();
+        var stmt = new MigrationStatement
+        {
+            Kind = (MigrationStatementKind)999,
+            TableName = "products",
+            RawText = "SOME FUTURE DDL products"
+        };
+
+        var after = SchemaSimulator.Apply(OneTableSchema(), new[] { ("0002_future.sql", new List<MigrationStatement> { stmt }) }, errors);
+
+        Assert.True(after.Tables.ContainsKey("products"));
+        Assert.Single(after.Tables["products"].Columns);
     }
 }
