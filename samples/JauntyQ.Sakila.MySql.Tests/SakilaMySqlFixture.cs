@@ -32,7 +32,7 @@ public sealed class SakilaMySqlFixture : IAsyncLifetime
         MySqlContainer container;
         try
         {
-            container = new MySqlBuilder().WithImage("mysql:8.0").Build();
+            container = new MySqlBuilder("mysql:8.0").Build();
             _container = container;
             await container.StartAsync();
         }

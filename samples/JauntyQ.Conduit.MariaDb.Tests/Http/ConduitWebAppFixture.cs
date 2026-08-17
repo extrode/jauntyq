@@ -35,7 +35,7 @@ internal static class ConduitHttpServer
             if (_started is not null)
                 return _started;
 
-            var container = new MariaDbBuilder().WithImage("mariadb:11").Build();
+            var container = new MariaDbBuilder("mariadb:11").Build();
             try
             {
                 await container.StartAsync();

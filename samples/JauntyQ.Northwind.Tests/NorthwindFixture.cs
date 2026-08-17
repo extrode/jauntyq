@@ -43,7 +43,7 @@ public sealed class NorthwindFixture : IAsyncLifetime
         // a broken runner fails loudly instead of going silently green.
         try
         {
-            _container = new MsSqlBuilder().Build();
+            _container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
             await _container.StartAsync();
         }
         catch (Exception ex)
