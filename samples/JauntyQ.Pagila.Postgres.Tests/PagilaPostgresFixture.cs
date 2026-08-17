@@ -35,7 +35,7 @@ public sealed class PagilaPostgresFixture : IAsyncLifetime
         PostgreSqlContainer container;
         try
         {
-            container = new PostgreSqlBuilder().WithImage("pgvector/pgvector:pg18").Build();
+            container = new PostgreSqlBuilder("pgvector/pgvector:pg18").Build();
             _container = container;
             await container.StartAsync();
         }

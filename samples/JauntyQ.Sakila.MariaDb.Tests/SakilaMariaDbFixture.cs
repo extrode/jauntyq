@@ -32,7 +32,7 @@ public sealed class SakilaMariaDbFixture : IAsyncLifetime
         MariaDbContainer container;
         try
         {
-            container = new MariaDbBuilder().WithImage("mariadb:11").Build();
+            container = new MariaDbBuilder("mariadb:11").Build();
             _container = container;
             await container.StartAsync();
         }

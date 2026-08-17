@@ -35,7 +35,7 @@ internal static class ConduitHttpServer
             if (_started is not null)
                 return _started;
 
-            var container = new MySqlBuilder().Build();
+            var container = new MySqlBuilder("mysql:8.0").Build();
             try
             {
                 await container.StartAsync();

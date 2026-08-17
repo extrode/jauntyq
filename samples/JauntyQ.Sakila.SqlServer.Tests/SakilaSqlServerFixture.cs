@@ -32,7 +32,7 @@ public sealed class SakilaSqlServerFixture : IAsyncLifetime
         MsSqlContainer container;
         try
         {
-            container = new MsSqlBuilder().Build();
+            container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
             _container = container;
             await container.StartAsync();
         }

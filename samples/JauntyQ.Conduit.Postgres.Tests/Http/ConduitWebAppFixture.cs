@@ -35,7 +35,7 @@ internal static class ConduitHttpServer
             if (_started is not null)
                 return _started;
 
-            var container = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+            var container = new PostgreSqlBuilder("postgres:16-alpine").Build();
             try
             {
                 await container.StartAsync();

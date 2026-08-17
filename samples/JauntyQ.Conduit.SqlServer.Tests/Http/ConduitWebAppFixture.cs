@@ -35,7 +35,7 @@ internal static class ConduitHttpServer
             if (_started is not null)
                 return _started;
 
-            var container = new MsSqlBuilder().Build();
+            var container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
             try
             {
                 await container.StartAsync();

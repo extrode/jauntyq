@@ -44,7 +44,7 @@ public sealed class ConduitPostgresFixture : IAsyncLifetime
         PostgreSqlContainer container;
         try
         {
-            container = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+            container = new PostgreSqlBuilder("postgres:16-alpine").Build();
             _container = container;
             await container.StartAsync();
         }

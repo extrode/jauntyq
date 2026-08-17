@@ -37,8 +37,7 @@ public sealed class MySqlFixture : IAsyncLifetime
     {
         try
         {
-            _container = new MySqlBuilder()
-                .WithImage("mysql:8.0")
+            _container = new MySqlBuilder("mysql:8.0")
                 // MySqlBulkCopy issues LOAD DATA LOCAL INFILE, which the server
                 // rejects unless local_infile is enabled. The client half of the
                 // handshake (AllowLoadLocalInfile=true) is added below when building

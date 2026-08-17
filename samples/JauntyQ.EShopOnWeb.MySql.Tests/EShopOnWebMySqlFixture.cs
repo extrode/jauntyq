@@ -38,7 +38,7 @@ public sealed class EShopOnWebMySqlFixture : IAsyncLifetime
         MySqlContainer container;
         try
         {
-            container = new MySqlBuilder().Build();
+            container = new MySqlBuilder("mysql:8.0").Build();
             _container = container;
             await container.StartAsync();
         }
