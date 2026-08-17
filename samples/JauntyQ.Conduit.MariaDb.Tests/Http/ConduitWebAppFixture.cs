@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using JauntyQ.TestInfra;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -10,23 +11,10 @@ namespace JauntyQ.Conduit.MariaDb.Tests.Http;
 
 /// <summary>
 /// One MariaDB server per test ASSEMBLY, joined by every HTTP class fixture
-/// below rather than started once per class.
-///
-/// The 2026-07-31 shared-engine-container work converted every direct-repository
-/// fixture to a collection fixture for exactly this reason, and did not reach
-/// this directory. Measured 2026-08-17: this assembly alone put SEVEN MariaDB
-/// containers on the daemon at once -- ConduitMariaDbFixture's one, plus one per
-/// HTTP test class. Four such assemblies under `-m:4` is ~28, and at that point
-/// the failure is not the database. It is Docker's own named pipe:
-/// NamedPipeClientStream.ConnectInternal timing out inside Docker.DotNet, which
-/// surfaces as fifteen bare "The operation has timed out." failures in whichever
-/// class lost the race.
-///
-/// xUnit v2 cannot inject a collection fixture into a class fixture, so the
-/// sharing is a static rather than an ICollectionFixture. The container is
-/// deliberately never disposed here: Testcontainers' resource reaper removes it
-/// when the test process exits, which is the mechanism it exists for, and it is
-/// the only teardown point that outlives all six class fixtures.
+/// below rather than started once per class. Why, and the measurements behind
+/// it, are in CHANGELOG.md under "the container-backed suites are trustworthy
+/// in a parallel run". A static rather than an ICollectionFixture because xUnit
+/// v2 cannot inject a collection fixture into a class fixture.
 /// </summary>
 internal static class ConduitHttpServer
 {
@@ -39,10 +27,11 @@ internal static class ConduitHttpServer
         await Gate.WaitAsync();
         try
         {
-            // Cached so a machine without Docker pays one bring-up timeout for
-            // the assembly instead of one per class.
+            // Cached so a machine without Docker pays one bring-up timeout for the
+            // assembly, not one per class. Capture/Throw, not `throw _failure`, which
+            // would reset the stack to this frame and hide the real bring-up site.
             if (_failure is not null)
-                throw _failure;
+                ExceptionDispatchInfo.Capture(_failure).Throw();
             if (_started is not null)
                 return _started;
 
@@ -56,6 +45,14 @@ internal static class ConduitHttpServer
                 _failure = ex;
                 throw;
             }
+
+            // Ryuk removes it at process exit; this is the backstop for a runner
+            // with TESTCONTAINERS_RYUK_DISABLED=true, which has none.
+            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            {
+                try { container.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
+                catch { /* the process is ending either way */ }
+            };
 
             _started = container;
             return container;
