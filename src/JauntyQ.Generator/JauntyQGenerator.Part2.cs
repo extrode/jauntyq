@@ -271,16 +271,34 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // exemption that outlives the condition that justified it is how an
         // escape hatch quietly becomes the default, so a dead one is reported
         // rather than tolerated.
-        if (allowUnindexed && !suppressedAnything)
+        //
+        // "Suppressed nothing" is only evidence of a dead directive when the
+        // JNT8004 analysis actually reached a verdict. Three cases where it
+        // does not, and where the old placement -- before the gate below --
+        // reported the directive as dead anyway:
+        //
+        //   * schema == null: no snapshot, so no index analysis ran at all.
+        //   * hasErrors: the query failed earlier validation, so its filter
+        //     columns were never resolved against any index.
+        //   * the snapshot declares no index metadata anywhere, which makes
+        //     QueryValidator's index checks return early (Part2.cs:88) --
+        //     a schema that simply never recorded indexes cannot show that
+        //     this query's filters are covered.
+        //
+        // In all three the consumer was told "the index it was waiting for
+        // probably exists now: remove the directive" on the strength of an
+        // analysis that never happened. Deleting the directive on that advice
+        // would then produce the JNT8004 it was suppressing all along.
+        if (hasErrors || schema == null)
+            return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+
+        if (allowUnindexed && !suppressedAnything && SchemaDeclaresAnyIndex(schema))
         {
             diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT8012,
                 "-- @allow-unindexed is declared but no filter column on this query is unindexed, so it " +
                 "suppresses nothing. The index it was waiting for probably exists now: remove the directive. " +
                 $"(Stated reason: {directives.AllowUnindexedReason})"));
         }
-
-        if (hasErrors || schema == null)
-            return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
 
         // -- @identity preconditions (JNT7001). Synthetic auto-CRUD SQL
         // only carries the directive when resolvable; this gate catches
@@ -609,5 +627,21 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     $"Two result columns map to the same generated property '{emitted}'. Give each SELECT/RETURNING item a distinct alias (AS) — the generated row type cannot declare '{emitted}' twice.");
         }
         return null;
+    }
+
+    /// <summary>
+    /// Mirrors QueryValidator.Part2's own precondition for running the index
+    /// checks at all: a snapshot with no index metadata anywhere makes JNT8004
+    /// return early. Kept as its own predicate so JNT8012 asks the same
+    /// question the analysis asked, rather than assuming the analysis ran.
+    /// </summary>
+    private static bool SchemaDeclaresAnyIndex(DatabaseSchema schema)
+    {
+        foreach (var table in schema.Tables.Values)
+        {
+            if (table.Indexes.Count > 0)
+                return true;
+        }
+        return false;
     }
 }

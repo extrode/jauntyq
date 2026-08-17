@@ -31,7 +31,16 @@ public static partial class QueryValidator
         // mismatch is either a wrong-column join (a bug returning wrong/slow
         // results) or an unmodeled relationship. Skipped entirely when the
         // snapshot carries no FK metadata, and per-join when either side does
-        // not resolve to a snapshot table (CTE/subquery/view) -- never guessed.
+        // not resolve to a snapshot table (CTE/subquery) -- never guessed.
+        //
+        // Views are skipped explicitly. Until spec 015 they were excluded by
+        // accident: a view was never extracted, so it never resolved and this
+        // check fell through the null guard below. Now that a view IS a
+        // snapshot relation, it resolves -- and a view cannot declare a
+        // foreign key in any of the five dialects, so EVERY join to one would
+        // match no FK and warn. The claim "matches no declared foreign key"
+        // is unprovable rather than false for a view, and R7 is that an
+        // analysis which cannot be proved against a view stays silent.
         // Composite FKs are stored as one row per column pair, so pair-by-pair
         // joins each match their own row and do not warn.
         if (schema.ForeignKeys.Count > 0)
@@ -41,6 +50,9 @@ public static partial class QueryValidator
                 var leftCol = ResolveColumn(query, join.LeftTable, join.LeftColumn, aliasToTable, schema, out string? leftTable);
                 var rightCol = ResolveColumn(query, join.RightTable, join.RightColumn, aliasToTable, schema, out string? rightTable);
                 if (leftCol == null || rightCol == null || leftTable == null || rightTable == null)
+                    continue;
+
+                if (IsViewRelation(schema, leftTable) || IsViewRelation(schema, rightTable))
                     continue;
 
                 if (JoinMatchesForeignKey(schema, leftTable, leftCol.Name, rightTable, rightCol.Name))
@@ -163,6 +175,13 @@ public static partial class QueryValidator
                 continue;
             if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
                 continue;
+            // Same reasoning as CheckIndexed's view gate: a view declares no
+            // indexes, so "no supporting index" is true of every view column
+            // and proves nothing about whether the engine sorts. This block
+            // reaches IsColumnIndexSupported directly rather than through
+            // CheckIndexed, so it needs its own gate.
+            if (tableSchema!.IsView)
+                continue;
             string orderByInstanceKey = !string.IsNullOrEmpty(orderBy.BoundTableAlias) ? orderBy.BoundTableAlias : tableName;
             if (IsColumnIndexSupported(column, orderByInstanceKey, tableSchema!, filterColumns))
                 continue;
@@ -221,6 +240,15 @@ public static partial class QueryValidator
         return seekColumns;
     }
 
+    /// <summary>
+    /// True when the named relation resolves to a view in the snapshot. Used
+    /// by the perf/consistency analyses to stay silent rather than assert
+    /// something a view cannot answer. Case-insensitive via SchemaLookup, for
+    /// the same reason every other lookup here is.
+    /// </summary>
+    private static bool IsViewRelation(DatabaseSchema schema, string tableName) =>
+        SchemaLookup.TryGetTable(schema, tableName, out var t) && t!.IsView;
+
     private static void CheckIndexed(
         QueryModel query, string tableAlias, string columnName,
         Dictionary<string, string> aliasToTable, DatabaseSchema schema,
@@ -233,6 +261,20 @@ public static partial class QueryValidator
             return;
         if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
             return;
+
+        // A view carries no indexes of its own, so "no index covers this
+        // column" is true of every view column and says nothing about whether
+        // the query scans: the planner inlines the view's definition and may
+        // well seek an index on the base table underneath. Warning here would
+        // punish exactly the rewrite the reference page recommends -- a
+        // consumer who wraps an unsupported shape in a view would collect one
+        // JNT8004 per filter for a query that is not slow. R7: unprovable
+        // against a view means silent. JNT8007 (ORDER BY) does NOT come
+        // through here -- it calls IsColumnIndexSupported directly -- and
+        // carries its own copy of this gate.
+        if (tableSchema!.IsView)
+            return;
+
         string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
         if (IsColumnIndexSupported(column, instanceKey, tableSchema!, filterColumns))
             return;

@@ -171,6 +171,7 @@
     },
     "vSalesOrderDetailExtended": {
       "name": "vSalesOrderDetailExtended",
+      "isView": true,
       "columns": {
         "SalesOrderID": { "name": "SalesOrderID", "dbType": "int", "isNullable": false },
         "SalesOrderDetailID": { "name": "SalesOrderDetailID", "dbType": "int", "isNullable": false },

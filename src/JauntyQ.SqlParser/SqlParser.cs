@@ -101,6 +101,12 @@ public static partial class SqlParser
                     case "RIGHT":
                     case "CROSS":
                     case "FULL":
+                    // OUTER dispatches too, solely to reach T-SQL's OUTER
+                    // APPLY. In every other form OUTER is preceded by LEFT,
+                    // RIGHT or FULL, which dispatch first and consume it
+                    // inside ParseJoin's keyword loop -- so a bare OUTER
+                    // arriving here is the APPLY case or nothing.
+                    case "OUTER":
                         pos = ParseJoin(tokens, pos, model);
                         break;
                     case "ORDER":
