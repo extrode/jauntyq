@@ -1798,4 +1798,70 @@ public class AutoCrudTests
             t.ToString().Contains("OrderNum") && t.ToString().Contains("OrderNumber"));
         Assert.True(sawOwnDistinctProperties, "Expected the query's own per-query type with distinct property names.");
     }
+
+    // ── JNT2022: the silent lossy rename ──────────────────────────────────
+
+    private const string NonAsciiNamesSchema = @"{
+  ""dialect"": ""postgres"",
+  ""tables"": {
+    ""artikel"": {
+      ""name"": ""artikel"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true },
+        ""größe"": { ""name"": ""größe"", ""dbType"": ""varchar"", ""isNullable"": false },
+        ""order_number"": { ""name"": ""order_number"", ""dbType"": ""int"", ""isNullable"": false }
+      }
+    }
+  },
+  ""foreignKeys"": []
+}";
+
+    /// <summary>
+    /// The case neither JNT2011 nor JNT2014 can see: one column, no collision,
+    /// compiles fine, and generates a property spelled as a different word.
+    /// </summary>
+    [Fact]
+    public void NonAsciiColumnName_JNT2022_NamesTheGeneratedPropertyAndTheLostCharacters()
+    {
+        var (result, _) = RunAutoCrudWithSchema(NonAsciiNamesSchema, autoCrud: true);
+
+        string msg = Assert.Single(result.Diagnostics.Where(d => d.Id == "JNT2022")).GetMessage();
+        Assert.Contains("artikel.größe", msg);
+        Assert.Contains("GrE", msg);
+        Assert.Contains("öß", msg);
+    }
+
+    /// <summary>
+    /// The false-positive side, and the one that decides whether this
+    /// diagnostic is usable at all: an ordinary snake_case schema must produce
+    /// no JNT2022 whatever. Every column in every table is visited, so a rule
+    /// that mistook '_' for a lost character would emit one warning per column
+    /// in the database.
+    /// </summary>
+    [Fact]
+    public void AsciiSchema_ProducesNoJNT2022()
+    {
+        var (result, _) = RunAutoCrudWithSchema(CollidingColumnNamesSchema, autoCrud: true);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2022");
+    }
+
+    /// <summary>
+    /// The table-name arm: the entity name is produced by the same mapping, so
+    /// a lossy table name is the same defect one level up.
+    /// </summary>
+    [Fact]
+    public void NonAsciiTableName_JNT2022_NamesTheEntity()
+    {
+        string schema = NonAsciiNamesSchema
+            .Replace(@"""artikel"": {", @"""bäckerei"": {")
+            .Replace(@"""name"": ""artikel""", @"""name"": ""bäckerei""");
+
+        var (result, _) = RunAutoCrudWithSchema(schema, autoCrud: true);
+
+        string tableMsg = Assert.Single(result.Diagnostics.Where(d =>
+            d.Id == "JNT2022" && d.GetMessage().StartsWith("Table "))).GetMessage();
+        Assert.Contains("db.BCkerei", tableMsg);
+        Assert.Contains("ä", tableMsg);
+    }
 }
