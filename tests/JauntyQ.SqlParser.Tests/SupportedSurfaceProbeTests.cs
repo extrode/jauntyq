@@ -226,6 +226,78 @@ public class SupportedSurfaceProbeTests
         _ = label;
     }
 
+    /// <summary>
+    /// T-SQL's two trailing TOP modifiers, found 2026-08-18 by asking whether
+    /// the <c>DISTINCT ON</c> defect — a modifier skipped without checking what
+    /// follows it — had siblings in the same function. Both did.
+    ///
+    /// Measured before the fix, <c>select top 10 percent a, b from things</c>
+    /// modeled <c>percent AS a</c> and <c>b</c>: PERCENT is an Identifier, so
+    /// unlike DISTINCT ON's leftovers it did not become an expression that
+    /// JNT3004 would catch — it became a plain column reference, stealing the
+    /// real first column's alias. <c>with ties</c> produced the expression item
+    /// <c>WITH ties a</c> instead.
+    ///
+    /// Neither modifier changes the column shape, so both are now skipped like
+    /// the row count itself rather than refused.
+    /// </summary>
+    [Theory]
+    [InlineData("percent", "select top 10 percent a, b from things")]
+    [InlineData("percent, parenthesized count", "select top (10) percent a, b from things")]
+    [InlineData("with ties", "select top 10 with ties a, b from things order by a")]
+    [InlineData("percent and with ties", "select top 10 percent with ties a, b from things order by a")]
+    [InlineData("uppercase", "SELECT TOP 10 PERCENT a, b FROM things")]
+    public void TopModifiers_AreSkipped_LeavingTheRealProjection(string label, string sql)
+    {
+        var model = Parse(sql);
+
+        Assert.Equal(2, model.Columns.Count);
+        Assert.All(model.Columns, c => Assert.False(c.IsExpression,
+            $"{label}: '{c.ColumnName}{c.ExpressionSql}' was modeled as an expression"));
+        Assert.Equal("a", model.Columns[0].ColumnName);
+        Assert.Equal("b", model.Columns[1].ColumnName);
+
+        // The specific silent corruption: PERCENT must not survive as a column
+        // wearing the real first column's name as its alias.
+        Assert.Empty(model.Columns[0].OutputAlias);
+        Assert.DoesNotContain(model.Columns, c =>
+            string.Equals(c.ColumnName, "percent", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// The guard that shaped the fix. Quoting does NOT protect a column named
+    /// <c>percent</c>: the tokenizer strips the delimiters, so <c>[percent]</c>
+    /// and a bare <c>PERCENT</c> arrive as the same Identifier token — an
+    /// assumption that consuming PERCENT unconditionally would have been safe
+    /// was measured and found false, and it would have deleted a real column.
+    ///
+    /// What separates them is the following token: a modifier always has
+    /// another projection item after it, a column has a comma, an AS, or FROM.
+    /// </summary>
+    [Theory]
+    [InlineData("followed by a comma", "select top 10 [percent], b from things", 2)]
+    [InlineData("the only column", "select top 10 [percent] from things", 1)]
+    [InlineData("aliased", "select top 10 [percent] as p from things", 1)]
+    public void PercentAsAColumnName_SurvivesTheTopModifierSkip(string label, string sql, int expectedColumns)
+    {
+        var model = Parse(sql);
+
+        Assert.Equal(expectedColumns, model.Columns.Count);
+        Assert.Contains(model.Columns, c =>
+            string.Equals(c.ColumnName, "percent", StringComparison.OrdinalIgnoreCase));
+        _ = label;
+    }
+
+    [Fact]
+    public void PlainTop_IsUnaffected()
+    {
+        var model = Parse("select top 10 a, b from things");
+
+        Assert.Equal(2, model.Columns.Count);
+        Assert.Equal("a", model.Columns[0].ColumnName);
+        Assert.Equal("b", model.Columns[1].ColumnName);
+    }
+
     // ── The shapes the report confirmed as working ─────────────────────────
 
     [Fact]

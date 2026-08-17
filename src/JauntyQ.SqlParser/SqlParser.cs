@@ -1,4 +1,4 @@
-using JauntyQ.SqlParser.IR;
+﻿using JauntyQ.SqlParser.IR;
 using JauntyQ.SqlParser.Tokens;
 
 namespace JauntyQ.SqlParser;
@@ -343,11 +343,90 @@ public static partial class SqlParser
                 {
                     pos++;
                 }
+
+                // TOP's two trailing modifiers. Both change WHICH rows come
+                // back, never the column shape, so they are skipped exactly as
+                // the count is -- the emitted CommandText is the original SQL
+                // text, so the engine still applies them.
+                //
+                // Measured 2026-08-18, before this: PERCENT was the worse of
+                // the two by a distance. It is an Identifier token, so it did
+                // not glue onto the next column as an expression the way
+                // DISTINCT ON's leftovers did -- it became a plain column
+                // reference in its own right, and "TOP 10 percent a, b" modeled
+                // "percent AS a" plus "b". Against a table with no such column
+                // that is JNT2002 naming a column the consumer never wrote;
+                // against a table that HAS one (a discounts table, say) it
+                // resolved cleanly, silently dropped the real first column, and
+                // typed the generated property from the wrong column while
+                // naming it after the alias. WITH TIES was the milder shape:
+                // WITH is a keyword, so it fell to the expression path and was
+                // refused by JNT3004 for wanting an alias.
+                //
+                // PERCENT has to be told apart from a column of that name, and
+                // quoting does NOT distinguish them: the tokenizer strips the
+                // delimiters, so "[percent]" and a bare PERCENT arrive as the
+                // same Identifier token. What separates them is what FOLLOWS.
+                // As a modifier it is never the last thing in the projection --
+                // another item always comes after it ("TOP 10 PERCENT a, b").
+                // As a column it is a projection item itself, so it is followed
+                // by a comma, an AS alias, or FROM.
+                //
+                // "SELECT TOP 10 percent FROM t" stays ambiguous under that
+                // rule and is read as the column. T-SQL rejects that text
+                // outright (PERCENT is reserved, so it sees a modifier and no
+                // select list), which means anyone who wrote it meant the
+                // quoted column -- the reading that keeps their query working.
+                if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
+                    string.Equals(tokens[pos].Value, "PERCENT", StringComparison.OrdinalIgnoreCase) &&
+                    IsFollowedByAnotherProjectionItem(tokens, pos))
+                {
+                    pos++;
+                }
+
+                if (pos + 1 < tokens.Count &&
+                    tokens[pos].Type == TokenType.Keyword &&
+                    string.Equals(tokens[pos].Value, "WITH", StringComparison.OrdinalIgnoreCase) &&
+                    tokens[pos + 1].Type == TokenType.Identifier &&
+                    string.Equals(tokens[pos + 1].Value, "TIES", StringComparison.OrdinalIgnoreCase))
+                {
+                    pos += 2;
+                }
+
                 continue;
             }
 
             return pos;
         }
+    }
+
+    /// <summary>
+    /// True when the token after <paramref name="pos"/> begins another
+    /// projection item, which is what makes the token AT <paramref name="pos"/>
+    /// a modifier rather than a projected column of its own. Used to tell
+    /// T-SQL's <c>TOP n PERCENT</c> from a column named <c>percent</c>, which
+    /// the tokenizer cannot distinguish because it strips the quoting.
+    ///
+    /// A comma, an <c>AS</c> alias or <c>FROM</c> means the token was the item;
+    /// end of stream likewise. Anything else — an identifier, <c>*</c>, a
+    /// literal, an opening paren, or <c>WITH TIES</c> before the real list —
+    /// means another item follows and the token was a modifier.
+    /// </summary>
+    private static bool IsFollowedByAnotherProjectionItem(List<Token> tokens, int pos)
+    {
+        int next = pos + 1;
+        if (next >= tokens.Count)
+            return false;
+
+        var t = tokens[next];
+        if (t.Type == TokenType.End)
+            return false;
+        if (t.Type == TokenType.Symbol && t.Value == ",")
+            return false;
+        if (t.Type == TokenType.Keyword && (t.Value == "FROM" || t.Value == "AS"))
+            return false;
+
+        return true;
     }
 
     /// <summary>
