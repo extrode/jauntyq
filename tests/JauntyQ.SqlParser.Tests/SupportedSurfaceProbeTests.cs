@@ -86,6 +86,71 @@ public class SupportedSurfaceProbeTests
             string.Equals(t.TableName, "lateral", System.StringComparison.OrdinalIgnoreCase));
     }
 
+    // ── The rest of the surface named by docs/06-reference/supported-sql.md ─
+
+    /// <summary>
+    /// Spec 015 T8: the reference page claims a specific accepted surface, so
+    /// every claim on it is measured here and the page cannot drift silently
+    /// away from the parser.
+    /// </summary>
+    [Theory]
+    [InlineData("distinct", "select distinct m.user_id from inbound_messages m")]
+    [InlineData("case expression with an alias",
+        "select m.id, case when m.subject is null then 'x' else 'y' end as kind from inbound_messages m")]
+    [InlineData("window function with an alias",
+        "select m.id, row_number() over (partition by m.user_id order by m.id) as rn from inbound_messages m")]
+    [InlineData("between", "select m.id from inbound_messages m where m.id between @a and @b")]
+    [InlineData("order by with limit and offset",
+        "select m.id from inbound_messages m order by m.id limit @n offset @o")]
+    [InlineData("where-clause IN (SELECT ...)",
+        "select m.id from inbound_messages m where m.id in (select d.inbound_message_id from inbound_deliveries d)")]
+    [InlineData("insert ... select",
+        "insert into archive (id) select m.id from inbound_messages m")]
+    [InlineData("insert ... returning",
+        "insert into inbound_messages (subject) values (@s) returning id")]
+    public void AcceptedShapes_RecordNoUnsupportedConstruct(string label, string sql)
+    {
+        var model = Parse(sql);
+
+        Assert.Empty(model.UnsupportedConstructs);
+        _ = label;
+    }
+
+    [Theory]
+    [InlineData("union", "UNION",
+        "select m.id from inbound_messages m union select d.id from inbound_deliveries d")]
+    [InlineData("with recursive", "WITH RECURSIVE",
+        "with recursive t as (select 1 as n) select t.n from t")]
+    [InlineData("two statements in one file", "MULTI_STATEMENT",
+        "select m.id from inbound_messages m; select d.id from inbound_deliveries d")]
+    public void RefusedShapes_RecordTheirOwnConstruct(string label, string construct, string sql)
+    {
+        var model = Parse(sql);
+
+        Assert.Contains(construct, model.UnsupportedConstructs);
+        _ = label;
+    }
+
+    /// <summary>
+    /// A measured gap rather than a supported shape: <c>UPDATE ... FROM other</c>
+    /// parses without complaint but models only the target table, so the second
+    /// relation is invisible to validation. Noted in <c>the todo list</c>; pinned
+    /// here so that whoever fixes it has to come back and change this test
+    /// rather than discovering the claim on the reference page was stale.
+    /// </summary>
+    [Fact]
+    public void UpdateFrom_ParsesButDoesNotModelTheSecondRelation()
+    {
+        var model = Parse(
+            "update inbound_messages set subject = d.status from inbound_deliveries d " +
+            "where d.inbound_message_id = inbound_messages.id");
+
+        Assert.Empty(model.UnsupportedConstructs);
+        Assert.Equal(StatementType.Update, model.StatementType);
+        var only = Assert.Single(model.Tables);
+        Assert.Equal("inbound_messages", only.TableName);
+    }
+
     // ── The shapes the report confirmed as working ─────────────────────────
 
     [Fact]

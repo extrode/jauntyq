@@ -253,6 +253,47 @@ public class RegistryParityTests
             + "Documented but not known: " + string.Join(", ", documented.Except(declared)) + ".");
     }
 
+    /// <summary>
+    /// Spec 015 T8: <c>docs/06-reference/supported-sql.md</c> tells a consumer
+    /// which code they will meet for each refused shape, so a code named there
+    /// that does not resolve sends them to search the diagnostics table for
+    /// something that was renamed or never existed. That is the exact failure
+    /// the page was written to end, so it must not be able to reintroduce it.
+    ///
+    /// Subset, not set-equality: the page is a guide to the SQL surface, not a
+    /// second copy of the diagnostics table, and most codes have nothing to do
+    /// with grammar.
+    /// </summary>
+    [Fact]
+    public void SupportedSqlDoc_NamesOnlyCodesThatResolve()
+    {
+        var named = Matches(
+            ReadRepoFile("docs", "06-reference", "supported-sql.md"), @"(JNT\d{4})");
+        var declared = DeclaredCodes();
+
+        Assert.NotEmpty(named);
+        Assert.True(named.IsSubsetOf(declared),
+            "docs/06-reference/supported-sql.md names codes that no descriptor declares: "
+            + string.Join(", ", named.Except(declared))
+            + ". Every code the page sends a consumer to look up has to exist.");
+    }
+
+    /// <summary>
+    /// The page's whole job is naming the diagnostic for each refused shape, so
+    /// a refusal losing its code silently would leave the reader back where the
+    /// consumer report started: told no, not told what to search for.
+    /// </summary>
+    [Fact]
+    public void SupportedSqlDoc_NamesEveryGrammarRefusalCode()
+    {
+        var named = Matches(
+            ReadRepoFile("docs", "06-reference", "supported-sql.md"), @"(JNT\d{4})");
+
+        foreach (string required in new[] { "JNT1001", "JNT1006", "JNT1007", "JNT1008", "JNT1009" })
+            Assert.True(named.Contains(required),
+                $"{required} is a grammar-boundary refusal and is not named in supported-sql.md.");
+    }
+
     // ── The registry test's own coverage ─────────────────────────────────
 
     [Fact]
