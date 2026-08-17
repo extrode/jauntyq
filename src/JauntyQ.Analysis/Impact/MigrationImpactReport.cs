@@ -17,6 +17,19 @@ public sealed class MigrationImpactReport
     [JsonPropertyName("entries")]
     public List<ImpactEntry> Entries { get; set; } = new();
 
+    /// <summary>
+    /// Conditions that narrowed what this run actually analyzed: a configured
+    /// input directory that does not exist, a migration statement the simulator
+    /// could not model (JNT9001). Carried on the report itself, rather than
+    /// beside it, because the text renderer had them and the JSON one did not —
+    /// so a CI job reading JSON could not tell an all-Safe report over the whole
+    /// corpus from an all-Safe report over nothing. Additive: an existing
+    /// consumer that ignores the property is unaffected, and a clean run
+    /// serializes it as an empty array.
+    /// </summary>
+    [JsonPropertyName("warnings")]
+    public List<string> Warnings { get; set; } = new();
+
     public MigrationImpactReport() { }
 
     public MigrationImpactReport(string baselineId, List<string> migrationSet, List<ImpactEntry> entries)

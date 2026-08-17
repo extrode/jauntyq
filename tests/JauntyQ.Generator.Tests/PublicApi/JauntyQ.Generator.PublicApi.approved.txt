@@ -112,6 +112,7 @@ class JauntyQ.Analysis.Impact.MigrationImpactReport
     prop Entries:List<ImpactEntry>
     prop Highest:Classification
     prop MigrationSet:List<String>
+    prop Warnings:List<String>
 class JauntyQ.Analysis.Impact.QueryImpactInput
     ctor .ctor(String,String,ReferencedObjects,Boolean,Boolean)
     prop EntityMethod:String
