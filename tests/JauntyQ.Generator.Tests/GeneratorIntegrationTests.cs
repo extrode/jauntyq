@@ -1175,6 +1175,55 @@ where products.product_name = @product_name";
         }
     }
 
+    /// <summary>
+    /// Round 77 §5 filed a hypothesis that the JNT8008 pass re-runs on every
+    /// build: its collected tuple carries a <c>QueryModel</c> reference and the
+    /// node has no <c>WithComparer</c>, so nothing gives the model value
+    /// equality. Measured 2026-08-18 and the hypothesis does not hold — the
+    /// missing comparer never comes into play, because <c>JauntyQ_PerFile</c>
+    /// is itself cached and hands the SAME references down, which reference
+    /// equality then accepts. The comparer would only matter if perFile
+    /// re-ran and produced equal-but-distinct models, and it does not.
+    ///
+    /// Pinned in both directions so the conclusion cannot rot: cached when a
+    /// C# source file changes and no .sql is touched (the every-build case the
+    /// hypothesis was about), Modified when a .sql body really does change,
+    /// which it must be — the query the analysis reasons about is different.
+    /// </summary>
+    [Fact]
+    public void NPlusOneAggregate_CachesWhenNoSqlChanged_AndWakesWhenOneDoes()
+    {
+        var fileA = new InMemoryAdditionalText("db/Products/GetExpensive.sql", SqlA);
+        var fileB = new InMemoryAdditionalText("db/Products/GetIdByName.sql", SqlB);
+        var schema = new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson);
+
+        var driver = CreateDriver(fileA, fileB, schema);
+        var compilation = CreateCompilation();
+        driver = driver.RunGenerators(compilation);
+
+        var withUnrelatedClass = compilation.AddSyntaxTrees(
+            CSharpSyntaxTree.ParseText("class Unrelated { }"));
+        driver = driver.RunGenerators(withUnrelatedClass);
+        Assert.All(NPlusOneReasons(driver), r =>
+            Assert.True(r == IncrementalStepRunReason.Cached || r == IncrementalStepRunReason.Unchanged,
+                $"JauntyQ_NPlusOne re-ran ({r}) for a change that touched no .sql file."));
+
+        var edited = new InMemoryAdditionalText(fileA.Path, SqlA.Replace(">", ">="));
+        driver = driver.ReplaceAdditionalText(fileA, edited);
+        driver = driver.RunGenerators(withUnrelatedClass);
+        Assert.Contains(NPlusOneReasons(driver), r =>
+            r == IncrementalStepRunReason.Modified || r == IncrementalStepRunReason.New);
+    }
+
+    private static List<IncrementalStepRunReason> NPlusOneReasons(GeneratorDriver driver)
+    {
+        var reasons = new List<IncrementalStepRunReason>();
+        foreach (var step in driver.GetRunResult().Results[0].TrackedSteps["JauntyQ_NPlusOne"])
+            foreach (var output in step.Outputs)
+                reasons.Add(output.Reason);
+        return reasons;
+    }
+
     [Fact]
     public void ShapeChange_ReRunsAggregate()
     {
