@@ -10,6 +10,7 @@ namespace JauntyQ.Generator.Tests;
 /// whitespace on the three no-value directives, a bare <c>-- @call</c> with no
 /// procedure name to call, and a tab between <c>@type</c>'s alias and dbtype.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class DirectiveTrailingWhitespaceTests
 {
     // ── AUD-R79-01: trailing whitespace on no-value directives ──

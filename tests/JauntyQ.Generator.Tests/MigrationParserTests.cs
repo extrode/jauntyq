@@ -6,6 +6,7 @@ using Xunit;
 
 namespace JauntyQ.Generator.Tests;
 
+[Trait("Category", "AuditRegression")]
 public class MigrationParserTests
 {
     [Fact]
@@ -748,6 +749,7 @@ drop table if exists c
     }
 }
 
+[Trait("Category", "AuditRegression")]
 public class SchemaSimulatorTests
 {
     private static DatabaseSchema BaseSchema()

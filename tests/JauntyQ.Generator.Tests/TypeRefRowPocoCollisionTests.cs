@@ -23,6 +23,7 @@ namespace JauntyQ.Generator.Tests;
 /// new sub-shape (BCL shadowing via the singularized POCO name slipping past
 /// the entity-name-only guard).
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class TypeRefRowPocoCollisionTests
 {
     // Table "date_times": entity "DateTimes", row POCO "DateTime".

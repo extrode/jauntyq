@@ -8,6 +8,7 @@ using Xunit;
 
 namespace JauntyQ.Generator.Tests;
 
+[Trait("Category", "AuditRegression")]
 public class AutoCrudTests
 {
     private const string PkSchemaJson = @"{

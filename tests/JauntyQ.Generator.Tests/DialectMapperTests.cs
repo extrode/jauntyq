@@ -9,6 +9,7 @@ namespace JauntyQ.Generator.Tests;
 /// silently mapped to `object` with no build-time signal. These tests
 /// confirm the dedicated mappings and the object-fallback detector.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class DialectMapperTests
 {
     [Theory]

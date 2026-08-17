@@ -4,6 +4,7 @@ using Xunit;
 
 namespace JauntyQ.SqlParser.Tests;
 
+[Trait("Category", "AuditRegression")]
 public class TokenizerTests
 {
     [Fact]

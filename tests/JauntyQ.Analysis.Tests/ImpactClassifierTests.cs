@@ -6,6 +6,7 @@ using Xunit;
 
 namespace JauntyQ.Analysis.Tests;
 
+[Trait("Category", "AuditRegression")]
 public class ImpactClassifierTests
 {
     // ── schema builders ───────────────────────────────────

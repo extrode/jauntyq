@@ -24,6 +24,7 @@ namespace JauntyQ.Generator.Tests;
 /// generator's own always-present infrastructure types rather than another
 /// user-derived name.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class ReservedGeneratedTypeNameCollisionTests
 {
     // Table "jaunty_db": entityPascal "JauntyDb" (collides with the fixed

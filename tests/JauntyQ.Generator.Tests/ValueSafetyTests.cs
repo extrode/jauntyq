@@ -12,6 +12,7 @@ namespace JauntyQ.Generator.Tests;
 /// parameters, and DbParameter.Size/Precision/Scale emission from the
 /// schema snapshot.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class ValueSafetyTests
 {
     private const string SchemaJson = @"{

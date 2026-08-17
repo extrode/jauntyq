@@ -14,6 +14,7 @@ namespace JauntyQ.Generator.Tests;
 /// "procedure not found" diagnostic. The generated code is also parsed to prove
 /// it is valid C#.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class ProcCallTests
 {
     // Snapshot with a row-returning proc (IN param) and a side-effect proc

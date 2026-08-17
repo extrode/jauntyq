@@ -10,6 +10,7 @@ namespace JauntyQ.Sqlite.Tests;
 /// alignment spaces INSIDE the literal in the emitted verbatim CommandText,
 /// so the engine received — and returned — a padded literal.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class MultiLineLiteralTests : IClassFixture<SqliteFixture>
 {
     private readonly SqliteFixture _fx;

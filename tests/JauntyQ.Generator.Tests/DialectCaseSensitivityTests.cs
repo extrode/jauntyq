@@ -41,6 +41,7 @@ namespace JauntyQ.Generator.Tests;
 /// so nothing warns the author away from this). Fixed by lowercasing the
 /// switch subject in both methods, mirroring OrdinalIgnoreCase semantics.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class DialectCaseSensitivityTests
 {
     [Theory]

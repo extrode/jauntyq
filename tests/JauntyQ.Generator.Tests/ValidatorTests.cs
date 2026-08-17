@@ -6,6 +6,7 @@ using Xunit;
 
 namespace JauntyQ.Generator.Tests;
 
+[Trait("Category", "AuditRegression")]
 public class ValidatorTests
 {
     private static DatabaseSchema CreateTestSchema()

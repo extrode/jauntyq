@@ -30,6 +30,7 @@ namespace JauntyQ.Generator.Tests;
 /// worked fine before this fix), so a reserved-name Error would have been a
 /// false-positive build blocker on a valid schema.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class BclReservedNameTypeRefTests
 {
     private static string TableSchema(string dialect, string tableName, bool withSequence = false)

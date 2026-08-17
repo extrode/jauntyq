@@ -11,6 +11,7 @@ namespace JauntyQ.Analysis.Tests;
 /// prevents: a generated method's C# argument list silently desyncing from
 /// the SQL parameter list built from a differently-filtered column set).
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class CrudColumnRulesTests
 {
     private static ColumnSchema Col(string name, bool pk = false, bool identity = false, bool rowVersion = false, bool computed = false) =>
