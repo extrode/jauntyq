@@ -472,6 +472,39 @@ public class ExpressionAndCteTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT1002");
     }
 
+    /// <summary>
+    /// A MySQL backslash escape is still refused — that is correct, the
+    /// tokenizer implements only the ANSI '' escape — but the message now names
+    /// the escape instead of blaming a missing quote the author can see is
+    /// there. Measured 2026-08-17; the tokenizer-level behaviour it explains is
+    /// pinned by TokenizerTests' three backslash cases.
+    /// </summary>
+    [Fact]
+    public void UnterminatedStringLiteral_FromMySqlBackslashEscape_JNT1002_NamesTheEscape()
+    {
+        var sql = @"select id from users where first_name = 'it\'s'";
+        var (result, _) = Run(sql, "db/Users/GetById.sql");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT1002");
+        Assert.Contains(@"\'", diag.GetMessage());
+        Assert.Contains("MySQL", diag.GetMessage());
+    }
+
+    /// <summary>
+    /// The hint is scoped to the string-literal arm and to files that actually
+    /// contain the sequence: an ordinary unterminated comment must not acquire
+    /// a paragraph about MySQL escapes.
+    /// </summary>
+    [Fact]
+    public void UnterminatedBlockComment_JNT1002_DoesNotMentionBackslashEscapes()
+    {
+        var sql = @"select id from users /* where first_name = 'it\'s'";
+        var (result, _) = Run(sql, "db/Users/GetById.sql");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT1002");
+        Assert.DoesNotContain("MySQL", diag.GetMessage());
+    }
+
     // ── CTE-sourced projection columns must resolve to real types ──
     // Before ResolveThroughCtes they silently typed as object/GetValue.
 

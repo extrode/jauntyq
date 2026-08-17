@@ -670,4 +670,61 @@ select product_id /* inline comment */ from products");
     {
         Assert.False(SqlTokenizer.IsEffectivelyEmpty(SqlTokenizer.Tokenize("/* never closed")));
     }
+
+    // ── MySQL backslash escapes: measured, refused, and NOT silent ─────────
+    //
+    // The string-literal branch recognizes only the ANSI '' escape, so MySQL's
+    // \' is not understood. the todo list carried this as an unverified
+    // hypothesis that the stream is "silently corrupted"; measured 2026-08-17,
+    // it is not — every divergence walks the quote parity off by one and ends
+    // in the Unterminated sentinel, which JNT1002 refuses before the parser
+    // ever runs. The cost is a confusing message, not a wrong build, and that
+    // is why these pin the behaviour rather than change it: an actual fix
+    // needs dialect at the tokenizer, which it does not have (see the @@
+    // branch's comment) and which is a decision, not a patch.
+
+    [Fact]
+    public void MySqlBackslashEscape_EndsInTheUnterminatedSentinel_NotACorruptStream()
+    {
+        var tokens = SqlTokenizer.Tokenize(@"select t.id from t where t.name = 'it\'s'");
+
+        // The literal stops at the backslash-escaped quote, the tail
+        // mis-tokenizes, and the run ends refused rather than parsed.
+        Assert.Contains(tokens, t => t.Type == TokenType.Literal && t.Value == @"it\");
+        Assert.Contains(tokens, t => t.Type == TokenType.Unterminated && t.Value == "' ... '");
+    }
+
+    /// <summary>
+    /// The worst shape found: the mis-parse swallows a whole conjunct into the
+    /// literal (<c>x\'' and t.b = </c>) before quote parity runs out. Even here
+    /// the file still ends in Unterminated, so nothing reaches the generator —
+    /// but this is the case to re-measure first if the refusal is ever relaxed.
+    /// </summary>
+    [Fact]
+    public void MySqlBackslashEscape_CanSwallowAConjunct_ButStillEndsRefused()
+    {
+        var tokens = SqlTokenizer.Tokenize(@"select t.id from t where t.a = 'x\'' and t.b = 'y'");
+
+        // The exact text, not just "contains the conjunct": the ANSI '' form at
+        // the same position swallows an identical span, so a looser assertion
+        // survives swapping the backslash out and pins nothing.
+        Assert.Contains(tokens, t => t.Type == TokenType.Literal && t.Value == @"x\'' and t.b = ");
+        Assert.Contains(tokens, t => t.Type == TokenType.Unterminated);
+    }
+
+    /// <summary>
+    /// The other side of the same coin, and the reason the tokenizer cannot
+    /// simply honour backslash escapes everywhere: <c>'C:\'</c> is a valid,
+    /// complete literal under ANSI/T-SQL/Postgres rules and tokenizes as one
+    /// today. Honouring MySQL's escape unconditionally would turn this correct
+    /// SQL Server file into an unterminated-literal refusal.
+    /// </summary>
+    [Fact]
+    public void TrailingBackslashLiteral_IsCompleteUnderAnsiRules()
+    {
+        var tokens = SqlTokenizer.Tokenize(@"select t.id from t where t.p = 'C:\'");
+
+        Assert.Contains(tokens, t => t.Type == TokenType.Literal && t.Value == @"C:\");
+        Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unterminated);
+    }
 }
