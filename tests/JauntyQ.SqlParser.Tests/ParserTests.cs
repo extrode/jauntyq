@@ -5,6 +5,7 @@ using Xunit;
 
 namespace JauntyQ.SqlParser.Tests;
 
+[Trait("Category", "AuditRegression")]
 public class ParserTests
 {
     private static QueryModel ParseSql(string sql, string name = "TestQuery")

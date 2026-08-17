@@ -41,6 +41,7 @@ namespace JauntyQ.Generator.Tests;
 /// and drive the retry sequence via reflection -- real execution, not static
 /// reasoning, per the audit's verification discipline.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class JauntyDbTransactionRetryTests
 {
     private const string HarnessSource = @"

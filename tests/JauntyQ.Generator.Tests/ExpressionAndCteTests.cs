@@ -15,6 +15,7 @@ namespace JauntyQ.Generator.Tests;
 /// auth-domain schema so the acceptance shapes from the task spec validate and
 /// emit. Dialect is postgres so RETURNING/CTE are not gated by JNT7002.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class ExpressionAndCteTests
 {
     private const string SchemaJson = @"{

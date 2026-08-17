@@ -3,6 +3,7 @@ using Xunit;
 
 namespace JauntyQ.AdventureWorksLite.SqlServer.Tests;
 
+[Trait("Category", "AuditRegression")]
 public class AdventureWorksLiteQueriesTests : IClassFixture<AdventureWorksLiteSqlServerFixture>
 {
     private readonly AdventureWorksLiteSqlServerFixture _fx;

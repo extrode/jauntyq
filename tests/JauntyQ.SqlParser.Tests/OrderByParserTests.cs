@@ -9,6 +9,7 @@ namespace JauntyQ.SqlParser.Tests;
 /// JNT8007, while ordinals, expressions, and projected-alias references are
 /// recorded with a kind that makes the analyzer skip them.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class OrderByParserTests
 {
     private static QueryModel ParseSql(string sql, string name = "TestQuery")

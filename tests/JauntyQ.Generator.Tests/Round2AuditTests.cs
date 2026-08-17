@@ -18,6 +18,7 @@ namespace JauntyQ.Generator.Tests;
 ///   * JNT1005 — pathologically deep parenthesis nesting must be refused fast,
 ///     not drive the parser into its O(n²) regime.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class Round2AuditTests
 {
     private const string SchemaJson = @"{

@@ -20,6 +20,7 @@ namespace JauntyQ.Generator.Tests;
 /// from a change that was scoped to never alter emitted behavior.
 /// The helper must pad only newlines OUTSIDE literals/quoted identifiers.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class SqlLiteralIndentationTests
 {
     private const string ProductsSchema = @"{

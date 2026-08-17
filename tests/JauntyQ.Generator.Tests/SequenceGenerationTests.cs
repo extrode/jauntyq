@@ -6,6 +6,7 @@ using Xunit;
 
 namespace JauntyQ.Generator.Tests;
 
+[Trait("Category", "AuditRegression")]
 public class SequenceGenerationTests
 {
     private const string SqlServerSequenceSchema = @"{

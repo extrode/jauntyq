@@ -13,6 +13,7 @@ namespace JauntyQ.Generator.Tests;
 /// build (JNT2xxx/JNT5xxx against the future world); a CREATE TABLE yields
 /// the full typed API before the table exists in any database.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class MigrationIntegrationTests
 {
     private const string SchemaJson = @"{

@@ -9,6 +9,7 @@ namespace JauntyQ.Analysis.Tests;
 /// copies — this one, plus JauntyQ.Cli's ImpactCommand/UsageManifestBuilder,
 /// which now both forward here instead of re-deriving the convention).
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class EntityNameResolverTests
 {
     [Fact]

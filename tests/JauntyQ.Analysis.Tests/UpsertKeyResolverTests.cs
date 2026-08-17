@@ -9,6 +9,7 @@ namespace JauntyQ.Analysis.Tests;
 /// cref="AutoCrud"/>'s Upsert-synthesis gate and JauntyQ.Generator's
 /// <c>CodeEmitter.Part6.cs::EmitUpsert</c>.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class UpsertKeyResolverTests
 {
     private static ColumnSchema Col(string name, bool pk = false, bool identity = false, bool rowVersion = false, bool computed = false) =>

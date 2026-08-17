@@ -13,6 +13,7 @@ namespace JauntyQ.Generator.Tests;
 /// connection opens, expands the SQL text into an IN-list at runtime, and
 /// binds one parameter per list element.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class EachDirectiveTests
 {
     private const string SchemaJson = @"{

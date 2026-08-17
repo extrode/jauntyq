@@ -13,6 +13,7 @@ namespace JauntyQ.Generator.Tests;
 /// surfaces that at build time instead of leaving it to be discovered only
 /// by noticing the generated property type.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class UnmappedColumnTypeTests
 {
     private const string UnmappedColumnSchemaJson = @"{

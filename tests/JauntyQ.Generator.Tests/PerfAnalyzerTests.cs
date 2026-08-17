@@ -13,6 +13,7 @@ namespace JauntyQ.Generator.Tests;
 /// a column no index covers, JNT8005 duplicate queries. All warnings - the
 /// query stays compiled; the developer just learns it will not be fast.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class PerfAnalyzerTests
 {
     private const string SchemaJson = @"{

@@ -33,6 +33,7 @@ namespace JauntyQ.Generator.Tests;
 /// contain a definition for 'StringComparison'", plus a CS1503 cascade at
 /// every entity's JauntyQShapeGuard.Validate call site.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class SystemReservedNameCollisionTests
 {
     private static string TableSchema(string dialect, string tableName, bool withInet = false)

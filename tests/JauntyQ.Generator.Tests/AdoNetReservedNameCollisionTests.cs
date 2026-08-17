@@ -21,6 +21,7 @@ namespace JauntyQ.Generator.Tests;
 /// broader generic BCL words (Convert/Math/Array/Type/StringComparison/
 /// exception type names) remain deferred (see the findings registry).
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class AdoNetReservedNameCollisionTests
 {
     // Table "db_commands": entityPascal "DbCommands" (no entity-level

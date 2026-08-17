@@ -31,6 +31,7 @@ namespace JauntyQ.Generator.Tests;
 /// <c>JauntyQ.slnx</c> marker the same way. <see cref="RepoRoot_Resolves_AndTheDocsAreReadable"/>
 /// is the guard that stops the whole class from passing vacuously by reading nothing.
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class RegistryParityTests
 {
     private static string RepoRoot()
@@ -314,5 +315,95 @@ public class RegistryParityTests
             "These codes have no [InlineData] severity/category assertion in "
             + "DiagnosticsRegistryTests: " + string.Join(", ", declared.Except(asserted))
             + ". Add a row asserting the severity and category each one ships with.");
+    }
+
+    private static SortedSet<string> RegistryNamedTestClasses()
+    {
+        var classes = new SortedSet<string>(StringComparer.Ordinal);
+        string registry = ReadRepoFile("docs", "99-reports", "audit-findings-registry.md");
+
+        foreach (string line in registry.Split('\n'))
+        {
+            if (!line.StartsWith("| AUD-R", StringComparison.Ordinal))
+                continue;
+
+            string[] cells = line.Split('|');
+            if (cells.Length < 9)
+                continue;
+
+            foreach (Match m in Regex.Matches(cells[7], @"\.Tests\.([A-Za-z0-9_]+)"))
+                classes.Add(m.Groups[1].Value);
+        }
+
+        return classes;
+    }
+
+    [Fact]
+    public void RegistryNamedTestClasses_AreDiscoverable_AndTheScanIsNotVacuous()
+    {
+        var classes = RegistryNamedTestClasses();
+
+        Assert.True(classes.Count >= 40,
+            "Only " + classes.Count + " test classes were parsed out of the registry's "
+            + "regression-test column. The parse has broken, so the trait check below "
+            + "would pass by checking almost nothing.");
+    }
+
+    [Fact]
+    public void EveryRegistryNamedTestClass_CarriesTheAuditRegressionTrait()
+    {
+        string root = RepoRoot();
+        var sources = new List<string>();
+        foreach (string dir in new[] { "tests", "samples" })
+        {
+            string full = Path.Combine(root, dir);
+            if (Directory.Exists(full))
+                sources.AddRange(Directory.EnumerateFiles(full, "*.cs", SearchOption.AllDirectories));
+        }
+
+        var untagged = new List<string>();
+        var notFound = new List<string>();
+
+        foreach (string name in RegistryNamedTestClasses())
+        {
+            var decl = new Regex(
+                @"(?:public|internal)?\s*(?:sealed\s+|abstract\s+|partial\s+)*class\s+"
+                + Regex.Escape(name) + @"\b");
+
+            bool located = false, tagged = false;
+            foreach (string file in sources)
+            {
+                if (file.Contains("\\obj\\") || file.Contains("/obj/"))
+                    continue;
+
+                string text = File.ReadAllText(file);
+                Match m = decl.Match(text);
+                if (!m.Success)
+                    continue;
+
+                located = true;
+                int from = Math.Max(0, m.Index - 400);
+                if (text.Substring(from, m.Index - from).Contains("AuditRegression"))
+                {
+                    tagged = true;
+                    break;
+                }
+            }
+
+            if (!located) notFound.Add(name);
+            else if (!tagged) untagged.Add(name);
+        }
+
+        Assert.True(notFound.Count == 0,
+            "The registry names regression tests in classes that no longer exist: "
+            + string.Join(", ", notFound)
+            + ". A registry row pointing at a deleted test guards nothing.");
+
+        Assert.True(untagged.Count == 0,
+            "These test classes are named in the findings registry but do not carry "
+            + "[Trait(\"Category\", \"AuditRegression\")]: " + string.Join(", ", untagged)
+            + ". The guarded regression suite is selected by that trait, so an untagged "
+            + "class is silently excluded from the run that is supposed to catch a "
+            + "reverted fix.");
     }
 }

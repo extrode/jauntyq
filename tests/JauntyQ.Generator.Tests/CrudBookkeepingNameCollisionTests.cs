@@ -19,6 +19,7 @@ namespace JauntyQ.Generator.Tests;
 /// generated code (via the generator driver's own output compilation, the
 /// same pattern GeneratorIntegrationTests.cs already uses).
 /// </summary>
+[Trait("Category", "AuditRegression")]
 public class CrudBookkeepingNameCollisionTests
 {
     private const string SchemaJson = @"{
