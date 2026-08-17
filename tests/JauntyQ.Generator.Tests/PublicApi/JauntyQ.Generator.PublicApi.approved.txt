@@ -174,6 +174,7 @@ class JauntyQ.Generator.CodeEmitter
     method InferParameterType(String,QueryModel,ProjectionModel,DatabaseSchema,DirectiveModel):String
 class JauntyQ.Generator.Directives.DirectiveModel
     ctor .ctor()
+    prop AllowUnindexedReason:String
     prop CallProcName:String
     prop EachParams:List<String>
     prop ExplicitParams:List<ExplicitParam>
@@ -220,6 +221,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT1006:DiagnosticDescriptor
     field JNT1007:DiagnosticDescriptor
     field JNT1008:DiagnosticDescriptor
+    field JNT1009:DiagnosticDescriptor
     field JNT2001:DiagnosticDescriptor
     field JNT2002:DiagnosticDescriptor
     field JNT2003:DiagnosticDescriptor
@@ -240,6 +242,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT2018:DiagnosticDescriptor
     field JNT2019:DiagnosticDescriptor
     field JNT2020:DiagnosticDescriptor
+    field JNT2021:DiagnosticDescriptor
     field JNT3001:DiagnosticDescriptor
     field JNT3002:DiagnosticDescriptor
     field JNT3003:DiagnosticDescriptor
@@ -270,6 +273,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT8009:DiagnosticDescriptor
     field JNT8010:DiagnosticDescriptor
     field JNT8011:DiagnosticDescriptor
+    field JNT8012:DiagnosticDescriptor
     field JNT9001:DiagnosticDescriptor
     field JNT9002:DiagnosticDescriptor
     field JNT9003:DiagnosticDescriptor
@@ -383,6 +387,8 @@ class JauntyQ.Schema.TableSchema
     ctor .ctor()
     prop Columns:Dictionary<String,ColumnSchema>
     prop Indexes:List<IndexSchema>
+    prop IsInsertable:Boolean
+    prop IsView:Boolean
     prop Name:String
 struct JauntyQ.SqlParser.IR.AtomTerm
     prop Kind:AtomTermKind
