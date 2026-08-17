@@ -9,23 +9,83 @@ using Xunit;
 namespace JauntyQ.Conduit.MariaDb.Tests.Http;
 
 /// <summary>
+/// One MariaDB server per test ASSEMBLY, joined by every HTTP class fixture
+/// below rather than started once per class.
+///
+/// The 2026-07-31 shared-engine-container work converted every direct-repository
+/// fixture to a collection fixture for exactly this reason, and did not reach
+/// this directory. Measured 2026-08-17: this assembly alone put SEVEN MariaDB
+/// containers on the daemon at once -- ConduitMariaDbFixture's one, plus one per
+/// HTTP test class. Four such assemblies under `-m:4` is ~28, and at that point
+/// the failure is not the database. It is Docker's own named pipe:
+/// NamedPipeClientStream.ConnectInternal timing out inside Docker.DotNet, which
+/// surfaces as fifteen bare "The operation has timed out." failures in whichever
+/// class lost the race.
+///
+/// xUnit v2 cannot inject a collection fixture into a class fixture, so the
+/// sharing is a static rather than an ICollectionFixture. The container is
+/// deliberately never disposed here: Testcontainers' resource reaper removes it
+/// when the test process exits, which is the mechanism it exists for, and it is
+/// the only teardown point that outlives all six class fixtures.
+/// </summary>
+internal static class ConduitHttpServer
+{
+    private static readonly SemaphoreSlim Gate = new(1, 1);
+    private static MariaDbContainer? _started;
+    private static Exception? _failure;
+
+    internal static async Task<MariaDbContainer> StartOrJoinAsync()
+    {
+        await Gate.WaitAsync();
+        try
+        {
+            // Cached so a machine without Docker pays one bring-up timeout for
+            // the assembly instead of one per class.
+            if (_failure is not null)
+                throw _failure;
+            if (_started is not null)
+                return _started;
+
+            var container = new MariaDbBuilder().WithImage("mariadb:11").Build();
+            try
+            {
+                await container.StartAsync();
+            }
+            catch (Exception ex)
+            {
+                _failure = ex;
+                throw;
+            }
+
+            _started = container;
+            return container;
+        }
+        finally
+        {
+            Gate.Release();
+        }
+    }
+}
+
+/// <summary>
 /// Boots the real ASP.NET Core host (Program.cs) against a real MariaDB
-/// instance started via Testcontainers -- separate from ConduitMariaDbFixture
+/// database -- separate from ConduitMariaDbFixture
 /// so the direct-repository tests and the HTTP black-box tests each get their
 /// own isolated database. Overrides the "ConnectionString" configuration key
 /// via ConfigureWebHost, matching what Program.cs already reads, so no
 /// production code needs to change to support this test seam.
 ///
-/// WebApplicationFactory's constructor is synchronous and can't start a
+/// WebApplicationFactory's constructor is synchronous and can't join a
 /// container cleanly, so this class also implements IAsyncLifetime (xUnit's
-/// IClassFixture honors it for setup/teardown): the container starts and the
-/// DDL-only schema is applied in InitializeAsync. Soft-skips (via
-/// <see cref="Available"/>) when Docker is unavailable -- every HTTP test
-/// method guards on it.
+/// IClassFixture honors it for setup/teardown): the shared server is joined and
+/// a fresh catalogue carrying the DDL-only schema is created in InitializeAsync.
+/// Soft-skips (via <see cref="Available"/>) when Docker is unavailable -- every
+/// HTTP test method guards on it.
 /// </summary>
 public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private MariaDbContainer? _container;
+    private string _adminConnectionString = string.Empty;
+    private string _database = string.Empty;
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
@@ -51,9 +111,7 @@ public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyn
         MariaDbContainer container;
         try
         {
-            container = new MariaDbBuilder().WithImage("mariadb:11").Build();
-            _container = container;
-            await container.StartAsync();
+            container = await ConduitHttpServer.StartOrJoinAsync();
         }
         catch (Exception ex)
         {
@@ -62,7 +120,31 @@ public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyn
             return;
         }
 
-        ConnectionString = container.GetConnectionString();
+        // A catalogue per test class, not a server per test class. The six HTTP
+        // classes run in parallel and each registers its own users through the
+        // API, so they must not see each other's rows -- but that is an argument
+        // for separate databases, which cost nothing, rather than separate
+        // containers, which cost a Docker bring-up each.
+        // The container's own user is not granted CREATE DATABASE; root is, and
+        // Testcontainers gives it the same password.
+        _adminConnectionString = new MySqlConnectionStringBuilder(container.GetConnectionString())
+        {
+            UserID = "root",
+        }.ConnectionString;
+        _database = "conduit_http_" + Guid.NewGuid().ToString("N")[..12];
+
+        await using (var server = new MySqlConnection(_adminConnectionString))
+        {
+            await server.OpenAsync();
+            await using var create = server.CreateCommand();
+            create.CommandText = $"CREATE DATABASE `{_database}`";
+            await create.ExecuteNonQueryAsync();
+        }
+
+        ConnectionString = new MySqlConnectionStringBuilder(_adminConnectionString)
+        {
+            Database = _database,
+        }.ConnectionString;
 
         // schema.mariadb.ddl.sql is a DDL-only copy of schema.mariadb.sql (no seed rows):
         // HTTP tests create every user/article through the API itself, and would
@@ -94,8 +176,22 @@ public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyn
 
     async Task IAsyncLifetime.DisposeAsync()
     {
-        if (_container is not null)
-            try { await _container.DisposeAsync(); } catch { /* nothing started */ }
+        // The catalogue is this fixture's to drop; the server is not this
+        // fixture's to stop, because the other five class fixtures may still be
+        // using it. See ConduitHttpServer for what removes the container.
+        if (_database.Length > 0)
+        {
+            try
+            {
+                await using var server = new MySqlConnection(_adminConnectionString);
+                await server.OpenAsync();
+                await using var drop = server.CreateCommand();
+                drop.CommandText = $"DROP DATABASE IF EXISTS `{_database}`";
+                await drop.ExecuteNonQueryAsync();
+            }
+            catch { /* the server is going away with the process regardless */ }
+        }
+
         await base.DisposeAsync();
     }
 }
