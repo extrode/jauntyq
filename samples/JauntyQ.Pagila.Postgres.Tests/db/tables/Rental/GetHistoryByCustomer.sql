@@ -1,4 +1,5 @@
 -- @each CustomerIds
+-- @allow-unindexed canonical pagila ships no index on inventory.film_id, rental.customer_id; this sample keeps the upstream schema unmodified
 select r.customer_id, r.rental_id, r.rental_date, r.return_date, f.title
 from rental r
 join inventory i on i.inventory_id = r.inventory_id

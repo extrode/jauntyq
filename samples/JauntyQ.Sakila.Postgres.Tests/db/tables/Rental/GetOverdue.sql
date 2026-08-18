@@ -1,3 +1,4 @@
+-- @allow-unindexed canonical sakila ships no index on rental.customer_id, rental.inventory_id, inventory.film_id; this sample keeps the upstream schema unmodified
 select r.rental_id, c.customer_id, c.first_name, c.last_name, r.rental_date, f.title
 from rental r
 join customer c on c.customer_id = r.customer_id

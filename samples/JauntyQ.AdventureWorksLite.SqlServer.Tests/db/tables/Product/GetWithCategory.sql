@@ -1,3 +1,4 @@
+-- @allow-unindexed canonical adventureworks ships no index on Product.ProductSubcategoryID; this sample keeps the upstream schema unmodified
 select p.ProductID, p.Name, sc.Name as SubcategoryName, cat.Name as CategoryName
 from Production.Product p
 join Production.ProductSubcategory sc on sc.ProductSubcategoryID = p.ProductSubcategoryID

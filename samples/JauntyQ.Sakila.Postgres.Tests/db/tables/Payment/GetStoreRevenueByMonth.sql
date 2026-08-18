@@ -1,6 +1,7 @@
 -- @type year int
 -- @type month int
 -- @type revenue numeric
+-- @allow-unindexed canonical sakila ships no index on payment.staff_id, staff.store_id; this sample keeps the upstream schema unmodified
 -- Normalized to UTC before extracting date parts: payment_date is TIMESTAMPTZ
 -- and extract() otherwise uses the session timezone, which shifts rows near
 -- month boundaries into a different month than the UTC-naive SQLite side.
