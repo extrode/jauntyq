@@ -1,3 +1,4 @@
+-- @allow-unindexed canonical sakila ships no index on rental.inventory_id, inventory.film_id; this sample keeps the upstream schema unmodified
 select f.film_id, f.title
 from film f
 where not exists (

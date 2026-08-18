@@ -1,3 +1,4 @@
+-- @allow-unindexed canonical adventureworks ships no index on SalesOrderDetail.ProductID; this sample keeps the upstream schema unmodified
 -- Aggregate over a computed column, joined cross-schema — SUM(LineTotal)
 -- must infer its C# type from LineTotal's own decimal column type (fixed in
 -- an earlier torture-test pass), not require an explicit -- @type directive.

@@ -1,4 +1,5 @@
 -- @type avg_days double precision
+-- @allow-unindexed canonical sakila ships no index on inventory.film_id, rental.inventory_id; this sample keeps the upstream schema unmodified
 select cat.category_id, cat.name,
     avg(extract(epoch from (r.return_date - r.rental_date)) / 86400.0) as avg_days
 from category cat

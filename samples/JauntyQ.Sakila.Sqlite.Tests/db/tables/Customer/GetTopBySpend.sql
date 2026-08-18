@@ -1,4 +1,5 @@
 -- @type total_spend numeric
+-- @allow-unindexed canonical sakila ships no index on payment.customer_id; this sample keeps the upstream schema unmodified
 select c.customer_id, c.first_name, c.last_name, round(sum(p.amount), 2) as total_spend
 from customer c
 join payment p on p.customer_id = c.customer_id

@@ -1,3 +1,4 @@
+-- @allow-unindexed canonical adventureworks ships no index on SalesOrderDetail.ProductID; this sample keeps the upstream schema unmodified
 -- Cross-schema join: Sales.SalesOrderDetail -> Production.Product.
 -- LineTotal is a persisted computed column, verbatim from real
 -- AdventureWorks: isnull(UnitPrice * (1 - UnitPriceDiscount) * OrderQty, 0).

@@ -1,6 +1,7 @@
 -- @type year int
 -- @type month int
 -- @type revenue numeric
+-- @allow-unindexed canonical sakila ships no index on payment.staff_id, staff.store_id; this sample keeps the upstream schema unmodified
 select
     year(p.payment_date) as year,
     month(p.payment_date) as month,

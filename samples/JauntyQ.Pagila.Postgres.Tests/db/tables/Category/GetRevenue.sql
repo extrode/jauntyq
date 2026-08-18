@@ -1,4 +1,5 @@
 -- @type Revenue numeric
+-- @allow-unindexed canonical pagila ships no index on inventory.film_id, payment.rental_id; this sample keeps the upstream schema unmodified
 select cat.category_id, cat.name, round(sum(p.amount), 2) as Revenue
 from category cat
 join film_category fc on fc.category_id = cat.category_id
