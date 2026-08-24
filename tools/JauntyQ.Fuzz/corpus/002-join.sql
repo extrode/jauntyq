@@ -1,0 +1,1 @@
+select p.id, c.name from products p join categories c on c.id = p.cat_id

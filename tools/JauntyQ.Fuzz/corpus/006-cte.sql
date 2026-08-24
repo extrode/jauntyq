@@ -1,0 +1,1 @@
+with r as (select id from t) select * from r

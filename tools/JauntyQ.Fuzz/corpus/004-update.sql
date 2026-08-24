@@ -1,0 +1,1 @@
+update t set a = @a where id = @id

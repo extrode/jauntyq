@@ -1,0 +1,1 @@
+insert into t (a) values (@a) returning id

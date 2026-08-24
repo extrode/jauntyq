@@ -1,0 +1,1 @@
+select 'it''s', N'x', 42, 19.99 from t

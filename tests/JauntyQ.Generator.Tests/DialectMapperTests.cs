@@ -491,4 +491,48 @@ public class DialectMapperTests
         // characters, not the occurrences.
         Assert.Equal("ä", DialectMapper.DroppedMeaningfulCharacters("bäckerei_läden"));
     }
+
+    [Theory]
+    [InlineData("decimal", 38, "sqlserver")]
+    [InlineData("numeric", 38, "sqlserver")]
+    [InlineData("decimal", 65, "mysql")]
+    [InlineData("numeric", 65, "mysql")]
+    [InlineData("numeric", 131072, "postgres")]
+    [InlineData("decimal", 28, "sqlite")]
+    [InlineData("decimal", 38, null)]
+    public void DecimalFamily_AtEachDialectsPrecisionCeiling_MapsToSystemDecimal(
+        string dbType, int precision, string? dialect)
+    {
+        Assert.Equal("decimal", DialectMapper.MapDbTypeToCSharp(dbType, false, precision, dialect));
+        Assert.Equal("decimal?", DialectMapper.MapDbTypeToCSharp(dbType, true, precision, dialect));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(28)]
+    [InlineData(29)]
+    [InlineData(38)]
+    [InlineData(65)]
+    [InlineData(131072)]
+    public void DecimalFamily_PrecisionNeverChangesTheMapping_EvenBeyondSystemDecimalCapacity(int precision)
+    {
+        Assert.Equal("decimal", DialectMapper.MapDbTypeToCSharp("decimal", false, precision, "sqlserver"));
+    }
+
+    [Theory]
+    [InlineData("datetime", "sqlserver")]
+    [InlineData("datetime2", "sqlserver")]
+    [InlineData("date", "sqlserver")]
+    [InlineData("timestamp", "postgres")]
+    [InlineData("date", "postgres")]
+    [InlineData("datetime", "mysql")]
+    [InlineData("date", "mysql")]
+    [InlineData("datetime", "sqlite")]
+    [InlineData("date", "sqlite")]
+    public void TemporalFamily_MapsToSystemDateTime_OnEveryDialect_DespiteDivergentRangeFloors(
+        string dbType, string dialect)
+    {
+        Assert.Equal("System.DateTime", DialectMapper.MapDbTypeToCSharp(dbType, false, null, dialect));
+        Assert.Equal("System.DateTime?", DialectMapper.MapDbTypeToCSharp(dbType, true, null, dialect));
+    }
 }

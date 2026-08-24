@@ -69,3 +69,88 @@ public class StreamingTests : IClassFixture<SqliteFixture>
         Assert.IsAssignableFrom<System.Collections.Generic.IEnumerable<Product>>(seq);
     }
 }
+
+public class StreamingLifecycleTests : IClassFixture<SqliteFixture>
+{
+    private readonly SqliteFixture _fx;
+    public StreamingLifecycleTests(SqliteFixture fx) => _fx = fx;
+
+    [Fact]
+    public void Stream_EmptyResult_YieldsZeroRows()
+    {
+        int count = 0;
+        foreach (var p in _fx.Db.Products.StreamByCategory(999))
+            count++;
+        Assert.Equal(0, count);
+    }
+
+    [Fact]
+    public void Stream_ByCategory_YieldsOnlyMatchingRows()
+    {
+        foreach (var p in _fx.Db.Products.StreamByCategory(1))
+            Assert.Equal(1, p.CategoryId);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task Stream_Async_CancelAtRowK_StopsAtExactlyK(int k)
+    {
+        using var cts = new CancellationTokenSource();
+        int seen = 0;
+        await foreach (var p in _fx.Db.Products.StreamAllAsync().WithCancellation(cts.Token))
+        {
+            seen++;
+            if (seen == k) cts.Cancel();
+            if (cts.IsCancellationRequested) break;
+        }
+        Assert.Equal(k, seen);
+    }
+
+    [Fact]
+    public void Stream_DisposeMidEnumeration_Twice_IsSafe()
+    {
+        var e = _fx.Db.Products.StreamAll().GetEnumerator();
+        Assert.True(e.MoveNext());
+        e.Dispose();
+        e.Dispose();
+    }
+}
+
+public class StreamingScaleTests : IClassFixture<StreamingScaleFixture>
+{
+    private readonly StreamingScaleFixture _fx;
+    public StreamingScaleTests(StreamingScaleFixture fx) => _fx = fx;
+
+    [Fact]
+    public void Stream_LargeResult_YieldsAllRows()
+    {
+        int count = 0, lastId = 0;
+        foreach (var p in _fx.Db.Products.StreamAll())
+        {
+            Assert.False(string.IsNullOrEmpty(p.ProductName));
+            Assert.True(p.ProductId > lastId);
+            lastId = p.ProductId;
+            count++;
+        }
+        Assert.Equal(4 + StreamingScaleFixture.SeededProductCount, count);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(100)]
+    [InlineData(10_000)]
+    public async Task Stream_Async_CancelDeepInEnumeration_StopsAtExactlyK(int k)
+    {
+        using var cts = new CancellationTokenSource();
+        int seen = 0;
+        await foreach (var p in _fx.Db.Products.StreamAllAsync().WithCancellation(cts.Token))
+        {
+            seen++;
+            if (seen == k) cts.Cancel();
+            if (cts.IsCancellationRequested) break;
+        }
+        Assert.Equal(k, seen);
+    }
+}

@@ -789,4 +789,97 @@ public class ValueSafetyTests
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
     }
+
+    private static GeneratorDriverRunResult RunDecimal(
+        string dialect, int precision, int scale, string sql)
+    {
+        string schema = @"{
+  ""dialect"": """ + dialect + @""",
+  ""tables"": {
+    ""amounts"": {
+      ""name"": ""amounts"",
+      ""columns"": {
+        ""amount_id"": { ""name"": ""amount_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""value"": { ""name"": ""value"", ""dbType"": ""decimal"", ""isNullable"": false, ""precision"": " + precision + @", ""scale"": " + scale + @" }
+      }
+    }
+  }
+}";
+        var compilation = CSharpCompilation.Create("DecimalCeilingTestAssembly",
+            new[] { CSharpSyntaxTree.ParseText("") },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
+            .AddAdditionalTexts(ImmutableArray.Create<AdditionalText>(
+                new InMemoryAdditionalText("db/Amounts/TestQuery.sql", sql),
+                new InMemoryAdditionalText("schema/jaunty.schema.json", schema)))
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
+        return driver.GetRunResult();
+    }
+
+    [Fact]
+    public void SqlServerDecimal38_2_ParseableLiteralFits_NoJNT5002()
+    {
+        var result = RunDecimal("sqlserver", 38, 2,
+            "update amounts\nset value = 12345678901234567890.99\nwhere amount_id = @id");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void SqlServerDecimal38_38_IntegerDigits_JNT5002()
+    {
+        var result = RunDecimal("sqlserver", 38, 38,
+            "update amounts\nset value = 12.34\nwhere amount_id = @id");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlDecimal65_30_LiteralBeyondSystemDecimalCapacity_IsSkipped_NoJNT5002()
+    {
+        var result = RunDecimal("mysql", 65, 30,
+            "update amounts\nset value = 1234567890123456789012345678901234567890.5\nwhere amount_id = @id");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlDecimal28_2_ScaleRounding_IsStillDetected_JNT5002()
+    {
+        var rounded = RunDecimal("mysql", 28, 2,
+            "update amounts\nset value = 1.234\nwhere amount_id = @id");
+
+        Assert.Single(rounded.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlDecimal28_28_ZeroIntegerDigits_JNT5002()
+    {
+        var result = RunDecimal("mysql", 28, 28,
+            "update amounts\nset value = 1.5\nwhere amount_id = @id");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void MySqlDecimal65_30_AtExactMaximumScale_RoundingIsUncheckable_NoJNT5002()
+    {
+        var result = RunDecimal("mysql", 65, 30,
+            "update amounts\nset value = 1.234\nwhere amount_id = @id");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
+    public void PostgresNumeric131072_EveryParseableLiteralFits_NoJNT5002()
+    {
+        var result = RunDecimal("postgres", 131072, 16383,
+            "update amounts\nset value = 79228162514264337593543950335\nwhere amount_id = @id");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT5002");
+    }
 }

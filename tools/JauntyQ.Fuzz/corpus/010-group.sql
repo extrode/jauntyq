@@ -1,0 +1,1 @@
+select a, count(*) from t group by a having count(*) > 1

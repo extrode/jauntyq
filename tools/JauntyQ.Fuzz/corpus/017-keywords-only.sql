@@ -1,0 +1,1 @@
+select from where join on and or not null
