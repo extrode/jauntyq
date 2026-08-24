@@ -1,0 +1,1 @@
+select case when a = 1 then 2 else 3 end from t

@@ -1,0 +1,1 @@
+insert into t (a, b) values (@a, @b)
