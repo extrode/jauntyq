@@ -37,8 +37,35 @@ internal sealed class DiagnosticInfo : IEquatable<DiagnosticInfo>
         new DiagnosticInfo(descriptor.Id, descriptor.Title.ToString(), descriptor.MessageFormat.ToString(),
             descriptor.Category, descriptor.DefaultSeverity, arg);
 
+    /// <summary>
+    /// Title and category come from the real descriptor when the error carries
+    /// one, which every JauntyDiagnostics-constructed ValidationError does
+    /// (ValidationError.cs:12-16 sets Descriptor and derives Code from it).
+    ///
+    /// This used to hard-code category "JauntyQ" and use the code string as the
+    /// title, discarding the descriptor the error was already holding. That
+    /// mattered once a second report site started using the descriptor
+    /// directly: the same ID could reach the compiler under two categories and
+    /// two titles depending on which path raised it, so severity-by-category
+    /// (dotnet_analyzer_diagnostic_category-*) applied to some instances of an
+    /// ID and not others, and SARIF carried two rule entries for one rule. ID-
+    /// keyed configuration -- NoWarn, dotnet_diagnostic.JNTxxxx.severity -- was
+    /// never affected either way.
+    ///
+    /// Severity still comes from the ValidationError, not the descriptor: a
+    /// validator may report an otherwise-Error diagnostic as a Warning for a
+    /// particular shape, and that decision outranks the default.
+    ///
+    /// messageFormat stays the raw message with arg null, so ToDiagnostic's
+    /// no-argument Create returns it unformatted and a brace in a column name
+    /// cannot throw.
+    /// </summary>
     public static DiagnosticInfo ForValidation(ValidationError error) =>
-        new DiagnosticInfo(error.Code, error.Code, error.Message, "JauntyQ",
+        new DiagnosticInfo(
+            error.Code,
+            error.Descriptor?.Title.ToString() ?? error.Code,
+            error.Message,
+            error.Descriptor?.Category ?? "JauntyQ",
             error.Severity == ValidationSeverity.Warning ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
             arg: null);
 

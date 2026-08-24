@@ -247,11 +247,23 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             .WithTrackingName("JauntyQ_Summaries");
 
         // commonPrefix rides along so a JNT8004 on a SYNTHETIC query can name
-        // the .sql file that would claim its slot (Part4.cs:327) -- the only
-        // route by which a consumer can accept an auto-CRUD scan. It is a
-        // projection of the path set, which changes only on add/rename/delete,
-        // and `summaries` already re-runs on exactly those, so this costs the
-        // aggregate output no additional invalidation.
+        // the .sql file that would claim its slot -- the only route by which a
+        // consumer can accept an auto-CRUD scan.
+        //
+        // On the common path this is free: a body edit leaves every path string
+        // equal, so the prefix is unchanged and the aggregate stays cached. It
+        // is NOT free in general, and the difference is worth stating rather
+        // than glossing. FileSummary (Part8.cs:17-38) carries entity, method,
+        // claims, emitted and canonical table -- no path. So renaming the SQL
+        // root (db/ -> queries/, or relocating the project) changes every path
+        // and hence the prefix, while the summaries array stays value-equal
+        // under FileSummaryArrayComparer: before this Combine the aggregate
+        // stayed cached across such a rename, and now it re-runs.
+        //
+        // That re-run is required, not a regression. A cached aggregate would
+        // keep printing the pre-rename path in the hint, which is the one thing
+        // the diagnostic must not do -- its whole value is that the path it
+        // names is the path that works.
         var aggregateInput = summaries
             .Combine(schemaState)
             .Combine(autoCrudEnabled)
