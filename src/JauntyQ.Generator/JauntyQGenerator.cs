@@ -246,15 +246,22 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             .WithComparer(FileSummaryArrayComparer.Instance)
             .WithTrackingName("JauntyQ_Summaries");
 
+        // commonPrefix rides along so a JNT8004 on a SYNTHETIC query can name
+        // the .sql file that would claim its slot (Part4.cs:327) -- the only
+        // route by which a consumer can accept an auto-CRUD scan. It is a
+        // projection of the path set, which changes only on add/rename/delete,
+        // and `summaries` already re-runs on exactly those, so this costs the
+        // aggregate output no additional invalidation.
         var aggregateInput = summaries
             .Combine(schemaState)
             .Combine(autoCrudEnabled)
+            .Combine(commonPrefix)
             .WithTrackingName("JauntyQ_AggregateInput");
 
         context.RegisterSourceOutput(aggregateInput, static (ctx, pair) =>
         {
-            var ((fileSummaries, schema), autoCrud) = pair;
-            EmitAggregates(ctx, fileSummaries, schema, autoCrud);
+            var (((fileSummaries, schema), autoCrud), prefix) = pair;
+            EmitAggregates(ctx, fileSummaries, schema, autoCrud, prefix);
         });
     }
 
