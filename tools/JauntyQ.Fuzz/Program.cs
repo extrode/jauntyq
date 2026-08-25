@@ -15,10 +15,13 @@ namespace JauntyQ.Fuzz;
 /// consumer's build. A crash here is therefore a build-breaking defect for
 /// every consumer with a .sql file of that shape, not a cosmetic one.
 ///
-/// Run (Linux, libFuzzer):
+/// Run (Linux, libFuzzer). The last line must go through the native driver:
+/// launched as plain `dotnet JauntyQ.Fuzz.dll`, SharpFuzz finds none of the
+/// IPC environment variables and replays args[1] as a single file instead.
 ///   dotnet publish tools/JauntyQ.Fuzz -c Release -o out/fuzz
 ///   sharpfuzz out/fuzz/JauntyQ.SqlParser.dll
-///   dotnet out/fuzz/JauntyQ.Fuzz.dll tools/JauntyQ.Fuzz/corpus -max_total_time=600
+///   ./libfuzzer-dotnet -max_total_time=600 --target_path="$(command -v dotnet)" \
+///     --target_arg=out/fuzz/JauntyQ.Fuzz.dll tools/JauntyQ.Fuzz/corpus
 ///
 /// Minimise any crash before promoting it (-minimize_crash=1), then add it to
 /// HostileInputParserTests with a name and a reason, per the plan's
