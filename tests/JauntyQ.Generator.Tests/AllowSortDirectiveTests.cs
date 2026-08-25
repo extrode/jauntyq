@@ -272,10 +272,9 @@ public class AllowSortDirectiveTests
     {
         var result = Run(
             $"-- @allow-sort {Reason}\n" +
-            "select articles.id, articles.no_such_column\n" +
-            "from articles\n" +
-            "order by articles.created_at");
+            "select t.id from no_such_table t order by t.author_id");
 
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT2001");
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8012");
     }
 
