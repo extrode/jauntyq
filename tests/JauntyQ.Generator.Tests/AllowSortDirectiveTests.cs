@@ -27,7 +27,41 @@ public class AllowSortDirectiveTests
   }
 }";
 
-    private static GeneratorDriverRunResult Run(string sql)
+    private const string CompositeIndexSchemaJson = @"{
+  ""dialect"": ""postgres"",
+  ""tables"": {
+    ""articles"": {
+      ""name"": ""articles"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""author_id"": { ""name"": ""author_id"", ""dbType"": ""int"", ""isNullable"": false },
+        ""created_at"": { ""name"": ""created_at"", ""dbType"": ""timestamp"", ""isNullable"": false },
+        ""title"": { ""name"": ""title"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 200 }
+      },
+      ""indexes"": [
+        { ""name"": ""ix_articles_author_created"", ""columns"": [""author_id"", ""created_at""], ""isUnique"": false }
+      ]
+    }
+  }
+}";
+
+    private const string NoIndexMetadataSchemaJson = @"{
+  ""dialect"": ""postgres"",
+  ""tables"": {
+    ""articles"": {
+      ""name"": ""articles"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""author_id"": { ""name"": ""author_id"", ""dbType"": ""int"", ""isNullable"": false },
+        ""created_at"": { ""name"": ""created_at"", ""dbType"": ""timestamp"", ""isNullable"": false },
+        ""title"": { ""name"": ""title"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 200 }
+      },
+      ""indexes"": []
+    }
+  }
+}";
+
+    private static GeneratorDriverRunResult Run(string sql, string schemaJson = SchemaJson)
     {
         var compilation = CSharpCompilation.Create("AllowSortTestAssembly",
             new[] { CSharpSyntaxTree.ParseText("") },
@@ -37,7 +71,7 @@ public class AllowSortDirectiveTests
         var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
             .AddAdditionalTexts(ImmutableArray.Create<AdditionalText>(
                 new InMemoryAdditionalText("db/Articles/TestQuery.sql", sql),
-                new InMemoryAdditionalText("schema/jaunty.schema.json", SchemaJson)))
+                new InMemoryAdditionalText("schema/jaunty.schema.json", schemaJson)))
             .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
 
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
@@ -195,6 +229,53 @@ public class AllowSortDirectiveTests
         var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT8012");
         Assert.Contains("-- @allow-unindexed", diag.GetMessage());
         Assert.DoesNotContain("-- @allow-sort", diag.GetMessage());
+    }
+
+    [Fact]
+    public void CompositeIndex_EachOrderByItemIsTestedIndependently_NonLeadingUnfilteredRaisesJNT8007()
+    {
+        var result = Run(
+            "select articles.id, articles.title\n" +
+            "from articles\n" +
+            "order by articles.author_id desc, articles.created_at",
+            CompositeIndexSchemaJson);
+
+        Assert.Contains(result.Diagnostics,
+            d => d.Id == "JNT8007" && d.GetMessage().Contains("articles.created_at"));
+        Assert.DoesNotContain(result.Diagnostics,
+            d => d.Id == "JNT8007" && d.GetMessage().Contains("articles.author_id"));
+    }
+
+    [Fact]
+    public void CompositeIndex_NonEqualityFilterOnTheLeadingColumn_SuppressesJNT8007()
+    {
+        var result = Run(
+            "select articles.id, articles.title\n" +
+            "from articles\n" +
+            "where articles.author_id > @since\n" +
+            "order by articles.created_at",
+            CompositeIndexSchemaJson);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8007");
+    }
+
+    [Fact]
+    public void SnapshotWithNoIndexMetadata_DirectiveIsNotReportedAsUnnecessary()
+    {
+        var result = Run($"-- @allow-sort {Reason}\n" + UnsortedQuery, NoIndexMetadataSchemaJson);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8012");
+    }
+
+    [Fact]
+    public void QueryThatFailsEarlierValidation_DirectiveIsNotReportedAsUnnecessary()
+    {
+        var result = Run(
+            $"-- @allow-sort {Reason}\n" +
+            "select t.id from no_such_table t order by t.author_id");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT2001");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8012");
     }
 
     [Fact]
