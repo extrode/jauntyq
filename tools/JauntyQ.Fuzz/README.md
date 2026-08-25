@@ -48,10 +48,23 @@ curl -sSfL -o libfuzzer-dotnet \
   https://github.com/Metalnem/libfuzzer-dotnet/releases/download/v2025.05.02.0904/libfuzzer-dotnet-ubuntu
 chmod +x libfuzzer-dotnet
 
-mkdir -p out/fuzz-findings
+mkdir -p out/corpus out/fuzz-findings
 ./libfuzzer-dotnet -max_total_time=600 -artifact_prefix=out/fuzz-findings/ \
   --target_path="$(command -v dotnet)" --target_arg=out/fuzz/JauntyQ.Fuzz.dll \
-  tools/JauntyQ.Fuzz/corpus
+  out/corpus tools/JauntyQ.Fuzz/corpus
+```
+
+Two corpus directories, and the order matters: libFuzzer writes new units to the **first** one
+only and treats the rest as read-only seeds. `out/corpus` is the one that grows;
+`tools/JauntyQ.Fuzz/corpus` keeps its 18 committed seeds untouched. Nightly caches `out/corpus`
+under a rolling `fuzz-corpus-*` key so each night resumes where the last left off, and minimises
+it with `-merge=1` before saving:
+
+```sh
+mkdir -p out/corpus-min
+./libfuzzer-dotnet -merge=1 \
+  --target_path="$(command -v dotnet)" --target_arg=out/fuzz/JauntyQ.Fuzz.dll \
+  out/corpus-min out/corpus tools/JauntyQ.Fuzz/corpus
 ```
 
 `libfuzzer-dotnet` is not optional and not a wrapper for convenience. `Fuzzer.LibFuzzer.Run`
