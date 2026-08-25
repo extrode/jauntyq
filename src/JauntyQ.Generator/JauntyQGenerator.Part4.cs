@@ -66,8 +66,154 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                $"'-- @allow-unindexed <reason>' followed by: {oneLineSql} -- a hand-written file always " +
                "overrides the generated method of the same name. That file is then yours: it no longer " +
                "tracks schema changes, so a column added upstream will not appear in it and no diagnostic " +
-               "will say so. To drop the generated loader instead, set " +
+               "will say so. To keep the generated loader and its schema tracking, add " +
+               $"{{\"table\": \"{synth.TableName}\", \"column\": \"{synth.FilterColumn}\", \"reason\": \"...\"}} " +
+               "to the allowUnindexed list in a 'jaunty.accept.json' AdditionalFile instead; JauntyQ reports that " +
+               "entry as unnecessary once an index covers the column. To drop the generated loader instead, set " +
                "<JauntyQAutoCrud>false</JauntyQAutoCrud>, which removes auto-CRUD for every table.";
+    }
+
+    /// <summary>
+    /// One validated entry from jaunty.accept.json, plus whether any synthetic
+    /// actually used it. Spec 016. A class rather than a struct because
+    /// <see cref="Used"/> is set through the reference held in the list while
+    /// the synth loop runs.
+    /// </summary>
+    private sealed class AcceptedColumn
+    {
+        public string Table = "";
+        public string Column = "";
+        public string Reason = "";
+        public bool Used;
+    }
+
+    /// <summary>
+    /// Parses and validates jaunty.accept.json, reporting every structural
+    /// problem as JNT6003 and returning only the entries that are safe to act
+    /// on. Spec 016.
+    ///
+    /// An entry that fails validation is DROPPED rather than repaired, so the
+    /// JNT8004 it would have suppressed is still raised. That is the point of
+    /// the split between this and JNT8012: a malformed entry is not a stale
+    /// acceptance, and letting a half-read entry suppress a warning would make
+    /// a typo in the table name quieter than getting it right.
+    ///
+    /// Validation runs even when auto-CRUD is off. A misspelled column is a
+    /// misspelled column whether or not this build consulted it, and the
+    /// alternative -- silence until someone re-enables auto-CRUD -- is the
+    /// failure mode this whole file exists to end. What is skipped in that case
+    /// is the DEAD-entry sweep, which would otherwise report every entry as
+    /// unnecessary on the strength of a build that never looked at one.
+    /// </summary>
+    private static List<AcceptedColumn> LoadAcceptances(
+        SourceProductionContext context, string? acceptPath, string? acceptJson, DatabaseSchema? schema)
+    {
+        var accepted = new List<AcceptedColumn>();
+        if (string.IsNullOrWhiteSpace(acceptJson) || schema == null)
+            return accepted;
+
+        string where = acceptPath ?? "the acceptance file";
+
+        AcceptanceFile parsed;
+        try
+        {
+            parsed = AcceptanceLoader.Load(acceptJson!);
+        }
+        catch (Exception ex)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6003, Location.None,
+                $"'{where}' is not a readable acceptance file ({ex.Message}). Nothing in it is applied, so every " +
+                "unindexed scan it was meant to accept is reported as usual. Expected shape: " +
+                "{\"allowUnindexed\": [{\"table\": \"...\", \"column\": \"...\", \"reason\": \"...\"}]}"));
+            return accepted;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in parsed.AllowUnindexed)
+        {
+            string table = entry.Table ?? "";
+            string column = entry.Column ?? "";
+            string reason = entry.Reason ?? "";
+
+            // Reported one shortfall at a time, naming what IS present, so an
+            // entry with two problems does not have to be fixed twice to find
+            // out about the second.
+            if (table.Length == 0 || column.Length == 0)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6003, Location.None,
+                    $"An entry in '{where}' is missing its " +
+                    (table.Length == 0 ? "'table'" : "'column'") +
+                    $" (table: '{table}', column: '{column}'). The entry is ignored and accepts nothing."));
+                continue;
+            }
+
+            if (reason.Trim().Length == 0)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6003, Location.None,
+                    $"The entry for '{table}.{column}' in '{where}' has no 'reason'. A reason is mandatory here for " +
+                    "the same purpose it is mandatory on '-- @allow-unindexed': an acceptance whose justification is " +
+                    "not written down is a NoWarn entry with extra steps. The entry is ignored and accepts nothing."));
+                continue;
+            }
+
+            if (!SchemaLookup.TryGetTable(schema, table, out var tableSchema))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6003, Location.None,
+                    $"The entry for '{table}.{column}' in '{where}' names table '{table}', which is not in the schema " +
+                    "snapshot. Either the name is a typo, or the table has been dropped and the entry outlived it. " +
+                    "The entry is ignored and accepts nothing."));
+                continue;
+            }
+
+            if (!SchemaLookup.TryGetColumn(tableSchema!, column, out _))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6003, Location.None,
+                    $"The entry for '{table}.{column}' in '{where}' names column '{column}', which table " +
+                    $"'{tableSchema!.Name}' does not have. Either the name is a typo, or the column has been dropped " +
+                    "and the entry outlived it. The entry is ignored and accepts nothing."));
+                continue;
+            }
+
+            // Last-wins would be indistinguishable from first-wins here (the
+            // two entries accept the same column), so the only thing at stake
+            // is which REASON survives -- and a build acting on a reason nobody
+            // is looking at is the JNT3011 defect one file over. Keep the
+            // first, say so.
+            if (!seen.Add($"{tableSchema!.Name} {column}"))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6003, Location.None,
+                    $"'{table}.{column}' is accepted more than once in '{where}'. The first entry is the one in force, " +
+                    "so the later reasons are recorded but never acted on. Keep one."));
+                continue;
+            }
+
+            accepted.Add(new AcceptedColumn
+            {
+                Table = tableSchema.Name,
+                Column = column,
+                Reason = reason.Trim(),
+            });
+        }
+
+        return accepted;
+    }
+
+    /// <summary>
+    /// The acceptance covering this synthetic's filter column, or null. Matched
+    /// case-insensitively on both halves, matching how every other schema
+    /// lookup in the generator resolves an identifier a human typed.
+    /// </summary>
+    private static AcceptedColumn? FindAcceptance(List<AcceptedColumn> accepted, string table, string? column)
+    {
+        if (column == null)
+            return null;
+        foreach (var entry in accepted)
+        {
+            if (string.Equals(entry.Table, table, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(entry.Column, column, StringComparison.OrdinalIgnoreCase))
+                return entry;
+        }
+        return null;
     }
 
     /// <summary>
@@ -81,7 +227,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         ImmutableArray<FileSummary> files,
         SchemaState schemaState,
         bool autoCrud,
-        string commonPrefix)
+        string commonPrefix,
+        string? acceptPath = null,
+        string? acceptJson = null)
     {
         // A schema snapshot alone is enough: auto-CRUD generates without any .sql files
         if (files.IsEmpty && !schemaState.HasJson)
@@ -377,6 +525,10 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
         }
 
+        // Spec 016. Loaded (and structurally checked) regardless of autoCrud;
+        // only the dead-entry sweep below is conditional on it.
+        var acceptances = LoadAcceptances(context, acceptPath, acceptJson, schema);
+
         // Auto-CRUD: synthesize per-table CRUD for everything the user didn't write
         if (autoCrud && schema != null)
         {
@@ -446,9 +598,20 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     if (error.Severity == ValidationSeverity.Error)
                         hasSynthError = true;
                     else if (error.Code == "JNT8004")
-                        context.ReportDiagnostic(Diagnostic.Create(
-                            JauntyDiagnostics.JNT8004, Location.None,
-                            error.Message + SyntheticOverrideHint(synth, cleanedSql, commonPrefix)));
+                    {
+                        // Spec 016: the acceptance sidecar answers exactly this
+                        // diagnostic on exactly this query family. Marking the
+                        // entry used here -- at the one point that proves it
+                        // suppressed something real -- is what lets the sweep
+                        // below report the rest as dead without guessing.
+                        var accepted = FindAcceptance(acceptances, synth.TableName, synth.FilterColumn);
+                        if (accepted != null)
+                            accepted.Used = true;
+                        else
+                            context.ReportDiagnostic(Diagnostic.Create(
+                                JauntyDiagnostics.JNT8004, Location.None,
+                                error.Message + SyntheticOverrideHint(synth, cleanedSql, commonPrefix)));
+                    }
                     else
                         context.ReportDiagnostic(DiagnosticInfo.ForValidation(error).ToDiagnostic());
                 }
@@ -473,6 +636,30 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 entityNames.Add(synth.EntityName);
                 if (synth.MethodName is "Insert" or "Update" or "Delete")
                     RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, synth.MethodName);
+            }
+
+            // Spec 016, the JNT8012 half: an acceptance that suppressed nothing
+            // on a build that DID run synthesis. Inside the autoCrud block on
+            // purpose -- with auto-CRUD off no entry can be used, and reporting
+            // all of them as unnecessary would be a verdict about a build that
+            // never consulted one.
+            //
+            // Both ways an entry goes dead are named, because the remedy
+            // differs: an index landing means delete the entry, while a
+            // hand-written file claiming the slot means MOVE the acceptance
+            // into that file as -- @allow-unindexed. Advice that named only the
+            // first would tell someone to delete a decision they still need.
+            foreach (var entry in acceptances)
+            {
+                if (entry.Used)
+                    continue;
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT8012, Location.None,
+                    $"'{entry.Table}.{entry.Column}' is accepted as an unindexed scan in " +
+                    $"'{acceptPath ?? "the acceptance file"}', but no generated query scans it, so the entry " +
+                    "suppresses nothing. Either an index covers it now -- remove the entry -- or a hand-written " +
+                    $".sql file has claimed '{entry.Table}'s loader for that column, in which case the acceptance " +
+                    "belongs in that file as '-- @allow-unindexed <reason>' instead. " +
+                    $"(Stated reason: {entry.Reason})"));
             }
         }
 

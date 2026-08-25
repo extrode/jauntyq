@@ -13,8 +13,9 @@ class JauntyQ.Analysis.AutoCrud
     method DescribeUnusableTable(TableSchema,String):String
     method Synthesize(DatabaseSchema):List<SyntheticQuery>
 class JauntyQ.Analysis.AutoCrud+SyntheticQuery
-    ctor .ctor(String,String,String,String,Boolean)
+    ctor .ctor(String,String,String,String,Boolean,String)
     prop EntityName:String
+    prop FilterColumn:String
     prop IsUpsert:Boolean
     prop MethodName:String
     prop Sql:String
@@ -266,6 +267,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT5003:DiagnosticDescriptor
     field JNT6001:DiagnosticDescriptor
     field JNT6002:DiagnosticDescriptor
+    field JNT6003:DiagnosticDescriptor
     field JNT7001:DiagnosticDescriptor
     field JNT7002:DiagnosticDescriptor
     field JNT7003:DiagnosticDescriptor
@@ -315,6 +317,16 @@ class JauntyQ.Generator.ValidationError
 enum JauntyQ.Generator.ValidationSeverity
     field Error:ValidationSeverity
     field Warning:ValidationSeverity
+class JauntyQ.Schema.AcceptanceEntry
+    ctor .ctor()
+    prop Column:String
+    prop Reason:String
+    prop Table:String
+class JauntyQ.Schema.AcceptanceFile
+    ctor .ctor()
+    prop AllowUnindexed:List<AcceptanceEntry>
+class JauntyQ.Schema.AcceptanceLoader
+    method Load(String):AcceptanceFile
 class JauntyQ.Schema.ColumnSchema
     ctor .ctor()
     prop DbType:String

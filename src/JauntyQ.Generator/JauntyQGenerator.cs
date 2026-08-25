@@ -264,16 +264,64 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // keep printing the pre-rename path in the hint, which is the one thing
         // the diagnostic must not do -- its whole value is that the path it
         // names is the path that works.
+        // Spec 016: jaunty.accept.json, the per-column record that a generated
+        // query's unindexed scan is deliberate. Found by suffix like the schema
+        // snapshot above, and resolved the same way -- ordinal-lowest path wins,
+        // deterministically, because AdditionalTexts order is not guaranteed.
+        //
+        // Path AND text travel together in one tuple: every diagnostic this file
+        // produces names it, and an acceptance reported against the wrong path
+        // sends the consumer to edit a file that is not the one in force.
+        // ValueTuple of two strings is value-equatable, so a build that does not
+        // touch the file leaves the whole aggregate cached.
+        var acceptFiles = context.AdditionalTextsProvider
+            .Where(static f => f.Path.EndsWith(".accept.json", StringComparison.OrdinalIgnoreCase));
+
+        var acceptance = acceptFiles.Collect().Select(static (files, ct) =>
+        {
+            if (files.IsEmpty)
+                return ((string?)null, (string?)null);
+            AdditionalText winner = files[0];
+            for (int i = 1; i < files.Length; i++)
+            {
+                if (StringComparer.Ordinal.Compare(files[i].Path, winner.Path) < 0)
+                    winner = files[i];
+            }
+            return ((string?)winner.Path, (string?)(winner.GetText(ct)?.ToString()));
+        });
+
+        // The candidate list for the more-than-one case, in its own node so that
+        // editing the winning file's CONTENT does not re-run this report. Same
+        // shape as JNT6002's above, and reported separately from the aggregate
+        // for the same reason: it is a fact about the file set, not about the
+        // schema or the queries.
+        var acceptCandidates = acceptFiles
+            .Select(static (f, _) => f.Path)
+            .Collect()
+            .Select(static (paths, _) => paths.Sort(StringComparer.Ordinal))
+            .WithTrackingName("JauntyQ_AcceptCandidates");
+
+        context.RegisterSourceOutput(acceptCandidates, static (ctx, paths) =>
+        {
+            if (paths.Length < 2)
+                return;
+            ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6003, Location.None,
+                $"Found {paths.Length} acceptance files ({string.Join(", ", paths)}); using '{paths[0]}'. " +
+                "Acceptances in the others are ignored entirely -- they are not merged. Keep one " +
+                "*.accept.json (or exclude the extras from AdditionalFiles)."));
+        });
+
         var aggregateInput = summaries
             .Combine(schemaState)
             .Combine(autoCrudEnabled)
             .Combine(commonPrefix)
+            .Combine(acceptance)
             .WithTrackingName("JauntyQ_AggregateInput");
 
         context.RegisterSourceOutput(aggregateInput, static (ctx, pair) =>
         {
-            var (((fileSummaries, schema), autoCrud), prefix) = pair;
-            EmitAggregates(ctx, fileSummaries, schema, autoCrud, prefix);
+            var ((((fileSummaries, schema), autoCrud), prefix), accept) = pair;
+            EmitAggregates(ctx, fileSummaries, schema, autoCrud, prefix, accept.Item1, accept.Item2);
         });
     }
 
