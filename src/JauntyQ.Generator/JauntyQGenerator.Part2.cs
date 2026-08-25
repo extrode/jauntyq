@@ -251,15 +251,29 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // Only JNT8004. Every other diagnostic this query raises still fires,
         // which is what keeps the directive an accepted-scan marker rather than
         // a general silencer.
+        //
+        // -- @allow-sort is the same shape one code over: it accepts JNT8007,
+        // the runtime sort, and nothing else. Tracked with its own bool rather
+        // than a shared one so each directive's JNT8012 rests on its own
+        // evidence -- a query carrying both directives where only the filter
+        // index has landed must still be told the sort one is dead.
         bool allowUnindexed = directives.AllowUnindexedReason != null;
-        bool suppressedAnything = false;
+        bool allowSort = directives.AllowSortReason != null;
+        bool suppressedFilter = false;
+        bool suppressedSort = false;
 
         bool hasErrors = false;
         foreach (var error in errors)
         {
             if (allowUnindexed && error.Code == "JNT8004")
             {
-                suppressedAnything = true;
+                suppressedFilter = true;
+                continue;
+            }
+
+            if (allowSort && error.Code == "JNT8007")
+            {
+                suppressedSort = true;
                 continue;
             }
 
@@ -293,12 +307,23 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         if (hasErrors || schema == null)
             return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
 
-        if (allowUnindexed && !suppressedAnything && SchemaDeclaresAnyIndex(schema))
+        if (allowUnindexed && !suppressedFilter && SchemaDeclaresAnyIndex(schema))
         {
             diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT8012,
                 "-- @allow-unindexed is declared but no filter column on this query is unindexed, so it " +
                 "suppresses nothing. The index it was waiting for probably exists now: remove the directive. " +
                 $"(Stated reason: {directives.AllowUnindexedReason})"));
+        }
+
+        // The sort half, gated identically. Naming the directive in the message
+        // is what keeps "remove the directive" unambiguous on a query that
+        // carries both.
+        if (allowSort && !suppressedSort && SchemaDeclaresAnyIndex(schema))
+        {
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT8012,
+                "-- @allow-sort is declared but no ORDER BY column on this query is unindexed, so it " +
+                "suppresses nothing. The index it was waiting for probably exists now: remove the directive. " +
+                $"(Stated reason: {directives.AllowSortReason})"));
         }
 
         // -- @identity preconditions (JNT7001). Synthetic auto-CRUD SQL
