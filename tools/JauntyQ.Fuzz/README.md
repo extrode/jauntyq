@@ -5,14 +5,24 @@ over libFuzzer. Phase 2 item 3 of `the plan`.
 
 ## Status
 
-**Never fuzzed.** Written 2026-08-24 on Windows; libFuzzer is Linux-only in practice. The first
-nightly run (2026-08-25, run 32806048696) aborted in 41s before fuzzing a single input, because
-the job invoked the harness without the `libfuzzer-dotnet` driver — see "Running it" below. The
-driver was added the same day; the first green run is still pending, so treat any claim about
-what this finds as unproven.
+**Fuzzed locally, never yet in CI.** Written 2026-08-24 on Windows; libFuzzer is Linux-only in
+practice. The first nightly run (2026-08-25, run 32806048696) aborted in 41s before fuzzing a
+single input, because the job invoked the harness without the `libfuzzer-dotnet` driver — see
+"Running it" below. The driver was added the same day and the job verified under WSL; the first
+green *nightly* is still pending.
 
-What *has* run: all 18 corpus seeds replayed one at a time through the fallback path on Windows
-(2026-08-25), 0 crashes. That exercises the harness body and the seeds, not the fuzzer.
+What *has* run, both on 2026-08-25:
+
+- All 18 corpus seeds replayed one at a time through the fallback path on Windows: 0 crashes.
+  That exercises the harness body and the seeds, not the fuzzer.
+- The whole job reproduced under WSL Debian 12 with `libfuzzer-dotnet-debian`, at the CI
+  duration: **6,352,668 executions in 601s, exit 0, no crashing inputs**, corpus grown 18 -> 9,884.
+  A 60s warm-up run first did 706,920 executions, also clean.
+
+Two deviations from CI in that local run, neither affecting what it proves about the wiring:
+it used the `-debian` driver against Debian where CI pairs `-ubuntu` with `ubuntu-latest`, and
+it ran on .NET 10 via `DOTNET_ROLL_FORWARD=LatestMajor` because that WSL has no 8.0 runtime,
+where CI pins 8.0.x. A crasher found on one runtime still has to be re-checked on the other.
 
 ## What it asserts
 
