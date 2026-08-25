@@ -5,9 +5,14 @@ over libFuzzer. Phase 2 item 3 of `the plan`.
 
 ## Status
 
-**Never executed.** Written 2026-08-24 on Windows; libFuzzer is Linux-only in practice, so this
-harness has been compiled but not run. The first real evidence is the first nightly CI run
-(`.github/workflows/nightly.yml`). Treat any claim about what it finds as unproven until then.
+**Never fuzzed.** Written 2026-08-24 on Windows; libFuzzer is Linux-only in practice. The first
+nightly run (2026-08-25, run 32806048696) aborted in 41s before fuzzing a single input, because
+the job invoked the harness without the `libfuzzer-dotnet` driver — see "Running it" below. The
+driver was added the same day; the first green run is still pending, so treat any claim about
+what this finds as unproven.
+
+What *has* run: all 18 corpus seeds replayed one at a time through the fallback path on Windows
+(2026-08-25), 0 crashes. That exercises the harness body and the seeds, not the fuzzer.
 
 ## What it asserts
 
@@ -28,8 +33,23 @@ neither would think to write.
 dotnet publish tools/JauntyQ.Fuzz -c Release -o out/fuzz
 dotnet tool install --global SharpFuzz.CommandLine
 sharpfuzz out/fuzz/JauntyQ.SqlParser.dll
-dotnet out/fuzz/JauntyQ.Fuzz.dll tools/JauntyQ.Fuzz/corpus -max_total_time=600
+
+curl -sSfL -o libfuzzer-dotnet \
+  https://github.com/Metalnem/libfuzzer-dotnet/releases/download/v2025.05.02.0904/libfuzzer-dotnet-ubuntu
+chmod +x libfuzzer-dotnet
+
+mkdir -p out/fuzz-findings
+./libfuzzer-dotnet -max_total_time=600 -artifact_prefix=out/fuzz-findings/ \
+  --target_path="$(command -v dotnet)" --target_arg=out/fuzz/JauntyQ.Fuzz.dll \
+  tools/JauntyQ.Fuzz/corpus
 ```
+
+`libfuzzer-dotnet` is not optional and not a wrapper for convenience. `Fuzzer.LibFuzzer.Run`
+reads `__LIBFUZZER_SHM_ID`, `__LIBFUZZER_STATUS_PIPE_ID` and `__LIBFUZZER_CONTROL_PIPE_ID`, which
+only that driver sets; missing any of them it falls back to `RunWithoutLibFuzzer`, which does
+`File.ReadAllBytes(args[1])` and dies on a corpus **directory** with `UnauthorizedAccessException`.
+That fallback is a useful single-input replay — `dotnet out/fuzz/JauntyQ.Fuzz.dll corpus/001-select.sql`
+works on Windows and is how a promoted crasher is re-checked — but it is not fuzzing.
 
 ## Corpus discipline
 
