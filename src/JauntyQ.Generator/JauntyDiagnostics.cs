@@ -587,6 +587,20 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // Warning, not Error: a wrong acceptance file must not stop a build that
+    // would otherwise succeed. The failure this guards against is SILENCE -- an
+    // entry that suppresses nothing, or suppresses the wrong thing, while its
+    // author believes otherwise -- and a warning ends the silence. An Error
+    // would also mean a typo in a file whose whole purpose is to quieten the
+    // build is louder than the warnings it was written to quieten.
+    public static readonly DiagnosticDescriptor JNT6003 = new(
+        "JNT6003",
+        "Invalid Acceptance File",
+        "{0}",
+        "JauntyQ.Configuration",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 7xxx: Dialect ─────────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT7001 = new(

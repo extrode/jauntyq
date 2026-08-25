@@ -24,6 +24,7 @@
   <ItemGroup>
     <AdditionalFiles Include="db\**\*.sql" />
     <AdditionalFiles Include="db\schema\*.schema.json" />
+    <AdditionalFiles Include="db\schema\*.accept.json" />
   </ItemGroup>
   <ItemGroup>
     <None Include="schema.sqlite.sql" CopyToOutputDirectory="PreserveNewest" />

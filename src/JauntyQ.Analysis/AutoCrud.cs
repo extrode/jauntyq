@@ -28,13 +28,32 @@ public static class AutoCrud
         /// </summary>
         public bool IsUpsert { get; }
 
-        public SyntheticQuery(string entityName, string methodName, string sql, string tableName, bool isUpsert = false)
+        /// <summary>
+        /// The single column this synthetic filters on when that column is NOT
+        /// the primary key — i.e. the foreign-key column of a GetBy&lt;Fk&gt;
+        /// loader. Null for every other synthetic.
+        ///
+        /// Spec 016: this family is the only synthesis with a non-PK WHERE, so
+        /// it is the only one that can raise JNT8004, and the acceptance
+        /// sidecar keys on exactly this (table, column) pair. Carried as a
+        /// field rather than re-derived by parsing Sql back out, because the
+        /// value is already in hand at the construction site and a second
+        /// derivation is a second thing to keep in step.
+        ///
+        /// Deliberately NOT set for GetById/Update/Delete: those filter the
+        /// full primary key, which short-circuits IsColumnIndexSupported, so
+        /// they cannot raise JNT8004 and must not be acceptable.
+        /// </summary>
+        public string? FilterColumn { get; }
+
+        public SyntheticQuery(string entityName, string methodName, string sql, string tableName, bool isUpsert = false, string? filterColumn = null)
         {
             EntityName = entityName;
             MethodName = methodName;
             Sql = sql;
             TableName = tableName;
             IsUpsert = isUpsert;
+            FilterColumn = filterColumn;
         }
     }
 
@@ -123,7 +142,8 @@ public static class AutoCrud
                     continue;
 
                 result.Add(new SyntheticQuery(entityName, $"GetBy{DialectMapper.ToPascalCase(fk.FromColumn)}",
-                    $"SELECT {colList}\nFROM {table.Name}\nWHERE {table.Name}.{fk.FromColumn} = @{fk.FromColumn}", table.Name));
+                    $"SELECT {colList}\nFROM {table.Name}\nWHERE {table.Name}.{fk.FromColumn} = @{fk.FromColumn}", table.Name,
+                    filterColumn: fk.FromColumn));
             }
 
             // Spec 015: a view is read-only whatever its columns look like.

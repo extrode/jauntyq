@@ -1,0 +1,21 @@
+{
+  "allowUnindexed": [
+    { "table": "address", "column": "city_id", "reason": "sqlite port of Pagila carries no secondary indexes; the address subset is a few hundred rows" },
+    { "table": "city", "column": "country_id", "reason": "sqlite port of Pagila carries no secondary indexes; city is a dimension table kept in full at 600 rows" },
+    { "table": "customer", "column": "address_id", "reason": "sqlite port of Pagila carries no secondary indexes; customer is the customer_id % 20 = 1 subset" },
+    { "table": "customer", "column": "store_id", "reason": "sqlite port of Pagila carries no secondary indexes; only two stores exist, so this loader is a near-full scan by design" },
+    { "table": "film", "column": "language_id", "reason": "sqlite port of Pagila carries no secondary indexes; film is a dimension table kept in full at 1000 rows" },
+    { "table": "film", "column": "original_language_id", "reason": "sqlite port of Pagila carries no secondary indexes; original_language_id is null for every row in the sample data" },
+    { "table": "inventory", "column": "film_id", "reason": "sqlite port of Pagila carries no secondary indexes; inventory is the curated fact-table subset" },
+    { "table": "inventory", "column": "store_id", "reason": "sqlite port of Pagila carries no secondary indexes; only two stores exist, so this loader is a near-full scan by design" },
+    { "table": "payment", "column": "customer_id", "reason": "sqlite port of Pagila carries no secondary indexes; payment is the customer_id % 20 = 1 subset, not the full 16k rows" },
+    { "table": "payment", "column": "rental_id", "reason": "sqlite port of Pagila carries no secondary indexes; payment is the curated fact-table subset" },
+    { "table": "payment", "column": "staff_id", "reason": "sqlite port of Pagila carries no secondary indexes; only two staff rows exist, so this loader is a near-full scan by design" },
+    { "table": "rental", "column": "customer_id", "reason": "sqlite port of Pagila carries no secondary indexes; rental is the customer_id % 20 = 1 subset" },
+    { "table": "rental", "column": "inventory_id", "reason": "sqlite port of Pagila carries no secondary indexes; rental is the curated fact-table subset" },
+    { "table": "rental", "column": "staff_id", "reason": "sqlite port of Pagila carries no secondary indexes; only two staff rows exist, so this loader is a near-full scan by design" },
+    { "table": "staff", "column": "address_id", "reason": "sqlite port of Pagila carries no secondary indexes; staff has two rows" },
+    { "table": "staff", "column": "store_id", "reason": "sqlite port of Pagila carries no secondary indexes; staff has two rows" },
+    { "table": "store", "column": "address_id", "reason": "sqlite port of Pagila carries no secondary indexes; store has two rows" }
+  ]
+}

@@ -22,6 +22,8 @@ namespace JauntyQ.Schema;
 [JsonSerializable(typeof(SequenceSchema))]
 [JsonSerializable(typeof(EnumSchema))]
 [JsonSerializable(typeof(EnumMember))]
+[JsonSerializable(typeof(AcceptanceFile))]
+[JsonSerializable(typeof(AcceptanceEntry))]
 internal sealed partial class SchemaJsonContext : JsonSerializerContext
 {
 }
