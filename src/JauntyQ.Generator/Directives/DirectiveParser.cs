@@ -16,6 +16,13 @@ public static class DirectiveParser
         var directives = new DirectiveModel();
         var cleanedLines = new List<string>();
 
+        // Name -> the value the last applied line carried, for the duplicate
+        // check below. Only lines TryApplyDirective ACCEPTED go in here: a bare
+        // "-- @call" is declined and stays a plain comment (JNT3008), so it is
+        // not an occurrence of @call and must not make the real one downstream
+        // look like a repeat.
+        var applied = new Dictionary<string, string>(StringComparer.Ordinal);
+
         var lines = rawSql.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
 
         foreach (var line in lines)
@@ -84,13 +91,16 @@ public static class DirectiveParser
                     nameEnd++;
 
                 if (nameEnd > 1
-                    && (nameEnd == commentBody.Length || char.IsWhiteSpace(commentBody[nameEnd]))
-                    && TryApplyDirective(
-                        directives,
-                        commentBody.Substring(1, nameEnd - 1).ToLowerInvariant(),
-                        commentBody.Substring(nameEnd).Trim()))
+                    && (nameEnd == commentBody.Length || char.IsWhiteSpace(commentBody[nameEnd])))
                 {
-                    continue; // strip this line from cleaned SQL
+                    var name = commentBody.Substring(1, nameEnd - 1).ToLowerInvariant();
+                    var value = commentBody.Substring(nameEnd).Trim();
+
+                    if (TryApplyDirective(directives, name, value))
+                    {
+                        RecordIfDuplicate(directives, applied, name, value);
+                        continue; // strip this line from cleaned SQL
+                    }
                 }
 
                 // Nothing applied: the line stays a plain comment. Before it
@@ -180,8 +190,10 @@ public static class DirectiveParser
 
             case "proc":
                 directives.IsProc = true;
-                if (value.Length > 0)
-                    directives.ProcName = value;
+                // Last wins, including back to unnamed: "-- @proc Foo" then a
+                // bare "-- @proc" used to keep Foo, so the file said one thing
+                // and generated another. See ParseResultDirective.
+                directives.ProcName = value.Length > 0 ? value : null;
                 return true;
 
             case "first":
@@ -207,8 +219,68 @@ public static class DirectiveParser
         }
     }
 
+    // The two directives that are repeatable by design: each -- @type names one
+    // expression alias and each -- @each names one parameter, so both accumulate
+    // into a list and a second line adds rather than replaces. Every other name
+    // stores into a single field, which is what makes a repeat lossy.
+    private static readonly HashSet<string> RepeatableDirectives =
+        new(StringComparer.Ordinal) { "type", "each" };
+
+    /// <summary>
+    /// Records JNT3011 when a non-repeatable directive is applied for the second
+    /// time in one file. Before this, the later line simply overwrote the earlier
+    /// one and nothing said so — a file could carry two contradictory
+    /// <c>-- @result</c> lines, or two <c>-- @allow-sort</c> reasons where only
+    /// the second is the one the build acts on, and read as though both applied.
+    /// The repeated <c>-- @allow-*</c> case is the worst of them: the reason in
+    /// force is not the reason anyone reviewing the diff is looking at.
+    /// </summary>
+    private static void RecordIfDuplicate(
+        DirectiveModel directives, Dictionary<string, string> applied, string name, string value)
+    {
+        if (RepeatableDirectives.Contains(name))
+            return;
+
+        if (!applied.TryGetValue(name, out var previous))
+        {
+            applied[name] = value;
+            return;
+        }
+
+        applied[name] = value;
+        directives.DuplicateDirectives ??= new List<string>();
+
+        // Same value twice loses nothing, so it gets the milder sentence. The
+        // no-value directives (@first, @identity, @stream, and bare @proc) land
+        // here too: both values are empty, and a repeated flag really does have
+        // no effect beyond the clutter.
+        if (previous == value)
+        {
+            directives.DuplicateDirectives.Add(
+                $"-- @{name} appears more than once in this file with the same value; " +
+                "the repeat has no effect. Keep one.");
+            return;
+        }
+
+        directives.DuplicateDirectives.Add(
+            $"-- @{name} appears more than once in this file with different values. Later lines " +
+            $"overwrite earlier ones, so '{($"-- @{name} {previous}").TrimEnd()}' was discarded and " +
+            $"'{($"-- @{name} {value}").TrimEnd()}' is the one in force. Keep one.");
+    }
+
     private static void ParseResultDirective(DirectiveModel directives, string value)
     {
+        // Overwrite, do not merge. "-- @result void" followed by
+        // "-- @result (int Id)" otherwise left ResultIsVoid true AND
+        // InlineColumns set: a model no single directive line can produce, and
+        // one whose behaviour depends on which field the emitter consults
+        // first. JNT3011 reports that the file has two of these; this decides
+        // what having two of them means, so that "later lines overwrite earlier
+        // ones" is true of @result as it is of the rest.
+        directives.ResultIsVoid = false;
+        directives.InlineColumns = null;
+        directives.ResultTypeName = null;
+
         if (string.Equals(value, "void", StringComparison.OrdinalIgnoreCase))
         {
             directives.ResultIsVoid = true;
@@ -312,10 +384,12 @@ public static class DirectiveParser
             }
         }
 
-        if (explicitParams.Count > 0)
-        {
-            directives.ExplicitParams = explicitParams;
-        }
+        // Assigned unconditionally, for the same last-wins reason as @result
+        // above: a second -- @params whose value parses to nothing used to leave
+        // the FIRST line's parameters in force, which is the one case where the
+        // JNT3011 message would have been a lie. Null rather than an empty list
+        // keeps "no explicit params" spelled exactly one way downstream.
+        directives.ExplicitParams = explicitParams.Count > 0 ? explicitParams : null;
     }
 
     // Every recognized directive name; the value-taking subset falls through

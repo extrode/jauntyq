@@ -69,12 +69,24 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // parsed as nothing — a bare value-taking directive or a one-edit
         // typo of a known name. The line stayed a plain comment; tell the
         // author their intent was dropped instead of silently ignoring it.
+        //
+        // JNT3011 (warning, non-fatal) rides the same channel: a non-repeatable
+        // directive written twice, where the later line overwrote the earlier
+        // one silently. Both are collected before the -- @call short-circuit
+        // below, so a file that binds a procedure still reports its directive
+        // hygiene.
         var directiveWarnings = ImmutableArray<DiagnosticInfo>.Empty;
-        if (directives.SuspiciousDirectives is { Count: > 0 } suspicious)
+        var suspicious = directives.SuspiciousDirectives;
+        var duplicates = directives.DuplicateDirectives;
+        if (suspicious is { Count: > 0 } || duplicates is { Count: > 0 })
         {
-            var warnBuilder = ImmutableArray.CreateBuilder<DiagnosticInfo>(suspicious.Count);
-            foreach (var message in suspicious)
-                warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3008, message));
+            var warnBuilder = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+            if (suspicious != null)
+                foreach (var message in suspicious)
+                    warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3008, message));
+            if (duplicates != null)
+                foreach (var message in duplicates)
+                    warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3011, message));
             directiveWarnings = warnBuilder.ToImmutable();
         }
 

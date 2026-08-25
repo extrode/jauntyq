@@ -504,6 +504,18 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // Warning, not Error, and deliberately so: the file still generates, and
+    // the last line still wins as it always did. What changes is that the
+    // overwrite is now stated. Making it an Error would break builds that are
+    // presently generating exactly the code their authors expect.
+    public static readonly DiagnosticDescriptor JNT3011 = new(
+        "JNT3011",
+        "Duplicate Directive",
+        "{0}",
+        "JauntyQ.Projection",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 4xxx: Parameter Binding ───────────────────────────
 
     public static readonly DiagnosticDescriptor JNT4003 = new(
