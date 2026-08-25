@@ -179,6 +179,7 @@ class JauntyQ.Generator.Directives.DirectiveModel
     prop AllowSortReason:String
     prop AllowUnindexedReason:String
     prop CallProcName:String
+    prop DuplicateDirectives:List<String>
     prop EachParams:List<String>
     prop ExplicitParams:List<ExplicitParam>
     prop HasDirectives:Boolean
@@ -257,6 +258,7 @@ class JauntyQ.Generator.JauntyDiagnostics
     field JNT3008:DiagnosticDescriptor
     field JNT3009:DiagnosticDescriptor
     field JNT3010:DiagnosticDescriptor
+    field JNT3011:DiagnosticDescriptor
     field JNT4003:DiagnosticDescriptor
     field JNT4004:DiagnosticDescriptor
     field JNT5001:DiagnosticDescriptor

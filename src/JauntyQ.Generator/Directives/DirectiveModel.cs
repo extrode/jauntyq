@@ -147,6 +147,21 @@ public class DirectiveModel
     /// <c>@word</c> comments (<c>-- @author</c>) never register here.
     /// </summary>
     public List<string>? SuspiciousDirectives { get; set; }
+
+    /// <summary>
+    /// JNT3011 warning messages for a non-repeatable directive written more
+    /// than once in one file. Every such directive stores into a single field,
+    /// so the second line overwrites the first with no record that the first
+    /// existed — the author's stated result type, procedure name or suppression
+    /// reason simply stops being the one in force. Only <c>-- @type</c> and
+    /// <c>-- @each</c> are repeatable by design and never register here.
+    ///
+    /// Last-wins is left in place rather than switched to first-wins: the
+    /// defect was the silence, and changing which line takes effect would move
+    /// existing builds' generated code on the strength of a warning they have
+    /// not read yet.
+    /// </summary>
+    public List<string>? DuplicateDirectives { get; set; }
 }
 
 public class TypeDirective
