@@ -176,6 +176,7 @@ class JauntyQ.Generator.CodeEmitter
     method InferParameterType(String,QueryModel,ProjectionModel,DatabaseSchema,DirectiveModel):String
 class JauntyQ.Generator.Directives.DirectiveModel
     ctor .ctor()
+    prop AllowSortReason:String
     prop AllowUnindexedReason:String
     prop CallProcName:String
     prop EachParams:List<String>

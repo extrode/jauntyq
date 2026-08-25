@@ -112,13 +112,31 @@ public class DirectiveModel
     public string? AllowUnindexedReason { get; set; }
 
     /// <summary>
+    /// The stated reason from: -- @allow-sort &lt;reason&gt;
+    /// Suppresses JNT8007 (unindexed ORDER BY) for THIS query only, on the same
+    /// terms as <see cref="AllowUnindexedReason"/>: reason mandatory, nothing
+    /// else silenced, and a directive that suppresses nothing reported as
+    /// JNT8012.
+    ///
+    /// A SIBLING of @allow-unindexed rather than a widening of it, because the
+    /// JNT8012 remedy is "remove the directive". Under one directive covering
+    /// both codes that advice goes wrong the moment a query has both an
+    /// unindexed filter and an unindexed sort and only one of them is fixed:
+    /// the directive still suppresses the other, so JNT8012 stays silent and
+    /// the stale half lives on. Two directives each expire on their own
+    /// evidence, and "remove the directive" stays true of both.
+    /// Null when the directive is absent.
+    /// </summary>
+    public string? AllowSortReason { get; set; }
+
+    /// <summary>
     /// True if any directives were specified.
     /// </summary>
     public bool HasDirectives =>
         ResultTypeName != null || ResultIsVoid || InlineColumns != null
         || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity || IsStream
         || CallProcName != null || TypeDirectives != null || EachParams != null
-        || MirrorsTarget != null || AllowUnindexedReason != null;
+        || MirrorsTarget != null || AllowUnindexedReason != null || AllowSortReason != null;
 
     /// <summary>
     /// JNT3008 warning messages for directive-lookalike comment lines that
