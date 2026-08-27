@@ -1,0 +1,8 @@
+[
+  {
+    "query": "Articles/GetFiltered",
+    "engines": ["Sqlite", "Postgres", "MySql", "MariaDb", "SqlServer"],
+    "difference": "FETCH clause must be greater",
+    "reason": "A page size of zero is valid on four engines and a hard error on the fifth. SQLite, PostgreSQL, MySQL and MariaDB all accept LIMIT 0 and return no rows; SQL Server's OFFSET/FETCH grammar requires FETCH NEXT to be greater than zero and raises 'The number of rows provided for a FETCH clause must be greater then zero'. JauntyQ emits the paging clause each dialect requires and cannot reconcile the two without injecting a runtime guard into every paged query, so callers targeting SQL Server must not pass Take: 0. Only Take: 0 is affected -- Skip past the end of the result set returns no rows on all five."
+  }
+]
