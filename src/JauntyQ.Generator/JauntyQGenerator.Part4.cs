@@ -886,6 +886,54 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
         }
 
+        // Spec 014, JNT2023/JNT2024/JNT2025: report every captured function the
+        // emitter refused. Driven off CodeEmitter.PlanFunctionEmission -- the
+        // SAME call the emitter makes -- so the set that produces methods and
+        // the set that produces diagnostics are one decision rather than two
+        // implementations of it. Reporting from an independent walk of
+        // schema.Functions is how a refused function stops being reported, or
+        // a reported one starts being emitted, the next time either side
+        // changes.
+        //
+        // Outside the autoCrud gate for the same reason the enum block below
+        // is: a refusal the user cannot see is worse on the hand-written-query
+        // path, not better, since nothing else there hints that db.Functions is
+        // missing a method it should have.
+        if (schema != null && schema.Functions.Count > 0)
+        {
+            var functionCollisions = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>(StringComparer.Ordinal);
+            var functionUnmappable = new System.Collections.Generic.List<(string Function, string Reason)>();
+            var functionTableValued = new System.Collections.Generic.List<(string Function, string TypeName)>();
+
+            CodeEmitter.PlanFunctionEmission(schema, functionCollisions, functionUnmappable, functionTableValued);
+
+            foreach (var pair in functionCollisions)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2023, Location.None,
+                    $"Functions {string.Join(", ", pair.Value)} all generate the same accessor method 'db.Functions.{pair.Key}()'. " +
+                    "None is emitted — unlike colliding sequences, overloads differ in their parameters, so keeping " +
+                    "the first would bind every call site to one arbitrary signature. Rename them, or expose one " +
+                    "through a wrapper function with a distinct name."));
+            }
+
+            foreach (var (function, reason) in functionUnmappable)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2024, Location.None,
+                    $"Function {function} is not emitted because {reason} has no C# mapping. " +
+                    "Call it through a hand-written query, or wrap it in a function whose signature uses mapped types."));
+            }
+
+            foreach (var (function, typeName) in functionTableValued)
+            {
+                string members = CodeEmitter.DescribeUserTypeMembers(schema, typeName);
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2025, Location.None,
+                    $"Function {function} takes a table-valued parameter of type '{typeName}'{members}. " +
+                    "Table-valued parameters are not supported in this release: binding one needs a provider-specific " +
+                    "parameter type, which would make the generated call unusable from a DbProviderFactory-abstracted " +
+                    "consumer. No method is emitted; pass the rows through a temporary table or a JSON parameter instead."));
+            }
+        }
+
         // Spec 013, JNT2016/JNT2017: validate captured enums. Deliberately
         // outside the autoCrud gate above -- an enum reaches the generated API
         // through any query that selects an enum column, not just through
