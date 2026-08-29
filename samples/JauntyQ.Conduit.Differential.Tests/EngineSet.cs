@@ -1,3 +1,4 @@
+using System.Data.Common;
 using JauntyQ.Conduit.MariaDb.Tests;
 using JauntyQ.Conduit.MySql.Tests;
 using JauntyQ.Conduit.Postgres.Tests;
@@ -14,7 +15,18 @@ namespace JauntyQ.Conduit.Differential.Tests;
 /// declare JauntyQ.Generated.JauntyDb, so naming the type here is ambiguous.
 /// Everything downstream reaches it through <see cref="QueryDispatcher"/>.
 /// </summary>
-public sealed record EngineHandle(string Name, bool Available, string? SkipReason, object? Db);
+/// <param name="Connection">
+/// The fixture's own open connection. Spec 018's stress corpus executes SQL
+/// directly on it rather than through a generated method, because a stress
+/// case is a new query and authoring one the 017 way would mean editing five
+/// sample projects -- see 018-plan.md. 017's own corpus does not use it.
+/// </param>
+public sealed record EngineHandle(
+    string Name,
+    bool Available,
+    string? SkipReason,
+    object? Db,
+    DbConnection? Connection);
 
 /// <summary>
 /// Boots all five Conduit fixtures once for the assembly.
@@ -71,11 +83,11 @@ public sealed class EngineSet : IAsyncLifetime
 
         Engines = new List<EngineHandle>
         {
-            new("Sqlite", _sqlite.Available, _sqlite.SkipReason, _sqlite.Available ? _sqlite.Db : null),
-            new("Postgres", _postgres.Available, _postgres.SkipReason, _postgres.Available ? _postgres.Db : null),
-            new("MySql", _mysql.Available, _mysql.SkipReason, _mysql.Available ? _mysql.Db : null),
-            new("MariaDb", _mariadb.Available, _mariadb.SkipReason, _mariadb.Available ? _mariadb.Db : null),
-            new("SqlServer", _sqlserver.Available, _sqlserver.SkipReason, _sqlserver.Available ? _sqlserver.Db : null),
+            new("Sqlite", _sqlite.Available, _sqlite.SkipReason, _sqlite.Available ? _sqlite.Db : null, _sqlite.Available ? _sqlite.Connection : null),
+            new("Postgres", _postgres.Available, _postgres.SkipReason, _postgres.Available ? _postgres.Db : null, _postgres.Available ? _postgres.Connection : null),
+            new("MySql", _mysql.Available, _mysql.SkipReason, _mysql.Available ? _mysql.Db : null, _mysql.Available ? _mysql.Connection : null),
+            new("MariaDb", _mariadb.Available, _mariadb.SkipReason, _mariadb.Available ? _mariadb.Db : null, _mariadb.Available ? _mariadb.Connection : null),
+            new("SqlServer", _sqlserver.Available, _sqlserver.SkipReason, _sqlserver.Available ? _sqlserver.Db : null, _sqlserver.Available ? _sqlserver.Connection : null),
         };
     }
 
