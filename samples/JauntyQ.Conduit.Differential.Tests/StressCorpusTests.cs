@@ -105,12 +105,21 @@ public class StressCorpusTests
         Assert.Contains(StressCorpus.Validate([Case(), Case()]), p => p.Contains("duplicate case name"));
     }
 
+    // The spec names empty-set aggregates as a category; the discovery pass
+    // measured every engine agreeing on them, so R6 required dropping both
+    // cases and the category has no members. What survives from that area is
+    // an aggregate *typing* case, named for what it is. 018-tasks.md carries
+    // the measurement.
     [Fact]
-    public void EveryCategoryNamedInTheSpecIsCovered()
+    public void TheCorpusCoversTheCategoriesItDeclares()
     {
-        var categories = StressCorpus.Cases.Select(c => c.Category).Distinct(StringComparer.Ordinal).ToList();
+        var categories = StressCorpus.Cases.Select(c => c.Category)
+            .Distinct(StringComparer.Ordinal).OrderBy(c => c, StringComparer.Ordinal).ToList();
 
-        Assert.Equal(7, categories.Count);
+        Assert.Equal(
+            ["aggregate-typing", "boolean-handling", "collation", "concatenation",
+             "date-arithmetic", "integer-division", "null-ordering"],
+            categories);
     }
 
     [Fact]
