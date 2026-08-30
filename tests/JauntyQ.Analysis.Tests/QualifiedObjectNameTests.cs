@@ -50,6 +50,20 @@ public class QualifiedObjectNameTests
         Assert.DoesNotContain(tokens, t => t.Type == TokenType.Symbol && t.Value == ".");
     }
 
+    /// <summary>
+    /// The discrimination guard for the theory above. <c>Assert.Single</c> over
+    /// identifiers proves nothing unless a shape the tokenizer genuinely splits
+    /// produces more than one — otherwise a tokenizer that emitted a single
+    /// token for everything would pass it.
+    /// </summary>
+    [Fact]
+    public void TheTokenizer_DoesSplitWhereItShould()
+    {
+        var tokens = SqlTokenizer.Tokenize("dbo, gadgets");
+
+        Assert.Equal(2, tokens.Count(t => t.Type == TokenType.Identifier));
+    }
+
     [Theory]
     [MemberData(nameof(QualifiedSpellings))]
     public void CreateTable_TakesTheBareNameFromAQualifiedName(string spelling)
