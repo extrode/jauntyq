@@ -48,4 +48,24 @@ public class DatabaseSchema
     /// </summary>
     [JsonPropertyName("enums")]
     public Dictionary<string, EnumSchema> Enums { get; set; } = new();
+
+    /// <summary>
+    /// Scalar functions that live in the database, keyed by name. Captured by
+    /// 'jaunty schema pull' so the generator can emit a typed
+    /// <c>db.Functions.{Name}(...)</c> method. PostgreSQL, SQL Server and MySQL
+    /// populate this; SQLite has no stored functions, so it stays empty there.
+    /// Table-valued functions are NOT captured here (014-plan.md SS6).
+    /// </summary>
+    [JsonPropertyName("functions")]
+    public Dictionary<string, FunctionSchema> Functions { get; set; } = new();
+
+    /// <summary>
+    /// User-defined types, keyed by name. Aliases and DOMAINs are captured
+    /// WITH their resolved underlying primitive, which is what stops a column
+    /// typed by one from generating <c>object</c> + JNT2007. Composites and
+    /// SQL Server table types are captured unresolved, so the diagnostics that
+    /// refuse them can name their shape. Empty for SQLite.
+    /// </summary>
+    [JsonPropertyName("userTypes")]
+    public Dictionary<string, UserTypeSchema> UserTypes { get; set; } = new();
 }

@@ -178,6 +178,7 @@ public static partial class CodeEmitter
         }
 
         EmitSequenceAccessor(sb, schema);
+        EmitFunctionAccessor(sb, schema);
 
         sb.AppendLine("    }");
         sb.AppendLine("}");

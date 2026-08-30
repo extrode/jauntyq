@@ -81,4 +81,23 @@ public class ColumnSchema
     [JsonPropertyName("enumName")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? EnumName { get; set; }
+
+    /// <summary>
+    /// Name of the user-defined alias or DOMAIN this column was declared with,
+    /// when capture resolved it to a primitive. <see cref="DbType"/> then
+    /// carries the RESOLVED type, so every existing mapping rule applies to it
+    /// unchanged and JNT2007 never sees the column.
+    ///
+    /// Kept rather than discarded for two reasons: dropping the alias would
+    /// make the snapshot claim the column was declared varchar(11) when it was
+    /// declared 'ssn', and the contract comparer needs the name to report
+    /// "the domain behind this column changed" as drift.
+    ///
+    /// Null on every ordinary column and on every snapshot taken before spec
+    /// 014, which is what makes those snapshots keep their old mapping -- the
+    /// same property that makes <see cref="EnumName"/> back-compatible.
+    /// </summary>
+    [JsonPropertyName("resolvedFromUserType")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ResolvedFromUserType { get; set; }
 }

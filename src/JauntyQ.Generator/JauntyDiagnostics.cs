@@ -422,6 +422,65 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // Spec 014: a function contributes one name to the generated namespace --
+    // its method on the flat Functions accessor. Two things can collide there.
+    // PostgreSQL permits genuine overloads (f(int) and f(text) side by side)
+    // whose folded C# names are identical, and a function name can fold onto a
+    // table, enum or sequence accessor that already claimed it. Error rather
+    // than Warning because unlike JNT2014/JNT2015 nothing can be emitted for
+    // EITHER side of the collision, and picking one silently would make which
+    // function a call site reaches depend on emission order.
+    //
+    // Overloads are the common case, and the message says so: C# would carry
+    // them if the parameter types differed after mapping, and often they do
+    // not (Postgres int/bigint both map to long).
+    public static readonly DiagnosticDescriptor JNT2023 = new(
+        "JNT2023",
+        "Function Name Collision",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Error,
+        true);
+
+    // Spec 014 / FR-007: a captured function whose parameter or return type has
+    // no mapping. Warning, and the method is skipped rather than emitted as
+    // object: the JNT2015/JNT2019/JNT2020 precedent is that a decision the
+    // consumer can argue with has to be visible to be arguable, and the rest of
+    // the schema has to generate unaffected -- one unmappable function must not
+    // cost a consumer every other function in the database.
+    public static readonly DiagnosticDescriptor JNT2024 = new(
+        "JNT2024",
+        "Unmappable Function Signature",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Warning,
+        true);
+
+    // Spec 014 SS5.5: SQL Server table-valued parameters are deferred to their
+    // own spec, and this diagnostic is the price of deferring them.
+    //
+    // Before this, a TVP parameter reached DialectMapper's _ => fallback and
+    // generated `object` with JNT2007 -- an attractive nuisance, a method that
+    // compiles and cannot work, because binding a TVP needs the concrete
+    // SqlParameter (SqlDbType.Structured, .TypeName, SqlDataRecord) that the
+    // emitted DbParameter path has no access to. So the method is NOT emitted.
+    //
+    // The message names the parameter, the type, AND the type's column list,
+    // read from UserTypeSchema.Members. That is why capture keeps the shape of
+    // a type the generator will never emit for: doing the consumer's schema
+    // lookup for them is the difference between a refusal and a dead end.
+    //
+    // It is also the evidence source for the deferral's flip condition
+    // (014-plan.md SS1.1): if TVP-bearing procedures turn out common in real
+    // SQL Server schemas, this fires often enough to say so.
+    public static readonly DiagnosticDescriptor JNT2025 = new(
+        "JNT2025",
+        "Table-Valued Parameter Not Supported",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(
