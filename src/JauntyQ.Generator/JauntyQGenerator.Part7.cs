@@ -20,6 +20,15 @@ internal sealed class SchemaState
     public bool ParseFailed { get; }
     public bool HasJson { get; }
 
+    /// <summary>
+    /// JNT0001 text when <see cref="Load"/> itself threw, else null. Distinct from
+    /// <see cref="ParseFailed"/>, which is the expected outcome of a malformed
+    /// snapshot and already has JNT6001 to say so: this is an unexpected throw out
+    /// of migration simulation or DDL parsing, and without it that throw escapes
+    /// into the driver and takes the whole generator with it.
+    /// </summary>
+    public string? InternalError { get; }
+
     /// <summary>JNT9001/JNT9002 from parsing and simulating pending migrations.</summary>
     public ImmutableArray<DiagnosticInfo> MigrationDiagnostics { get; }
 
@@ -30,13 +39,24 @@ internal sealed class SchemaState
     /// </summary>
     public SchemaDelta? MigrationDelta { get; }
 
+    /// <summary>
+    /// The state a throw out of <see cref="Load"/> degrades to: no schema, and the
+    /// message that says why. ParseFailed is left false so JNT6001 does not also
+    /// fire — one internal error reads better than an internal error plus a
+    /// "run jaunty schema pull" that would not help.
+    /// </summary>
+    public static SchemaState Failed(string internalError) =>
+        new SchemaState(null, parseFailed: false, hasJson: false, internalError: internalError);
+
     private SchemaState(DatabaseSchema? schema, bool parseFailed, bool hasJson,
         ImmutableArray<DiagnosticInfo> migrationDiagnostics = default,
-        SchemaDelta? migrationDelta = null)
+        SchemaDelta? migrationDelta = null,
+        string? internalError = null)
     {
         Schema = schema;
         ParseFailed = parseFailed;
         HasJson = hasJson;
+        InternalError = internalError;
         MigrationDiagnostics = migrationDiagnostics.IsDefault
             ? ImmutableArray<DiagnosticInfo>.Empty
             : migrationDiagnostics;

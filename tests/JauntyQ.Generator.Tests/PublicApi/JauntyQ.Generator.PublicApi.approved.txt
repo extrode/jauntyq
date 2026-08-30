@@ -218,6 +218,7 @@ class JauntyQ.Generator.Inflector
     method RowTypeName(String):String
     method Singularize(String):String
 class JauntyQ.Generator.JauntyDiagnostics
+    field JNT0001:DiagnosticDescriptor
     field JNT1001:DiagnosticDescriptor
     field JNT1002:DiagnosticDescriptor
     field JNT1003:DiagnosticDescriptor

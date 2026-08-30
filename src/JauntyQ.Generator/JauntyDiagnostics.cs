@@ -6,6 +6,7 @@ namespace JauntyQ.Generator;
 /// Central registry of all JauntyQ diagnostic codes.
 ///
 /// Format: JNTxxxx where the first digit defines the category:
+///   0xxx — Generator internal failures (a bug here, not in the consumer's SQL)
 ///   1xxx — SQL parsing errors
 ///   2xxx — Schema validation errors
 ///   3xxx — Query shape / projection errors
@@ -18,6 +19,30 @@ namespace JauntyQ.Generator;
 /// </summary>
 public static class JauntyDiagnostics
 {
+    // ── 0xxx: Generator Internal ──────────────────────────
+    //
+    // Its own block because it is not a domain code: every other JNT says
+    // something about the consumer's SQL, schema or configuration, and this one
+    // says JauntyQ itself threw. It sorts first for the same reason -- when it
+    // fires, nothing else in the build's diagnostic list is trustworthy.
+    //
+    // Error, and this is the whole point of the code existing. An exception
+    // escaping a source generator is caught by Roslyn and reported as CS8785,
+    // which is a WARNING: the build carries on, every generated type is gone,
+    // and the consumer sees only the CS0246s that follow. a consumer lost a day
+    // to that shape twice (the consumer report,
+    // item 1) and could not tell from their end whether JauntyQ had run at all.
+    // Catching the throw ourselves and reporting it at Error converts a silent
+    // total erasure into one named failure at the top of the list.
+
+    public static readonly DiagnosticDescriptor JNT0001 = new(
+        "JNT0001",
+        "Generator Internal Error",
+        "{0}",
+        "JauntyQ.Internal",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 1xxx: SQL Parsing ─────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT1001 = new(

@@ -195,8 +195,13 @@ public class RegistryParityTests
                      @"(?:JNT)?(\d{4})\s*[–-]\s*(\d{4})"))
         {
             int lo = int.Parse(r.Groups[1].Value), hi = int.Parse(r.Groups[2].Value);
+            // "D4", not a bare concatenation: JNT0001 (2026-08-30) is the first code
+            // below 1000, and int.Parse("0001") is 1, so "JNT" + i produced "JNT1" and
+            // the range silently covered a code that does not exist while missing the
+            // one that does. Every code above 1000 was unaffected, which is why this
+            // held for 72 codes.
             for (int i = lo; i <= hi; i++)
-                covered.Add("JNT" + i);
+                covered.Add("JNT" + i.ToString("D4"));
         }
         Assert.NotEmpty(covered);
 

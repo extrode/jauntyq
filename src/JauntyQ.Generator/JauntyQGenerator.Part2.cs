@@ -15,8 +15,11 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// Parses, validates and emits a single user .sql file. Pure function of
     /// (file, common prefix, schema state) so the incremental pipeline can
     /// cache it per file.
+    ///
+    /// Called only through <see cref="ProcessFile"/>, which contains a throw out
+    /// of this method to the one file that caused it.
     /// </summary>
-    private static FileResult ProcessFile(
+    private static FileResult ProcessFileCore(
         AdditionalText sqlFile,
         string commonPrefix,
         SchemaState schemaState,
