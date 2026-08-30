@@ -97,8 +97,32 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             .Select(static (pair, _) =>
             {
                 var (((json, migrations), ddl), dialect) = pair;
-                return SchemaState.Load(json, migrations, ddl, dialect);
+                try
+                {
+                    return SchemaState.Load(json, migrations, ddl, dialect);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    return SchemaState.Failed(InternalErrorMessage(
+                        "loading the schema snapshot and applying pending migrations", ex));
+                }
             });
+
+        // The one report site for a throw out of SchemaState.Load. Its own output
+        // node rather than a line inside EmitAggregates, because the aggregate step
+        // is one of the things that would not run if the schema node had thrown
+        // uncaught -- a report that only fires when the rest of the pipeline is
+        // healthy is no use for the failure it exists to describe.
+        context.RegisterSourceOutput(schemaState, static (ctx, state) =>
+        {
+            if (state.InternalError != null)
+                ctx.ReportDiagnostic(Diagnostic.Create(
+                    JauntyDiagnostics.JNT0001, Location.None, state.InternalError));
+        });
 
         // Auto-CRUD is on unless the consumer sets <JauntyQAutoCrud>false</JauntyQAutoCrud>
         var autoCrudEnabled = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) =>
@@ -141,7 +165,23 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(perFile.Combine(hintCollisions), static (ctx, pair) =>
         {
-            var (result, collisions) = pair;
+            try
+            {
+                EmitOneFile(ctx, pair.Left, pair.Right);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ReportInternalError(ctx, "emitting generated code for one .sql file", ex);
+            }
+        });
+
+        static void EmitOneFile(SourceProductionContext ctx, FileResult result,
+            ImmutableArray<(string Path, string Message)> collisions)
+        {
             foreach (var diag in result.Diagnostics)
                 ctx.ReportDiagnostic(diag.ToDiagnostic());
             if (result.HintName == null || result.Source == null)
@@ -161,7 +201,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
 
             ctx.AddSource(result.HintName, SourceText.From(result.Source, Encoding.UTF8));
-        });
+        }
 
         // Duplicate-query detection (JNT8005): plain string comparison in its
         // own node, so body edits never invalidate the expensive aggregate.
@@ -172,29 +212,40 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(fingerprints, static (ctx, entries) =>
         {
-            var groups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<(string Name, string? Path)>>(StringComparer.Ordinal);
-            foreach (var entry in entries)
+            try
             {
-                if (string.IsNullOrEmpty(entry.Fingerprint))
-                    continue;
-                if (!groups.TryGetValue(entry.Fingerprint!, out var members))
+                var groups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<(string Name, string? Path)>>(StringComparer.Ordinal);
+                foreach (var entry in entries)
                 {
-                    members = new System.Collections.Generic.List<(string, string?)>();
-                    groups[entry.Fingerprint!] = members;
+                    if (string.IsNullOrEmpty(entry.Fingerprint))
+                        continue;
+                    if (!groups.TryGetValue(entry.Fingerprint!, out var members))
+                    {
+                        members = new System.Collections.Generic.List<(string, string?)>();
+                        groups[entry.Fingerprint!] = members;
+                    }
+                    members.Add(($"{entry.Entity}.{entry.Method}", entry.Path));
                 }
-                members.Add(($"{entry.Entity}.{entry.Method}", entry.Path));
+                foreach (var group in groups)
+                {
+                    if (group.Value.Count < 2)
+                        continue;
+                    group.Value.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
+                    var memberNames = new System.Collections.Generic.List<string>(group.Value.Count);
+                    foreach (var m in group.Value)
+                        memberNames.Add(m.Name);
+                    // Anchor to the first member's .sql file so the IDE can navigate.
+                    ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT8005, FileLocation(group.Value[0].Path),
+                        $"Queries {string.Join(", ", memberNames)} compile to identical SQL; consolidate them to keep one plan and one maintenance point."));
+                }
             }
-            foreach (var group in groups)
+            catch (OperationCanceledException)
             {
-                if (group.Value.Count < 2)
-                    continue;
-                group.Value.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
-                var memberNames = new System.Collections.Generic.List<string>(group.Value.Count);
-                foreach (var m in group.Value)
-                    memberNames.Add(m.Name);
-                // Anchor to the first member's .sql file so the IDE can navigate.
-                ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT8005, FileLocation(group.Value[0].Path),
-                    $"Queries {string.Join(", ", memberNames)} compile to identical SQL; consolidate them to keep one plan and one maintenance point."));
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ReportInternalError(ctx, "checking for duplicate queries (JNT8005)", ex);
             }
         });
 
@@ -210,11 +261,22 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(nPlusOneInput, static (ctx, pair) =>
         {
-            var (entries, schema) = pair;
-            if (schema.Schema == null)
-                return;
-            foreach (var diag in NPlusOneAnalyzer.Analyze(entries, schema.Schema))
-                ctx.ReportDiagnostic(diag);
+            try
+            {
+                var (entries, schema) = pair;
+                if (schema.Schema == null)
+                    return;
+                foreach (var diag in NPlusOneAnalyzer.Analyze(entries, schema.Schema))
+                    ctx.ReportDiagnostic(diag);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ReportInternalError(ctx, "running the N+1 analysis (JNT8008)", ex);
+            }
         });
 
         // Predicate drift (JNT8011) and un-comparable pairings (JNT3010): also
@@ -230,11 +292,22 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(predicateDriftInput, static (ctx, pair) =>
         {
-            var (entries, schema) = pair;
-            if (schema.Schema == null)
-                return;
-            foreach (var diag in PredicateDriftAnalyzer.Analyze(entries, schema.Schema))
-                ctx.ReportDiagnostic(diag);
+            try
+            {
+                var (entries, schema) = pair;
+                if (schema.Schema == null)
+                    return;
+                foreach (var diag in PredicateDriftAnalyzer.Analyze(entries, schema.Schema))
+                    ctx.ReportDiagnostic(diag);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ReportInternalError(ctx, "running the predicate-drift analysis (JNT8011/JNT3010)", ex);
+            }
         });
 
         // Aggregated outputs (synthetics, POCO overloads, row POCOs, entity
@@ -320,8 +393,23 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(aggregateInput, static (ctx, pair) =>
         {
-            var ((((fileSummaries, schema), autoCrud), prefix), accept) = pair;
-            EmitAggregates(ctx, fileSummaries, schema, autoCrud, prefix, accept.Item1, accept.Item2);
+            try
+            {
+                var ((((fileSummaries, schema), autoCrud), prefix), accept) = pair;
+                EmitAggregates(ctx, fileSummaries, schema, autoCrud, prefix, accept.Item1, accept.Item2);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // The widest of the guards: EmitAggregates is what produces JauntyDb,
+                // every entity accessor and every row POCO, so a throw here is the
+                // route by which a consumer loses the whole generated surface while
+                // their per-query files still exist.
+                ReportInternalError(ctx, "emitting the aggregate types (JauntyDb, entity accessors, row POCOs)", ex);
+            }
         });
     }
 
