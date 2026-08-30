@@ -162,7 +162,17 @@ public sealed class PostgresFunctionRoundTripFixture : IAsyncLifetime
             CREATE FUNCTION answer() RETURNS int LANGUAGE sql IMMUTABLE AS $$ SELECT 42 $$;
 
             CREATE FUNCTION greet(who text) RETURNS text LANGUAGE sql IMMUTABLE
-                AS $$ SELECT 'hello ' || who $$;";
+                AS $$ SELECT 'hello ' || who $$;
+
+            CREATE SCHEMA reporting;
+
+            CREATE TABLE reporting.people (
+                id serial PRIMARY KEY,
+                code varchar(11) NOT NULL
+            );
+
+            CREATE FUNCTION reporting.calc_tax(amount numeric, rate numeric)
+                RETURNS numeric LANGUAGE sql IMMUTABLE AS $$ SELECT amount * rate + 1 $$;";
         cmd.CommandTimeout = 300;
         await cmd.ExecuteNonQueryAsync();
         await conn.ReloadTypesAsync();
@@ -202,6 +212,31 @@ public class PostgresFunctionRoundTripTests : IClassFixture<PostgresFunctionRoun
             .Invoke(null, new object?[] { conn, 100m, 0.25m, null });
 
         Assert.Equal(25m, result);
+    }
+
+    [SkippableFact]
+    public async Task AFunctionOutsideTheSearchPathIsReachedOnlyByItsQualifiedName()
+    {
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
+
+        var schema = await new contract::JauntyQ.Schema.Contract.Extractors.PostgresExtractor("reporting")
+            .ExtractAsync(_fx.ConnectionString);
+        Assert.Equal("reporting", schema.Functions.Values.Single(f => f.Name == "calc_tax").Schema);
+
+        var asm = await FunctionRoundTrip.GenerateAndCompile(schema, "postgres");
+
+        await using var conn = new NpgsqlConnection(_fx.ConnectionString);
+        await conn.OpenAsync();
+        await using (var setPath = conn.CreateCommand())
+        {
+            setPath.CommandText = "SET search_path TO public";
+            await setPath.ExecuteNonQueryAsync();
+        }
+
+        // 26, not 25: reporting.calc_tax adds one, so the value also proves
+        // which of the two same-named functions the emitted SQL reached.
+        Assert.Equal(26m, FunctionRoundTrip.StaticFn(asm, "CalcTax", 4)
+            .Invoke(null, new object?[] { conn, 100m, 0.25m, null }));
     }
 
     [SkippableFact]
@@ -498,6 +533,10 @@ public sealed class SqlServerFunctionRoundTripFixture : IAsyncLifetime
             "CREATE FUNCTION calc_tax(@amount decimal(12,2), @rate decimal(5,4)) " +
             "RETURNS decimal(12,2) AS BEGIN RETURN @amount * @rate END",
             "CREATE FUNCTION answer() RETURNS int AS BEGIN RETURN 42 END",
+            "CREATE SCHEMA reporting",
+            "CREATE TABLE reporting.people (id int IDENTITY PRIMARY KEY, code varchar(11) NOT NULL)",
+            "CREATE FUNCTION reporting.calc_tax(@amount decimal(12,2), @rate decimal(5,4)) " +
+            "RETURNS decimal(12,2) AS BEGIN RETURN @amount * @rate + 1 END",
         })
         {
             await using var cmd = conn.CreateCommand();
@@ -539,6 +578,11 @@ public class SqlServerFunctionRoundTripTests : IClassFixture<SqlServerFunctionRo
         // comes back through DbParameter binding with no provider type
         // anywhere. Proving qualification is REQUIRED needs a function outside
         // the default schema, which nothing captures yet.
+        //
+        // That last sentence is no longer true: the extractor's schema
+        // parameter captures one, and
+        // AFunctionOutsideTheDefaultSchemaIsReachedOnlyByItsQualifiedName below
+        // does the proving. This test stays as the default-schema case.
         Skip.IfNot(_fx.Available, _fx.SkipReason);
         var asm = await Build();
 
@@ -560,6 +604,26 @@ public class SqlServerFunctionRoundTripTests : IClassFixture<SqlServerFunctionRo
 
         Assert.Equal(42, FunctionRoundTrip.StaticFn(asm, "Answer", 2)
             .Invoke(null, new object?[] { conn, null }));
+    }
+
+    [SkippableFact]
+    public async Task AFunctionOutsideTheDefaultSchemaIsReachedOnlyByItsQualifiedName()
+    {
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
+
+        var schema = await new contract::JauntyQ.Schema.Contract.Extractors.SqlServerExtractor("reporting")
+            .ExtractAsync(_fx.ConnectionString);
+        Assert.Equal("reporting", schema.Functions.Values.Single(f => f.Name == "calc_tax").Schema);
+
+        var asm = await FunctionRoundTrip.GenerateAndCompile(schema, "sqlserver");
+
+        await using var conn = new SqlConnection(_fx.ConnectionString);
+        await conn.OpenAsync();
+
+        // 26, not 25: the sa login's default schema is dbo, which has its own
+        // calc_tax returning 25, so the value names which one was called.
+        Assert.Equal(26m, FunctionRoundTrip.StaticFn(asm, "CalcTax", 4)
+            .Invoke(null, new object?[] { conn, 100m, 0.25m, null }));
     }
 
     [SkippableFact]
