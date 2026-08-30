@@ -418,4 +418,47 @@ public class FunctionGenerationTests
 
         AssertCompiles(compilation);
     }
+
+    [Fact]
+    public void AddingAFunctionChangesJauntyDbAndNothingElse()
+    {
+        // FR-008 stated as something a mutant can break.
+        // NoFunctionsEmitsNoAccessorAtAll asserts the accessor is absent, which
+        // says nothing about the files spec 014 was not supposed to touch.
+        // Comparing a pre-014 snapshot against the same one with an explicit
+        // empty "functions": {} would say even less -- the two deserialize to
+        // the same object, so the comparison could not fail.
+        //
+        // The claim with content is that adding a function to a snapshot is
+        // INERT everywhere except JauntyDb.g.cs. The row types, the operation
+        // surface and the shape guard must come out identical, so a change that
+        // leaked into materialization or auto-CRUD is caught here.
+        string legacy = @"{
+  ""dialect"": ""sqlserver""," + TablesAndKeys + @"
+  ""procedures"": {}
+}";
+
+        var without = SourcesByName(Run(legacy).result);
+        var with = SourcesByName(Run(Schema("sqlserver", CalcTax)).result);
+
+        Assert.Equal(without.Keys.OrderBy(k => k, StringComparer.Ordinal),
+                     with.Keys.OrderBy(k => k, StringComparer.Ordinal));
+
+        foreach (var name in without.Keys)
+        {
+            if (name.EndsWith("JauntyDb.g.cs", StringComparison.Ordinal))
+                continue;
+            Assert.Equal(without[name], with[name]);
+        }
+
+        Assert.NotEqual(without["JauntyDb.g.cs"], with["JauntyDb.g.cs"]);
+    }
+
+    private static Dictionary<string, string> SourcesByName(GeneratorDriverRunResult result)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var tree in result.GeneratedTrees)
+            map[System.IO.Path.GetFileName(tree.FilePath)] = tree.ToString();
+        return map;
+    }
 }
