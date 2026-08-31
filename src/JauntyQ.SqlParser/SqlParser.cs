@@ -495,6 +495,37 @@ public static partial class SqlParser
             if (token.Type == TokenType.Keyword && IsClauseKeyword(token.Value))
                 break;
 
+            // SELECT ... INTO <target>. Refused rather than skipped, and not
+            // added to IsClauseKeyword, because the two would say different
+            // things: a clause keyword ends the select list silently, which is
+            // right for FROM and wrong here -- the statement CREATES a table,
+            // so accepting the rest of it would model a DDL statement as a
+            // query and generate a mapper for rows it never returns.
+            //
+            // INTO is a tokenizer keyword but not a clause keyword, so before
+            // this it fell through to the expression path and glued onto the
+            // preceding projection item: "select id, email into backup from t"
+            // modeled "email into backup" as one opaque expression, which
+            // unaliased lands on JNT3004 asking for an alias on an expression
+            // the consumer never wrote. Loud, but pointed at the wrong token --
+            // the same misdirection DISTINCT ON produced before it was refused.
+            //
+            // The target name is stepped over so the FROM clause after it still
+            // parses as itself, for the reason DISTINCT ON's list is stepped
+            // over: leaving it in place adds a second, misleading diagnostic
+            // beside the real one.
+            if (token.Type == TokenType.Keyword &&
+                string.Equals(token.Value, "INTO", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!model.UnsupportedConstructs.Contains("SELECT INTO"))
+                    model.UnsupportedConstructs.Add("SELECT INTO");
+
+                pos++;
+                if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
+                    pos++;
+                continue;
+            }
+
             // Skip commas between items
             if (token.Type == TokenType.Symbol && token.Value == ",")
             {
@@ -584,6 +615,29 @@ public static partial class SqlParser
     }
 
     /// <summary>
+    /// What terminates an item in the select list: every clause keyword, plus
+    /// INTO.
+    ///
+    /// <para>INTO is deliberately NOT in <see cref="IsClauseKeyword"/> and this
+    /// helper is deliberately not used by <c>ParseProjectionList</c>'s own loop
+    /// break. The two would say different things. A clause keyword ends the
+    /// select list <em>silently</em> — right for FROM, wrong for INTO, which
+    /// has to reach the refusal that records "SELECT INTO" as unsupported. What
+    /// INTO must do is end the item in front of it, so that item is read as the
+    /// column it is and the loop comes back round to that refusal.</para>
+    ///
+    /// <para>Without this the last projected column before INTO fails the
+    /// plain-column test (its next token is a keyword that is neither AS nor a
+    /// clause keyword), falls to the expression path, and that path swallows
+    /// INTO and the target name into one opaque expression — which is the
+    /// JNT3004-blaming-the-wrong-token behaviour the refusal replaces. Measured
+    /// 2026-08-31: with the refusal in place but this helper absent, the
+    /// aliased form was refused and the unaliased form was not.</para>
+    /// </summary>
+    private static bool EndsASelectListItem(string keyword) =>
+        IsClauseKeyword(keyword) || string.Equals(keyword, "INTO", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// A projection item starting at <paramref name="pos"/> is a plain column
     /// when it is a single (optionally dot-qualified) identifier immediately
     /// followed by a comma, a clause keyword, End, an AS, or an implicit alias
@@ -600,7 +654,7 @@ public static partial class SqlParser
             return true;
         if (next.Type == TokenType.Symbol && next.Value == ",")
             return true;
-        if (next.Type == TokenType.Keyword && (next.Value == "AS" || IsClauseKeyword(next.Value)))
+        if (next.Type == TokenType.Keyword && (next.Value == "AS" || EndsASelectListItem(next.Value)))
             return true;
         // implicit alias: identifier followed by a non-clause identifier
         if (next.Type == TokenType.Identifier && !IsClauseKeyword(next.Value))
@@ -622,7 +676,7 @@ public static partial class SqlParser
                 depth--;
             else if (depth == 0 && t.Type == TokenType.Symbol && t.Value == ",")
                 break;
-            else if (depth == 0 && t.Type == TokenType.Keyword && IsClauseKeyword(t.Value))
+            else if (depth == 0 && t.Type == TokenType.Keyword && EndsASelectListItem(t.Value))
                 break;
 
             run.Add(t);
