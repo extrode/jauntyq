@@ -145,6 +145,100 @@ public class GrammarVersusSchemaDiagnosticTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT3004");
     }
 
+    // ── SELECT ... INTO: noticed 2026-08-18 while fixing the TOP modifiers,
+    // refused 2026-08-31. Same misdirection class as DISTINCT ON, different
+    // kind of thing underneath: this one is a statement that creates a table,
+    // so there is no rewrite that turns it into a query.
+
+    private const string SelectIntoQuery =
+        "select inbound_deliveries.id, inbound_deliveries.status\n" +
+        "into deliveries_backup\n" +
+        "from inbound_deliveries";
+
+    /// <summary>
+    /// The aliased form, for the reason the DISTINCT ON pair gives: the
+    /// unaliased shape was caught by JNT3004 for the wrong reason, and giving
+    /// the column the alias JNT3004 asks for is what a consumer would do next.
+    /// If that made the file pass, the refusal would be conditional on the
+    /// consumer not having taken the advice the old diagnostic gave them.
+    /// </summary>
+    private const string AliasedSelectIntoQuery =
+        "select inbound_deliveries.id, inbound_deliveries.status as delivery_status\n" +
+        "into deliveries_backup\n" +
+        "from inbound_deliveries";
+
+    [Theory]
+    [InlineData("unaliased")]
+    [InlineData("aliased")]
+    public void SelectInto_ReportsJNT1009(string form)
+    {
+        var result = Run(form == "aliased" ? AliasedSelectIntoQuery : SelectIntoQuery);
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT1009");
+        Assert.Equal(DiagnosticSeverity.Error, diag.Severity);
+        Assert.Contains("SELECT ... INTO", diag.GetMessage());
+        Assert.Contains("supported-sql.md", diag.GetMessage());
+    }
+
+    /// <summary>
+    /// The message must name what the statement does, not merely that it is
+    /// unsupported. "Creates a table" is the sentence that tells someone the
+    /// fix is a migration rather than a rephrasing, and it is the difference
+    /// between this diagnostic and the three that share its code.
+    /// </summary>
+    [Fact]
+    public void SelectIntoDiagnostic_SaysItCreatesATable()
+    {
+        var diag = Assert.Single(Run(SelectIntoQuery).Diagnostics, d => d.Id == "JNT1009");
+
+        Assert.Contains("creates a table", diag.GetMessage());
+        Assert.Contains("migration", diag.GetMessage());
+    }
+
+    /// <summary>
+    /// The refusal arrives alone. Before the parser stepped over INTO and its
+    /// target, "status into deliveries_backup" glued into one opaque expression
+    /// and drew JNT3004 demanding an alias for an expression nobody wrote —
+    /// which is the misdirection this change exists to end, not a second
+    /// helpful hint.
+    /// </summary>
+    [Fact]
+    public void SelectInto_DoesNotAlsoDemandAnAliasForTheLastColumn()
+    {
+        var result = Run(SelectIntoQuery);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT3004");
+    }
+
+    /// <summary>
+    /// The FROM clause still parses after the target is stepped over, so the
+    /// table resolves and no schema diagnostic fires. Without this the refusal
+    /// could be "correct" while also inventing a missing relation — the exact
+    /// JNT2001-for-a-grammar-gap confusion this whole file exists to prevent.
+    /// </summary>
+    [Fact]
+    public void SelectInto_DoesNotAlsoReportAMissingRelation()
+    {
+        var result = Run(SelectIntoQuery);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2001");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2002");
+    }
+
+    /// <summary>
+    /// The discrimination guard. A check keyed on the INTO keyword alone would
+    /// also fire on INSERT INTO, which is a supported statement and by far the
+    /// commoner spelling of the word — refusing it would break far more than
+    /// SELECT INTO ever affected.
+    /// </summary>
+    [Fact]
+    public void InsertInto_IsStillAccepted()
+    {
+        var result = Run("insert into inbound_deliveries (inbound_message_id, status) values (@messageId, @status)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT1009");
+    }
+
     /// <summary>
     /// Plain DISTINCT does not change the result shape and is still skipped,
     /// not refused — a check that fired on the DISTINCT keyword alone would

@@ -131,6 +131,24 @@ public static partial class QueryValidator
                 continue;
             }
 
+            // SELECT INTO shares JNT1009 with LATERAL / DISTINCT ON / APPLY,
+            // but it is a different kind of thing and the message says so: the
+            // others are query grammar JauntyQ has not implemented, while this
+            // one is a statement that CREATES A TABLE. There is no rewrite that
+            // makes it a query, so the message offers the two real options
+            // (move it to a migration, or split it) rather than a rephrasing.
+            if (construct == "SELECT INTO")
+            {
+                errors.Add(new ValidationError(JauntyDiagnostics.JNT1009,
+                    "'SELECT ... INTO <table>' is not supported: it creates a table rather than returning " +
+                    "rows, so there is no result shape for JauntyQ to generate a mapper from, and nothing " +
+                    "about your schema is wrong. Move the table creation into a migration under your " +
+                    "migrations directory, and keep the SELECT here as a plain query -- or, if you meant " +
+                    "PL/pgSQL's 'SELECT ... INTO <variable>', that belongs in a stored procedure rather " +
+                    "than a query file. See docs/06-reference/supported-sql.md for the accepted surface."));
+                continue;
+            }
+
             // MULTI_STATEMENT joins UNION and SUBQUERY as an Error rather than
             // a JNT1001 Warning: the merged (or truncated) model means the
             // generated mapper matches neither statement. See JNT1008.
