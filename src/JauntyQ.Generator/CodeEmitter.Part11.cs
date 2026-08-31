@@ -81,7 +81,7 @@ public static partial class CodeEmitter
             };
             foreach (var p in outFlowingParams)
             {
-                string outCt = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
+                string outCt = ProcParamCSharpType(p, dialect);
                 string outPname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
                 tupleParts.Add($"{ShortenValueTypeName(schema, outCt)} {outPname}");
             }
@@ -122,7 +122,7 @@ public static partial class CodeEmitter
             parts.Add($"DbConnection {connVar}");
         foreach (var p in procedure.Params)
         {
-            string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
+            string ct = ProcParamCSharpType(p, dialect);
             string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
             string displayCt = ShortenValueTypeName(schema, ct);
             if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out
@@ -186,7 +186,14 @@ public static partial class CodeEmitter
         {
             foreach (var p in procedure.Params)
             {
-                if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out)
+                // ReturnValue is an `out` formal parameter on this overload
+                // too, so it needs the same pre-assignment. Every current
+                // return path is preceded by the readback, which assigns it --
+                // but that is a property of today's emitted body, not of the
+                // signature, and an early return added later would be CS0177
+                // for ReturnValue alone.
+                if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out
+                    || p.Direction == JauntyQ.Schema.ProcedureParamDirection.ReturnValue)
                 {
                     string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
                     sb.AppendLine($"            {pname} = default;");
@@ -241,7 +248,7 @@ public static partial class CodeEmitter
             // enumName can reach here and the IsNonNullableValueType calls
             // below deliberately pass no schema (spec 013, out of scope):
             // a proc parameter of enum type keeps its pre-013 mapping.
-            string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
+            string ct = ProcParamCSharpType(p, dialect);
             string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
             sb.AppendLine($"                DbParameter {varName} = __cmd.CreateParameter();");
             sb.AppendLine($"                {varName}.ParameterName = \"@{IdentifierGuard.ToStringLiteral(p.Name)}\";");
@@ -363,6 +370,24 @@ public static partial class CodeEmitter
         EmitFinallyClose(sb, connVar, isAsync);
         sb.AppendLine("        }");
     }
+
+    /// <summary>
+    /// The C# type of a procedure parameter. A return value is always
+    /// <c>int</c>: T-SQL's RETURN takes an integer and nothing else, so the
+    /// <c>dbType</c> and <c>isNullable</c> a snapshot declares beside a
+    /// ReturnValue direction describe nothing the database can vary.
+    /// </summary>
+    /// <remarks>
+    /// Honouring the declared type here would be worse than ignoring it. A
+    /// snapshot saying <c>"dbType": "nvarchar", "direction": "ReturnValue"</c>
+    /// generated <c>out string</c> and a readback cast of
+    /// <c>(string)(object)value</c>, which throws InvalidCastException at
+    /// runtime against a value the provider always delivers as int.
+    /// </remarks>
+    private static string ProcParamCSharpType(JauntyQ.Schema.ProcedureParam p, string? dialect) =>
+        p.Direction == JauntyQ.Schema.ProcedureParamDirection.ReturnValue
+            ? "int"
+            : DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
 
     /// <summary>
     /// AUD-R68-01: true if a schema parameter's own escaped camelCase name

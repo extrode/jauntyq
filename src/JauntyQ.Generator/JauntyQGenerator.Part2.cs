@@ -185,6 +185,34 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
             }
 
+            // JNT2026: two return-value parameters. A procedure has one return
+            // status, so both would become `out` parameters of which at most
+            // one can ever be populated, with nothing defining which. Checked
+            // here rather than in the emitter for the same reason JNT2013 is:
+            // the emitter's job is to emit, and a parameter list that cannot be
+            // emitted correctly has to be refused before it gets there.
+            int returnValueParams = 0;
+            string? secondReturnValueParam = null;
+            string? firstReturnValueParam = null;
+            foreach (var p in procedure.Params)
+            {
+                if (p.Direction != ProcedureParamDirection.ReturnValue)
+                    continue;
+                returnValueParams++;
+                if (returnValueParams == 1)
+                    firstReturnValueParam = p.Name;
+                else if (returnValueParams == 2)
+                    secondReturnValueParam = p.Name;
+            }
+            if (returnValueParams > 1)
+            {
+                callDiagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2026,
+                    $"Stored procedure '{procedure.Name}' declares {returnValueParams} parameters with direction 'ReturnValue' ('{firstReturnValueParam}', '{secondReturnValueParam}', ...). " +
+                    $"A procedure has exactly one return status, so at most one of them could ever carry a value and nothing defines which. " +
+                    $"Keep one and give the others direction 'Out'."));
+                return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
+            }
+
             string callSource = CodeEmitter.EmitProcCall(entityName, methodName, procedure, schema.Dialect, schema);
             return new FileResult(
                 $"{entityName}.{methodName}.g.cs",

@@ -134,6 +134,30 @@ public class ProcCallTests
       ],
       ""results"": []
     },
+    ""ArchiveWithTwoReturnStatuses"": {
+      ""name"": ""ArchiveWithTwoReturnStatuses"",
+      ""params"": [
+        { ""name"": ""FirstStatus"", ""dbType"": ""int"", ""direction"": ""ReturnValue"", ""isNullable"": false },
+        { ""name"": ""SecondStatus"", ""dbType"": ""int"", ""direction"": ""ReturnValue"", ""isNullable"": false }
+      ],
+      ""results"": []
+    },
+    ""ArchiveWithStringTypedReturnStatus"": {
+      ""name"": ""ArchiveWithStringTypedReturnStatus"",
+      ""params"": [
+        { ""name"": ""ReturnStatus"", ""dbType"": ""nvarchar"", ""direction"": ""ReturnValue"", ""isNullable"": true, ""maxLength"": 50 }
+      ],
+      ""results"": []
+    },
+    ""ArchiveWithOutAndReturnStatus"": {
+      ""name"": ""ArchiveWithOutAndReturnStatus"",
+      ""params"": [
+        { ""name"": ""CustomerId"", ""dbType"": ""nchar"", ""direction"": ""In"", ""isNullable"": false, ""maxLength"": 5 },
+        { ""name"": ""ArchivedCount"", ""dbType"": ""int"", ""direction"": ""Out"", ""isNullable"": false },
+        { ""name"": ""ReturnStatus"", ""dbType"": ""int"", ""direction"": ""ReturnValue"", ""isNullable"": false }
+      ],
+      ""results"": []
+    },
     ""ArchiveWithKeywordNamedOutParam"": {
       ""name"": ""ArchiveWithKeywordNamedOutParam"",
       ""params"": [
@@ -891,6 +915,76 @@ public class ProcCallTests
     }
 
     /// <summary>
+    /// Two return-value parameters describe something no engine produces:
+    /// both become `out` parameters, at most one can carry a value, and
+    /// nothing defines which. JNT2026, and no method.
+    /// </summary>
+    [Fact]
+    public void Call_TwoReturnValueParams_IsJNT2026_AndEmitsNoMethod()
+    {
+        var result = Run("-- @call ArchiveWithTwoReturnStatuses\n",
+            "db/Customers/ArchiveWithTwoReturnStatuses.sql");
+
+        Assert.Contains(result.Results[0].Diagnostics, d => d.Id == "JNT2026");
+        Assert.DoesNotContain(result.Results[0].GeneratedSources,
+            s => s.HintName == "Customers.ArchiveWithTwoReturnStatuses.g.cs");
+    }
+
+    /// <summary>
+    /// One return-value parameter is the supported shape and must stay silent,
+    /// or the check above would refuse the feature it was added to protect.
+    /// </summary>
+    [Fact]
+    public void Call_OneReturnValueParam_IsNotJNT2026()
+    {
+        var result = Run("-- @call ArchiveWithReturnStatus\n", "db/Customers/ArchiveWithReturnStatus.sql");
+
+        Assert.DoesNotContain(result.Results[0].Diagnostics, d => d.Id == "JNT2026");
+    }
+
+    /// <summary>
+    /// A return status is an int whatever the snapshot claims: T-SQL's RETURN
+    /// takes an integer and nothing else. Honouring a declared "nvarchar" here
+    /// generated `out string` and a readback cast of (string)(object)value,
+    /// which throws InvalidCastException against the int the provider delivers.
+    /// The declared isNullable is ignored for the same reason.
+    /// </summary>
+    [Fact]
+    public void Call_ReturnValueParam_IsAlwaysInt_WhateverTheSnapshotDeclares()
+    {
+        var result = Run("-- @call ArchiveWithStringTypedReturnStatus\n",
+            "db/Customers/ArchiveWithStringTypedReturnStatus.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithStringTypedReturnStatus.g.cs").SourceText.ToString();
+
+        Assert.Contains("out int returnStatus", source);
+        Assert.DoesNotContain("out string returnStatus", source);
+        Assert.DoesNotContain("out string? returnStatus", source);
+        Assert.DoesNotContain("out int? returnStatus", source);
+    }
+
+    /// <summary>
+    /// OUT and ReturnValue on one procedure: both bound, both read back, both
+    /// in the async tuple, in schema order after the affected-row count.
+    /// </summary>
+    [Fact]
+    public void Call_OutAndReturnValueParams_BothTravelTogether()
+    {
+        var result = Run("-- @call ArchiveWithOutAndReturnStatus\n",
+            "db/Customers/ArchiveWithOutAndReturnStatus.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithOutAndReturnStatus.g.cs").SourceText.ToString();
+
+        Assert.Contains("out int archivedCount", source);
+        Assert.Contains("out int returnStatus", source);
+        Assert.Contains("ParameterDirection.Output", source);
+        Assert.Contains("ParameterDirection.ReturnValue", source);
+        Assert.Contains(
+            "Task<(int affected, int archivedCount, int returnStatus)> ArchiveWithOutAndReturnStatusAsync(",
+            source);
+    }
+
+    /// <summary>
     /// The three shapes above, compiled for real. Everything else in this file
     /// that changed a proc-call signature was caught by a compile rather than a
     /// string assertion, and `out` on an async method is precisely the class of
@@ -900,6 +994,8 @@ public class ProcCallTests
     [InlineData("ArchiveWithReturnStatus", "db/Customers/ArchiveWithReturnStatus.sql")]
     [InlineData("GetOrdersWithReturnStatus", "db/Orders/GetOrdersWithReturnStatus.sql")]
     [InlineData("ArchiveWithReturnStatusNamedConn", "db/Customers/ArchiveWithReturnStatusNamedConn.sql")]
+    [InlineData("ArchiveWithStringTypedReturnStatus", "db/Customers/ArchiveWithStringTypedReturnStatus.sql")]
+    [InlineData("ArchiveWithOutAndReturnStatus", "db/Customers/ArchiveWithOutAndReturnStatus.sql")]
     public void GeneratedProcCallCode_WithReturnValueParam_CompilesAgainstRealAdo(string proc, string path)
     {
         var result = Run("-- @call " + proc + "\n", path);
