@@ -506,6 +506,24 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // A procedure has one return status, so a snapshot declaring two
+    // ReturnValue parameters describes something no engine can produce. Both
+    // would be emitted as `out` parameters, at most one could ever carry a
+    // value, and nothing defines which -- the same "cannot be emitted
+    // correctly, and no rename by the generator resolves it" shape as JNT2013,
+    // so an Error and no method, matching it.
+    //
+    // Unreachable from `jaunty schema pull`: no extractor reads a procedure's
+    // return status, so ReturnValue arrives only from a hand-authored or
+    // externally produced snapshot.
+    public static readonly DiagnosticDescriptor JNT2026 = new(
+        "JNT2026",
+        "Duplicate Return-Value Parameter",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(

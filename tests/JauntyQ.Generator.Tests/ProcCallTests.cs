@@ -111,6 +111,53 @@ public class ProcCallTests
       ],
       ""results"": []
     },
+    ""ArchiveWithReturnStatus"": {
+      ""name"": ""ArchiveWithReturnStatus"",
+      ""params"": [
+        { ""name"": ""CustomerId"", ""dbType"": ""nchar"", ""direction"": ""In"", ""isNullable"": false, ""maxLength"": 5 },
+        { ""name"": ""ReturnStatus"", ""dbType"": ""int"", ""direction"": ""ReturnValue"", ""isNullable"": false }
+      ],
+      ""results"": []
+    },
+    ""GetOrdersWithReturnStatus"": {
+      ""name"": ""GetOrdersWithReturnStatus"",
+      ""params"": [
+        { ""name"": ""CustomerId"", ""dbType"": ""nchar"", ""direction"": ""In"", ""isNullable"": false, ""maxLength"": 5 },
+        { ""name"": ""ReturnStatus"", ""dbType"": ""int"", ""direction"": ""ReturnValue"", ""isNullable"": false }
+      ],
+      ""results"": [ { ""name"": ""OrderId"", ""dbType"": ""int"", ""isNullable"": false } ]
+    },
+    ""ArchiveWithReturnStatusNamedConn"": {
+      ""name"": ""ArchiveWithReturnStatusNamedConn"",
+      ""params"": [
+        { ""name"": ""Conn"", ""dbType"": ""int"", ""direction"": ""ReturnValue"", ""isNullable"": false }
+      ],
+      ""results"": []
+    },
+    ""ArchiveWithTwoReturnStatuses"": {
+      ""name"": ""ArchiveWithTwoReturnStatuses"",
+      ""params"": [
+        { ""name"": ""FirstStatus"", ""dbType"": ""int"", ""direction"": ""ReturnValue"", ""isNullable"": false },
+        { ""name"": ""SecondStatus"", ""dbType"": ""int"", ""direction"": ""ReturnValue"", ""isNullable"": false }
+      ],
+      ""results"": []
+    },
+    ""ArchiveWithStringTypedReturnStatus"": {
+      ""name"": ""ArchiveWithStringTypedReturnStatus"",
+      ""params"": [
+        { ""name"": ""ReturnStatus"", ""dbType"": ""nvarchar"", ""direction"": ""ReturnValue"", ""isNullable"": true, ""maxLength"": 50 }
+      ],
+      ""results"": []
+    },
+    ""ArchiveWithOutAndReturnStatus"": {
+      ""name"": ""ArchiveWithOutAndReturnStatus"",
+      ""params"": [
+        { ""name"": ""CustomerId"", ""dbType"": ""nchar"", ""direction"": ""In"", ""isNullable"": false, ""maxLength"": 5 },
+        { ""name"": ""ArchivedCount"", ""dbType"": ""int"", ""direction"": ""Out"", ""isNullable"": false },
+        { ""name"": ""ReturnStatus"", ""dbType"": ""int"", ""direction"": ""ReturnValue"", ""isNullable"": false }
+      ],
+      ""results"": []
+    },
     ""ArchiveWithKeywordNamedOutParam"": {
       ""name"": ""ArchiveWithKeywordNamedOutParam"",
       ""params"": [
@@ -788,6 +835,182 @@ public class ProcCallTests
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         Assert.True(errors.Count == 0,
             "generated proc-call code for a keyword-named ('Ref') OUT param failed to compile:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    // ── ProcedureParamDirection.ReturnValue ─────────────────────────────────
+    // Declared since the enum was written and dropped at three emitter sites
+    // until 2026-08-31: no formal parameter, no DbParameter, no
+    // ParameterDirection.ReturnValue, and no diagnostic saying so. No
+    // extractor produces the member, so it arrives only from a hand-authored
+    // or externally produced snapshot -- which the deserializer accepts, since
+    // SchemaJsonContext registers a JsonStringEnumConverter for the enum. It
+    // now travels every path OUT does.
+
+    /// <summary>
+    /// The sync overload: a real `out` parameter, a bound DbParameter carrying
+    /// ParameterDirection.ReturnValue, and a readback assignment.
+    /// </summary>
+    [Fact]
+    public void Call_ReturnValueParam_IsBoundAndExposedOnTheSyncOverload()
+    {
+        var result = Run("-- @call ArchiveWithReturnStatus\n", "db/Customers/ArchiveWithReturnStatus.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithReturnStatus.g.cs").SourceText.ToString();
+
+        Assert.Contains("out int returnStatus", source);
+        Assert.Contains("ParameterDirection.ReturnValue", source);
+        Assert.Contains("returnStatus = ", source);
+    }
+
+    /// <summary>
+    /// The async overload cannot declare `out` (CS1988), so the value rides
+    /// the tuple beside the affected-row count, the same as an OUT param.
+    /// </summary>
+    [Fact]
+    public void Call_ReturnValueParam_RidesTheAsyncTuple()
+    {
+        var result = Run("-- @call ArchiveWithReturnStatus\n", "db/Customers/ArchiveWithReturnStatus.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithReturnStatus.g.cs").SourceText.ToString();
+
+        Assert.Contains("Task<(int affected, int returnStatus)> ArchiveWithReturnStatusAsync(", source);
+        Assert.DoesNotContain(source.Split('\n'),
+            line => line.Contains("async") && line.Contains("out int returnStatus"));
+    }
+
+    /// <summary>
+    /// A row-returning procedure with a return status: the rows and the status
+    /// both come back, rather than the status being dropped for having nowhere
+    /// obvious to sit.
+    /// </summary>
+    [Fact]
+    public void Call_ReturnValueParam_OnARowReturningProc_ComesBackBesideTheRows()
+    {
+        var result = Run("-- @call GetOrdersWithReturnStatus\n", "db/Orders/GetOrdersWithReturnStatus.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Orders.GetOrdersWithReturnStatus.g.cs").SourceText.ToString();
+
+        Assert.Contains("Task<(List<Result.GetOrdersWithReturnStatus> results, int returnStatus)> GetOrdersWithReturnStatusAsync(", source);
+        Assert.Contains("out int returnStatus", source);
+        Assert.Contains("ParameterDirection.ReturnValue", source);
+    }
+
+    /// <summary>
+    /// AUD-R68-01's collision check excluded ReturnValue params while they were
+    /// invisible in the signature. They are visible now, so a return-value
+    /// param named "Conn" has to trigger the same "__conn" fallback any other
+    /// param would -- otherwise the static overload declares two parameters
+    /// called conn (CS0100).
+    /// </summary>
+    [Fact]
+    public void Call_ReturnValueParamNamedConn_TriggersTheStaticOverloadRename()
+    {
+        var result = Run("-- @call ArchiveWithReturnStatusNamedConn\n",
+            "db/Customers/ArchiveWithReturnStatusNamedConn.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithReturnStatusNamedConn.g.cs").SourceText.ToString();
+
+        Assert.Contains("DbConnection __conn", source);
+    }
+
+    /// <summary>
+    /// Two return-value parameters describe something no engine produces:
+    /// both become `out` parameters, at most one can carry a value, and
+    /// nothing defines which. JNT2026, and no method.
+    /// </summary>
+    [Fact]
+    public void Call_TwoReturnValueParams_IsJNT2026_AndEmitsNoMethod()
+    {
+        var result = Run("-- @call ArchiveWithTwoReturnStatuses\n",
+            "db/Customers/ArchiveWithTwoReturnStatuses.sql");
+
+        Assert.Contains(result.Results[0].Diagnostics, d => d.Id == "JNT2026");
+        Assert.DoesNotContain(result.Results[0].GeneratedSources,
+            s => s.HintName == "Customers.ArchiveWithTwoReturnStatuses.g.cs");
+    }
+
+    /// <summary>
+    /// One return-value parameter is the supported shape and must stay silent,
+    /// or the check above would refuse the feature it was added to protect.
+    /// </summary>
+    [Fact]
+    public void Call_OneReturnValueParam_IsNotJNT2026()
+    {
+        var result = Run("-- @call ArchiveWithReturnStatus\n", "db/Customers/ArchiveWithReturnStatus.sql");
+
+        Assert.DoesNotContain(result.Results[0].Diagnostics, d => d.Id == "JNT2026");
+    }
+
+    /// <summary>
+    /// A return status is an int whatever the snapshot claims: T-SQL's RETURN
+    /// takes an integer and nothing else. Honouring a declared "nvarchar" here
+    /// generated `out string` and a readback cast of (string)(object)value,
+    /// which throws InvalidCastException against the int the provider delivers.
+    /// The declared isNullable is ignored for the same reason.
+    /// </summary>
+    [Fact]
+    public void Call_ReturnValueParam_IsAlwaysInt_WhateverTheSnapshotDeclares()
+    {
+        var result = Run("-- @call ArchiveWithStringTypedReturnStatus\n",
+            "db/Customers/ArchiveWithStringTypedReturnStatus.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithStringTypedReturnStatus.g.cs").SourceText.ToString();
+
+        Assert.Contains("out int returnStatus", source);
+        Assert.DoesNotContain("out string returnStatus", source);
+        Assert.DoesNotContain("out string? returnStatus", source);
+        Assert.DoesNotContain("out int? returnStatus", source);
+    }
+
+    /// <summary>
+    /// OUT and ReturnValue on one procedure: both bound, both read back, both
+    /// in the async tuple, in schema order after the affected-row count.
+    /// </summary>
+    [Fact]
+    public void Call_OutAndReturnValueParams_BothTravelTogether()
+    {
+        var result = Run("-- @call ArchiveWithOutAndReturnStatus\n",
+            "db/Customers/ArchiveWithOutAndReturnStatus.sql");
+        string source = result.Results[0].GeneratedSources
+            .Single(s => s.HintName == "Customers.ArchiveWithOutAndReturnStatus.g.cs").SourceText.ToString();
+
+        Assert.Contains("out int archivedCount", source);
+        Assert.Contains("out int returnStatus", source);
+        Assert.Contains("ParameterDirection.Output", source);
+        Assert.Contains("ParameterDirection.ReturnValue", source);
+        Assert.Contains(
+            "Task<(int affected, int archivedCount, int returnStatus)> ArchiveWithOutAndReturnStatusAsync(",
+            source);
+    }
+
+    /// <summary>
+    /// The three shapes above, compiled for real. Everything else in this file
+    /// that changed a proc-call signature was caught by a compile rather than a
+    /// string assertion, and `out` on an async method is precisely the class of
+    /// error a parse-only check stays silent about.
+    /// </summary>
+    [Theory]
+    [InlineData("ArchiveWithReturnStatus", "db/Customers/ArchiveWithReturnStatus.sql")]
+    [InlineData("GetOrdersWithReturnStatus", "db/Orders/GetOrdersWithReturnStatus.sql")]
+    [InlineData("ArchiveWithReturnStatusNamedConn", "db/Customers/ArchiveWithReturnStatusNamedConn.sql")]
+    [InlineData("ArchiveWithStringTypedReturnStatus", "db/Customers/ArchiveWithStringTypedReturnStatus.sql")]
+    [InlineData("ArchiveWithOutAndReturnStatus", "db/Customers/ArchiveWithOutAndReturnStatus.sql")]
+    public void GeneratedProcCallCode_WithReturnValueParam_CompilesAgainstRealAdo(string proc, string path)
+    {
+        var result = Run("-- @call " + proc + "\n", path);
+
+        var allTrees = result.Results[0].GeneratedSources
+            .Select(s => CSharpSyntaxTree.ParseText(s.SourceText.ToString()))
+            .ToList();
+        var compilation = CSharpCompilation.Create("ProcCallReturnValueEmittedCode",
+            allTrees,
+            BaseReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "generated proc-call code for a ReturnValue param on '" + proc + "' failed to compile:\n" +
             string.Join("\n", errors.Select(e => e.ToString())));
     }
 }
