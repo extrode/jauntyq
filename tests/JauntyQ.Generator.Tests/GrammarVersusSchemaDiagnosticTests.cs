@@ -239,6 +239,68 @@ public class GrammarVersusSchemaDiagnosticTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT1009");
     }
 
+    // ── Target spellings, found in review 2026-08-31. In each of these the
+    // refusal itself still fires; what leaks is a phantom projection item
+    // beside it. That is the same "refusal arrives alone" contract
+    // SelectInto_DoesNotAlsoDemandAnAliasForTheLastColumn pins for the
+    // bare-identifier target, failing for targets that are not one token.
+
+    /// <summary>
+    /// The dominant real-world spelling of a T-SQL SELECT INTO target. The
+    /// tokenizer emits '#' as its own Symbol, so <c>#temp</c> is two tokens and
+    /// stepping over a single Identifier leaves the '#' behind.
+    /// </summary>
+    [Theory]
+    [InlineData("#temp_deliveries")]
+    [InlineData("##global_deliveries")]
+    public void SelectInto_ATempTableTarget_RefusalStillArrivesAlone(string target)
+    {
+        var result = Run(
+            "select inbound_deliveries.id, inbound_deliveries.status into "
+            + target + " from inbound_deliveries");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT1009");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT3004");
+    }
+
+    /// <summary>
+    /// An implicit (AS-less) alias on the item before INTO. The alias-acceptance
+    /// lookahead asks whether the token after the alias ends the item, which is
+    /// a fourth site asking the question EndsASelectListItem answers.
+    /// </summary>
+    [Fact]
+    public void SelectInto_AfterAnImplicitAlias_DoesNotInventASecondColumn()
+    {
+        var result = Run(
+            "select inbound_deliveries.status delivery_status "
+            + "into deliveries_backup from inbound_deliveries");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT1009");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2002");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT3004");
+    }
+
+    /// <summary>
+    /// Postgres spells the target with modifier words that are not tokenizer
+    /// keywords, so they arrive as ordinary identifiers and the first is
+    /// mistaken for the target name.
+    /// </summary>
+    [Theory]
+    [InlineData("temp deliveries_backup")]
+    [InlineData("temporary deliveries_backup")]
+    [InlineData("unlogged deliveries_backup")]
+    [InlineData("temp table deliveries_backup")]
+    public void SelectInto_APostgresQualifiedTarget_RefusalStillArrivesAlone(string target)
+    {
+        var result = Run(
+            "select inbound_deliveries.id, inbound_deliveries.status into "
+            + target + " from inbound_deliveries");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT1009");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT3004");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT2002");
+    }
+
     /// <summary>
     /// Plain DISTINCT does not change the result shape and is still skipped,
     /// not refused — a check that fired on the DISTINCT keyword alone would
