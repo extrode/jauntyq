@@ -521,8 +521,7 @@ public static partial class SqlParser
                     model.UnsupportedConstructs.Add("SELECT INTO");
 
                 pos++;
-                if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
-                    pos++;
+                pos = SkipSelectIntoTarget(tokens, pos);
                 continue;
             }
 
@@ -585,7 +584,7 @@ public static partial class SqlParser
                         {
                             var afterAlias = tokens[pos + 2];
                             if ((afterAlias.Type == TokenType.Symbol && afterAlias.Value == ",") ||
-                                (afterAlias.Type == TokenType.Keyword && IsClauseKeyword(afterAlias.Value)) ||
+                                (afterAlias.Type == TokenType.Keyword && EndsASelectListItem(afterAlias.Value)) ||
                                 afterAlias.Type == TokenType.End)
                             {
                                 outputAlias = tokens[pos + 1].Value;
@@ -636,6 +635,42 @@ public static partial class SqlParser
     /// </summary>
     private static bool EndsASelectListItem(string keyword) =>
         IsClauseKeyword(keyword) || string.Equals(keyword, "INTO", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Steps over the target of a refused SELECT ... INTO, returning the
+    /// position of the first token after it. The target is never modeled — the
+    /// statement is already recorded as unsupported — so the only job here is
+    /// to leave nothing behind that the projection loop would read as another
+    /// column and report a second, misleading diagnostic for.
+    /// </summary>
+    /// <remarks>
+    /// A target is not one token in the two dialects that have this statement.
+    /// T-SQL's temp tables are the common case and the tokenizer emits '#' as
+    /// its own Symbol, so <c>#t</c> is two tokens and <c>##t</c> is three.
+    /// PostgreSQL spells it <c>INTO TEMP|TEMPORARY|UNLOGGED [TABLE] name</c>,
+    /// and none of those words is a tokenizer keyword, so they arrive as
+    /// ordinary identifiers and the first of them was taken for the name —
+    /// leaving the real name to be read as a projected column and reported as
+    /// JNT2002 against a table the consumer never asked about.
+    /// </remarks>
+    private static int SkipSelectIntoTarget(IReadOnlyList<Token> tokens, int pos)
+    {
+        while (pos < tokens.Count &&
+               (tokens[pos].Type == TokenType.Identifier || tokens[pos].Type == TokenType.Keyword) &&
+               (string.Equals(tokens[pos].Value, "TEMP", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(tokens[pos].Value, "TEMPORARY", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(tokens[pos].Value, "UNLOGGED", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(tokens[pos].Value, "TABLE", StringComparison.OrdinalIgnoreCase)))
+            pos++;
+
+        while (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "#")
+            pos++;
+
+        if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
+            pos++;
+
+        return pos;
+    }
 
     /// <summary>
     /// A projection item starting at <paramref name="pos"/> is a plain column
