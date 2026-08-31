@@ -37,14 +37,22 @@ public static partial class CodeEmitter
         // the caller to pass in) and keeps INOUT as a plain input value; every
         // out-flowing value is returned in a tuple alongside the normal return
         // value, so nothing the sync overload exposes is lost.
-        var outOrInOutParams = new System.Collections.Generic.List<JauntyQ.Schema.ProcedureParam>();
+        // ReturnValue flows outward like OUT, so it travels every path OUT
+        // does: an `out` parameter on the sync overload, a tuple element on
+        // the async one. It reaches this emitter only from a hand-authored or
+        // externally produced snapshot -- no extractor emits it, since none of
+        // the three reads a procedure's return status -- and until 2026-08-31
+        // it was dropped at three sites without a word, so such a snapshot
+        // generated an API with no way to see the value at all.
+        var outFlowingParams = new System.Collections.Generic.List<JauntyQ.Schema.ProcedureParam>();
         foreach (var p in procedure.Params)
         {
             if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out
-                || p.Direction == JauntyQ.Schema.ProcedureParamDirection.InOut)
-                outOrInOutParams.Add(p);
+                || p.Direction == JauntyQ.Schema.ProcedureParamDirection.InOut
+                || p.Direction == JauntyQ.Schema.ProcedureParamDirection.ReturnValue)
+                outFlowingParams.Add(p);
         }
-        bool asyncReturnsTuple = isAsync && outOrInOutParams.Count > 0;
+        bool asyncReturnsTuple = isAsync && outFlowingParams.Count > 0;
 
         // AUD-R67-01: the tuple's own first element name ("results"/
         // "affected") is a JauntyQ-introduced bookkeeping name, not derived
@@ -57,7 +65,7 @@ public static partial class CodeEmitter
         // must be unique." Only escalate to a guaranteed-unique fallback
         // name in the actual collision case, so the common (non-colliding)
         // case keeps its friendly, human-readable tuple element name.
-        bool firstTupleElementCollides = outOrInOutParams.Exists(p =>
+        bool firstTupleElementCollides = outFlowingParams.Exists(p =>
             IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)))
                 == (hasResults ? "results" : "affected"));
         string firstTupleElementName = hasResults
@@ -71,7 +79,7 @@ public static partial class CodeEmitter
             {
                 $"{syncReturn} {firstTupleElementName}"
             };
-            foreach (var p in outOrInOutParams)
+            foreach (var p in outFlowingParams)
             {
                 string outCt = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
                 string outPname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
@@ -114,12 +122,11 @@ public static partial class CodeEmitter
             parts.Add($"DbConnection {connVar}");
         foreach (var p in procedure.Params)
         {
-            if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.ReturnValue)
-                continue;
             string ct = DialectMapper.MapDbTypeToCSharp(p.DbType, p.IsNullable, dialect: dialect);
             string pname = IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name)));
             string displayCt = ShortenValueTypeName(schema, ct);
-            if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out)
+            if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.Out
+                || p.Direction == JauntyQ.Schema.ProcedureParamDirection.ReturnValue)
             {
                 if (!isAsync)
                     parts.Add($"out {displayCt} {pname}");
@@ -225,8 +232,6 @@ public static partial class CodeEmitter
         int idx = 0;
         foreach (var p in procedure.Params)
         {
-            if (p.Direction == JauntyQ.Schema.ProcedureParamDirection.ReturnValue)
-                continue;
             // AUD-R68-01: "__p0"/"__p1"/... not "p0"/"p1"/... -- confirmed
             // live that a schema parameter literally named "P0" collides
             // (CS0136) with the bare "p0" local for the first bound
@@ -271,6 +276,15 @@ public static partial class CodeEmitter
                     sb.AppendLine(IsNonNullableValueType(ct)
                         ? $"                {varName}.Value = {pname};"
                         : $"                {varName}.Value = (object?){pname} ?? DBNull.Value;");
+                    outReadback.Add((varName, pname, ct, p.IsNullable || !IsNonNullableValueType(ct)));
+                    break;
+                case JauntyQ.Schema.ProcedureParamDirection.ReturnValue:
+                    // A procedure's return status carries no value inward and
+                    // has no size, precision or scale to declare -- SQL Server
+                    // returns an int and nothing else -- so this arm sets the
+                    // direction and nothing more. Everything after it is the
+                    // same readback OUT gets.
+                    sb.AppendLine($"                {varName}.Direction = ParameterDirection.ReturnValue;");
                     outReadback.Add((varName, pname, ct, p.IsNullable || !IsNonNullableValueType(ct)));
                     break;
                 default:
@@ -351,18 +365,21 @@ public static partial class CodeEmitter
     }
 
     /// <summary>
-    /// AUD-R68-01: true if a real (non-return-value) schema parameter's own
-    /// escaped camelCase name equals <paramref name="bookkeepingName"/> --
-    /// used to gate the "conn"/"cancellationToken" formal-parameter fallback
-    /// renames the same way AUD-R67-01 gates the tuple's first-element name,
-    /// since these two names DO appear in the public method signature and
-    /// should only escalate to the guaranteed-unique fallback in the actual
-    /// collision case.
+    /// AUD-R68-01: true if a schema parameter's own escaped camelCase name
+    /// equals <paramref name="bookkeepingName"/> -- used to gate the
+    /// "conn"/"cancellationToken" formal-parameter fallback renames the same
+    /// way AUD-R67-01 gates the tuple's first-element name, since these two
+    /// names DO appear in the public method signature and should only escalate
+    /// to the guaranteed-unique fallback in the actual collision case.
     /// </summary>
+    /// <remarks>
+    /// ReturnValue params were excluded here while they were dropped from the
+    /// signature entirely. They now appear in it like OUT does, so a return-value
+    /// param named "Conn" collides for the same reason any other param would.
+    /// </remarks>
     private static bool AnyParamNameCollidesWith(JauntyQ.Schema.ProcedureSchema procedure, string bookkeepingName) =>
         procedure.Params.Exists(p =>
-            p.Direction != JauntyQ.Schema.ProcedureParamDirection.ReturnValue
-            && IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name))) == bookkeepingName);
+            IdentifierGuard.Escape(ToCamelCase(DialectMapper.ToPascalCase(p.Name))) == bookkeepingName);
 
     /// <summary>
     /// Reads OUT/INOUT parameter values back. The sync overload assigns
