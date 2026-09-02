@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>JauntyQ.Cli</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>true</IsPackable>
+    <PackageId>JauntyQ.Cli.Core</PackageId>
+    <Description>The verb dispatcher, shared plumbing and free verbs behind the jauntyq command-line tool. JauntyQ.Cli (free) and JauntyQ.Cli.Premium both run their verb lists through CliHost from this library, which is what keeps every free verb identical in the two tools.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JauntyQ.Schema\JauntyQ.Schema.csproj" />
+    <ProjectReference Include="..\JauntyQ.SqlParser\JauntyQ.SqlParser.csproj" />
+    <ProjectReference Include="..\JauntyQ.Analysis\JauntyQ.Analysis.csproj" />
+    <ProjectReference Include="..\JauntyQ.Schema.Extraction\JauntyQ.Schema.Extraction.csproj" />
+  </ItemGroup>
+  <!-- CliEnvironment, DialectAliases and PathSafety stay internal: they are
+       plumbing the two tools and their tests share, not API a consumer of
+       this package is offered. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="JauntyQ.Cli" />
+    <InternalsVisibleTo Include="JauntyQ.Cli.Premium" />
+    <InternalsVisibleTo Include="JauntyQ.Cli.Tests" />
+    <InternalsVisibleTo Include="JauntyQ.Cli.Premium.Tests" />
+  </ItemGroup>
+</Project>

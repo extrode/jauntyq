@@ -1,4 +1,4 @@
-using JauntyQ.Schema.Contract.Extractors;
+using JauntyQ.Schema.Extraction;
 using Xunit;
 
 namespace JauntyQ.AdventureWorksLite.SqlServer.Tests;
