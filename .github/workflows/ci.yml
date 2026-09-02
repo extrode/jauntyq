@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # SourceLink needs full history
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore JauntyQ.slnx
+
+      - name: Build (warnings are errors)
+        run: dotnet build JauntyQ.slnx -c Release --no-restore
+
+      - name: Test
+        # Runs the full suite: unit tests plus every live dialect suite. SQLite
+        # runs natively; Postgres, MySQL/MariaDB and SQL Server spin up via
+        # Testcontainers (Docker is available on GitHub-hosted Linux runners).
+        # The Northwind suite is no longer excluded: NorthwindFixture is fully
+        # self-provisioning (it boots its own SQL Server container and applies
+        # schema.sqlserver.sql), so the old "needs a pre-seeded SQL Server
+        # instance" rationale no longer holds. Under GITHUB_ACTIONS the fixtures
+        # rethrow on container bring-up failure (see test-infra/FixtureGate.cs),
+        # so a broken Docker runner fails the job loudly instead of silently
+        # skipping the Docker-gated matrix.
+        run: dotnet test JauntyQ.slnx -c Release --no-build --verbosity normal
+
+      - name: Vulnerable package scan
+        # Fails the job if any dependency has a known vulnerability.
+        run: |
+          set -e
+          output=$(dotnet list JauntyQ.slnx package --vulnerable --include-transitive 2>&1)
+          echo "$output"
+          if echo "$output" | grep -q "has the following vulnerable packages"; then
+            echo "::error::Vulnerable packages detected"
+            exit 1
+          fi
+
+  aot:
+    # Proves the generated code is Native-AOT + trim clean: publishing the smoke
+    # app with PublishAot runs the trim/AOT analyzers (warnings-as-errors) and
+    # produces a self-contained native binary, which we then execute.
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install Native AOT prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish Native AOT smoke app
+        run: dotnet publish samples/JauntyQ.Aot.Smoke/JauntyQ.Aot.Smoke.csproj -c Release -r linux-x64
+
+      - name: Run the native binary
+        run: ./samples/JauntyQ.Aot.Smoke/bin/Release/net8.0/linux-x64/publish/JauntyQ.Aot.Smoke
+
+  pack:
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Pack (artifacts only; publish.yml pushes to NuGet.org on a tag)
+        run: dotnet pack JauntyQ.slnx -c Release -o ./artifacts
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: ./artifacts/*.nupkg
+
+  packaged-consumer:
+    # The only job that builds a consumer against the PACKED generator. Every
+    # project in the solution references it as a ProjectReference, so build-test
+    # above proves nothing about the nuspec, the analyzers/dotnet/cs layout, the
+    # bundled System.Text.Json closure, or the build/JauntyQ.Generator.props
+    # registration that carries JauntyQAutoCrud/JauntyQDialect to an external
+    # consumer. A green solution build says nothing about whether consumers
+    # compile, and a consumer reported that on 2026-08-30.
+    #
+    # Independent of `pack` on purpose: this packs its own feed, so it fails on
+    # its own terms rather than on an artifact upload.
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Packaged-consumer smoke
+        run: scripts/packaged-consumer-smoke.sh

@@ -1,0 +1,185 @@
+name: Nightly
+
+# The heavy tier. Everything here is too slow for a per-PR gate: mutation
+# testing runs 20+ minutes per module, fuzzing is time-boxed by design, and
+# BenchmarkDotNet needs a quiet machine to mean anything. ci.yml stays the fast
+# gate; this runs once a day and on demand.
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore JauntyQ.slnx
+
+      - name: Build (warnings are errors)
+        run: dotnet build JauntyQ.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test JauntyQ.slnx -c Release --no-build --verbosity normal
+
+  fuzz:
+    # First execution of tools/JauntyQ.Fuzz ever, anywhere: the harness was
+    # written on Windows, where libFuzzer is not practically available, so it
+    # has been compiled but never run. Treat the first green run as the
+    # harness's own smoke test, not as evidence the parser is fuzz-clean.
+    #
+    # The harness must be launched BY the native libfuzzer-dotnet driver, never
+    # by `dotnet` directly: Fuzzer.LibFuzzer.Run needs __LIBFUZZER_SHM_ID and
+    # the two pipe-id variables the driver sets, and without them it falls back
+    # to RunWithoutLibFuzzer, which File.ReadAllBytes(args[1]): one file, not a
+    # corpus directory. That fallback is what aborted the 2026-08-25 run.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish the harness
+        run: dotnet publish tools/JauntyQ.Fuzz -c Release -o out/fuzz
+
+      - name: Install SharpFuzz
+        run: dotnet tool install --global SharpFuzz.CommandLine
+
+      - name: Instrument the parser assembly
+        run: sharpfuzz out/fuzz/JauntyQ.SqlParser.dll
+
+      - name: Fetch the libFuzzer driver
+        # Pinned by tag AND digest: a release asset can be re-uploaded under an
+        # unchanged tag, and this binary is handed the parser and a shell.
+        run: |
+          curl -sSfL -o libfuzzer-dotnet \
+            https://github.com/Metalnem/libfuzzer-dotnet/releases/download/v2025.05.02.0904/libfuzzer-dotnet-ubuntu
+          echo "c2c2a90d94c409a4af339a0d4f244e0442c5a5d249be0f1252ba07871f285958  libfuzzer-dotnet" \
+            | sha256sum -c -
+          chmod +x libfuzzer-dotnet
+
+      # Coverage-guided fuzzing compounds only if the corpus outlives the run.
+      # github.run_id never hits, so the primary key is always a miss and
+      # restore-keys pulls the newest fuzz-corpus-*, the rolling-cache shape.
+      - name: Restore the fuzzing corpus
+        uses: actions/cache/restore@v4
+        with:
+          path: out/corpus
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
+
+      - name: Fuzz (time-boxed)
+        # Two corpus directories, and the order matters: libFuzzer
+        # writes new units to the FIRST one only, treating the rest as
+        # read-only seeds. So out/corpus accumulates across nights while the
+        # 18 committed seeds in tools/JauntyQ.Fuzz/corpus stay pristine.
+        # Verified under WSL 2026-08-25: 60s took out/corpus 0 -> 2017 and left
+        # the seed directory at exactly 18.
+        run: |
+          mkdir -p out/corpus out/fuzz-findings
+          ./libfuzzer-dotnet \
+            -max_total_time=600 -timeout=25 -rss_limit_mb=2048 \
+            -artifact_prefix=out/fuzz-findings/ \
+            --target_path="$(command -v dotnet)" \
+            --target_arg=out/fuzz/JauntyQ.Fuzz.dll \
+            out/corpus tools/JauntyQ.Fuzz/corpus
+
+      # Housekeeping, so neither step can turn a clean fuzz run red: the job's
+      # verdict stays the fuzz step's alone.
+      - name: Minimise the corpus before caching it
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p out/corpus-min
+          ./libfuzzer-dotnet -merge=1 \
+            --target_path="$(command -v dotnet)" \
+            --target_arg=out/fuzz/JauntyQ.Fuzz.dll \
+            out/corpus-min out/corpus tools/JauntyQ.Fuzz/corpus
+          rm -rf out/corpus
+          mv out/corpus-min out/corpus
+          echo "corpus entries after merge: $(find out/corpus -type f | wc -l)"
+
+      - name: Save the fuzzing corpus
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: out/corpus
+          key: fuzz-corpus-${{ github.run_id }}
+
+      - name: Upload crashing inputs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-findings
+          path: out/fuzz-findings/
+          if-no-files-found: ignore
+
+  mutation:
+    # Scores are the artifact, not a gate: no threshold fails the job, because a
+    # score drop is a prompt to look rather than a defect on its own.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - JauntyQ.SqlParser.Tests
+          - JauntyQ.Analysis.Tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install Stryker.NET
+        run: dotnet tool install --global dotnet-stryker
+
+      - name: Mutate ${{ matrix.project }}
+        working-directory: tests/${{ matrix.project }}
+        run: dotnet-stryker
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stryker-${{ matrix.project }}
+          path: tests/${{ matrix.project }}/StrykerOutput/
+          if-no-files-found: ignore
+
+  benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run BenchmarkDotNet
+        run: dotnet run --project benchmarks/JauntyQ.Benchmarks -c Release -- --filter '*' --exporters json
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks
+          path: benchmarks/JauntyQ.Benchmarks/BenchmarkDotNet.Artifacts/
+          if-no-files-found: ignore
