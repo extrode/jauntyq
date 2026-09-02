@@ -41,7 +41,6 @@
          in this project ambiguous (CS0433). The alias keeps the extractor's
          copy reachable from exactly one file, which hands the generator a JSON
          string: a type identity neither side shares. -->
-    <ProjectReference Include="..\..\src\JauntyQ.Schema.Contract\JauntyQ.Schema.Contract.csproj" Aliases="contract" />
     <ProjectReference Include="..\..\src\JauntyQ.Schema\JauntyQ.Schema.csproj" Aliases="contract" />
     <ProjectReference Include="..\..\src\JauntyQ.Schema.Extraction\JauntyQ.Schema.Extraction.csproj" Aliases="contract" />
   </ItemGroup>
