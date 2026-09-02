@@ -929,7 +929,7 @@ alter table products add supplier_note nvarchar(50) null;
         // SQLite aliases a single-column PRIMARY KEY declared with the exact
         // type "INTEGER" (no facet, no other keywords) to the table's rowid,
         // which auto-assigns 1, 2, 3, ... on insert -- confirmed live via
-        // SqliteExtractor_IntegerPrimaryKey_IsIdentity (JauntyQ.Tests/
+        // SqliteExtractor_IntegerPrimaryKey_IsIdentity (JauntyQ.Schema.Extraction.Tests/
         // ExtractorTests.cs), which reports IsIdentity=true for this exact
         // shape after a real sqlite3 CREATE TABLE. The simulated
         // (pre-live-DB) effective schema must agree, or a project with a
