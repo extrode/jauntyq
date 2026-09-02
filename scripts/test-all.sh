@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Full-solution test run with bounded Docker concurrency. Added 2026-07-30 by the
-# work in [internal doc, not in this repo].
+# Full-solution test run with bounded Docker concurrency. Added 2026-07-30 so
+# that a green full-solution run means everything ran.
 #
 # Why this exists rather than a bare `dotnet test JauntyQ.slnx`:
 #

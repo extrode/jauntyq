@@ -1,7 +1,7 @@
 # JauntyQ.Fuzz
 
 Coverage-guided fuzzing of the SQL front end, via [SharpFuzz](https://github.com/Metalnem/sharpfuzz)
-over libFuzzer. Phase 2 item 3 of `the plan`.
+over libFuzzer. Phase 2 item 3 of the testing strategy.
 
 ## Status
 
