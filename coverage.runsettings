@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Coverage scope for JauntyQ. Included assemblies are the shipped product plus
+  the libraries whose source ships inside it (SqlParser/Schema/Analysis embed
+  into the JauntyQ.Generator package). Test assemblies and generated code are
+  excluded. Used by scripts/coverage.sh.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Include>[JauntyQ.Generator]*,[JauntyQ.SqlParser]*,[JauntyQ.Analysis]*,[JauntyQ.Schema]*,[JauntyQ.Schema.Extraction]*,[JauntyQ.Cli.Core]*,[JauntyQ.Cli]*,[JauntyQ.Runtime]*</Include>
+          <!-- CompilerGeneratedAttribute was here until 2026-08-24 and had to go:
+               it is applied to async state machines, iterator state machines,
+               lambdas and closures, so excluding it made every async and every
+               `yield` body invisible. Measured on one test project: 0
+               state-machine classes collected with it, 12 without. The intent
+               was "don't measure generated code", and GeneratedCodeAttribute
+               alone does that; this one was blinding the report instead. -->
+          <ExcludeByAttribute>GeneratedCodeAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

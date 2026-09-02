@@ -1,0 +1,82 @@
+<Project>
+  <!-- Shared package and versioning metadata. Applies to every project; the
+       actual .nupkg outputs are gated per project with <IsPackable>. Packages
+       publish to NuGet.org via .github/workflows/publish.yml on v* tags; the
+       workflow authenticates with NuGet trusted publishing, so no publish keys
+       live here or in the repository secrets. -->
+  <PropertyGroup>
+    <Version>0.5.0</Version>
+
+    <!-- A checkout is not a release. The working tree and the published
+         package used to report the same bare version, so a consumer running a
+         local build hundreds of commits past a tag had no version string to
+         tell it apart from the package they were resolving.
+
+         Appended to <Version> rather than expressed as <VersionSuffix>, because
+         MSBuild ignores VersionPrefix/VersionSuffix entirely once <Version> is
+         set, and <Version> has to stay a literal on its own line for
+         publish.yml's tag guard to sed it out. That guard takes `head -1`, so
+         it reads 0.5.0 and is unaffected by the line below.
+
+         GITHUB_REF_TYPE is 'tag' only on a tag build, which is the only trigger
+         publish.yml has, so a published package is bare and everything else,
+         including a CI build of dev and every local build, is -dev. Override
+         with -p:JauntyQDevSuffix=false to pack a release-shaped package by
+         hand. -->
+    <JauntyQDevSuffix Condition="'$(JauntyQDevSuffix)' == '' AND '$(GITHUB_REF_TYPE)' == 'tag'">false</JauntyQDevSuffix>
+    <JauntyQDevSuffix Condition="'$(JauntyQDevSuffix)' == ''">true</JauntyQDevSuffix>
+    <Version Condition="'$(JauntyQDevSuffix)' == 'true'">$(Version)-dev</Version>
+
+    <!-- ISL-R 1.2 with the ISL-OE 1.2 output exception. PackageLicenseFile
+         takes exactly one path, so the licence is the file it names and the
+         Exception and the adoption notice ride as ordinary packed files, see
+         the ItemGroup at the bottom. -->
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Authors>Extrode LLC</Authors>
+    <Product>JauntyQ</Product>
+    <Company>Extrode LLC</Company>
+    <Copyright>Copyright (c) 2026 Extrode LLC</Copyright>
+    <PackageProjectUrl>https://extrode.com/jauntyq</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/extrode/jauntyq</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>sql;orm;source-generator;roslyn;ado.net;dapper;compile-time</PackageTags>
+
+    <!-- Deterministic, source-linked builds for reproducible packages and
+         source-stepping debug. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Default: nothing packs unless a project opts in. Test and sample
+         projects stay non-packable automatically. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Makes the JauntyQ MSBuild knobs visible to the source generator for the
+         repo's own projects. External consumers get the same registration from
+         the packaged build/JauntyQ.Generator.props (this file is never packed). -->
+    <CompilerVisibleProperty Include="JauntyQAutoCrud" />
+    <CompilerVisibleProperty Include="JauntyQDialect" />
+  </ItemGroup>
+
+  <!-- SourceLink for GitHub. -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- Every .nupkg carries the licence (required by PackageLicenseFile), the
+       Output Exception and the notice that adopts it. Without the Exception
+       in the box a consumer reading only the licence would conclude that
+       compiling generated code into their own application creates a
+       forbidden Derivative Work, so it travels with every package for the
+       same reason the licence does. -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)LICENSE.md" Pack="true" PackagePath="\" />
+    <None Include="$(MSBuildThisFileDirectory)EXCEPTION.md" Pack="true" PackagePath="\" />
+    <None Include="$(MSBuildThisFileDirectory)NOTICE.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>
