@@ -1,0 +1,53 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/JauntyQ.Runtime/JauntyQ.Runtime.csproj" />
+    <Project Path="src/JauntyQ.Schema/JauntyQ.Schema.csproj" />
+    <Project Path="src/JauntyQ.SqlParser/JauntyQ.SqlParser.csproj" />
+    <Project Path="src/JauntyQ.Analysis/JauntyQ.Analysis.csproj" />
+    <Project Path="src/JauntyQ.Schema.Extraction/JauntyQ.Schema.Extraction.csproj" />
+    <Project Path="src/JauntyQ.Generator/JauntyQ.Generator.csproj" />
+    <Project Path="src/JauntyQ.Cli.Core/JauntyQ.Cli.Core.csproj" />
+    <Project Path="src/JauntyQ.Cli/JauntyQ.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/JauntyQ.SqlParser.Tests/JauntyQ.SqlParser.Tests.csproj" />
+    <Project Path="tests/JauntyQ.Generator.Tests/JauntyQ.Generator.Tests.csproj" />
+    <Project Path="tests/JauntyQ.Analysis.Tests/JauntyQ.Analysis.Tests.csproj" />
+    <Project Path="tests/JauntyQ.Cli.Tests/JauntyQ.Cli.Tests.csproj" />
+    <Project Path="tests/JauntyQ.Schema.Extraction.Tests/JauntyQ.Schema.Extraction.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/JauntyQ.Fuzz/JauntyQ.Fuzz.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/JauntyQ.Benchmarks/JauntyQ.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/JauntyQ.Postgres.Tests/JauntyQ.Postgres.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Sample/JauntyQ.Sample.csproj" />
+    <Project Path="samples/JauntyQ.Aot.Smoke/JauntyQ.Aot.Smoke.csproj" />
+    <Project Path="samples/JauntyQ.MySql.Tests/JauntyQ.MySql.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Northwind.Tests/JauntyQ.Northwind.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Sqlite.Tests/JauntyQ.Sqlite.Tests.csproj" />
+    <Project Path="samples/JauntyQ.DdlSchema.Sqlite.Tests/JauntyQ.DdlSchema.Sqlite.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Sakila.Sqlite.Tests/JauntyQ.Sakila.Sqlite.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Sakila.Postgres.Tests/JauntyQ.Sakila.Postgres.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Sakila.MySql.Tests/JauntyQ.Sakila.MySql.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Sakila.MariaDb.Tests/JauntyQ.Sakila.MariaDb.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Sakila.SqlServer.Tests/JauntyQ.Sakila.SqlServer.Tests.csproj" />
+    <Project Path="samples/JauntyQ.EShopOnWeb.Sqlite.Tests/JauntyQ.EShopOnWeb.Sqlite.Tests.csproj" />
+    <Project Path="samples/JauntyQ.EShopOnWeb.Postgres.Tests/JauntyQ.EShopOnWeb.Postgres.Tests.csproj" />
+    <Project Path="samples/JauntyQ.EShopOnWeb.MySql.Tests/JauntyQ.EShopOnWeb.MySql.Tests.csproj" />
+    <Project Path="samples/JauntyQ.EShopOnWeb.MariaDb.Tests/JauntyQ.EShopOnWeb.MariaDb.Tests.csproj" />
+    <Project Path="samples/JauntyQ.EShopOnWeb.SqlServer.Tests/JauntyQ.EShopOnWeb.SqlServer.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Conduit.Sqlite.Tests/JauntyQ.Conduit.Sqlite.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Conduit.Postgres.Tests/JauntyQ.Conduit.Postgres.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Conduit.MySql.Tests/JauntyQ.Conduit.MySql.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Conduit.MariaDb.Tests/JauntyQ.Conduit.MariaDb.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Conduit.SqlServer.Tests/JauntyQ.Conduit.SqlServer.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Conduit.Differential.Tests/JauntyQ.Conduit.Differential.Tests.csproj" />
+    <Project Path="samples/JauntyQ.AdventureWorksLite.SqlServer.Tests/JauntyQ.AdventureWorksLite.SqlServer.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Chinook.Sqlite.Tests/JauntyQ.Chinook.Sqlite.Tests.csproj" />
+    <Project Path="samples/JauntyQ.Pagila.Postgres.Tests/JauntyQ.Pagila.Postgres.Tests.csproj" />
+  </Folder>
+</Solution>

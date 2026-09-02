@@ -13,22 +13,15 @@ namespace JauntyQ.Generator.Tests;
 /// <summary>
 /// A diagnostic code and a generator directive are each an <b>extensible set whose
 /// membership has to be mirrored in N declaration sites that no compiler relates to
-/// each other</b>. Adding one means editing the descriptor, the registry test, the
-/// public-API baseline, the reference docs, and four separate count claims inside
-/// the audit criteria — and nothing but a human checked the last five.
-///
-/// The result, recorded in that document's own §9, is four consecutive audit rounds
-/// (76, 79, 80, 81) each opening by finding the counts stale again. Round 80 named the
-/// cause structural rather than careless — the only mechanism that catches the drift is
-/// a round's R-ENUM step, which by construction does not run for work done outside a
-/// round, and shipping a diagnostic is not a round-only activity. Round 81 (§2.18)
-/// closes it here: the counts are now asserted on every test run, so drift is loud at
-/// the moment it is introduced rather than at the next round, which may be never.
+/// each other</b>: the descriptor, the registry test, the public-API baseline and the
+/// reference docs. Nothing but a human checked the last two, and the counts drifted
+/// more than once. These tests assert the mirrors on every test run, so drift is loud
+/// at the moment it is introduced.
 ///
 /// These tests read repo files from disk. That is established practice in this suite,
-/// not a new dependency — see <c>CoreUnaffectedTests</c>, <c>CoreUnreferencedTests</c>
-/// and <c>FixtureContainerBuildSiteTests</c>, all of which walk up to the
-/// <c>JauntyQ.slnx</c> marker the same way. <see cref="RepoRoot_Resolves_AndTheDocsAreReadable"/>
+/// not a new dependency: <c>CoreUnaffectedTests</c>, <c>CoreUnreferencedTests</c>
+/// and <c>FixtureContainerBuildSiteTests</c> all walk up to the <c>JauntyQ.slnx</c>
+/// marker the same way. <see cref="RepoRoot_Resolves_AndTheDocsAreReadable"/>
 /// is the guard that stops the whole class from passing vacuously by reading nothing.
 /// </summary>
 [Trait("Category", "AuditRegression")]
@@ -46,8 +39,6 @@ public class RegistryParityTests
 
     private static string ReadRepoFile(params string[] relative)
         => File.ReadAllText(Path.Combine(RepoRoot(), Path.Combine(relative)));
-
-    private static string AuditCriteria() => ReadRepoFile("docs", "audit-criteria.md");
 
     /// <summary>Every JNT id declared as a descriptor on JauntyDiagnostics.</summary>
     private static SortedSet<string> DeclaredCodes()
@@ -87,23 +78,6 @@ public class RegistryParityTests
         return found;
     }
 
-    /// <summary>
-    /// Asserts a pattern occurs exactly once and returns its captured number. Exactly
-    /// once matters: the audit criteria §9 is a dated log of what the counts WERE
-    /// at each past round, and those historical entries must never be rewritten to
-    /// match today. A pattern that started matching them too would either fail forever
-    /// or, worse, invite someone to "fix" the history.
-    /// </summary>
-    private static int SoleStatedCount(string text, string pattern, string what)
-    {
-        MatchCollection ms = Regex.Matches(text, pattern, RegexOptions.Multiline);
-        Assert.True(ms.Count == 1,
-            $"Expected exactly one live '{what}' claim in the audit criteria, found {ms.Count}. "
-            + "The anchor no longer identifies a unique sentence — fix the pattern here rather "
-            + "than editing §9's dated historical entries to match.");
-        return int.Parse(ms[0].Groups[1].Value);
-    }
-
     // ── The vacuity guard ────────────────────────────────────────────────
     //
     // Without this, a broken RepoRoot() or a renamed doc turns every test below
@@ -117,7 +91,6 @@ public class RegistryParityTests
 
         foreach (string[] rel in new[]
                  {
-                     new[] { "docs", "audit-criteria.md" },
                      new[] { "docs", "06-reference", "diagnostics.md" },
                      new[] { "docs", "06-reference", "directives.md" },
                      new[] { "tests", "JauntyQ.Generator.Tests", "DiagnosticsRegistryTests.cs" },
@@ -131,101 +104,6 @@ public class RegistryParityTests
         // The reflective lookups are the other way this class could read nothing.
         Assert.NotEmpty(DeclaredCodes());
         Assert.NotEmpty(DeclaredDirectives());
-    }
-
-    // ── The four count claims inside the audit criteria ──────────────
-
-    [Fact]
-    public void AuditCriteria_Section1_StatesTheCurrentDiagnosticCount()
-    {
-        int stated = SoleStatedCount(
-            AuditCriteria(),
-            @"(\d+) `JNTxxxx` diagnostic codes \(`JauntyDiagnostics\.cs`",
-            "§1 diagnostic count");
-
-        Assert.Equal(DeclaredCodes().Count, stated);
-    }
-
-    [Fact]
-    public void AuditCriteria_Section1_StatesTheCurrentDirectiveCount()
-    {
-        int stated = SoleStatedCount(
-            AuditCriteria(),
-            @"(\d+)\s+generator directives \(`DirectiveParser\.cs`\)",
-            "§1 directive count");
-
-        Assert.Equal(DeclaredDirectives().Count, stated);
-    }
-
-    [Fact]
-    public void AuditCriteria_Section26_StatesTheCurrentDiagnosticCount()
-    {
-        int stated = SoleStatedCount(
-            AuditCriteria(),
-            @"^All (\d+) `JNTxxxx` codes\.",
-            "§2.6 diagnostic count");
-
-        Assert.Equal(DeclaredCodes().Count, stated);
-    }
-
-    [Fact]
-    public void AuditCriteria_AppendixB_ProseStatesTheCurrentDiagnosticCount()
-    {
-        int stated = SoleStatedCount(
-            AuditCriteria(),
-            @"all (\d+) codes, not just the ones with a",
-            "Appendix B prose count");
-
-        Assert.Equal(DeclaredCodes().Count, stated);
-    }
-
-    [Fact]
-    public void AuditCriteria_Section1_RangesCoverExactlyTheDeclaredCodes()
-    {
-        string text = AuditCriteria();
-        Match bullet = Regex.Match(
-            text,
-            @"`JNTxxxx` diagnostic codes \(`JauntyDiagnostics\.cs`,(?<ranges>.*?)\);",
-            RegexOptions.Singleline);
-        Assert.True(bullet.Success, "§1's diagnostic-code bullet no longer parses.");
-
-        // "JNT1001–1008, 2001–2020, ..." — en-dash, first range carries the prefix.
-        var covered = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (Match r in Regex.Matches(bullet.Groups["ranges"].Value,
-                     @"(?:JNT)?(\d{4})\s*[–-]\s*(\d{4})"))
-        {
-            int lo = int.Parse(r.Groups[1].Value), hi = int.Parse(r.Groups[2].Value);
-            // "D4", not a bare concatenation: JNT0001 (2026-08-30) is the first code
-            // below 1000, and int.Parse("0001") is 1, so "JNT" + i produced "JNT1" and
-            // the range silently covered a code that does not exist while missing the
-            // one that does. Every code above 1000 was unaffected, which is why this
-            // held for 72 codes.
-            for (int i = lo; i <= hi; i++)
-                covered.Add("JNT" + i.ToString("D4"));
-        }
-        Assert.NotEmpty(covered);
-
-        var declared = DeclaredCodes();
-        Assert.True(covered.SetEquals(declared),
-            "§1's stated code ranges do not match the declared descriptors. "
-            + "Only in the ranges: " + string.Join(", ", covered.Except(declared)) + ". "
-            + "Only in JauntyDiagnostics: " + string.Join(", ", declared.Except(covered)) + ".");
-    }
-
-    [Fact]
-    public void AuditCriteria_AppendixB_HasARowForEveryDeclaredCode()
-    {
-        string text = AuditCriteria();
-        int idx = text.IndexOf("## Appendix B", StringComparison.Ordinal);
-        Assert.True(idx >= 0, "Appendix B heading not found.");
-
-        var rows = Matches(text.Substring(idx), @"^\| (JNT\d{4})");
-        var declared = DeclaredCodes();
-
-        Assert.True(rows.SetEquals(declared),
-            "Appendix B's row set does not match the declared descriptors. "
-            + "Missing rows: " + string.Join(", ", declared.Except(rows)) + ". "
-            + "Rows with no descriptor: " + string.Join(", ", rows.Except(declared)) + ".");
     }
 
     // ── The reference docs ───────────────────────────────────────────────
@@ -320,95 +198,5 @@ public class RegistryParityTests
             "These codes have no [InlineData] severity/category assertion in "
             + "DiagnosticsRegistryTests: " + string.Join(", ", declared.Except(asserted))
             + ". Add a row asserting the severity and category each one ships with.");
-    }
-
-    private static SortedSet<string> RegistryNamedTestClasses()
-    {
-        var classes = new SortedSet<string>(StringComparer.Ordinal);
-        string registry = ReadRepoFile("docs", "99-reports", "audit-findings-registry.md");
-
-        foreach (string line in registry.Split('\n'))
-        {
-            if (!line.StartsWith("| AUD-R", StringComparison.Ordinal))
-                continue;
-
-            string[] cells = line.Split('|');
-            if (cells.Length < 9)
-                continue;
-
-            foreach (Match m in Regex.Matches(cells[7], @"\.Tests\.([A-Za-z0-9_]+)"))
-                classes.Add(m.Groups[1].Value);
-        }
-
-        return classes;
-    }
-
-    [Fact]
-    public void RegistryNamedTestClasses_AreDiscoverable_AndTheScanIsNotVacuous()
-    {
-        var classes = RegistryNamedTestClasses();
-
-        Assert.True(classes.Count >= 40,
-            "Only " + classes.Count + " test classes were parsed out of the registry's "
-            + "regression-test column. The parse has broken, so the trait check below "
-            + "would pass by checking almost nothing.");
-    }
-
-    [Fact]
-    public void EveryRegistryNamedTestClass_CarriesTheAuditRegressionTrait()
-    {
-        string root = RepoRoot();
-        var sources = new List<string>();
-        foreach (string dir in new[] { "tests", "samples" })
-        {
-            string full = Path.Combine(root, dir);
-            if (Directory.Exists(full))
-                sources.AddRange(Directory.EnumerateFiles(full, "*.cs", SearchOption.AllDirectories));
-        }
-
-        var untagged = new List<string>();
-        var notFound = new List<string>();
-
-        foreach (string name in RegistryNamedTestClasses())
-        {
-            var decl = new Regex(
-                @"(?:public|internal)?\s*(?:sealed\s+|abstract\s+|partial\s+)*class\s+"
-                + Regex.Escape(name) + @"\b");
-
-            bool located = false, tagged = false;
-            foreach (string file in sources)
-            {
-                if (file.Contains("\\obj\\") || file.Contains("/obj/"))
-                    continue;
-
-                string text = File.ReadAllText(file);
-                Match m = decl.Match(text);
-                if (!m.Success)
-                    continue;
-
-                located = true;
-                int from = Math.Max(0, m.Index - 400);
-                if (text.Substring(from, m.Index - from).Contains("AuditRegression"))
-                {
-                    tagged = true;
-                    break;
-                }
-            }
-
-            if (!located) notFound.Add(name);
-            else if (!tagged) untagged.Add(name);
-        }
-
-        Assert.True(notFound.Count == 0,
-            "The registry names regression tests in classes that no longer exist: "
-            + string.Join(", ", notFound)
-            + ". A registry row pointing at a deleted test guards nothing.");
-
-        Assert.True(untagged.Count == 0,
-            "These test classes are named in the findings registry but do not carry "
-            + "[Trait(\"Category\", \"AuditRegression\")]: " + string.Join(", ", untagged)
-            + ". The guarded regression suite is selected by that trait, so an untagged "
-            + "class is silently excluded from the run that is supposed to catch a "
-            + "reverted fix.");
     }
 }

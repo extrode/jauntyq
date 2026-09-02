@@ -1,0 +1,30 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- tests/ builds at zero warnings (verified 2026-07-31, T3); ratchet it
+         like src/ so new warning debt fails the build instead of accruing. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Test hosts target net8.0; let them run on machines that only have a
+         newer runtime installed (dev machines ahead of CI's pinned 8.0.x)
+         instead of aborting with "You must install .NET". -->
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Code-coverage collector. Inert during a normal build/test run; it only
+         activates when XPlat Code Coverage is collected (see scripts/coverage.sh).
+         Test-only dependency: the offline/AOT mandate applies to the shipped
+         product, not the test suites. -->
+    <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <!-- Turns the Docker/Testcontainers soft-skip pattern into a real xUnit
+         SKIP (Skip.IfNot) instead of a silent PASS. Test-only dependency. -->
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Shared CI-strictness gate for Docker-gated fixtures, compiled into
+         every test assembly (there is no shared test project to host it). -->
+    <Compile Include="$(MSBuildThisFileDirectory)../test-infra/FixtureGate.cs" Link="TestInfra/FixtureGate.cs" />
+  </ItemGroup>
+</Project>

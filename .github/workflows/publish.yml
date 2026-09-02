@@ -1,0 +1,118 @@
+# Publishes the JauntyQ.* packages and the JauntyQ.Cli tool to NuGet.org and
+# attaches them to a GitHub Release. Triggered by version tags only:
+#
+#   git tag v0.5.0 && git push origin v0.5.0
+#
+# The tag must match <Version> in Directory.Build.props; the guard step fails
+# the run otherwise (bump the property first, then tag).
+#
+# Trusted publishing (OIDC), not a stored key. There is no API key secret to
+# rotate or leak: NuGet/login exchanges the workflow's short-lived OIDC token
+# for a key valid for one hour. The policy on nuget.org must name this file,
+# publish.yml, and the environment `packages`, because the job below declares
+# it. Setting one without the other fails the token exchange.
+name: publish
+
+on:
+  push:
+    tags: ['v*']
+  # Dispatch runs the trusted-publishing check below and nothing else, so the
+  # policy can be proven to work before a real release depends on it.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-trusted-publishing:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: packages
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: NuGet.org login (OIDC, short-lived key)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          # The nuget.org profile name, not an email address.
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Report
+        run: |
+          if [ -n "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" ]; then
+            echo "::notice title=Trusted publishing works::nuget.org issued a short-lived key."
+          else
+            echo "::error title=No key issued::The token exchange returned nothing. Check the policy's workflow file name and environment."
+            exit 1
+          fi
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    # A tag push builds and tests, then waits here for a required reviewer
+    # before anything is packed or pushed. The reviewer list lives in the
+    # repo's Settings > Environments > packages, not in this file; an
+    # environment with no protection rules waits for nobody.
+    environment: packages
+    # Restated in full because a job-level block replaces the top-level one.
+    # id-token: write only lets the job request an OIDC token; nuget.org
+    # decides whether to honour it by matching the token against the
+    # trusted-publishing policy.
+    permissions:
+      contents: write   # gh release create
+      id-token: write   # NuGet/login
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Guard - tag matches Directory.Build.props Version
+        run: |
+          PROP_VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' Directory.Build.props | head -1)
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "props=$PROP_VERSION tag=$TAG_VERSION"
+          [ "$PROP_VERSION" = "$TAG_VERSION" ] || { echo "::error::tag $GITHUB_REF_NAME != <Version>$PROP_VERSION"; exit 1; }
+
+      - name: Test
+        # The full suite, live dialect suites included: SQLite runs natively and
+        # the rest boot their own containers on the runner's Docker.
+        run: dotnet test JauntyQ.slnx -c Release
+
+      - name: Pack
+        run: dotnet pack JauntyQ.slnx -c Release -o dist/packages
+
+      - name: Generate SBOM (CycloneDX)
+        # The tool version is pinned. It floated once, the flags it takes were
+        # renamed between versions, and a release run failed after Pack had
+        # succeeded, so the packages were built and never reached the feed.
+        run: |
+          dotnet tool install --global CycloneDX --version 6.2.0
+          dotnet CycloneDX JauntyQ.slnx -o dist/sbom -F Json -fn jauntyq-sbom.json
+
+      - name: NuGet.org login (OIDC, short-lived key)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          # The nuget.org profile name, not an email address.
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Push to NuGet.org
+        # --skip-duplicate: nuget.org rejects a re-push of an existing version,
+        # so re-running a partially failed release would otherwise abort on the
+        # first package that already landed.
+        run: |
+          for pkg in dist/packages/*.nupkg; do
+            dotnet nuget push "$pkg" \
+              --source "https://api.nuget.org/v3/index.json" \
+              --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+              --skip-duplicate
+          done
+
+      - name: GitHub Release with package assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/packages/* dist/sbom/*.json --generate-notes --verify-tag

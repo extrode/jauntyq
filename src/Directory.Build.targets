@@ -1,0 +1,16 @@
+<Project>
+  <!-- MUST live in a .targets file, not Directory.Build.props: the SDK adds
+       ImplicitUsings' global usings (including System.Linq) via a .targets
+       import that runs AFTER Directory.Build.props is evaluated, so a
+       <Using Remove="System.Linq" /> placed in props runs before the item
+       even exists and silently no-ops; confirmed empirically: it left
+       `global using System.Linq;` in the generated GlobalUsings.g.cs for
+       every src/ project despite the Remove being present in props.
+       Directory.Build.targets is auto-imported after the project body and
+       the SDK's own closing implicit targets, so the Remove here actually
+       runs after the item is added. See src/Directory.Build.props for why
+       System.Linq is banned in src/ at all. -->
+  <ItemGroup>
+    <Using Remove="System.Linq" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,52 @@
+# Build output
+bin/
+obj/
+dist/
+artifacts/
+*.nupkg
+*.snupkg
+
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.DotSettings.user
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Test results
+TestResults/
+*.trx
+coverage/
+*.received.txt
+
+# Benchmark output
+BenchmarkDotNet.Artifacts/
+
+# Stryker.NET mutation reports, regenerated per run.
+StrykerOutput/
+
+# Misc
+*.log
+
+# Launch settings (local VS configurations)
+launchSettings.json
+
+# Scratch: probes, dumps, screenshots, patches.
+tmp/
+
+# Local notes and parallel worktrees.
+work/
+.worktrees/
+.claude/
+.claude/worktrees/
+
+# Fuzzing working directories. tools/JauntyQ.Fuzz/README.md and nightly.yml
+# both name out/fuzz, out/corpus and out/fuzz-findings; the committed seeds
+# live in tools/JauntyQ.Fuzz/corpus/ and are tracked.
+out/
