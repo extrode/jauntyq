@@ -14,11 +14,14 @@ public class PublishWorkflowContractTests
         return dir!.FullName;
     }
 
+    // Normalised so the line-anchored patterns below hold on a CRLF checkout too.
     private static string Workflow() =>
-        File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", "publish.yml"));
+        File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", "publish.yml"))
+            .Replace("\r\n", "\n");
 
     private static string RootProps() =>
-        File.ReadAllText(Path.Combine(RepoRoot(), "Directory.Build.props"));
+        File.ReadAllText(Path.Combine(RepoRoot(), "Directory.Build.props"))
+            .Replace("\r\n", "\n");
 
     private static string PublishJob()
     {

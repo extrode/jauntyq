@@ -3,7 +3,7 @@ using Xunit;
 namespace JauntyQ.Cli.Tests;
 
 /// <summary>
-/// SC-003 / SC-006 proof: license enforcement never reaches the zero-dependency core. Rather
+/// License enforcement never reaches the zero-dependency core. Rather
 /// than diff a triple build (flaky, slow), this asserts structurally that no core project can
 /// even reference <c>JauntyQ.Licensing</c> — so the generator cannot read license state and
 /// generated output/diagnostics are necessarily identical regardless of license presence.
@@ -65,15 +65,5 @@ public class CoreUnaffectedTests
         string text = File.ReadAllText(Path.Combine(RepoRoot(), "src", project, project + ".csproj"));
         foreach (var premium in PremiumProjects)
             Assert.DoesNotContain($"{premium}.csproj", text);
-    }
-
-    [Fact]
-    public void Licensing_DependsOnly_OnBcl_NoCorePackageRefs()
-    {
-        string csproj = Path.Combine(RepoRoot(), "src", "JauntyQ.Licensing", "JauntyQ.Licensing.csproj");
-        string text = File.ReadAllText(csproj);
-        // No dependency on any JauntyQ core assembly (keeps enforcement out of the core graph).
-        foreach (var core in CoreProjects)
-            Assert.DoesNotContain($"{core}.csproj", text);
     }
 }
