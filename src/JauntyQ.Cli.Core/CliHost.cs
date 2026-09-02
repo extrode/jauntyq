@@ -129,9 +129,9 @@ public sealed class CliHost
     public static void PrintPremiumOnly(string verbName)
     {
         Console.Error.WriteLine($"Error: '{CommandName} {verbName}' is part of {PremiumPackageId}, which is not installed.");
-        Console.Error.WriteLine($"It replaces this tool and keeps every free verb. Install it with an entitling licence:");
+        Console.Error.WriteLine($"It replaces this tool and keeps every free verb. Install it with an entitling license:");
         Console.Error.WriteLine($"  dotnet tool install --global {PremiumPackageId} --add-source {PremiumFeed}");
-        Console.Error.WriteLine("Pricing and licences: https://extrode.com/jauntyq/pricing");
+        Console.Error.WriteLine("Pricing and licenses: https://extrode.com/jauntyq/pricing");
     }
 
     public void PrintUsage() => PrintUsage(Console.Out);
