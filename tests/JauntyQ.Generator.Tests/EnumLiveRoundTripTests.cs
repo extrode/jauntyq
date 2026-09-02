@@ -100,7 +100,7 @@ public class PostgresEnumRoundTripTests : IClassFixture<PostgresEnumRoundTripFix
 
     private static async Task<Assembly> GenerateAndCompile(string connectionString)
     {
-        var schema = await new contract::JauntyQ.Schema.Contract.Extractors.PostgresExtractor()
+        var schema = await new contract::JauntyQ.Schema.Extraction.PostgresExtractor()
             .ExtractAsync(connectionString);
         // The extractors leave Dialect blank; `jaunty schema pull` stamps it
         // afterwards (JauntyQ.Cli/Program.cs:246). Without this the generator

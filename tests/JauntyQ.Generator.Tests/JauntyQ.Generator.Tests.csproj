@@ -43,5 +43,6 @@
          string: a type identity neither side shares. -->
     <ProjectReference Include="..\..\src\JauntyQ.Schema.Contract\JauntyQ.Schema.Contract.csproj" Aliases="contract" />
     <ProjectReference Include="..\..\src\JauntyQ.Schema\JauntyQ.Schema.csproj" Aliases="contract" />
+    <ProjectReference Include="..\..\src\JauntyQ.Schema.Extraction\JauntyQ.Schema.Extraction.csproj" Aliases="contract" />
   </ItemGroup>
 </Project>

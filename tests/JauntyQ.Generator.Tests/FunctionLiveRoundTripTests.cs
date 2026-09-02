@@ -194,7 +194,7 @@ public class PostgresFunctionRoundTripTests : IClassFixture<PostgresFunctionRoun
 
     private async Task<Assembly> Build()
     {
-        var schema = await new contract::JauntyQ.Schema.Contract.Extractors.PostgresExtractor()
+        var schema = await new contract::JauntyQ.Schema.Extraction.PostgresExtractor()
             .ExtractAsync(_fx.ConnectionString);
         return await FunctionRoundTrip.GenerateAndCompile(schema, "postgres");
     }
@@ -219,7 +219,7 @@ public class PostgresFunctionRoundTripTests : IClassFixture<PostgresFunctionRoun
     {
         Skip.IfNot(_fx.Available, _fx.SkipReason);
 
-        var schema = await new contract::JauntyQ.Schema.Contract.Extractors.PostgresExtractor("reporting")
+        var schema = await new contract::JauntyQ.Schema.Extraction.PostgresExtractor("reporting")
             .ExtractAsync(_fx.ConnectionString);
         Assert.Equal("reporting", schema.Functions.Values.Single(f => f.Name == "calc_tax").Schema);
 
@@ -297,7 +297,7 @@ public class PostgresFunctionRoundTripTests : IClassFixture<PostgresFunctionRoun
         // generated property is still the primitive.
         Skip.IfNot(_fx.Available, _fx.SkipReason);
 
-        var schema = await new contract::JauntyQ.Schema.Contract.Extractors.PostgresExtractor()
+        var schema = await new contract::JauntyQ.Schema.Extraction.PostgresExtractor()
             .ExtractAsync(_fx.ConnectionString);
         var column = schema.Tables["people"].Columns["code"];
 
@@ -405,7 +405,7 @@ public class MySqlFunctionRoundTripTests : IClassFixture<MySqlFunctionRoundTripF
 
     private async Task<Assembly> Build()
     {
-        var schema = await new contract::JauntyQ.Schema.Contract.Extractors.MySqlExtractor()
+        var schema = await new contract::JauntyQ.Schema.Extraction.MySqlExtractor()
             .ExtractAsync(_fx.ConnectionString);
         return await FunctionRoundTrip.GenerateAndCompile(schema, "mysql");
     }
@@ -473,7 +473,7 @@ public class MySqlFunctionRoundTripTests : IClassFixture<MySqlFunctionRoundTripF
         await Exec(_fx.ConnectionString, "CREATE DATABASE fn_runtime");
         await Exec(Db(admin, "fn_runtime"), fnDdl);
 
-        var schema = await new contract::JauntyQ.Schema.Contract.Extractors.MySqlExtractor()
+        var schema = await new contract::JauntyQ.Schema.Extraction.MySqlExtractor()
             .ExtractAsync(Db(admin, "fn_capture"));
         var asm = await FunctionRoundTrip.GenerateAndCompile(schema, "mysql");
 
@@ -562,7 +562,7 @@ public class SqlServerFunctionRoundTripTests : IClassFixture<SqlServerFunctionRo
 
     private async Task<Assembly> Build()
     {
-        var schema = await new contract::JauntyQ.Schema.Contract.Extractors.SqlServerExtractor()
+        var schema = await new contract::JauntyQ.Schema.Extraction.SqlServerExtractor()
             .ExtractAsync(_fx.ConnectionString);
         return await FunctionRoundTrip.GenerateAndCompile(schema, "sqlserver");
     }
@@ -611,7 +611,7 @@ public class SqlServerFunctionRoundTripTests : IClassFixture<SqlServerFunctionRo
     {
         Skip.IfNot(_fx.Available, _fx.SkipReason);
 
-        var schema = await new contract::JauntyQ.Schema.Contract.Extractors.SqlServerExtractor("reporting")
+        var schema = await new contract::JauntyQ.Schema.Extraction.SqlServerExtractor("reporting")
             .ExtractAsync(_fx.ConnectionString);
         Assert.Equal("reporting", schema.Functions.Values.Single(f => f.Name == "calc_tax").Schema);
 
@@ -634,7 +634,7 @@ public class SqlServerFunctionRoundTripTests : IClassFixture<SqlServerFunctionRo
         // what spec 014 added is DOMAIN_NAME reaching the snapshot.
         Skip.IfNot(_fx.Available, _fx.SkipReason);
 
-        var schema = await new contract::JauntyQ.Schema.Contract.Extractors.SqlServerExtractor()
+        var schema = await new contract::JauntyQ.Schema.Extraction.SqlServerExtractor()
             .ExtractAsync(_fx.ConnectionString);
         var column = schema.Tables["people"].Columns["code"];
 
