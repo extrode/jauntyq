@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SNAPSHOT = os.path.join(HERE, "schema", "jaunty.schema.json")
 OUT = os.path.join(os.path.dirname(HERE), "schema.sqlserver.sql")
 
-# Tables to materialise, in FK-dependency order (parents before children).
+# Tables to materialize, in FK-dependency order (parents before children).
 TABLE_ORDER = [
     "Region", "Categories", "Suppliers", "Shippers", "CustomerDemographics",
     "Customers", "Employees", "Products", "Territories", "Orders",

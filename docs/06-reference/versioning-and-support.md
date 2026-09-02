@@ -19,7 +19,7 @@ breaking changes; each is called out in the [CHANGELOG](../../CHANGELOG.md).
 
 **1.0 is a licensing boundary as well as a compatibility one.** Free preview
 licenses, which make the paid commands free during the `0.x` preview, are scoped to
-pre-1.0 releases: every `0.x` build honours one permanently, and `1.0` declines it
+pre-1.0 releases: every `0.x` build honors one permanently, and `1.0` declines it
 (see [licensing and activation](../03-guides/licensing-and-activation.md#preview-licenses-pre-10)).
 The check reads the version compiled into the build via `LicenseProduct.Version`,
 which is generated from MSBuild's `$(Version)`, so the `0.x` → `1.0` bump is the

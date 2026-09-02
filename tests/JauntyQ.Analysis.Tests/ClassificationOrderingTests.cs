@@ -8,7 +8,7 @@ namespace JauntyQ.Analysis.Tests;
 /// <c>&gt;=</c> at <c>MigrationImpactReport.cs:37</c> and
 /// <c>ReportRenderer.cs:70</c>, the latter deciding the CI exit code — so its
 /// members carry an ordering, not just identity. The values are explicit and
-/// both behaviours are tested, which makes a declaration <em>reorder</em>
+/// both behaviors are tested, which makes a declaration <em>reorder</em>
 /// harmless. What is unprotected is an <em>inserted</em> member: C# permits
 ///
 /// <code>Safe = 0, Risky = 1, Urgent = 1, Breaking = 2</code>

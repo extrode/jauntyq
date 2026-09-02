@@ -79,7 +79,7 @@ public static class StressCorpus
             Sql = "SELECT v FROM (SELECT 'a' AS v UNION ALL SELECT 'B') t ORDER BY v ASC",
             Ordered = true,
             Groups = [["MySql", "MariaDb", "SqlServer"], ["Postgres", "Sqlite"]],
-            Reason = "The same collation split applied to ordering: a case-insensitive collation sorts 'a' before 'B', while code-point ordering puts 'B' (0x42) before 'a' (0x61). PostgreSQL's side depends on the database's LC_COLLATE and was measured against the C-locale default of the postgres:16-alpine image; a cluster initialised with a language locale sorts with MySQL instead.",
+            Reason = "The same collation split applied to ordering: a case-insensitive collation sorts 'a' before 'B', while code-point ordering puts 'B' (0x42) before 'a' (0x61). PostgreSQL's side depends on the database's LC_COLLATE and was measured against the C-locale default of the postgres:16-alpine image; a cluster initialized with a language locale sorts with MySQL instead.",
             Guidance = "ORDER BY LOWER(v) for an order that does not change under the engine. An alphabetical listing shown to a user otherwise reorders itself on a port.",
         },
 
@@ -108,7 +108,7 @@ public static class StressCorpus
             Sql = "SELECT 1 / 0 AS r",
             Groups = [["Sqlite", "MySql", "MariaDb"], ["Postgres", "SqlServer"]],
             Reason = "PostgreSQL raises SQLSTATE 22012 and SQL Server raises its divide-by-zero error; SQLite, MySQL and MariaDB return NULL. The three that return NULL turn a broken calculation into a missing value, which is the harder failure to notice.",
-            Guidance = "Guard the divisor rather than relying on either behaviour: NULLIF(d, 0) yields NULL on all five, and a COALESCE around it makes the intent explicit.",
+            Guidance = "Guard the divisor rather than relying on either behavior: NULLIF(d, 0) yields NULL on all five, and a COALESCE around it makes the intent explicit.",
         },
 
         new()
@@ -136,7 +136,7 @@ public static class StressCorpus
                 ["SqlServer"] = "SELECT DATEADD(month, 1, CAST('2026-01-31' AS date)) AS r",
             },
             Groups = [["MySql", "MariaDb"], ["Postgres", "SqlServer"], ["Sqlite"]],
-            Reason = "Adding one month to 31 January divides the engines two ways at once. On the value: PostgreSQL, SQL Server, MySQL and MariaDB all clamp to 28 February, while SQLite's date() normalises the overflow and returns 3 March -- a different month, silently. On the type: the first two return a temporal value and the MySQL pair return text, because DATE_ADD over a string argument yields a string. The type half follows from how each dialect spells the operation and has no portable form; the value half is the finding.",
+            Reason = "Adding one month to 31 January divides the engines two ways at once. On the value: PostgreSQL, SQL Server, MySQL and MariaDB all clamp to 28 February, while SQLite's date() normalizes the overflow and returns 3 March -- a different month, silently. On the type: the first two return a temporal value and the MySQL pair return text, because DATE_ADD over a string argument yields a string. The type half follows from how each dialect spells the operation and has no portable form; the value half is the finding.",
             Guidance = "Do not add months in SQL if the result must be the same everywhere. SQLite is the outlier and returns a date in the wrong month for any end-of-month input; compute the clamped date in the application, or keep a real date column and use the engine's own adder knowing SQLite's does not clamp.",
         },
 
@@ -162,7 +162,7 @@ public static class StressCorpus
             Category = BooleanHandling,
             Sql = "SELECT TRUE AS r",
             Groups = [["Sqlite", "MySql", "MariaDb"], ["Postgres"], ["SqlServer"]],
-            Reason = "Three behaviours from one keyword. PostgreSQL has a real boolean type and returns one, so a caller receives a bool; SQLite, MySQL and MariaDB treat TRUE as the integer 1; SQL Server has no boolean literal at all, reads TRUE as a column name, and fails because no such column exists.",
+            Reason = "Three behaviors from one keyword. PostgreSQL has a real boolean type and returns one, so a caller receives a bool; SQLite, MySQL and MariaDB treat TRUE as the integer 1; SQL Server has no boolean literal at all, reads TRUE as a column name, and fails because no such column exists.",
             Guidance = "Write 1 and 0 and compare against them explicitly. This is the case where 017's normalizer and this suite disagree on purpose: a bool and the 1 it stands for are interchangeable for an application query and are the whole finding here.",
         },
         new()

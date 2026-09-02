@@ -41,7 +41,7 @@ public class EnumMappingTests
                     {
                         new EnumMember { Value = "pending", CSharpName = "Pending" },
                         new EnumMember { Value = "shipped", CSharpName = "Shipped" },
-                        new EnumMember { Value = "cancelled", CSharpName = "Cancelled" }
+                        new EnumMember { Value = "canceled", CSharpName = "Canceled" }
                     }
                 }
             },

@@ -21,7 +21,7 @@ namespace JauntyQ.Schema.Extraction.Tests;
 /// (Northwind, JauntyQ.Schema.Extraction.Tests, Postgres.Tests, MySql.Tests) skipped cleanly in the same run,
 /// which is the contrast that isolates the cause — the gate is fine, the call site was wrong.
 ///
-/// This scans source rather than behaviour because the failure only reproduces with Docker
+/// This scans source rather than behavior because the failure only reproduces with Docker
 /// absent, which is exactly the condition CI does not have (see <see cref="FixtureGate.StrictCi"/>).
 /// </summary>
 public class FixtureContainerBuildSiteTests
@@ -171,7 +171,7 @@ public class FixtureContainerBuildSiteTests
     // Splits a source file at top-level class declarations. A file can mix a Docker-backed
     // class with a plain one -- ProcedureExtractorTests.cs holds three gated Testcontainers
     // classes and one SQLite class whose [Fact]s are entirely correct -- so the unit of
-    // judgement is the class, not the file.
+    // judgment is the class, not the file.
     private static IEnumerable<(string Name, string Body)> Classes(string text)
     {
         // \r?$ because in .NET multiline mode $ anchors before \n only, never before \r\n.
@@ -192,7 +192,7 @@ public class FixtureContainerBuildSiteTests
         }
     }
 
-    // Walks backwards from a class declaration over lines that are wholly an attribute,
+    // Walks backward from a class declaration over lines that are wholly an attribute,
     // returning the index the class's own text begins at.
     private static int BackUpOverAttributes(string text, int declIndex)
     {

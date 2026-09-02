@@ -64,7 +64,7 @@ public static class SchemaSimulator
                         // A MigrationStatementKind with no arm above. Reported
                         // rather than skipped: an unapplied statement leaves the
                         // effective schema silently understating the migration,
-                        // and every downstream consumer then analyses a baseline
+                        // and every downstream consumer then analyzes a baseline
                         // that does not match reality.
                         errors.Add(AnalysisDiagnostic.Warning("JNT9001",
                             $"{fileName}: statement not simulated (effective schema may be incomplete): {Truncate(stmt.RawText)}"));

@@ -453,7 +453,7 @@ create table widgets (
         // (e.g. "drop identity" -> DbType "drop", corrupting the real type
         // and every facet) and, for "DROP IDENTITY" specifically, land the
         // literal IDENTITY keyword on ParseColumnDef's IDENTITY-flag check
-        // and set IsIdentity=true -- backwards from what DROP means.
+        // and set IsIdentity=true -- backward from what DROP means.
         // ApplyAlterColumn can't represent an identity toggle via AlterColumn
         // for Postgres regardless (identity stays pinned to the pre-migration
         // value there), so this must surface as Unsupported/JNT9001 instead
@@ -1417,7 +1417,7 @@ public class EnumDispatchExhaustivenessTests
             + "The switch in Apply has no default arm, so a kind added to the enum later is never "
             + "applied and never reported: the effective schema is wrong and JNT9001 -- which exists "
             + "to say 'statement not simulated (effective schema may be incomplete)' -- never fires. "
-            + "Every downstream consumer then analyses a baseline that silently does not match reality.");
+            + "Every downstream consumer then analyzes a baseline that silently does not match reality.");
     }
 
     [Fact]

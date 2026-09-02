@@ -13,7 +13,7 @@ namespace JauntyQ.Schema;
 /// Captured for PostgreSQL, SQL Server and MySQL. SQLite has no stored
 /// functions, so the dictionary stays empty there.
 ///
-/// TABLE-VALUED functions are deliberately NOT modelled here. They need a
+/// TABLE-VALUED functions are deliberately NOT modeled here. They need a
 /// result-column shape and the SQL parser's FROM-clause handling, which is a
 /// separate spec (014-plan.md SS6); carrying an always-empty resultColumns
 /// field would read as a capability that does not exist.
@@ -56,7 +56,7 @@ public class FunctionSchema
 /// <summary>
 /// One parameter of a captured function. Deliberately <see cref="ProcedureParam"/>'s
 /// shape minus <c>direction</c>: a scalar function has no OUT/INOUT analogue,
-/// and modelling one would invite the emitter to grow a readback path that can
+/// and modeling one would invite the emitter to grow a readback path that can
 /// never fire.
 ///
 /// A captured DEFAULT is deliberately absent. Spec 014 SS5.4 decided every

@@ -13,7 +13,7 @@ namespace JauntyQ.Schema.Extraction.Tests;
 /// NOT EXISTS</c> parity between MySQL and MariaDB, and what ExecuteNonQuery
 /// reports in each upsert branch under both UseAffectedRows settings.
 ///
-/// These run before the emitter changes and stay afterwards: if a future
+/// These run before the emitter changes and stay afterward: if a future
 /// MySqlConnector or engine bump breaks any of them, the emitted SQL is wrong
 /// and this is where it surfaces, rather than in a sample's round-trip.
 /// </summary>
@@ -138,7 +138,7 @@ public class MySqlUpsertProbeTests : IClassFixture<MySqlUpsertProbeFixture>
     }
 
     /// <summary>
-    /// The defect itself, stated as a behavioural assertion rather than a string
+    /// The defect itself, stated as a behavioral assertion rather than a string
     /// comparison. The resolved conflict key is <c>email</c>; a second upsert
     /// with a new email but a username that already exists must therefore fail
     /// on the username UNIQUE rather than quietly updating the first row, which

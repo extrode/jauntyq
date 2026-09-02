@@ -75,7 +75,7 @@ internal static class ConduitHttpServer
 /// WebApplicationFactory's constructor is synchronous and can't join a
 /// container cleanly, so this class also implements IAsyncLifetime (xUnit's
 /// IClassFixture honors it for setup/teardown): the shared server is joined and
-/// a fresh catalogue carrying the DDL-only schema is created in InitializeAsync.
+/// a fresh catalog carrying the DDL-only schema is created in InitializeAsync.
 /// Soft-skips (via <see cref="Available"/>) when Docker is unavailable -- every
 /// HTTP test method guards on it.
 /// </summary>
@@ -117,7 +117,7 @@ public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyn
             return;
         }
 
-        // A catalogue per test class, not an instance per test class. The six
+        // A catalog per test class, not an instance per test class. The six
         // HTTP classes run in parallel and each registers its own users through
         // the API, so they must not see each other's rows -- but that is an
         // argument for separate databases, which cost nothing, rather than
@@ -169,7 +169,7 @@ public sealed class ConduitWebAppFixture : WebApplicationFactory<Program>, IAsyn
 
     async Task IAsyncLifetime.DisposeAsync()
     {
-        // The catalogue is this fixture's to drop; the instance is not this
+        // The catalog is this fixture's to drop; the instance is not this
         // fixture's to stop, because the other five class fixtures may still be
         // using it. See ConduitHttpServer for what removes the container.
         if (_database.Length > 0)

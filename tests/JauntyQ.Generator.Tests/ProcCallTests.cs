@@ -944,7 +944,7 @@ public class ProcCallTests
 
     /// <summary>
     /// A return status is an int whatever the snapshot claims: T-SQL's RETURN
-    /// takes an integer and nothing else. Honouring a declared "nvarchar" here
+    /// takes an integer and nothing else. Honoring a declared "nvarchar" here
     /// generated `out string` and a readback cast of (string)(object)value,
     /// which throws InvalidCastException against the int the provider delivers.
     /// The declared isNullable is ignored for the same reason.

@@ -22,7 +22,7 @@ public sealed class CliHost
 
     /// <summary>
     /// Exit code for a premium verb that is either not entitled or not installed.
-    /// Shared with the licence gate so a script can tell "premium refused" from a
+    /// Shared with the license gate so a script can tell "premium refused" from a
     /// usage error (1) or findings (2) without knowing which tool answered.
     /// </summary>
     public const int PremiumOnlyExitCode = 3;

@@ -34,7 +34,7 @@ public static class GroupingComparer
     ///
     /// Both directions fail: an engine that left its group and an engine that
     /// joined one produce the same kind of mismatch, because a stress case
-    /// that quietly stops stressing is a behaviour change too.
+    /// that quietly stops stressing is a behavior change too.
     /// </summary>
     public static IReadOnlyList<GroupingMismatch> Compare(
         string caseName,

@@ -357,7 +357,7 @@ public static class JauntyDiagnostics
     // pass the NOT EXISTS guard and one takes a duplicate-key error. Warning,
     // matching JNT2014/JNT2015 and for the same reason -- a decision the
     // consumer should be able to argue with (by wrapping the call in the
-    // transaction the generated method already honours, or by dropping the
+    // transaction the generated method already honors, or by dropping the
     // competing constraint) has to be visible to be arguable.
     public static readonly DiagnosticDescriptor JNT2018 = new(
         "JNT2018",
@@ -371,7 +371,7 @@ public static class JauntyDiagnostics
     // IndexSchema.HasPrefixKeyPart) enforces uniqueness over a truncated
     // prefix, not the full value. When it is the ONLY constraint that could
     // serve as a table's upsert key, no emitted form -- atomic or
-    // two-statement -- can honour the full-value match the method's signature
+    // two-statement -- can honor the full-value match the method's signature
     // implies: the engine matches rows sharing only the prefix. Decided
     // 2026-07-30: refuse Upsert synthesis outright rather than emit a method
     // whose contract the index cannot enforce. Warning, matching
@@ -430,7 +430,7 @@ public static class JauntyDiagnostics
     // whose name is a different word from their column and no indication why.
     //
     // Warning, matching JNT2014/JNT2015 and for their reason: the rename is
-    // long-standing behaviour and an Error would fail the build of any existing
+    // long-standing behavior and an Error would fail the build of any existing
     // consumer whose schema holds such a column, including in a table they
     // never query. Reporting it does not change a single generated name.
     //

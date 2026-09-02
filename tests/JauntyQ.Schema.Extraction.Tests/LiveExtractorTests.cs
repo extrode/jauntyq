@@ -556,7 +556,7 @@ public sealed class PostgresLiveFixture : IDisposable
         }
 
         // Spec 014. Every object here is one the extractor must treat
-        // differently from its neighbour: a domain resolves, a composite is
+        // differently from its neighbor: a domain resolves, a composite is
         // captured whole, a scalar function is captured, and a set-returning
         // function and an aggregate are excluded. Built in one batch so a
         // failure names the statement that caused it.

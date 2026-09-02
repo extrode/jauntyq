@@ -20,7 +20,7 @@ namespace JauntyQ.Generator.Tests;
 /// Everything else in this suite asserts on generated text. Text cannot tell
 /// you that Postgres rejects a plain string for an enum column with 42804, or
 /// that the exception a consumer sees names the column — both are claims about
-/// a server's behaviour, and the first of them was already wrong in the plan
+/// a server's behavior, and the first of them was already wrong in the plan
 /// before the T0 probe corrected it. So this file pulls a snapshot from a live
 /// database, generates from it, compiles the result, and executes it against
 /// that same database.
@@ -51,7 +51,7 @@ public sealed class PostgresEnumRoundTripFixture : IAsyncLifetime
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-            CREATE TYPE order_status AS ENUM ('pending','shipped','cancelled');
+            CREATE TYPE order_status AS ENUM ('pending','shipped','canceled');
 
             CREATE TABLE orders (
                 id serial PRIMARY KEY,
@@ -65,7 +65,7 @@ public sealed class PostgresEnumRoundTripFixture : IAsyncLifetime
         // Npgsql caches the server's type catalog when the first connection
         // opens, which here is BEFORE the CREATE TYPE above. Without this the
         // enum column comes back as DataTypeName "-.-" and every read throws
-        // InvalidCastException -- an artefact of seeding a fresh container, not
+        // InvalidCastException -- an artifact of seeding a fresh container, not
         // something a consumer connecting to an existing database would hit.
         await conn.ReloadTypesAsync();
 
@@ -103,7 +103,7 @@ public class PostgresEnumRoundTripTests : IClassFixture<PostgresEnumRoundTripFix
         var schema = await new contract::JauntyQ.Schema.Extraction.PostgresExtractor()
             .ExtractAsync(connectionString);
         // The extractors leave Dialect blank; `jaunty schema pull` stamps it
-        // afterwards (JauntyQ.Cli/Program.cs:246). Without this the generator
+        // afterward (JauntyQ.Cli/Program.cs:246). Without this the generator
         // sees dialect "" and takes the portable branch, which binds an enum
         // parameter as text and gets 42804 from the server.
         schema.Dialect = "postgres";
@@ -241,14 +241,14 @@ public class PostgresEnumRoundTripTests : IClassFixture<PostgresEnumRoundTripFix
         await Truncate(conn);
 
         object order = Activator.CreateInstance(asm.GetType("JauntyQ.Generated.Order")!)!;
-        order.GetType().GetProperty("Status")!.SetValue(order, Status(asm, "Cancelled"));
+        order.GetType().GetProperty("Status")!.SetValue(order, Status(asm, "Canceled"));
         order.GetType().GetProperty("Note")!.SetValue(order, "poco");
 
         StaticOp(asm, "Insert", 3).Invoke(null, new object?[] { conn, order, null });
 
         var rows = (System.Collections.IEnumerable)StaticOp(asm, "GetAll", 2)
             .Invoke(null, new object?[] { conn, null })!;
-        Assert.Equal(Status(asm, "Cancelled"), Prop(rows.Cast<object>().Single(), "Status"));
+        Assert.Equal(Status(asm, "Canceled"), Prop(rows.Cast<object>().Single(), "Status"));
     }
 
     /// <summary>
@@ -293,13 +293,13 @@ public class PostgresEnumRoundTripTests : IClassFixture<PostgresEnumRoundTripFix
         var insert = StaticOp(asm, "Insert", 5);
         insert.Invoke(null, new object?[] { conn, Status(asm, "Shipped"), null, "a", null });
         insert.Invoke(null, new object?[] { conn, Status(asm, "Pending"), null, "b", null });
-        insert.Invoke(null, new object?[] { conn, Status(asm, "Cancelled"), null, "c", null });
+        insert.Invoke(null, new object?[] { conn, Status(asm, "Canceled"), null, "c", null });
 
         Type enumType = asm.GetType("JauntyQ.Generated.OrderStatus")!;
         var list = (System.Collections.IList)Activator.CreateInstance(
             typeof(System.Collections.Generic.List<>).MakeGenericType(enumType))!;
         list.Add(Status(asm, "Shipped"));
-        list.Add(Status(asm, "Cancelled"));
+        list.Add(Status(asm, "Canceled"));
 
         var matched = (System.Collections.IEnumerable)StaticOp(asm, "ByStatuses", 3)
             .Invoke(null, new object?[] { conn, list, null })!;
@@ -318,7 +318,7 @@ public class PostgresEnumRoundTripTests : IClassFixture<PostgresEnumRoundTripFix
 /// <summary>
 /// A separate container, because the test below mutates the enum type itself
 /// with ALTER TYPE. Sharing the round-trip fixture would leak that mutation
-/// into whichever tests xUnit happened to schedule afterwards.
+/// into whichever tests xUnit happened to schedule afterward.
 /// </summary>
 public sealed class PostgresEnumDriftFixture : IAsyncLifetime
 {
@@ -346,7 +346,7 @@ public sealed class PostgresEnumDriftFixture : IAsyncLifetime
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-            CREATE TYPE order_status AS ENUM ('pending','shipped','cancelled');
+            CREATE TYPE order_status AS ENUM ('pending','shipped','canceled');
 
             CREATE TABLE orders (
                 id serial PRIMARY KEY,
@@ -360,7 +360,7 @@ public sealed class PostgresEnumDriftFixture : IAsyncLifetime
         // Npgsql caches the server's type catalog when the first connection
         // opens, which here is BEFORE the CREATE TYPE above. Without this the
         // enum column comes back as DataTypeName "-.-" and every read throws
-        // InvalidCastException -- an artefact of seeding a fresh container, not
+        // InvalidCastException -- an artifact of seeding a fresh container, not
         // something a consumer connecting to an existing database would hit.
         await conn.ReloadTypesAsync();
 

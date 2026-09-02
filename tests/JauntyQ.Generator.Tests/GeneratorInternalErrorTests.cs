@@ -164,7 +164,7 @@ public class GeneratorInternalErrorTests
 
     /// <summary>
     /// Output nodes that need no guard, each with the reason it cannot throw. Both
-    /// only join strings from an array that was already materialised upstream.
+    /// only join strings from an array that was already materialized upstream.
     /// </summary>
     private static readonly string[] Unguarded = { "schemaCandidates", "acceptCandidates" };
 

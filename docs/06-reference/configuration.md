@@ -51,7 +51,7 @@ sidecar](#the-acceptance-sidecar-acceptjson).
 Classification is by **path segment** (case-insensitive, `/` and `\` both
 match):
 
-| Kind | Recognised by | Role |
+| Kind | Recognized by | Role |
 |---|---|---|
 | **Schema snapshot** | file ends in `.schema.json` (convention `db/schema/*.schema.json`) | Authoritative schema when present. |
 | **Acceptance sidecar** | file ends in `.accept.json` (convention `db/schema/jaunty.accept.json`) | Accepts unindexed scans in **generated** queries. Optional. |

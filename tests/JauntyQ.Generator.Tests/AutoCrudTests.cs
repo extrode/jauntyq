@@ -511,7 +511,7 @@ public class AutoCrudTests
     /// <summary>
     /// An identity-only PK whose only fallback UNIQUE is a prefix index: the
     /// email(5) hole, decided 2026-07-30. No Upsert form — atomic or
-    /// two-statement — can honour the full-value match the method's signature
+    /// two-statement — can honor the full-value match the method's signature
     /// implies when the engine matches rows sharing only five characters, so
     /// synthesis is refused outright and JNT2019 says so. The rest of the
     /// table's CRUD is unaffected.

@@ -731,7 +731,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// dialect context — see the <c>@@</c> branch in <see cref="SqlTokenizer"/>
     /// — so this cannot tell a MySQL escape from a Windows path in a genuinely
     /// unbalanced SQL Server file, and says "if this is MySQL" rather than
-    /// asserting. Honouring the escape properly needs dialect at the tokenizer,
+    /// asserting. Honoring the escape properly needs dialect at the tokenizer,
     /// which is a decision recorded in <c>the todo list</c>, not a patch.
     /// </summary>
     private static string BackslashEscapeHint(string unterminatedKind, string sql)

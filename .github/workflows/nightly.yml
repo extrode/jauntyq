@@ -101,7 +101,7 @@ jobs:
 
       # Housekeeping, so neither step can turn a clean fuzz run red: the job's
       # verdict stays the fuzz step's alone.
-      - name: Minimise the corpus before caching it
+      - name: Minimize the corpus before caching it
         if: always()
         continue-on-error: true
         run: |

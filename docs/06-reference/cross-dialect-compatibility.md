@@ -13,7 +13,7 @@ difference the suite finds that is not listed here fails the build.
 The Conduit corpus: 28 hand-written queries plus the auto-CRUD surface generated over the same
 seven tables, reads, an ordered script of inserts, updates and deletes, then every read again
 against the changed data. Results are compared engine-to-engine, never against a hand-written
-expected value, so no single engine's behaviour is treated as the reference.
+expected value, so no single engine's behavior is treated as the reference.
 
 ## Differences the suite erases
 
@@ -78,7 +78,7 @@ is in what the engines then do.
 
 | Construct | Agree | Differ | What happens | Write instead |
 |---|---|---|---|---|
-| Add one month to 31 January | PostgreSQL + SQL Server; MySQL + MariaDB | SQLite | Four engines clamp to 28 February. **SQLite's `date()` normalises the overflow and returns 3 March**, a different month, with no error. (The two pairs differ only in returning a temporal value against text, which follows from each dialect's spelling.) | Do not add months in SQL if the result must match. Compute the clamped date in the application. |
+| Add one month to 31 January | PostgreSQL + SQL Server; MySQL + MariaDB | SQLite | Four engines clamp to 28 February. **SQLite's `date()` normalizes the overflow and returns 3 March**, a different month, with no error. (The two pairs differ only in returning a temporal value against text, which follows from each dialect's spelling.) | Do not add months in SQL if the result must match. Compute the clamped date in the application. |
 | Join text to a number | SQLite, PostgreSQL, MySQL, MariaDB | SQL Server | SQL Server's `+` is also addition, so it tries to convert and fails. Loud, and therefore the safest case here. | `'a' + CAST(1 AS varchar(11))` on SQL Server, or `CONCAT`. |
 | `SELECT TRUE` | SQLite, MySQL, MariaDB | PostgreSQL; SQL Server | PostgreSQL returns a real `bool`; three return the integer `1`; SQL Server has no boolean literal and reads `TRUE` as a column name, then fails. | Write `1` and `0`. |
 | `SELECT (1 = 1)` | SQLite, MySQL, MariaDB | PostgreSQL; SQL Server | The same three-way split, SQL Server has no boolean value type, so a comparison cannot appear in a select list. | `CASE WHEN 1 = 1 THEN 1 ELSE 0 END`. |
@@ -101,7 +101,7 @@ An entry is a permanent statement about the engines, not a known bug. Where Jaun
 the engines agree, it does, and no entry appears. An entry means the difference is in the engine
 and reconciling it would cost more than it is worth, the reason column says what that cost is.
 
-Entries do not outlive the behaviour they describe: if a divergence stops occurring on a run
+Entries do not outlive the behavior they describe: if a divergence stops occurring on a run
 where its query and engines were both exercised, the suite fails on the stale entry.
 
 ## Running it

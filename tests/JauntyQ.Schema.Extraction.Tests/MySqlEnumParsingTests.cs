@@ -20,9 +20,9 @@ public class MySqlEnumParsingTests
     [Fact]
     public void ParsesAnOrdinaryMemberListInDeclarationOrder()
     {
-        var members = MySqlExtractor.ParseEnumMembers("enum('pending','shipped','cancelled')");
+        var members = MySqlExtractor.ParseEnumMembers("enum('pending','shipped','canceled')");
 
-        Assert.Equal(new[] { "pending", "shipped", "cancelled" }, members);
+        Assert.Equal(new[] { "pending", "shipped", "canceled" }, members);
     }
 
     [Fact]

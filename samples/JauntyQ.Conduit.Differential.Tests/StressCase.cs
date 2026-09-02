@@ -6,7 +6,7 @@ namespace JauntyQ.Conduit.Differential.Tests;
 ///
 /// The declared grouping is the assertion. An engine that moves out of its
 /// group fails the suite, and so does an engine that unexpectedly joins one:
-/// a stress case that stops stressing is as much a change in behaviour as one
+/// a stress case that stops stressing is as much a change in behavior as one
 /// that starts.
 /// </summary>
 public sealed record StressCase
@@ -38,7 +38,7 @@ public sealed record StressCase
     /// </summary>
     public required IReadOnlyList<IReadOnlyList<string>> Groups { get; init; }
 
-    /// <summary>Why the engines differ, in terms of documented behaviour.</summary>
+    /// <summary>Why the engines differ, in terms of documented behavior.</summary>
     public required string Reason { get; init; }
 
     /// <summary>

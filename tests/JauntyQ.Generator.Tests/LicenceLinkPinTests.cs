@@ -52,7 +52,7 @@ public class LicenceLinkPinTests
         var loose = LicenceLinks().Where(l => !PinnedLink.IsMatch(l.link)).ToList();
 
         Assert.True(loose.Count == 0,
-            "unpinned licence links:\n" + string.Join("\n", loose.Select(l => $"{Path.GetRelativePath(RepoRoot(), l.file)}: {l.link}")));
+            "unpinned license links:\n" + string.Join("\n", loose.Select(l => $"{Path.GetRelativePath(RepoRoot(), l.file)}: {l.link}")));
     }
 
     [Fact]

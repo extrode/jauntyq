@@ -24,7 +24,7 @@ namespace JauntyQ.Generator.Tests;
 ///
 /// FunctionGenerationTests asserts on generated TEXT, which can say the emitted
 /// SQL is <c>SELECT dbo.calc_tax(@amount, @rate)</c> but cannot say the server
-/// accepts it. Three claims in the design are about engine behaviour and
+/// accepts it. Three claims in the design are about engine behavior and
 /// nothing else can check them: that a schema-qualified call resolves
 /// independently of search_path/default schema on Postgres and SQL Server; that
 /// an UNqualified one is what MySQL needs; and that binding every parameter
@@ -42,7 +42,7 @@ internal static class FunctionRoundTrip
         contract::JauntyQ.Schema.DatabaseSchema schema, string dialect)
     {
         // The extractors leave Dialect blank; `jaunty schema pull` stamps it
-        // afterwards. Without this the generator sees dialect "" and
+        // afterward. Without this the generator sees dialect "" and
         // PlanFunctionEmission's gate refuses everything, so the round-trip
         // would compile an assembly with no FunctionAccessor at all and the
         // reflection lookup below would fail with a confusing message rather
@@ -317,7 +317,7 @@ public class PostgresFunctionRoundTripTests : IClassFixture<PostgresFunctionRoun
         // convenience: the emitted method really binds to a database object,
         // so when that object goes away the call fails. This is what
         // SchemaContractComparer's FunctionMissing exists to catch at build
-        // time instead, and it is only a real defence if the runtime failure
+        // time instead, and it is only a real defense if the runtime failure
         // it prevents is real.
         Skip.IfNot(_fx.Available, _fx.SkipReason);
         var asm = await Build();

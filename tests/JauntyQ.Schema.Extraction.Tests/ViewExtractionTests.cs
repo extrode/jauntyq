@@ -106,7 +106,7 @@ public class ViewExtractionTests : IDisposable
     /// <summary>
     /// A view has no indexes, which is the condition JNT8009 already treats as
     /// "uniqueness is unprovable, stay silent". Asserted here so the schema-side
-    /// precondition for that behaviour is pinned where the view is produced.
+    /// precondition for that behavior is pinned where the view is produced.
     /// </summary>
     [Fact]
     public async Task View_CarriesNoIndexes()

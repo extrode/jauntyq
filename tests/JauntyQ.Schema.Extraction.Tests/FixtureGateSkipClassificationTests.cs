@@ -58,7 +58,7 @@ public class FixtureGateSkipClassificationTests
     {
         // The one that matters: a lost race on a saturated host.
         new TimeoutException("The container startup timed out after 60 seconds."),
-        new OperationCanceledException("bring-up cancelled"),
+        new OperationCanceledException("bring-up canceled"),
         // SQL Server under memory pressure, which is what 34 concurrent
         // containers actually produced.
         new InvalidOperationException(
@@ -112,7 +112,7 @@ public class FixtureGateSkipClassificationTests
     /// which nothing else checks and no local run would reveal.
     ///
     /// The Docker-is-off path is the one case that must skip rather than fail,
-    /// and it is recognised by two markers owned by a third party: the
+    /// and it is recognized by two markers owned by a third party: the
     /// <c>DockerEndpointAuthConfig</c> <see cref="ArgumentException.ParamName"/>
     /// and the "Docker is either not running or misconfigured" message. Both are
     /// Testcontainers' to rename. If an upgrade renames either, every arm of

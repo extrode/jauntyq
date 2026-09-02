@@ -629,7 +629,7 @@ public static partial class SqlParser
     /// plain-column test (its next token is a keyword that is neither AS nor a
     /// clause keyword), falls to the expression path, and that path swallows
     /// INTO and the target name into one opaque expression — which is the
-    /// JNT3004-blaming-the-wrong-token behaviour the refusal replaces. Measured
+    /// JNT3004-blaming-the-wrong-token behavior the refusal replaces. Measured
     /// 2026-08-31: with the refusal in place but this helper absent, the
     /// aliased form was refused and the unaliased form was not.</para>
     /// </summary>

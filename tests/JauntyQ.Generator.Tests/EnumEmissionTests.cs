@@ -278,7 +278,7 @@ public class EnumEmissionTests
     /// The T7 clause that could not be proven until the enum type existed: a
     /// non-nullable enum column drives the bulk-copy path, which emits
     /// <c>if (row.Status is null)</c> against a struct unless
-    /// IsNonNullableValueType recognises the enum. That is CS0037/CS0023, and
+    /// IsNonNullableValueType recognizes the enum. That is CS0037/CS0023, and
     /// only a real compile sees it.
     /// </summary>
     [Theory]

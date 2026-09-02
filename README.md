@@ -336,7 +336,7 @@ Skipped for identity-only keys (nothing to match on before insert), for
 tables with no non-key columns, and for tables whose only usable unique
 constraint is a MySQL/MariaDB column-prefix key, a prefix index enforces
 uniqueness over the truncated prefix, not the full value, so no Upsert can
-honour the method's contract (reported as JNT2019 rather than skipped
+honor the method's contract (reported as JNT2019 rather than skipped
 silently). As with all synthetics, a user .sql file with the same method
 name overrides.
 

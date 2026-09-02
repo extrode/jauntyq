@@ -153,7 +153,7 @@ public static partial class CodeEmitter
         // before mapping: a TVP maps to `object` like any other unknown type,
         // so without this it would be reported as merely unmappable and the
         // user would be told to change a type they cannot change. Only
-        // procedures can take one in SQL Server, so this is defence against a
+        // procedures can take one in SQL Server, so this is defense against a
         // snapshot shape rather than a case the extractors produce today --
         // which is the point, since the deferred spec will produce it.
         foreach (var p in fn.Params)

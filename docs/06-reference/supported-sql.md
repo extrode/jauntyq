@@ -133,7 +133,7 @@ is refused with JNT1002. That refusal is deliberate and the message names the
 backslash when it finds one, but it is a refusal, not a silent mis-parse, and
 there is no build in which a backslash-escaped file produces wrong SQL. Pinned
 by `TokenizerTests`'s three backslash cases, which also pin why the fix is not
-simply "honour the backslash": `'C:\'` is a complete literal under ANSI rules
+simply "honor the backslash": `'C:\'` is a complete literal under ANSI rules
 and tokenizes as one today.
 
 ## Things that are not the parser

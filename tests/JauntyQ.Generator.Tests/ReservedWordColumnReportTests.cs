@@ -16,7 +16,7 @@ namespace JauntyQ.Generator.Tests;
 /// to — so they have never had it, and v0.2.0 is the first release that
 /// reports the case.
 ///
-/// This pins their literal scenario rather than a near neighbour, so the claim
+/// This pins their literal scenario rather than a near neighbor, so the claim
 /// made back to them is one the suite actually executes.
 /// </summary>
 public class ReservedWordColumnReportTests

@@ -26,4 +26,4 @@ Exception is adopted by this notice, as its How to Apply section directs.
 
 The generated code that JauntyQ emits into your project is covered by the
 Exception above. Third-party assemblies bundled in `JauntyQ.Generator` keep
-their own licences; see `THIRD-PARTY-NOTICES.md`.
+their own licenses; see `THIRD-PARTY-NOTICES.md`.

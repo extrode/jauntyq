@@ -19,7 +19,7 @@ namespace JauntyQ.Generator.Tests;
 ///
 /// So this scans source, following <c>FixtureContainerBuildSiteTests</c>, which
 /// scans for the same reason: the property is "every site names every dialect",
-/// and no behavioural call can observe a site that was never written.
+/// and no behavioral call can observe a site that was never written.
 /// </summary>
 [Trait("Category", "AuditRegression")]
 public class CodeEmitterDialectParityTests

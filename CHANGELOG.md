@@ -36,8 +36,8 @@ condensed.
 ### Changed
 - **The command is `jauntyq`, not `jaunty`.** The old name collided with a sibling product.
 - **`schema pull` accepts only its own four flags**; a stray flag is an error, not silence.
-- **Packages carry `LICENSE.md` (ISL-R 1.2)** as their licence file, with `EXCEPTION.md` and
-  `NOTICE.md` beside it, and no longer require licence acceptance on install.
+- **Packages carry `LICENSE.md` (ISL-R 1.2)** as their license file, with `EXCEPTION.md` and
+  `NOTICE.md` beside it, and no longer require license acceptance on install.
 
 ### Fixed
 - **A SQL Server table-valued parameter no longer collapses onto a shared pseudo-type.**
@@ -47,7 +47,7 @@ condensed.
 ## [0.4.0] - 2026-08-26
 
 ### Changed
-- **The project's identity moves to extrode.com.** Package metadata, licence texts and the
+- **The project's identity moves to extrode.com.** Package metadata, license texts and the
   README name Extrode LLC.
 - `schema verify --format json` no longer prints prose ahead of its JSON document.
 
@@ -126,7 +126,7 @@ condensed.
 - **A decimal literal with more fractional digits than its column's scale is an error**, and
   JNT5001 no longer rejects valid SQL on PostgreSQL, MySQL and SQLite.
 - A trailing space no longer silently disables `-- @first`, `-- @identity` or `-- @stream`;
-  a tab between a directive's name and its value is honoured; a bare `-- @call` reports
+  a tab between a directive's name and its value is honored; a bare `-- @call` reports
   JNT3008; `-- @type <alias>` with no db type is no longer ignored; `-- @first` on a plain
   INSERT/UPDATE/DELETE is JNT3003.
 - JNT2019/JNT2020 no longer fire when you have written the Upsert yourself; JNT2015 and

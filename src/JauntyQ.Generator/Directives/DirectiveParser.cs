@@ -121,7 +121,7 @@ public static class DirectiveParser
     /// directive after all — in which case the caller keeps it as a plain
     /// comment and runs the near-miss check.
     ///
-    /// The value/no-value split is the pre-split behaviour restated: the four
+    /// The value/no-value split is the pre-split behavior restated: the four
     /// value-taking directives and <c>@call</c> did nothing without a value
     /// (AUD-R79-02 removed the bare-<c>@call</c> acceptance, since with no name
     /// <c>CallProcName</c> stays null and the file is emitted as though the
@@ -273,7 +273,7 @@ public static class DirectiveParser
         // Overwrite, do not merge. "-- @result void" followed by
         // "-- @result (int Id)" otherwise left ResultIsVoid true AND
         // InlineColumns set: a model no single directive line can produce, and
-        // one whose behaviour depends on which field the emitter consults
+        // one whose behavior depends on which field the emitter consults
         // first. JNT3011 reports that the file has two of these; this decides
         // what having two of them means, so that "later lines overwrite earlier
         // ones" is true of @result as it is of the rest.
