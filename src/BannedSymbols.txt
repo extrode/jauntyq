@@ -11,6 +11,5 @@
 ; future contributor could route around one call at a time.
 ;
 ; This file is scoped to src/ only via src/Directory.Build.props; tests/ and
-; samples/ are explicitly exempt (see docs/conventions.md / CLAUDE.md's
-; testing-philosophy section) and may use LINQ freely.
+; samples/ are exempt and may use LINQ freely.
 N:System.Linq;LINQ is banned in src/ product code (NativeAOT/zero-dependency mandate) -- use a plain foreach loop or an existing List<T>/Array/string native method instead. Tests and samples are exempt.
