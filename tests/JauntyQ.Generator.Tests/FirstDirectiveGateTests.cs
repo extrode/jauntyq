@@ -11,7 +11,7 @@ namespace JauntyQ.Generator.Tests;
 /// The JNT3003 gate on -- @first. @stream and @each are both gated to SELECT
 /// because a directive that cannot be applied must be reported rather than
 /// dropped; @first was not, so a plain INSERT/UPDATE/DELETE silently ignored
-/// it. It IS honoured on a CRUD statement carrying RETURNING, which is why the
+/// it. It IS honored on a CRUD statement carrying RETURNING, which is why the
 /// gate reads "non-SELECT and no RETURNING" rather than simply "non-SELECT".
 /// </summary>
 public class FirstDirectiveGateTests

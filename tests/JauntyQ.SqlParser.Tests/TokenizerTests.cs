@@ -680,7 +680,7 @@ select product_id /* inline comment */ from products");
     // it is not — every divergence walks the quote parity off by one and ends
     // in the Unterminated sentinel, which JNT1002 refuses before the parser
     // ever runs. The cost is a confusing message, not a wrong build, and that
-    // is why these pin the behaviour rather than change it: an actual fix
+    // is why these pin the behavior rather than change it: an actual fix
     // needs dialect at the tokenizer, which it does not have (see the @@
     // branch's comment) and which is a decision, not a patch.
 
@@ -715,9 +715,9 @@ select product_id /* inline comment */ from products");
 
     /// <summary>
     /// The other side of the same coin, and the reason the tokenizer cannot
-    /// simply honour backslash escapes everywhere: <c>'C:\'</c> is a valid,
+    /// simply honor backslash escapes everywhere: <c>'C:\'</c> is a valid,
     /// complete literal under ANSI/T-SQL/Postgres rules and tokenizes as one
-    /// today. Honouring MySQL's escape unconditionally would turn this correct
+    /// today. Honoring MySQL's escape unconditionally would turn this correct
     /// SQL Server file into an unterminated-literal refusal.
     /// </summary>
     [Fact]

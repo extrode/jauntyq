@@ -202,7 +202,7 @@ public class CliFlagDocParityTests
                 // in BOTH theories. So the two lines here are a third statement
                 // of the same expectation, kept because they fail with the
                 // reason named rather than as a set comparison a reader has to
-                // work backwards from.
+                // work backward from.
                 //
                 // MentionedFlags is deliberately NOT asserted empty. It matches
                 // `--[a-z0-9-]+` anywhere in the section, which is right where

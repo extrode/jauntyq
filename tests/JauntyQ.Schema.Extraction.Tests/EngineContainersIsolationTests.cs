@@ -10,7 +10,7 @@ namespace JauntyQ.Schema.Extraction.Tests;
 /// never see the other's tables. If database scoping ever regressed (an
 /// extractor querying across schemas, or CreateDatabaseAsync handing back the
 /// admin catalog), every converted fixture would start bleeding into its
-/// neighbours and this is the test that says so directly, instead of a distant
+/// neighbors and this is the test that says so directly, instead of a distant
 /// Assert.Single failing with a confusing duplicate.
 /// </summary>
 public class EngineContainersIsolationTests

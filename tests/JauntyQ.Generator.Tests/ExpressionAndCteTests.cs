@@ -477,7 +477,7 @@ public class ExpressionAndCteTests
     /// A MySQL backslash escape is still refused — that is correct, the
     /// tokenizer implements only the ANSI '' escape — but the message now names
     /// the escape instead of blaming a missing quote the author can see is
-    /// there. Measured 2026-08-17; the tokenizer-level behaviour it explains is
+    /// there. Measured 2026-08-17; the tokenizer-level behavior it explains is
     /// pinned by TokenizerTests' three backslash cases.
     /// </summary>
     [Fact]

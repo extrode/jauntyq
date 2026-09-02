@@ -5,7 +5,7 @@ team-safety tier**. This page states the commercial terms. Pricing questions and
 orders go to Extrode via <https://extrode.com/jauntyq>.
 
 > **Pre-1.0 preview.** While JauntyQ is `0.x`, the paid commands run free under a
-> Preview license that Extrode issues on request. A Preview license is honoured by
+> Preview license that Extrode issues on request. A Preview license is honored by
 > every `0.x` build and by no `1.0` build. Nothing is revoked at 1.0: a `0.x` binary
 > keeps accepting it. The free core is not licensed by the file at all and is
 > unaffected either way.
@@ -68,7 +68,7 @@ restores updates and support. A lapse never turns exit codes red in CI; see
   redistribution of the tool itself. Text: [LICENSE.md](../../LICENSE.md),
   published at <https://islamiclicense.org/isl-r/1.2/LICENSE.md>.
 - **Generated output** is covered by the Islamic Software License - Output
-  Exception (**ISL-OE**), Version 1.2, adopted alongside the licence: you may
+  Exception (**ISL-OE**), Version 1.2, adopted alongside the license: you may
   modify, compile, distribute and sell the code, schema snapshots and reports
   JauntyQ emits into your project, as part of your own work, with no source
   disclosure and no obligation to reproduce the license text. The license's

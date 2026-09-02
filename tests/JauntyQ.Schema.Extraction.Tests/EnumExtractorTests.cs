@@ -33,7 +33,7 @@ public sealed class PostgresEnumFixture : IAsyncLifetime
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-            CREATE TYPE order_status AS ENUM ('pending','shipped','cancelled');
+            CREATE TYPE order_status AS ENUM ('pending','shipped','canceled');
             CREATE TYPE awkward_kind AS ENUM ('in progress','2xl','plain');
             CREATE TYPE never_used AS ENUM ('a','b');
 
@@ -71,7 +71,7 @@ public class PostgresEnumExtractorTests : IClassFixture<PostgresEnumFixture>
 
         Assert.True(schema.Enums.ContainsKey("order_status"));
         Assert.Equal(
-            new[] { "pending", "shipped", "cancelled" },
+            new[] { "pending", "shipped", "canceled" },
             schema.Enums["order_status"].Members.Select(m => m.Value));
     }
 
@@ -154,13 +154,13 @@ public sealed class MySqlEnumFixture : IAsyncLifetime
         cmd.CommandText = @"
             CREATE TABLE orders (
                 id int PRIMARY KEY,
-                status ENUM('pending','shipped','cancelled') NOT NULL,
+                status ENUM('pending','shipped','canceled') NOT NULL,
                 tags SET('red','green') NULL,
                 note text
             );
             CREATE TABLE users (
                 id int PRIMARY KEY,
-                status ENUM('pending','shipped','cancelled') NOT NULL
+                status ENUM('pending','shipped','canceled') NOT NULL
             );
             CREATE TABLE oddities (
                 id int PRIMARY KEY,
@@ -188,7 +188,7 @@ public class MySqlEnumExtractorTests : IClassFixture<MySqlEnumFixture>
 
         Assert.Equal("OrdersStatus", schema.Tables["orders"].Columns["status"].EnumName);
         Assert.Equal(
-            new[] { "pending", "shipped", "cancelled" },
+            new[] { "pending", "shipped", "canceled" },
             schema.Enums["OrdersStatus"].Members.Select(m => m.Value));
     }
 

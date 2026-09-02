@@ -23,7 +23,7 @@ public class EnumSchemaModelTests
             {
                 new EnumMember { Value = "pending", CSharpName = "Pending" },
                 new EnumMember { Value = "shipped", CSharpName = "Shipped" },
-                new EnumMember { Value = "cancelled", CSharpName = "Cancelled" }
+                new EnumMember { Value = "canceled", CSharpName = "Canceled" }
             }
         };
         schema.Tables["orders"] = new TableSchema
@@ -47,8 +47,8 @@ public class EnumSchemaModelTests
 
         Assert.True(reloaded.Enums.ContainsKey("order_status"));
         var members = reloaded.Enums["order_status"].Members;
-        Assert.Equal(new[] { "pending", "shipped", "cancelled" }, members.Select(m => m.Value));
-        Assert.Equal(new[] { "Pending", "Shipped", "Cancelled" }, members.Select(m => m.CSharpName));
+        Assert.Equal(new[] { "pending", "shipped", "canceled" }, members.Select(m => m.Value));
+        Assert.Equal(new[] { "Pending", "Shipped", "Canceled" }, members.Select(m => m.CSharpName));
         Assert.Equal("order_status", reloaded.Tables["orders"].Columns["status"].EnumName);
     }
 

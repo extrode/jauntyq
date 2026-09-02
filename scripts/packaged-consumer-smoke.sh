@@ -4,7 +4,7 @@
 #
 # Why this exists. Every other project in this repo -- all 27 under samples/ --
 # references the generator with <ProjectReference OutputItemType="Analyzer">. No
-# build here has ever exercised the packed artefact: the nuspec, the
+# build here has ever exercised the packed artifact: the nuspec, the
 # analyzers/dotnet/cs layout, the bundled System.Text.Json closure, or the
 # build/JauntyQ.Generator.props registration that supplies JauntyQAutoCrud and
 # JauntyQDialect to an external consumer. So a green JauntyQ build says nothing

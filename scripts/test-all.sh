@@ -25,7 +25,7 @@
 #
 #   ./scripts/test-all.sh 4 --filter "FullyQualifiedName~Northwind"
 #
-# The run is always logged to trx and always audited afterwards by
+# The run is always logged to trx and always audited afterward by
 # scripts/skip-audit.js, which fails it when tests were skipped for a reason the
 # repo has not sanctioned. Both halves are needed and neither is optional:
 #
@@ -45,7 +45,7 @@ fi
 cd "$(dirname "$0")/.."
 
 # Probed BEFORE the run, because it decides how a "Docker unavailable" skip is
-# read afterwards: with no daemon it is the correct outcome, with a daemon up it
+# read afterward: with no daemon it is the correct outcome, with a daemon up it
 # means FixtureGate misclassified a real bring-up failure.
 DOCKER_REACHABLE=true
 if ! docker info >/dev/null 2>&1; then

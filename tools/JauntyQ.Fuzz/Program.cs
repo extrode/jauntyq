@@ -23,7 +23,7 @@ namespace JauntyQ.Fuzz;
 ///   ./libfuzzer-dotnet -max_total_time=600 --target_path="$(command -v dotnet)" \
 ///     --target_arg=out/fuzz/JauntyQ.Fuzz.dll tools/JauntyQ.Fuzz/corpus
 ///
-/// Minimise any crash before promoting it (-minimize_crash=1), then add it to
+/// Minimize any crash before promoting it (-minimize_crash=1), then add it to
 /// HostileInputParserTests with a name and a reason, per the plan's
 /// regression-corpus discipline.
 /// </summary>

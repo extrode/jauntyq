@@ -34,7 +34,7 @@ internal static class CliEnvironment
     /// <summary>
     /// True when the caller has opted into full exception detail.
     ///
-    /// Deliberately exact and ordinal, preserving the behaviour all three
+    /// Deliberately exact and ordinal, preserving the behavior all three
     /// original sites had: <c>"true"</c>, <c>"yes"</c>, <c>"0"</c> and
     /// <c>" 1"</c> are all off. The variable gates whether provider exception
     /// messages — which can echo host and credential fragments out of a

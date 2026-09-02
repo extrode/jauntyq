@@ -4,7 +4,7 @@ using Xunit;
 namespace JauntyQ.Generator.Tests;
 
 /// <summary>
-/// AUD-R79-01/-02/-03: a directive line must be honoured, or reported — never
+/// AUD-R79-01/-02/-03: a directive line must be honored, or reported — never
 /// both ignored and silent, and never reported with advice the author already
 /// followed. These cover the three ways that promise was broken: trailing
 /// whitespace on the three no-value directives, a bare <c>-- @call</c> with no

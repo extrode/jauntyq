@@ -378,7 +378,7 @@ public static partial class CodeEmitter
     /// ReturnValue direction describe nothing the database can vary.
     /// </summary>
     /// <remarks>
-    /// Honouring the declared type here would be worse than ignoring it. A
+    /// Honoring the declared type here would be worse than ignoring it. A
     /// snapshot saying <c>"dbType": "nvarchar", "direction": "ReturnValue"</c>
     /// generated <c>out string</c> and a readback cast of
     /// <c>(string)(object)value</c>, which throws InvalidCastException at

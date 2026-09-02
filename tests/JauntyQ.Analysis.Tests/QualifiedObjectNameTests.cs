@@ -20,7 +20,7 @@ namespace JauntyQ.Analysis.Tests;
 ///
 /// <para>Both halves are asserted, because either alone would be
 /// misleading: the tokenizer's fusing (the reason the loop is dead) and
-/// <see cref="MigrationParser"/>'s resulting name (the behaviour a consumer
+/// <see cref="MigrationParser"/>'s resulting name (the behavior a consumer
 /// sees). If the tokenizer ever starts splitting, the first set fails and the
 /// second says whether the loop caught it.</para>
 /// </summary>

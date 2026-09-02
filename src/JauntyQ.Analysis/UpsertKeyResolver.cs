@@ -17,7 +17,7 @@ namespace JauntyQ.Analysis;
 /// refused outright (decided 2026-07-30): the engine matches rows sharing only
 /// the prefix, full-value semantics the emitted method's signature implies but
 /// the index does not enforce, so no Upsert form — atomic or two-statement —
-/// can honour the contract. The <c>out</c> overloads name the refusing index so
+/// can honor the contract. The <c>out</c> overloads name the refusing index so
 /// the generator can report it (JNT2019) instead of a silent skip. The same
 /// visibility applies (2026-08-01) when the only fallback candidate is an
 /// expression UNIQUE (<see cref="IndexSchema.HasExpressionKeyPart"/> —

@@ -28,7 +28,7 @@
     <Version Condition="'$(JauntyQDevSuffix)' == 'true'">$(Version)-dev</Version>
 
     <!-- ISL-R 1.2 with the ISL-OE 1.2 output exception. PackageLicenseFile
-         takes exactly one path, so the licence is the file it names and the
+         takes exactly one path, so the license is the file it names and the
          Exception and the adoption notice ride as ordinary packed files, see
          the ItemGroup at the bottom. -->
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
@@ -68,12 +68,12 @@
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
   </ItemGroup>
 
-  <!-- Every .nupkg carries the licence (required by PackageLicenseFile), the
+  <!-- Every .nupkg carries the license (required by PackageLicenseFile), the
        Output Exception and the notice that adopts it. Without the Exception
-       in the box a consumer reading only the licence would conclude that
+       in the box a consumer reading only the license would conclude that
        compiling generated code into their own application creates a
        forbidden Derivative Work, so it travels with every package for the
-       same reason the licence does. -->
+       same reason the license does. -->
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <None Include="$(MSBuildThisFileDirectory)LICENSE.md" Pack="true" PackagePath="\" />
     <None Include="$(MSBuildThisFileDirectory)EXCEPTION.md" Pack="true" PackagePath="\" />

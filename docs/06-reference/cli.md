@@ -190,7 +190,7 @@ the migration (reported SAFE, no reasons).
 | `--queries <dir>` |, | Directory of hand-written `.sql` query files (searched recursively). Omit to classify only auto-CRUD synthetics. |
 | `--format text\|json` | `text` | Human-readable report or the machine-readable JSON shape below. |
 | `--fail-on breaking\|risky` |, | Exit non-zero when an entry at or above the threshold exists. Omit for report-only (always exit 0). |
-| `--fail-on-warnings` | off | Also exit `2` when the run produced any warning. A warning always means the analysed corpus was narrower than the invocation asked for, a `--migrations` or `--queries` directory that does not exist, or a migration statement the simulator could not apply, so the report is a verdict over less than it appears to cover. Independent of `--fail-on`: the two gates are ORed, and classification is unaffected. |
+| `--fail-on-warnings` | off | Also exit `2` when the run produced any warning. A warning always means the analyzed corpus was narrower than the invocation asked for, a `--migrations` or `--queries` directory that does not exist, or a migration statement the simulator could not apply, so the report is a verdict over less than it appears to cover. Independent of `--fail-on`: the two gates are ORed, and classification is unaffected. |
 
 - Exit `0`, report-only, or nothing reached the `--fail-on` threshold.
 - Exit `2`, an entry at or above `--fail-on` exists, or `--fail-on-warnings` is set and the run warned.

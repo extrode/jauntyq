@@ -58,7 +58,7 @@ jobs:
     environment: packages
     # Restated in full because a job-level block replaces the top-level one.
     # id-token: write only lets the job request an OIDC token; nuget.org
-    # decides whether to honour it by matching the token against the
+    # decides whether to honor it by matching the token against the
     # trusted-publishing policy.
     permissions:
       contents: write   # gh release create

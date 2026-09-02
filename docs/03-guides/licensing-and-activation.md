@@ -118,7 +118,7 @@ ordinary signed license with `tier: "Preview"`, minted perpetual, granting the p
 entitlements. The gate is unchanged, so an unlicensed caller still exits `3`.
 
 **A preview license is scoped to the releases the preview covers.** Every `0.x`
-build honours it forever; a `1.0` or later build classifies it `NotEntitled` with
+build honors it forever; a `1.0` or later build classifies it `NotEntitled` with
 its own message and an upgrade path, not the generic entitlement-required wording:
 
 ```
@@ -132,7 +132,7 @@ release JauntyQ ever ships. `jauntyq license status` reports the scope rather th
 printing "perpetual (no expiry)", which would be true of the date and misleading
 about what it covers.
 
-Nothing is revoked and no existing build changes behaviour, a `0.x` binary keeps
+Nothing is revoked and no existing build changes behavior, a `0.x` binary keeps
 accepting the license after 1.0 ships.
 
 ## Lapse

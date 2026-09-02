@@ -245,7 +245,7 @@ public static partial class SqlParser
             // keyword immediately followed by '(' SELECT. The span to remove
             // starts at the earliest introducer token so a leading NOT (and, for
             // IN, the preceding column reference stays but its predicate is
-            // neutralised) is consumed too.
+            // neutralized) is consumed too.
             int spanStart;
             SubqueryKind kind;
 

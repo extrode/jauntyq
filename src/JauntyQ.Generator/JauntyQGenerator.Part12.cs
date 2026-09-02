@@ -18,7 +18,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// The message therefore has three jobs, in this order: say that JauntyQ failed
     /// (so the consumer stops looking at their own code), say which stage (so the
     /// bug is reportable), and say what the consequence is (so the CS0246 storm is
-    /// recognised as a symptom rather than investigated as forty separate faults).
+    /// recognized as a symptom rather than investigated as forty separate faults).
     /// The exception type and message are included verbatim; the stack trace is not,
     /// because a diagnostic message is a single line in most consumers' build output
     /// and a trace would push the first two jobs off the end of it.

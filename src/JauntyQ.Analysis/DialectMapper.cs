@@ -110,7 +110,7 @@ public static class DialectMapper
     /// <see cref="JauntyQ.Schema.DatabaseSchema.Enums"/>, and that requires the
     /// whole schema.
     ///
-    /// Null <paramref name="schema"/> keeps the pre-013 behaviour exactly:
+    /// Null <paramref name="schema"/> keeps the pre-013 behavior exactly:
     /// MySQL "enum" falls through to the string arm below, and a PostgreSQL
     /// enum type name reaches the object fallback. That is deliberate for
     /// callers with no schema in hand (parameter/identity type inference), but

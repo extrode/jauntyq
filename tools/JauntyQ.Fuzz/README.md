@@ -57,7 +57,7 @@ mkdir -p out/corpus out/fuzz-findings
 Two corpus directories, and the order matters: libFuzzer writes new units to the **first** one
 only and treats the rest as read-only seeds. `out/corpus` is the one that grows;
 `tools/JauntyQ.Fuzz/corpus` keeps its 18 committed seeds untouched. Nightly caches `out/corpus`
-under a rolling `fuzz-corpus-*` key so each night resumes where the last left off, and minimises
+under a rolling `fuzz-corpus-*` key so each night resumes where the last left off, and minimizes
 it with `-merge=1` before saving:
 
 ```sh
@@ -79,7 +79,7 @@ works on Windows and is how a promoted crasher is re-checked — but it is not f
 `corpus/` holds 18 hand-written seeds spanning the grammar's shapes. Fuzzer output is **not**
 directly a test:
 
-1. Minimise the crashing input first (`-minimize_crash=1`).
+1. Minimize the crashing input first (`-minimize_crash=1`).
 2. Promote it to a named `HostileInputParserTests` case with an assertion message saying why it
    is there. A raw byte blob with no context rots into noise nobody dares delete.
 3. Keep the seed in `corpus/` alongside it.
