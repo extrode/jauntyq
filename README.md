@@ -22,6 +22,94 @@ The generated code is performance-aligned by construction:
 
 ---
 
+## Quickstart
+
+### 0. Install the CLI
+
+```bash
+dotnet tool install --global Extrode.JauntyQ.Cli
+```
+
+Installs as `jauntyq`. Working inside a clone of this repository instead, substitute
+`dotnet run --project src/Extrode.JauntyQ.Cli --` for `jauntyq` in every command below.
+
+### 1. Pull a schema snapshot
+
+```bash
+jauntyq schema pull \
+  --provider sqlserver \
+  --connection "Server=localhost;Database=MyDb;Trusted_Connection=true" \
+  --output db/schema/jaunty.schema.json
+```
+
+Supported providers: `sqlserver`, `postgres`, `mysql`, `sqlite`.
+
+The snapshot is a JSON file you commit. It records table names, column names, types, nullability, primary key flags, and identity flags, plus the dialect. Example fragment:
+
+```json
+{
+  "dialect": "sqlserver",
+  "tables": {
+    "Products": {
+      "name": "Products",
+      "columns": {
+        "ProductId": { "name": "ProductId", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
+        "ProductName": { "name": "ProductName", "dbType": "nvarchar", "isNullable": false, "isPrimaryKey": false, "isIdentity": false }
+      }
+    }
+  }
+}
+```
+
+### 2. Wire up the generator in your project
+
+```xml
+<ItemGroup>
+  <!-- SQL query files -->
+  <AdditionalFiles Include="db\**\*.sql" />
+  <!-- Schema snapshot -->
+  <AdditionalFiles Include="db\schema\*.schema.json" />
+</ItemGroup>
+
+<ItemGroup>
+  <ProjectReference Include="..\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj"
+                    OutputItemType="Analyzer"
+                    ReferenceOutputAssembly="false" />
+  <ProjectReference Include="..\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj" />
+</ItemGroup>
+```
+
+Or consume the packages from NuGet.org:
+
+```xml
+<ItemGroup>
+  <PackageReference Include="Extrode.JauntyQ.Generator" Version="0.5.0" PrivateAssets="all" />
+  <PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.5.0" />
+</ItemGroup>
+```
+
+The generator package installs as a Roslyn analyzer automatically; no
+`OutputItemType` needed.
+
+### 3. Use the generated code
+
+```csharp
+using var conn = new SqlConnection(connectionString);
+var db = new JauntyDb(conn);
+
+// Instance API, connection opened/closed per call unless already open
+var products = db.Products.GetAll();
+var product  = db.Products.GetById(42);   // returns Row? (-- @first query)
+
+// Static fallback, no db object needed
+var products2 = Products.GetAll(conn);
+
+// Async twins, every method has a CancellationToken variant
+var products3 = await db.Products.GetAllAsync(cancellationToken);
+```
+
+---
+
 ## JauntyQ or Jaunty?
 
 **JauntyQ starts from SQL. [Jaunty](https://github.com/extrode/jaunty) starts from C#.** They are two
@@ -181,94 +269,6 @@ only which end you author from, and when the mismatch is caught.
 
 If the second list is you, Jaunty is at [github.com/extrode/jaunty](https://github.com/extrode/jaunty)
 and you will be better served there.
-
----
-
-## Quickstart
-
-### 0. Install the CLI
-
-```bash
-dotnet tool install --global Extrode.JauntyQ.Cli
-```
-
-Installs as `jauntyq`. Working inside a clone of this repository instead, substitute
-`dotnet run --project src/Extrode.JauntyQ.Cli --` for `jauntyq` in every command below.
-
-### 1. Pull a schema snapshot
-
-```bash
-jauntyq schema pull \
-  --provider sqlserver \
-  --connection "Server=localhost;Database=MyDb;Trusted_Connection=true" \
-  --output db/schema/jaunty.schema.json
-```
-
-Supported providers: `sqlserver`, `postgres`, `mysql`, `sqlite`.
-
-The snapshot is a JSON file you commit. It records table names, column names, types, nullability, primary key flags, and identity flags, plus the dialect. Example fragment:
-
-```json
-{
-  "dialect": "sqlserver",
-  "tables": {
-    "Products": {
-      "name": "Products",
-      "columns": {
-        "ProductId": { "name": "ProductId", "dbType": "int", "isNullable": false, "isPrimaryKey": true, "isIdentity": true },
-        "ProductName": { "name": "ProductName", "dbType": "nvarchar", "isNullable": false, "isPrimaryKey": false, "isIdentity": false }
-      }
-    }
-  }
-}
-```
-
-### 2. Wire up the generator in your project
-
-```xml
-<ItemGroup>
-  <!-- SQL query files -->
-  <AdditionalFiles Include="db\**\*.sql" />
-  <!-- Schema snapshot -->
-  <AdditionalFiles Include="db\schema\*.schema.json" />
-</ItemGroup>
-
-<ItemGroup>
-  <ProjectReference Include="..\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj"
-                    OutputItemType="Analyzer"
-                    ReferenceOutputAssembly="false" />
-  <ProjectReference Include="..\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj" />
-</ItemGroup>
-```
-
-Or consume the packages from NuGet.org:
-
-```xml
-<ItemGroup>
-  <PackageReference Include="Extrode.JauntyQ.Generator" Version="0.5.0" PrivateAssets="all" />
-  <PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.5.0" />
-</ItemGroup>
-```
-
-The generator package installs as a Roslyn analyzer automatically; no
-`OutputItemType` needed.
-
-### 3. Use the generated code
-
-```csharp
-using var conn = new SqlConnection(connectionString);
-var db = new JauntyDb(conn);
-
-// Instance API, connection opened/closed per call unless already open
-var products = db.Products.GetAll();
-var product  = db.Products.GetById(42);   // returns Row? (-- @first query)
-
-// Static fallback, no db object needed
-var products2 = Products.GetAll(conn);
-
-// Async twins, every method has a CancellationToken variant
-var products3 = await db.Products.GetAllAsync(cancellationToken);
-```
 
 ---
 

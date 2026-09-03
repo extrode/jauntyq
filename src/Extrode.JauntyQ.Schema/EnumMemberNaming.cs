@@ -7,7 +7,7 @@ namespace Extrode.JauntyQ.Schema;
 /// This lives in Extrode.JauntyQ.Schema rather than beside
 /// <c>DialectMapper.ToPascalCase</c> in Extrode.JauntyQ.Analysis because both sides of
 /// the pipeline need it and only this assembly is visible to both: the
-/// extractors in Extrode.JauntyQ.Schema.Contract fold at capture time, and the
+/// extractors in Extrode.JauntyQ.Schema.Extraction fold at capture time, and the
 /// generator resolves the same names at emission time. One implementation, so
 /// the snapshot and the emitted code cannot disagree about what a member is
 /// called.

@@ -284,6 +284,20 @@ public class UnindexedAcceptanceTests
     }
 
     [Fact]
+    public void TwoColumnsOfOneTableAcceptedSeparately_AreBothInForce()
+    {
+        var diags = WithAcceptance(
+            Accepts(
+                Entry("order_lines", "order_id", "upstream schema, index not ours to add"),
+                Entry("order_lines", "shipment_id", "written once a quarter, scanned never")),
+            (AnchorPath, AnchorSql));
+
+        Assert.DoesNotContain(diags, d => d.Id == "JNT6003");
+        Assert.Empty(Messages(diags, "JNT8004"));
+        Assert.DoesNotContain(diags, d => d.Id == "JNT8012");
+    }
+
+    [Fact]
     public void UnparseableJson_IsReportedAsJnt6003_AndAcceptsNothing()
     {
         var diags = WithAcceptance("{ \"allowUnindexed\": [ ", (AnchorPath, AnchorSql));
