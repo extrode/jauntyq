@@ -110,6 +110,21 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
         Assert.Equal("LICENSE.md", _packed.LicenseElement(packageId));
     }
 
+    [Theory]
+    [InlineData("Extrode.JauntyQ.Cli")]
+    [InlineData("Extrode.JauntyQ.Generator")]
+    public void EveryBundledThirdPartyAssembly_IsNamedInTheThirdPartyNotices(string packageId)
+    {
+        string notices = File.ReadAllText(Path.Combine(PackedFixture.RepoRoot(), "THIRD-PARTY-NOTICES.md"));
+
+        string[] unattributed = _packed.BundledThirdPartyAssemblies(packageId)
+            .Where(dll => !notices.Contains(Path.GetFileNameWithoutExtension(dll), StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.True(unattributed.Length == 0,
+            $"{packageId} redistributes assemblies the notices do not name: [{string.Join(", ", unattributed)}]");
+    }
+
     public static IEnumerable<object[]> AllPackages() => PackedFixture.Projects.Select(p => new object[] { p });
 
     [Fact]
@@ -234,7 +249,21 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
                 .ToArray();
         }
 
-        public string[] LibEntries(string packageId)
+        public string[] BundledThirdPartyAssemblies(string packageId)
+    {
+        using var zip = ZipFile.OpenRead(NupkgPath(packageId));
+        return zip.Entries
+            .Where(e => (e.FullName.StartsWith("tools/", StringComparison.Ordinal)
+                      || e.FullName.StartsWith("analyzers/", StringComparison.Ordinal))
+                     && e.FullName.EndsWith(".dll", StringComparison.Ordinal)
+                     && !Path.GetFileName(e.FullName).Contains("JauntyQ.", StringComparison.Ordinal))
+            .Select(e => Path.GetFileName(e.FullName))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    public string[] LibEntries(string packageId)
         {
             using var zip = ZipFile.OpenRead(NupkgPath(packageId));
             return zip.Entries
