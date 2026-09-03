@@ -1,0 +1,12 @@
+<Project>
+  <!-- Auto-imported by NuGet into any project that references the
+       Extrode.JauntyQ.Generator analyzer package. Exposes the JauntyQ MSBuild knobs to
+       the source generator via the compiler's analyzer-config channel, so that
+       <JauntyQAutoCrud> and <JauntyQDialect> set in a consumer's .csproj
+       actually reach the generator (build_property.*). Without this, those
+       properties are silently invisible to the analyzer. -->
+  <ItemGroup>
+    <CompilerVisibleProperty Include="JauntyQAutoCrud" />
+    <CompilerVisibleProperty Include="JauntyQDialect" />
+  </ItemGroup>
+</Project>

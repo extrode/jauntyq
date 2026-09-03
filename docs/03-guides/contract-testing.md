@@ -14,25 +14,25 @@ the committed snapshot, and classifies every difference as **breaking** or
 
 There are two entry points, both driven by the same classifier:
 
-- The **`JauntyQ.Schema.Contract`** package, a test-embeddable assertion API you
+- The **`Extrode.JauntyQ.Schema.Contract`** package, a test-embeddable assertion API you
   drop into your own xUnit / NUnit / MSTest suite.
 - The **`jauntyq schema verify`** CLI command, for pipelines without a test host
   (see the [CLI reference](../06-reference/cli.md)).
 
 ## Installing the package
 
-`JauntyQ.Schema.Contract` ships on the private feed. Add it to your **test**
+`Extrode.JauntyQ.Schema.Contract` ships on the private feed. Add it to your **test**
 project (it carries the ADO.NET provider dependencies, so it is a test-time /
 tooling package, not part of the zero-dependency core):
 
 ```xml
-<PackageReference Include="JauntyQ.Schema.Contract" Version="x.y.z" />
+<PackageReference Include="Extrode.JauntyQ.Schema.Contract" Version="x.y.z" />
 ```
 
 ## Writing a contract test
 
 ```csharp
-using JauntyQ.Schema.Contract;
+using Extrode.JauntyQ.Schema.Contract;
 using Xunit;
 
 public class SchemaContractTests

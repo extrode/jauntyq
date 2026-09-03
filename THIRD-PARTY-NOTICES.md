@@ -1,7 +1,7 @@
 # Third-Party Notices
 
-`JauntyQ.Generator` bundles the following third-party assemblies directly into its
-NuGet package (`analyzers/dotnet/cs`), so that a project referencing `JauntyQ.Generator`
+`Extrode.JauntyQ.Generator` bundles the following third-party assemblies directly into its
+NuGet package (`analyzers/dotnet/cs`), so that a project referencing `Extrode.JauntyQ.Generator`
 does not need its own matching `PackageReference` for the Roslyn analyzer to load. This
 file lists them and reproduces the MIT License under which each is distributed, per that
 license's requirement that the copyright and permission notice accompany redistributed
@@ -10,7 +10,7 @@ copies.
 Bundling these does not change their license: each remains licensed to you by its
 respective copyright holder under the MIT License below, independent of and unaffected by
 the Islamic Software License - Restricted (ISL-R), Version 1.2, and its Output Exception
-(ISL-OE), Version 1.2, that govern `JauntyQ.Generator` itself (see `LICENSE.md`,
+(ISL-OE), Version 1.2, that govern `Extrode.JauntyQ.Generator` itself (see `LICENSE.md`,
 `EXCEPTION.md` and `NOTICE.md`).
 
 ## Bundled packages

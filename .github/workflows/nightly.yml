@@ -35,7 +35,7 @@ jobs:
         run: dotnet test JauntyQ.slnx -c Release --no-build --verbosity normal
 
   fuzz:
-    # First execution of tools/JauntyQ.Fuzz ever, anywhere: the harness was
+    # First execution of tools/Extrode.JauntyQ.Fuzz ever, anywhere: the harness was
     # written on Windows, where libFuzzer is not practically available, so it
     # has been compiled but never run. Treat the first green run as the
     # harness's own smoke test, not as evidence the parser is fuzz-clean.
@@ -55,13 +55,13 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Publish the harness
-        run: dotnet publish tools/JauntyQ.Fuzz -c Release -o out/fuzz
+        run: dotnet publish tools/Extrode.JauntyQ.Fuzz -c Release -o out/fuzz
 
       - name: Install SharpFuzz
         run: dotnet tool install --global SharpFuzz.CommandLine
 
       - name: Instrument the parser assembly
-        run: sharpfuzz out/fuzz/JauntyQ.SqlParser.dll
+        run: sharpfuzz out/fuzz/Extrode.JauntyQ.SqlParser.dll
 
       - name: Fetch the libFuzzer driver
         # Pinned by tag AND digest: a release asset can be re-uploaded under an
@@ -87,7 +87,7 @@ jobs:
         # Two corpus directories, and the order matters: libFuzzer
         # writes new units to the FIRST one only, treating the rest as
         # read-only seeds. So out/corpus accumulates across nights while the
-        # 18 committed seeds in tools/JauntyQ.Fuzz/corpus stay pristine.
+        # 18 committed seeds in tools/Extrode.JauntyQ.Fuzz/corpus stay pristine.
         # Verified under WSL 2026-08-25: 60s took out/corpus 0 -> 2017 and left
         # the seed directory at exactly 18.
         run: |
@@ -96,8 +96,8 @@ jobs:
             -max_total_time=600 -timeout=25 -rss_limit_mb=2048 \
             -artifact_prefix=out/fuzz-findings/ \
             --target_path="$(command -v dotnet)" \
-            --target_arg=out/fuzz/JauntyQ.Fuzz.dll \
-            out/corpus tools/JauntyQ.Fuzz/corpus
+            --target_arg=out/fuzz/Extrode.JauntyQ.Fuzz.dll \
+            out/corpus tools/Extrode.JauntyQ.Fuzz/corpus
 
       # Housekeeping, so neither step can turn a clean fuzz run red: the job's
       # verdict stays the fuzz step's alone.
@@ -108,8 +108,8 @@ jobs:
           mkdir -p out/corpus-min
           ./libfuzzer-dotnet -merge=1 \
             --target_path="$(command -v dotnet)" \
-            --target_arg=out/fuzz/JauntyQ.Fuzz.dll \
-            out/corpus-min out/corpus tools/JauntyQ.Fuzz/corpus
+            --target_arg=out/fuzz/Extrode.JauntyQ.Fuzz.dll \
+            out/corpus-min out/corpus tools/Extrode.JauntyQ.Fuzz/corpus
           rm -rf out/corpus
           mv out/corpus-min out/corpus
           echo "corpus entries after merge: $(find out/corpus -type f | wc -l)"
@@ -138,8 +138,8 @@ jobs:
       fail-fast: false
       matrix:
         project:
-          - JauntyQ.SqlParser.Tests
-          - JauntyQ.Analysis.Tests
+          - Extrode.JauntyQ.SqlParser.Tests
+          - Extrode.JauntyQ.Analysis.Tests
     steps:
       - uses: actions/checkout@v4
 
@@ -174,12 +174,12 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Run BenchmarkDotNet
-        run: dotnet run --project benchmarks/JauntyQ.Benchmarks -c Release -- --filter '*' --exporters json
+        run: dotnet run --project benchmarks/Extrode.JauntyQ.Benchmarks -c Release -- --filter '*' --exporters json
 
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: benchmarks
-          path: benchmarks/JauntyQ.Benchmarks/BenchmarkDotNet.Artifacts/
+          path: benchmarks/Extrode.JauntyQ.Benchmarks/BenchmarkDotNet.Artifacts/
           if-no-files-found: ignore

@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Provisions the throwaway servers that tests/JauntyQ.Schema.Extraction.Tests' live-extractor tests
+# Provisions the throwaway servers that tests/Extrode.JauntyQ.Schema.Extraction.Tests' live-extractor tests
 # need, and prints the environment variables that point at them.
 #
 #   ./scripts/live-extractor-servers.sh          # start (idempotent) and print exports
-#   eval "$(./scripts/live-extractor-servers.sh --quiet)" && dotnet test tests/JauntyQ.Schema.Extraction.Tests
+#   eval "$(./scripts/live-extractor-servers.sh --quiet)" && dotnet test tests/Extrode.JauntyQ.Schema.Extraction.Tests
 #
 # WHY THIS EXISTS
 #
-# Measured 2026-08-29: 29 of the 209 tests in tests/JauntyQ.Schema.Extraction.Tests had never run.
+# Measured 2026-08-29: 29 of the 209 tests in tests/Extrode.JauntyQ.Schema.Extraction.Tests had never run.
 # They are gated on JAUNTYQ_TEST_{POSTGRES,MYSQL,SQLSERVER}_CONNECTION, nothing
 # in the repository ever sets one, and the skip is soft — so PostgresExtractor
 # and MySqlExtractor were covered against a live server by exactly nothing on
-# any machine. Unlike the sample suites, tests/JauntyQ.Schema.Extraction.Tests does not reference
+# any machine. Unlike the sample suites, tests/Extrode.JauntyQ.Schema.Extraction.Tests does not reference
 # Testcontainers (deliberately: it connects to an already-running server), which
 # is why the servers have to come from somewhere else. This is that somewhere.
 #
@@ -24,7 +24,7 @@
 #
 # SQL SERVER IS NOT COVERED HERE. Its four tests want the Northwind sample
 # schema, not a throwaway table, and applying schema.sqlserver.sql through
-# sqlcmd mis-splits its GO batches — samples/JauntyQ.Northwind.Tests applies the
+# sqlcmd mis-splits its GO batches — samples/Extrode.JauntyQ.Northwind.Tests applies the
 # same file through SqlClient and succeeds. Point
 # JAUNTYQ_TEST_SQLSERVER_CONNECTION at a Northwind provisioned that way if you
 # want those four; without it they skip, which is a sanctioned skip.

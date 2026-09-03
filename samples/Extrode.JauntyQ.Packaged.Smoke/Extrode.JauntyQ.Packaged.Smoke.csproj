@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+       The only project in this repo that consumes JauntyQ the way a consumer
+       does: from a .nupkg, with the generator arriving as an analyzer package
+       rather than as a ProjectReference. It is NOT in JauntyQ.slnx, because the
+       packages it references do not exist until
+       scripts/packaged-consumer-smoke.sh has packed them into
+       dist/packaged-smoke-feed. Run that script; do not build this project
+       directly.
+
+       Everything here is written as a consumer would write it. The one
+       exception is the floating version below, and it is deliberate.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Extrode.JauntyQ.Packaged.Smoke</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RollForward>LatestMajor</RollForward>
+
+    <!--
+         Set to false ON PURPOSE, and the value matters more than the feature.
+         This property only reaches the generator through the PACKED
+         build/Extrode.JauntyQ.Generator.props, which registers it as a
+         CompilerVisibleProperty; the repo root's Directory.Build.props does the
+         same for every other project here, and this project is cut off from
+         that (see Directory.Build.props beside this file). So auto-CRUD being
+         genuinely OFF is the observable proof that the packed props was
+         imported and the property channel works end to end. If the packed props
+         were missing or broken the property would be invisible, auto-CRUD would
+         default back ON, and Program.cs asserts exactly that absence at
+         runtime. Nothing else in this repo can catch that regression.
+    -->
+    <JauntyQAutoCrud>false</JauntyQAutoCrud>
+
+    <!--
+         A generator that emits nothing must fail this build, not warn. Roslyn
+         reports a generator that failed to LOAD or threw as a WARNING
+         (CS8784/CS8034/CS8785) and then emits no source at all, which is the
+         shape of the bug a consumer hit twice on 2026-08-17: every consumer file
+         failed CS0246 and no JauntyQ diagnostic appeared anywhere, so the
+         explanation was in the warnings while the reader was in the errors.
+         Here that warning is an error and the smoke fails on the real cause.
+    -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+         Floating to any version including prerelease, because the feed this
+         restores from contains exactly one build, the one the script just
+         packed, and pinning would mean editing this file at every version bump
+         for no gain. A consumer would pin.
+    -->
+    <PackageReference Include="Extrode.JauntyQ.Generator" Version="*-*" PrivateAssets="all" />
+    <PackageReference Include="Extrode.JauntyQ.Runtime" Version="*-*" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="db\**\*.sql" />
+    <AdditionalFiles Include="db\schema\*.schema.json" />
+  </ItemGroup>
+</Project>

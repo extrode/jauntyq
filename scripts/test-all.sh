@@ -13,7 +13,7 @@
 # both calling themselves successful.
 #
 # Two caps are in play. Intra-assembly parallelism is bounded per project by an
-# xunit.runner.json (tests/JauntyQ.Schema.Extraction.Tests caps collections at 4; Conduit.SqlServer
+# xunit.runner.json (tests/Extrode.JauntyQ.Schema.Extraction.Tests caps collections at 4; Conduit.SqlServer
 # serializes entirely). This script supplies the other half: how many test
 # assemblies run at once.
 #

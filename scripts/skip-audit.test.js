@@ -36,12 +36,12 @@ function passed(name) {
 
 Deno.test("parseTrx reads the name and reason off a skipped result", () => {
   const skips = parseTrx(trx(skipped(
-    "JauntyQ.Tests.PostgresExtractorLiveTests.CitextColumn_IsUnicode",
+    "Extrode.JauntyQ.Tests.PostgresExtractorLiveTests.CitextColumn_IsUnicode",
     "JAUNTYQ_TEST_POSTGRES_CONNECTION not set - live Postgres extractor tests skipped.",
   )));
 
   assertEquals(skips.length, 1);
-  assertEquals(skips[0].name, "JauntyQ.Tests.PostgresExtractorLiveTests.CitextColumn_IsUnicode");
+  assertEquals(skips[0].name, "Extrode.JauntyQ.Tests.PostgresExtractorLiveTests.CitextColumn_IsUnicode");
   assert(skips[0].reason.startsWith("JAUNTYQ_TEST_POSTGRES_CONNECTION not set"));
 });
 
@@ -61,7 +61,7 @@ Deno.test("parseTrx does not let a test NAMED NotExecuted count as a skip", () =
   // A real test in this repo is called SelectIsPlannedNotExecuted_EvenWhenItWouldBeSlow,
   // and it passes. Matching the substring rather than the attribute would count it.
   const skips = parseTrx(trx(passed(
-    "JauntyQ.Explain.Tests.LiveExplainTests.SelectIsPlannedNotExecuted_EvenWhenItWouldBeSlow",
+    "Extrode.JauntyQ.Explain.Tests.LiveExplainTests.SelectIsPlannedNotExecuted_EvenWhenItWouldBeSlow",
   )));
 
   assertEquals(skips.length, 0);
@@ -88,15 +88,15 @@ Deno.test("the 2026-08-17 regression fails the audit", () => {
   // up, and `dotnet test` exited 0. This is the case the guard exists for.
   const skips = [
     ...Array.from({ length: 69 }, (_, i) => ({
-      name: `JauntyQ.Northwind.Tests.Tier1Tests.Case${i}`,
+      name: `Extrode.JauntyQ.Northwind.Tests.Tier1Tests.Case${i}`,
       reason: "Docker unavailable: InvalidOperationException: bring-up failed",
     })),
     ...Array.from({ length: 17 }, (_, i) => ({
-      name: `JauntyQ.AdventureWorksLite.SqlServer.Tests.ViewTests.Case${i}`,
+      name: `Extrode.JauntyQ.AdventureWorksLite.SqlServer.Tests.ViewTests.Case${i}`,
       reason: "Docker unavailable: InvalidOperationException: bring-up failed",
     })),
     ...Array.from({ length: 15 }, (_, i) => ({
-      name: `JauntyQ.Sakila.MySql.Tests.FilmTests.Case${i}`,
+      name: `Extrode.JauntyQ.Sakila.MySql.Tests.FilmTests.Case${i}`,
       reason: "Docker unavailable: InvalidOperationException: bring-up failed",
     })),
   ];

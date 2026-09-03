@@ -26,7 +26,7 @@ which is generated from MSBuild's `$(Version)`, so the `0.x` → `1.0` bump is t
 only thing that has to happen for it to take effect, and there is no second constant
 to remember to change.
 
-The `JauntyQ.Generator` and `JauntyQ.Runtime` packages are versioned and
+The `Extrode.JauntyQ.Generator` and `Extrode.JauntyQ.Runtime` packages are versioned and
 released together; use matching versions.
 
 ## Snapshot-format compatibility
@@ -58,7 +58,7 @@ release, and re-pull the snapshot after upgrading to opt into new analysis.
   version the supported Roslyn/VS toolchains ship). SDK-based `dotnet build`
   provides it in-box; on Visual Studio it comes from the VS install, another
   reason the 17.12+ floor matters.
-- Generated code and `JauntyQ.Runtime` are **Native AOT and trim compatible**;
+- Generated code and `Extrode.JauntyQ.Runtime` are **Native AOT and trim compatible**;
   AOT support ultimately also depends on your database provider.
 - Supported dialects: SQL Server / Azure SQL, PostgreSQL, MySQL / MariaDB, and
   SQLite. See [dialect differences](dialects.md).

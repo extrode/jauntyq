@@ -27,13 +27,13 @@ requires a live connection during `dotnet build`.
 
 ```mermaid
 flowchart LR
-    A["db/tables/**/*.sql\n(your queries)"] --> C[JauntyQ.Generator]
+    A["db/tables/**/*.sql\n(your queries)"] --> C[Extrode.JauntyQ.Generator]
     B["db/schema/jaunty.schema.json\n(schema snapshot)"] --> C
     C --> D["Typed C# methods\nRow POCOs + JauntyDb"]
     D --> E["Your application\n(compiled, AOT-friendly)"]
 ```
 
-The snapshot is produced separately, by `JauntyQ.Cli`, against a real database
+The snapshot is produced separately, by `Extrode.JauntyQ.Cli`, against a real database
 (or a file, for SQLite). You commit it like any other source file.
 
 ## Step 1: Create the database
@@ -81,7 +81,7 @@ the value-safety step later in this guide possible.
 ## Step 2: Pull a schema snapshot
 
 ```bash
-dotnet run --project src/JauntyQ.Cli -- schema pull \
+dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json
@@ -102,10 +102,10 @@ is needed at build time from here on.
 </ItemGroup>
 
 <ItemGroup>
-  <ProjectReference Include="..\JauntyQ.Generator\JauntyQ.Generator.csproj"
+  <ProjectReference Include="..\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj"
                     OutputItemType="Analyzer"
                     ReferenceOutputAssembly="false" />
-  <ProjectReference Include="..\JauntyQ.Runtime\JauntyQ.Runtime.csproj" />
+  <ProjectReference Include="..\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj" />
 </ItemGroup>
 ```
 
@@ -117,7 +117,7 @@ synthesizes `GetAll`, `GetById`, `Insert`, `Update`, and `Delete`:
 
 ```csharp
 using Microsoft.Data.Sqlite;
-using JauntyQ.Generated;
+using Extrode.JauntyQ.Generated;
 
 using var conn = new SqliteConnection("Data Source=tutorial.db");
 var db = new JauntyDb(conn);
@@ -213,7 +213,7 @@ sqlite3 tutorial.db "ALTER TABLE Products RENAME COLUMN ProductName TO Name;"
 Re-pull the snapshot so it reflects the live database:
 
 ```bash
-dotnet run --project src/JauntyQ.Cli -- schema pull \
+dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json

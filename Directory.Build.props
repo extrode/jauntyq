@@ -58,7 +58,7 @@
   <ItemGroup>
     <!-- Makes the JauntyQ MSBuild knobs visible to the source generator for the
          repo's own projects. External consumers get the same registration from
-         the packaged build/JauntyQ.Generator.props (this file is never packed). -->
+         the packaged build/Extrode.JauntyQ.Generator.props (this file is never packed). -->
     <CompilerVisibleProperty Include="JauntyQAutoCrud" />
     <CompilerVisibleProperty Include="JauntyQDialect" />
   </ItemGroup>

@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to JauntyQ's core packages: `JauntyQ.Generator`, `JauntyQ.Runtime`,
-`JauntyQ.SqlParser`, `JauntyQ.Schema`, `JauntyQ.Analysis`, `JauntyQ.Schema.Extraction`,
-`JauntyQ.Cli.Core` and the `JauntyQ.Cli` tool. The paid tooling in `JauntyQ.Cli.Premium`
+All notable changes to JauntyQ's core packages: `Extrode.JauntyQ.Generator`, `Extrode.JauntyQ.Runtime`,
+`Extrode.JauntyQ.SqlParser`, `Extrode.JauntyQ.Schema`, `Extrode.JauntyQ.Analysis`, `Extrode.JauntyQ.Schema.Extraction`,
+`Extrode.JauntyQ.Cli.Core` and the `Extrode.JauntyQ.Cli` tool. The paid tooling in `Extrode.JauntyQ.Cli.Premium`
 keeps its own changelog.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions
@@ -17,10 +17,10 @@ condensed.
   and `NOTICE.md` ship inside every package. The history behind this release is the core's real
   history, filtered before publication; see
   `docs/decisions/2026-09-02-001-history-filtered-before-first-public-release.md`.
-- **The CLI is two tools behind one command, `jauntyq`.** `JauntyQ.Cli` on NuGet.org carries
-  `schema pull`; `JauntyQ.Cli.Premium` carries everything else and replaces it. Both are
+- **The CLI is two tools behind one command, `jauntyq`.** `Extrode.JauntyQ.Cli` on NuGet.org carries
+  `schema pull`; `Extrode.JauntyQ.Cli.Premium` carries everything else and replaces it. Both are
   .NET global tools.
-- **New packages `JauntyQ.Schema.Extraction` and `JauntyQ.Cli.Core`.** The database extractors
+- **New packages `Extrode.JauntyQ.Schema.Extraction` and `Extrode.JauntyQ.Cli.Core`.** The database extractors
   moved into their own package so that `schema pull` needs nothing paid, and `Schema`,
   `SqlParser` and `Analysis` are published as packages in their own right.
 - **Scalar database functions are captured and callable**: `db.Functions.CalcTax(100m, 0.25m)`,

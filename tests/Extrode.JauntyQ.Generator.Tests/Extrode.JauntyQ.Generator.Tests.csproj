@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Extrode.JauntyQ.Generator.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <PackageReference Include="MySqlConnector" Version="2.4.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
+    <!-- Spec 013 T12a/T13: the enum write binding and the unknown-value throw
+         are claims about what a real server accepts, and both were wrong once
+         already when asserted on emitted text alone. Same versions as
+         tests/Extrode.JauntyQ.Tests. -->
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.14.0" />
+    <PackageReference Include="Testcontainers.MySql" Version="4.14.0" />
+    <!-- Spec 014 T6: the function round-trip runs on all three dialects that
+         have functions, and SQL Server is the one that most needs it — alias
+         types and table types are its flavor of the feature. Same version as
+         tests/Extrode.JauntyQ.Tests, Extrode.JauntyQ.Explain.Tests and
+         Extrode.JauntyQ.Schema.Contract.Tests, which already carry it. -->
+    <PackageReference Include="Testcontainers.MsSql" Version="4.14.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj" />
+    <!-- The round-trip pulls its snapshot from the live database rather than
+         hand-building one, so it needs the extractors.
+
+         Behind an extern alias, and this is not optional: Extrode.JauntyQ.Generator
+         is a Roslyn analyzer and compile-includes Extrode.JauntyQ.Schema's sources
+         (see its csproj), so it carries its OWN Extrode.JauntyQ.Schema.DatabaseSchema.
+         Referencing the real assembly unaliased makes every existing test file
+         in this project ambiguous (CS0433). The alias keeps the extractor's
+         copy reachable from exactly one file, which hands the generator a JSON
+         string: a type identity neither side shares. -->
+    <ProjectReference Include="..\..\src\Extrode.JauntyQ.Schema\Extrode.JauntyQ.Schema.csproj" Aliases="contract" />
+    <ProjectReference Include="..\..\src\Extrode.JauntyQ.Schema.Extraction\Extrode.JauntyQ.Schema.Extraction.csproj" Aliases="contract" />
+  </ItemGroup>
+</Project>

@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.ExceptionServices;
 
-namespace JauntyQ.TestInfra;
+namespace Extrode.JauntyQ.TestInfra;
 
 /// <summary>
 /// Shared gate for Docker/Testcontainers-backed fixtures. Compiled into every

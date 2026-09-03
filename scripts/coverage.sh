@@ -32,42 +32,42 @@ done
 rm -rf "$OUT"; mkdir -p "$OUT"
 
 SUITES=(
-  tests/JauntyQ.Analysis.Tests
-  tests/JauntyQ.Cli.Tests
+  tests/Extrode.JauntyQ.Analysis.Tests
+  tests/Extrode.JauntyQ.Cli.Tests
   [REDACTED]
   [REDACTED]
-  tests/JauntyQ.Generator.Tests
+  tests/Extrode.JauntyQ.Generator.Tests
   [REDACTED]
   [REDACTED]
   [REDACTED]
-  tests/JauntyQ.SqlParser.Tests
-  tests/JauntyQ.Schema.Extraction.Tests
-  samples/JauntyQ.Sqlite.Tests
-  samples/JauntyQ.Northwind.Tests
-  samples/JauntyQ.Sakila.Sqlite.Tests
-  samples/JauntyQ.EShopOnWeb.Sqlite.Tests
-  samples/JauntyQ.DdlSchema.Sqlite.Tests
+  tests/Extrode.JauntyQ.SqlParser.Tests
+  tests/Extrode.JauntyQ.Schema.Extraction.Tests
+  samples/Extrode.JauntyQ.Sqlite.Tests
+  samples/Extrode.JauntyQ.Northwind.Tests
+  samples/Extrode.JauntyQ.Sakila.Sqlite.Tests
+  samples/Extrode.JauntyQ.EShopOnWeb.Sqlite.Tests
+  samples/Extrode.JauntyQ.DdlSchema.Sqlite.Tests
 )
 
 # Self-provisioning Testcontainers suites (Docker required). The core suites in
 # SUITES already contain Docker-gated live tests that activate when Docker is up;
 # these add the MySQL/MariaDB engine arms and the consumer runtime paths.
 DOCKER_SUITES=(
-  samples/JauntyQ.Postgres.Tests
-  samples/JauntyQ.MySql.Tests
-  samples/JauntyQ.Sakila.Postgres.Tests
-  samples/JauntyQ.Sakila.MySql.Tests
-  samples/JauntyQ.Sakila.MariaDb.Tests
-  samples/JauntyQ.Sakila.SqlServer.Tests
-  samples/JauntyQ.EShopOnWeb.Postgres.Tests
-  samples/JauntyQ.EShopOnWeb.MySql.Tests
-  samples/JauntyQ.EShopOnWeb.MariaDb.Tests
-  samples/JauntyQ.EShopOnWeb.SqlServer.Tests
-  samples/JauntyQ.Conduit.Postgres.Tests
-  samples/JauntyQ.Conduit.MySql.Tests
-  samples/JauntyQ.Conduit.MariaDb.Tests
-  samples/JauntyQ.Conduit.SqlServer.Tests
-  samples/JauntyQ.AdventureWorksLite.SqlServer.Tests
+  samples/Extrode.JauntyQ.Postgres.Tests
+  samples/Extrode.JauntyQ.MySql.Tests
+  samples/Extrode.JauntyQ.Sakila.Postgres.Tests
+  samples/Extrode.JauntyQ.Sakila.MySql.Tests
+  samples/Extrode.JauntyQ.Sakila.MariaDb.Tests
+  samples/Extrode.JauntyQ.Sakila.SqlServer.Tests
+  samples/Extrode.JauntyQ.EShopOnWeb.Postgres.Tests
+  samples/Extrode.JauntyQ.EShopOnWeb.MySql.Tests
+  samples/Extrode.JauntyQ.EShopOnWeb.MariaDb.Tests
+  samples/Extrode.JauntyQ.EShopOnWeb.SqlServer.Tests
+  samples/Extrode.JauntyQ.Conduit.Postgres.Tests
+  samples/Extrode.JauntyQ.Conduit.MySql.Tests
+  samples/Extrode.JauntyQ.Conduit.MariaDb.Tests
+  samples/Extrode.JauntyQ.Conduit.SqlServer.Tests
+  samples/Extrode.JauntyQ.AdventureWorksLite.SqlServer.Tests
 )
 
 if [[ "$WITH_DOCKER" == 1 ]]; then

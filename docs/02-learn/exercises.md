@@ -36,7 +36,7 @@ CREATE TABLE Suppliers (
 **Hints:**
 
 - The command is the same one from the tutorial:
-  `dotnet run --project src/JauntyQ.Cli -- schema pull --provider sqlite --connection "Data Source=tutorial.db" --output db/schema/jaunty.schema.json`.
+  `dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull --provider sqlite --connection "Data Source=tutorial.db" --output db/schema/jaunty.schema.json`.
 - A foreign key only shows up in the snapshot if it is a real `REFERENCES`
   (or table-level `FOREIGN KEY`) constraint in the DDL - a same-named column
   alone is not enough.
@@ -57,7 +57,7 @@ ALTER TABLE Products ADD COLUMN SupplierId INTEGER REFERENCES Suppliers(Supplier
 ```
 
 ```bash
-dotnet run --project src/JauntyQ.Cli -- schema pull \
+dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json
@@ -244,7 +244,7 @@ entitlement (see
 an activated license, it exits `3` with an entitlement-required message
 instead of the `0`/`2` outcomes below, that is expected, not a setup mistake.
 If you have an evaluation license, activate it first
-(`dotnet run --project src/JauntyQ.Cli.Premium -- activate --license path/to/jaunty.license.json`);
+(`dotnet run --project src/Extrode.JauntyQ.Cli.Premium -- activate --license path/to/jaunty.license.json`);
 otherwise, read through this exercise to understand the behavior rather than
 running it directly.
 
@@ -255,7 +255,7 @@ running it directly.
 sqlite3 tutorial.db "ALTER TABLE Products ADD COLUMN Notes VARCHAR(100);"
 
 # TODO: run schema verify against the now-drifted database and read its output
-dotnet run --project src/JauntyQ.Cli.Premium -- schema verify \
+dotnet run --project src/Extrode.JauntyQ.Cli.Premium -- schema verify \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json
@@ -281,7 +281,7 @@ dotnet run --project src/JauntyQ.Cli.Premium -- schema verify \
 ```bash
 sqlite3 tutorial.db "ALTER TABLE Products ADD COLUMN Notes VARCHAR(100);"
 
-dotnet run --project src/JauntyQ.Cli.Premium -- schema verify \
+dotnet run --project src/Extrode.JauntyQ.Cli.Premium -- schema verify \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json
@@ -289,7 +289,7 @@ dotnet run --project src/JauntyQ.Cli.Premium -- schema verify \
 # live database", listing the new Products.Notes column.
 
 # Reconcile the snapshot with reality:
-dotnet run --project src/JauntyQ.Cli -- schema pull \
+dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json

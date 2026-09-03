@@ -1,7 +1,7 @@
 ﻿# JNT diagnostics reference
 
 Every diagnostic JauntyQ can report, generated from the registry in
-`src/JauntyQ.Generator/JauntyDiagnostics.cs`. Format: `JNTxxxx` where the
+`src/Extrode.JauntyQ.Generator/JauntyDiagnostics.cs`. Format: `JNTxxxx` where the
 first digit is the category. An **Error** blocks code generation for that
 query/table; a **Warning** still emits code.
 

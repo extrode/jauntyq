@@ -16,7 +16,7 @@ and distribution of what it generated.
   https://islamiclicense.org/isl-oe/1.2/EXCEPTION.md
 
 The two documents are reproduced in this repository as `LICENSE.md` and
-`EXCEPTION.md`, and both are packed into every `JauntyQ.*` NuGet package.
+`EXCEPTION.md`, and both are packed into every `Extrode.JauntyQ.*` NuGet package.
 
 SPDX expression: `LicenseRef-ISL-R-1.2 WITH AdditionRef-ISL-OE-1.2`
 
@@ -25,5 +25,5 @@ accepts only SPDX 2.3, the identifier is `LicenseRef-ISL-R-1.2` and the
 Exception is adopted by this notice, as its How to Apply section directs.
 
 The generated code that JauntyQ emits into your project is covered by the
-Exception above. Third-party assemblies bundled in `JauntyQ.Generator` keep
+Exception above. Third-party assemblies bundled in `Extrode.JauntyQ.Generator` keep
 their own licenses; see `THIRD-PARTY-NOTICES.md`.

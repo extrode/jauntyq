@@ -2,7 +2,7 @@
 <!--
   Coverage scope for JauntyQ. Included assemblies are the shipped product plus
   the libraries whose source ships inside it (SqlParser/Schema/Analysis embed
-  into the JauntyQ.Generator package). Test assemblies and generated code are
+  into the Extrode.JauntyQ.Generator package). Test assemblies and generated code are
   excluded. Used by scripts/coverage.sh.
 -->
 <RunSettings>
@@ -11,7 +11,7 @@
       <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
           <Format>cobertura</Format>
-          <Include>[JauntyQ.Generator]*,[JauntyQ.SqlParser]*,[JauntyQ.Analysis]*,[JauntyQ.Schema]*,[JauntyQ.Schema.Extraction]*,[JauntyQ.Cli.Core]*,[JauntyQ.Cli]*,[JauntyQ.Runtime]*</Include>
+          <Include>[Extrode.JauntyQ.Generator]*,[Extrode.JauntyQ.SqlParser]*,[Extrode.JauntyQ.Analysis]*,[Extrode.JauntyQ.Schema]*,[Extrode.JauntyQ.Schema.Extraction]*,[Extrode.JauntyQ.Cli.Core]*,[Extrode.JauntyQ.Cli]*,[Extrode.JauntyQ.Runtime]*</Include>
           <!-- CompilerGeneratedAttribute was here until 2026-08-24 and had to go:
                it is applied to async state machines, iterator state machines,
                lambdas and closures, so excluding it made every async and every

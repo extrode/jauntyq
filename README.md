@@ -18,7 +18,7 @@ The generated code is performance-aligned by construction:
   (Parameter values box once per call at the ADO.NET boundary - `DbParameter.Value`
   is `object` - a fixed cost every data library pays.)
 - A one-time shape guard validates the result-set column names and count on the first call per query, then never again.
-- Because there is no reflection or runtime code generation, the emitted code is **Native AOT and trim compatible**. `JauntyQ.Runtime` is marked `IsAotCompatible`, and `samples/JauntyQ.Aot.Smoke` publishes to a self-contained native binary (verified in CI) that runs the full auto-CRUD, identity-return, and `@stream` paths against SQLite. (Your database provider must also be AOT-friendly, e.g. `Microsoft.Data.Sqlite.Core` + `SQLitePCLRaw.bundle_e_sqlite3`.)
+- Because there is no reflection or runtime code generation, the emitted code is **Native AOT and trim compatible**. `Extrode.JauntyQ.Runtime` is marked `IsAotCompatible`, and `samples/Extrode.JauntyQ.Aot.Smoke` publishes to a self-contained native binary (verified in CI) that runs the full auto-CRUD, identity-return, and `@stream` paths against SQLite. (Your database provider must also be AOT-friendly, e.g. `Microsoft.Data.Sqlite.Core` + `SQLitePCLRaw.bundle_e_sqlite3`.)
 
 ---
 
@@ -52,7 +52,7 @@ is real output, not an illustration.
 
 #### JauntyQ: SQL in, C# out
 
-You write the file. This one ships as-is in `samples/JauntyQ.Northwind.Tests`:
+You write the file. This one ships as-is in `samples/Extrode.JauntyQ.Northwind.Tests`:
 
 ```sql
 -- db/tables/Products/GetByCategory.sql
@@ -190,11 +190,11 @@ and you will be better served there.
 ### 0. Install the CLI
 
 ```bash
-dotnet tool install --global JauntyQ.Cli
+dotnet tool install --global Extrode.JauntyQ.Cli
 ```
 
 Installs as `jauntyq`. Working inside a clone of this repository instead, substitute
-`dotnet run --project src/JauntyQ.Cli --` for `jauntyq` in every command below.
+`dotnet run --project src/Extrode.JauntyQ.Cli --` for `jauntyq` in every command below.
 
 ### 1. Pull a schema snapshot
 
@@ -235,10 +235,10 @@ The snapshot is a JSON file you commit. It records table names, column names, ty
 </ItemGroup>
 
 <ItemGroup>
-  <ProjectReference Include="..\JauntyQ.Generator\JauntyQ.Generator.csproj"
+  <ProjectReference Include="..\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj"
                     OutputItemType="Analyzer"
                     ReferenceOutputAssembly="false" />
-  <ProjectReference Include="..\JauntyQ.Runtime\JauntyQ.Runtime.csproj" />
+  <ProjectReference Include="..\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj" />
 </ItemGroup>
 ```
 
@@ -246,8 +246,8 @@ Or consume the packages from NuGet.org:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="JauntyQ.Generator" Version="0.5.0" PrivateAssets="all" />
-  <PackageReference Include="JauntyQ.Runtime" Version="0.5.0" />
+  <PackageReference Include="Extrode.JauntyQ.Generator" Version="0.5.0" PrivateAssets="all" />
+  <PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.5.0" />
 </ItemGroup>
 ```
 
@@ -745,7 +745,7 @@ patch, describe it in an issue and Extrode will take it from there.
 JauntyQ is a commercial, source-available product with a free core and a paid team-safety tier.
 
 - **This repository, the core** (generator, runtime, analysis, schema tooling and the
-  `JauntyQ.Cli` tool) is licensed under the Islamic Software License - Restricted (ISL-R),
+  `Extrode.JauntyQ.Cli` tool) is licensed under the Islamic Software License - Restricted (ISL-R),
   Version 1.2. Text: [LICENSE.md](LICENSE.md), published at
   <https://islamiclicense.org/isl-r/1.2/LICENSE.md>.
 - **Code JauntyQ generates into your project is yours**, under the Islamic Software License -
@@ -757,7 +757,7 @@ JauntyQ is a commercial, source-available product with a free core and a paid te
   [EXCEPTION.md](EXCEPTION.md), published at <https://islamiclicense.org/isl-oe/1.2/EXCEPTION.md>.
 - **The paid team-safety tooling** (migration impact analysis, database contract testing,
   the schema registry, usage export and live EXPLAIN) ships separately as
-  `JauntyQ.Cli.Premium` under the Islamic Software End User License Agreement (ISL-EULA),
+  `Extrode.JauntyQ.Cli.Premium` under the Islamic Software End User License Agreement (ISL-EULA),
   Version 1.0, published at <https://islamiclicense.org/isl-eula/1.0/LICENSE.md>, with the
   grant conditioned on an Order.
 

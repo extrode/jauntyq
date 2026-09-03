@@ -54,7 +54,7 @@ Rename a column, drop a table, shrink a `varchar` - the build breaks at your des
 - **It demands snapshot discipline.** The schema snapshot is committed and re-pulled when the database changes. If your team cannot keep that habit, the build errors will feel like friction rather than protection.
 - **.NET SDK 8.0+ to build.** The generator runs inside Roslyn 4.12 (SDK
   8.0.400+/VS 17.12+); your consuming project's own TargetFramework isn't
-  restricted to net8.0 - `JauntyQ.Runtime` also ships a netstandard2.0 target.
+  restricted to net8.0 - `Extrode.JauntyQ.Runtime` also ships a netstandard2.0 target.
 - **One honest boxing caveat.** Parameter values box once per call at the ADO.NET boundary (`DbParameter.Value` is `object`) - every data library pays this; on PostgreSQL JauntyQ avoids even that with typed `NpgsqlParameter<T>`. The read path allocates nothing per row beyond your POCO.
 - **Not open source.** JauntyQ is source-available, not OSI-approved: the free core is licensed under the ISL-R (source viewable, use permitted) with a Generated Output Exception covering the code it emits into your project, and the paid team-safety tooling ships under the ISL-EULA. See [pricing](pricing.md). Hard OSS requirement? Use Dapper or EF Core.
 

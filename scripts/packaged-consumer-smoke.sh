@@ -6,7 +6,7 @@
 # references the generator with <ProjectReference OutputItemType="Analyzer">. No
 # build here has ever exercised the packed artifact: the nuspec, the
 # analyzers/dotnet/cs layout, the bundled System.Text.Json closure, or the
-# build/JauntyQ.Generator.props registration that supplies JauntyQAutoCrud and
+# build/Extrode.JauntyQ.Generator.props registration that supplies JauntyQAutoCrud and
 # JauntyQDialect to an external consumer. So a green JauntyQ build says nothing
 # about whether consumers compile, which is what a consumer reported on
 # 2026-08-30.
@@ -27,7 +27,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SMOKE="$ROOT/samples/JauntyQ.Packaged.Smoke"
+SMOKE="$ROOT/samples/Extrode.JauntyQ.Packaged.Smoke"
 FEED="$ROOT/dist/packaged-smoke-feed"
 PKGS="$ROOT/dist/packaged-smoke-packages"
 
@@ -41,19 +41,19 @@ mkdir -p "$FEED"
 echo "[1/4] pack"
 dotnet pack "$ROOT/JauntyQ.slnx" -c Release -o "$FEED" -v q --nologo
 
-ls "$FEED"/JauntyQ.Generator.*.nupkg >/dev/null 2>&1 || {
-  echo "ERROR: pack produced no JauntyQ.Generator .nupkg; there is nothing to smoke-test." >&2
+ls "$FEED"/Extrode.JauntyQ.Generator.*.nupkg >/dev/null 2>&1 || {
+  echo "ERROR: pack produced no Extrode.JauntyQ.Generator .nupkg; there is nothing to smoke-test." >&2
   exit 1
 }
 echo "       packed: $(cd "$FEED" && ls *.nupkg | tr '\n' ' ')"
 
 echo "[2/4] restore (feed-only, own packages folder)"
-dotnet restore "$SMOKE/JauntyQ.Packaged.Smoke.csproj" --packages "$PKGS" -v q --nologo
+dotnet restore "$SMOKE/Extrode.JauntyQ.Packaged.Smoke.csproj" --packages "$PKGS" -v q --nologo
 
 echo "[3/4] build (warnings are errors, so a silent generator fails here)"
-dotnet build "$SMOKE/JauntyQ.Packaged.Smoke.csproj" -c Release --no-restore -v q --nologo
+dotnet build "$SMOKE/Extrode.JauntyQ.Packaged.Smoke.csproj" -c Release --no-restore -v q --nologo
 
 echo "[4/4] run"
-dotnet run --project "$SMOKE/JauntyQ.Packaged.Smoke.csproj" -c Release --no-build
+dotnet run --project "$SMOKE/Extrode.JauntyQ.Packaged.Smoke.csproj" -c Release --no-build
 
 echo "packaged-consumer-smoke: OK"

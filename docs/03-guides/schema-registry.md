@@ -118,8 +118,8 @@ SNAPSHOT=$(jauntyq registry resolve --schema sales --format json | jq -r .snapsh
 
 ## Programmatic use
 
-The registry lives in the non-core `JauntyQ.Registry` library (references only
-`JauntyQ.Schema`): `RegistryLoader.LoadFile(path)` returns a `SchemaRegistry`
+The registry lives in the non-core `Extrode.JauntyQ.Registry` library (references only
+`Extrode.JauntyQ.Schema`): `RegistryLoader.LoadFile(path)` returns a `SchemaRegistry`
 with `ResolveSchema(id)`, `DependentsOfSchema(id)`, and
 `DependentsOfTable(schemaId, table)`; `RegistryValidator.Validate(registry)`
 returns every problem, named. Per-service contracts (feature 010) build on this

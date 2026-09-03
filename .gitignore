@@ -46,7 +46,7 @@ work/
 .claude/
 .claude/worktrees/
 
-# Fuzzing working directories. tools/JauntyQ.Fuzz/README.md and nightly.yml
+# Fuzzing working directories. tools/Extrode.JauntyQ.Fuzz/README.md and nightly.yml
 # both name out/fuzz, out/corpus and out/fuzz-findings; the committed seeds
-# live in tools/JauntyQ.Fuzz/corpus/ and are tracked.
+# live in tools/Extrode.JauntyQ.Fuzz/corpus/ and are tracked.
 out/
