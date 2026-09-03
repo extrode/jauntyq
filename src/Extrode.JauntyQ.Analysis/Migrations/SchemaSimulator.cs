@@ -460,8 +460,8 @@ public static class SchemaSimulator
     /// AUD-R17-01: SQLite aliases a single-column PRIMARY KEY declared with
     /// the EXACT literal type "INTEGER" (no facet, no other keywords) to the
     /// table's rowid, which then auto-assigns 1, 2, 3, ... on insert --
-    /// confirmed live via SqliteExtractor (Extrode.JauntyQ.Schema.Contract/
-    /// Extractors/SqliteExtractor.cs's rowidAliasCandidates/pkCols check).
+    /// confirmed live via SqliteExtractor (Extrode.JauntyQ.Schema.Extraction/
+    /// SqliteExtractor.cs's rowidAliasCandidates/pkCols check).
     /// Neither ParseColumnDef nor ParseCreateTable can apply this rule
     /// themselves: it needs the finalized DbType string AND a table-wide
     /// count of primary-key columns (composite keys never alias, even if one

@@ -179,7 +179,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             // is which REASON survives -- and a build acting on a reason nobody
             // is looking at is the JNT3011 defect one file over. Keep the
             // first, say so.
-            if (!seen.Add($"{tableSchema!.Name} {column}"))
+            if (!seen.Add($"{tableSchema!.Name}\0{column}"))
             {
                 context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6003, Location.None,
                     $"'{table}.{column}' is accepted more than once in '{where}'. The first entry is the one in force, " +

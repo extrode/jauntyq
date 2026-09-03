@@ -275,7 +275,7 @@ public class AdventureWorksLiteQueriesTests : IClassFixture<AdventureWorksLiteSq
         // Documents a real limitation surfaced by this schema, not a bug fix
         // target: SqlServerExtractor's foreign-key query requires BOTH the FK
         // and PK table to live in the pulled @schema (see
-        // src/Extrode.JauntyQ.Schema.Contract/Extractors/SqlServerExtractor.cs). A
+        // src/Extrode.JauntyQ.Schema.Extraction/SqlServerExtractor.cs). A
         // cross-schema FK — Purchasing.ProductVendor.ProductID referencing
         // Production.Product — is therefore invisible no matter which single
         // schema is pulled, since no one schema contains both ends. A

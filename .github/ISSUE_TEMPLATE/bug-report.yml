@@ -1,0 +1,74 @@
+name: Bug report
+description: Something the generator, the CLI or the runtime got wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A JauntyQ bug is usually reproducible from the SQL and the schema alone.
+        The more of the fields below you fill in, the less back and forth this takes.
+
+        Security vulnerabilities do not belong here. Report those privately through
+        the Security tab, as described in [SECURITY.md](../blob/dev/SECURITY.md).
+
+  - type: input
+    id: version
+    attributes:
+      label: JauntyQ version
+      description: The version of the package or the tool. `jauntyq --version` prints it.
+      placeholder: 0.5.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: dialect
+    attributes:
+      label: Dialect
+      options:
+        - PostgreSQL
+        - SQL Server
+        - MySQL
+        - MariaDB
+        - SQLite
+        - More than one, or not dialect specific
+    validations:
+      required: true
+
+  - type: input
+    id: diagnostic
+    attributes:
+      label: Diagnostic code
+      description: The JNT code, if one was reported. Leave blank if the build was silent or the failure is at run time.
+      placeholder: JNT8004
+
+  - type: textarea
+    id: sql
+    attributes:
+      label: The SQL
+      description: The contents of the `.sql` file, with any directive comments it carries.
+      render: sql
+    validations:
+      required: true
+
+  - type: textarea
+    id: schema
+    attributes:
+      label: The relevant part of the snapshot
+      description: >
+        The tables, columns and indexes the query touches, from `jaunty.schema.json`.
+        A `CREATE TABLE` that reproduces it is just as good.
+      render: json
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual
+      description: What you expected the build or the call to do, and what it did.
+    validations:
+      required: true
+
+  - type: input
+    id: dotnet
+    attributes:
+      label: .NET SDK and OS
+      placeholder: 8.0.404 on Windows 11

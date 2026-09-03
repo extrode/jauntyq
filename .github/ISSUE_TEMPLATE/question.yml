@@ -1,0 +1,26 @@
+name: Question or suggestion
+description: How do I, why does it, or something you would like it to do.
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The reference documentation covers the diagnostics, the directives and the
+        supported SQL surface: [docs/06-reference](../tree/dev/docs/06-reference).
+        If the answer should have been there and was not, say so, that is a
+        documentation bug worth reporting.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: What would you like to know, or to see JauntyQ do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: >
+        The dialect, the shape of the query, and what you are trying to build.
+        A suggestion is easier to weigh against the roadmap with the problem behind it attached.

@@ -1,0 +1,9 @@
+# A blank issue is almost always a bug report with the useful fields missing.
+blank_issues_enabled: false
+contact_links:
+  - name: Reference documentation
+    url: https://github.com/extrode/jauntyq/tree/dev/docs/06-reference
+    about: Diagnostics, directives, the supported SQL surface and the CLI, before you open anything.
+  - name: Report a security vulnerability
+    url: https://github.com/extrode/jauntyq/security/advisories/new
+    about: Privately, through the Security tab. Never as a public issue.
