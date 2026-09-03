@@ -45,7 +45,7 @@ public class PublishWorkflowContractTests
     [Fact]
     public void PublishJob_LogsInToNuGetOrgWithTrustedPublishing()
     {
-        Assert.Contains("uses: NuGet/login@v1", PublishJob());
+        Assert.Matches(@"uses: NuGet/login@[0-9a-f]{40}\b", PublishJob());
         Assert.Contains("https://api.nuget.org/v3/index.json", PublishJob());
     }
 
