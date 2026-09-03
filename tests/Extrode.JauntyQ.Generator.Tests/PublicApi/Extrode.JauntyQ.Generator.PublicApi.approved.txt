@@ -1,0 +1,603 @@
+struct Extrode.JauntyQ.Analysis.AnalysisDiagnostic
+    ctor .ctor(String,String,AnalysisSeverity)
+    method Error(String,String):AnalysisDiagnostic
+    method ToString():String
+    method Warning(String,String):AnalysisDiagnostic
+    prop Code:String
+    prop Message:String
+    prop Severity:AnalysisSeverity
+enum Extrode.JauntyQ.Analysis.AnalysisSeverity
+    field Error:AnalysisSeverity
+    field Warning:AnalysisSeverity
+class Extrode.JauntyQ.Analysis.AutoCrud
+    method DescribeUnusableTable(TableSchema,String):String
+    method Synthesize(DatabaseSchema):List<SyntheticQuery>
+class Extrode.JauntyQ.Analysis.AutoCrud+SyntheticQuery
+    ctor .ctor(String,String,String,String,Boolean,String)
+    prop EntityName:String
+    prop FilterColumn:String
+    prop IsUpsert:Boolean
+    prop MethodName:String
+    prop Sql:String
+    prop TableName:String
+class Extrode.JauntyQ.Analysis.CrudColumnRules
+    method HasUnbindableUpsertKeyColumn(IEnumerable<ColumnSchema>,List<ColumnSchema>):Boolean
+    method InsertableColumns(IEnumerable<ColumnSchema>):List<ColumnSchema>
+    method PrimaryKeyColumns(IEnumerable<ColumnSchema>):List<ColumnSchema>
+    method RowVersionColumns(IEnumerable<ColumnSchema>):List<ColumnSchema>
+    method SingleIdentityColumn(IEnumerable<ColumnSchema>):ColumnSchema
+    method UpdatableColumns(IEnumerable<ColumnSchema>):List<ColumnSchema>
+    method UpsertColumns(IEnumerable<ColumnSchema>,List<ColumnSchema>):List<ColumnSchema>
+    method UpsertSetColumns(List<ColumnSchema>,List<ColumnSchema>):List<ColumnSchema>
+class Extrode.JauntyQ.Analysis.DialectMapper
+    method DroppedMeaningfulCharacters(String):String
+    method EnumTypeName(String):String
+    method IsKnownDialect(String):Boolean
+    method IsKnownSqlServerClrUdtType(String):Boolean
+    method IsUnmappedDbType(String,Boolean,Nullable<Int32>,String):Boolean
+    method MapColumnToCSharp(ColumnSchema,String):String
+    method MapColumnToCSharp(ColumnSchema,String,DatabaseSchema):String
+    method MapDbTypeToCSharp(String,Boolean,Nullable<Int32>,String):String
+    method ResolveEnumTypeName(ColumnSchema,DatabaseSchema):String
+    method ToPascalCase(String):String
+class Extrode.JauntyQ.Analysis.DialectReservedWords
+    method IsReservedInDialect(String,String):Boolean
+    method IsReservedInDialect(String,String,SqlIdentifierPosition):Boolean
+    method RequiresQuotingForCase(String,String):Boolean
+class Extrode.JauntyQ.Analysis.Diff.ColumnChange
+    ctor .ctor(String,ColumnSchema,ColumnSchema,IReadOnlyList<ColumnChangeKind>)
+    prop Baseline:ColumnSchema
+    prop Column:String
+    prop Effective:ColumnSchema
+    prop Kinds:IReadOnlyList<ColumnChangeKind>
+enum Extrode.JauntyQ.Analysis.Diff.ColumnChangeKind
+    field Computed:ColumnChangeKind
+    field Identity:ColumnChangeKind
+    field MaxLength:ColumnChangeKind
+    field Nullability:ColumnChangeKind
+    field PrecisionScale:ColumnChangeKind
+    field PrimaryKey:ColumnChangeKind
+    field RowVersion:ColumnChangeKind
+    field Type:ColumnChangeKind
+    field Unicode:ColumnChangeKind
+class Extrode.JauntyQ.Analysis.Diff.SchemaDelta
+    ctor .ctor(IReadOnlyList<String>,IReadOnlyList<String>,IReadOnlyList<TableDelta>)
+    method FindColumnChange(String,String):ColumnChange
+    method IsColumnRemoved(String,String):Boolean
+    method IsTableRemoved(String):Boolean
+    prop AddedTables:IReadOnlyList<String>
+    prop IsEmpty:Boolean
+    prop ModifiedTables:IReadOnlyList<TableDelta>
+    prop RemovedTables:IReadOnlyList<String>
+class Extrode.JauntyQ.Analysis.Diff.StructuralSchemaDiff
+    method Compute(DatabaseSchema,DatabaseSchema):SchemaDelta
+class Extrode.JauntyQ.Analysis.Diff.TableDelta
+    ctor .ctor(String,IReadOnlyList<String>,IReadOnlyList<String>,IReadOnlyList<ColumnChange>)
+    prop AddedColumns:IReadOnlyList<String>
+    prop ModifiedColumns:IReadOnlyList<ColumnChange>
+    prop RemovedColumns:IReadOnlyList<String>
+    prop Table:String
+class Extrode.JauntyQ.Analysis.EntityNameResolver
+    method ExtractEntityName(String,String):String
+enum Extrode.JauntyQ.Analysis.Impact.Classification
+    field Breaking:Classification
+    field Risky:Classification
+    field Safe:Classification
+class Extrode.JauntyQ.Analysis.Impact.ClassificationJsonConverter
+    ctor .ctor()
+    method Read(Utf8JsonReader&,Type,JsonSerializerOptions):Classification
+    method Write(Utf8JsonWriter,Classification,JsonSerializerOptions):Void
+class Extrode.JauntyQ.Analysis.Impact.ImpactClassifier
+    method Classify(SchemaDelta,IReadOnlyList<QueryImpactInput>,String,IEnumerable<String>):MigrationImpactReport
+    method ClassifySingle(SchemaDelta,QueryImpactInput):ImpactEntry
+class Extrode.JauntyQ.Analysis.Impact.ImpactEntry
+    ctor .ctor()
+    ctor .ctor(String,String,Classification,List<ImpactReason>)
+    prop Classification:Classification
+    prop EntityMethod:String
+    prop QueryFile:String
+    prop Reasons:List<ImpactReason>
+class Extrode.JauntyQ.Analysis.Impact.ImpactReason
+    ctor .ctor()
+    ctor .ctor(String,String,String)
+    prop ChangeKind:String
+    prop Effect:String
+    prop SchemaObject:String
+class Extrode.JauntyQ.Analysis.Impact.MigrationImpactReport
+    ctor .ctor()
+    ctor .ctor(String,List<String>,List<ImpactEntry>)
+    method Count(Classification):Int32
+    method FromJson(String):MigrationImpactReport
+    method ToJson():String
+    prop BaselineId:String
+    prop Entries:List<ImpactEntry>
+    prop Highest:Classification
+    prop MigrationSet:List<String>
+    prop Warnings:List<String>
+class Extrode.JauntyQ.Analysis.Impact.QueryImpactInput
+    ctor .ctor(String,String,ReferencedObjects,Boolean,Boolean)
+    prop EntityMethod:String
+    prop PreexistingError:Boolean
+    prop QueryFile:String
+    prop Referenced:ReferencedObjects
+    prop UnmodeledTouch:Boolean
+struct Extrode.JauntyQ.Analysis.Impact.ReferencedColumn
+    ctor .ctor(String,String)
+    prop Column:String
+    prop Table:String
+class Extrode.JauntyQ.Analysis.Impact.ReferencedObjects
+    method Resolve(QueryModel):ReferencedObjects
+    prop Columns:IReadOnlyCollection<ReferencedColumn>
+    prop Tables:IReadOnlyCollection<String>
+class Extrode.JauntyQ.Analysis.Migrations.MigrationParser
+    method Parse(String):List<MigrationStatement>
+class Extrode.JauntyQ.Analysis.Migrations.MigrationStatement
+    ctor .ctor()
+    prop ColumnNames:List<String>
+    prop Columns:List<ColumnSchema>
+    prop IfExists:Boolean
+    prop Kind:MigrationStatementKind
+    prop NullableAfter:Boolean
+    prop RawText:String
+    prop TableName:String
+enum Extrode.JauntyQ.Analysis.Migrations.MigrationStatementKind
+    field AddColumn:MigrationStatementKind
+    field AddPrimaryKey:MigrationStatementKind
+    field AlterColumn:MigrationStatementKind
+    field AlterColumnNullability:MigrationStatementKind
+    field CreateTable:MigrationStatementKind
+    field DropColumn:MigrationStatementKind
+    field DropTable:MigrationStatementKind
+    field Ignored:MigrationStatementKind
+    field Unsupported:MigrationStatementKind
+class Extrode.JauntyQ.Analysis.Migrations.SchemaSimulator
+    method Apply(DatabaseSchema,IEnumerable<ValueTuple<String,List<MigrationStatement>>>,List<AnalysisDiagnostic>):DatabaseSchema
+enum Extrode.JauntyQ.Analysis.SqlIdentifierPosition
+    field Column:SqlIdentifierPosition
+    field Object:SqlIdentifierPosition
+class Extrode.JauntyQ.Analysis.UpsertKeyResolver
+    method HasCompetingUniqueConstraint(TableSchema,List<ColumnSchema>):Boolean
+    method Resolve(TableSchema):List<ColumnSchema>
+    method Resolve(TableSchema,IndexSchema&):List<ColumnSchema>
+    method Resolve(TableSchema,IndexSchema&,IndexSchema&):List<ColumnSchema>
+class Extrode.JauntyQ.Generator.CSharpToSqlTypeMapper
+    method Map(String):String
+class Extrode.JauntyQ.Generator.CodeEmitter
+    method Emit(QueryModel,ProjectionModel,String,String,DatabaseSchema,DirectiveModel,String):String
+    method EmitBulkInsert(String,String,TableSchema,String,DatabaseSchema):String
+    method EmitCrud(QueryModel,String,String,DatabaseSchema,DirectiveModel):String
+    method EmitEntityCore(String):String
+    method EmitEnums(DatabaseSchema):String
+    method EmitJauntyDb(IEnumerable<String>,DatabaseSchema):String
+    method EmitPocoOverloads(String,String,TableSchema,String,Boolean,Boolean,Boolean,Boolean,DatabaseSchema):String
+    method EmitProcCall(String,String,ProcedureSchema,String,DatabaseSchema):String
+    method EmitRowPoco(String,TableSchema,String,DatabaseSchema):String
+    method EmitShapeGuardSource():String
+    method EmitUpsert(String,TableSchema,String,DatabaseSchema):String
+    method InferParameterType(String,QueryModel,ProjectionModel,DatabaseSchema,DirectiveModel):String
+class Extrode.JauntyQ.Generator.Directives.DirectiveModel
+    ctor .ctor()
+    prop AllowSortReason:String
+    prop AllowUnindexedReason:String
+    prop CallProcName:String
+    prop DuplicateDirectives:List<String>
+    prop EachParams:List<String>
+    prop ExplicitParams:List<ExplicitParam>
+    prop HasDirectives:Boolean
+    prop InlineColumns:List<InlineColumn>
+    prop IsFirst:Boolean
+    prop IsProc:Boolean
+    prop IsStream:Boolean
+    prop MirrorsTarget:String
+    prop ProcName:String
+    prop ResultIsVoid:Boolean
+    prop ResultTypeName:String
+    prop ReturnsIdentity:Boolean
+    prop SuspiciousDirectives:List<String>
+    prop TypeDirectives:List<TypeDirective>
+class Extrode.JauntyQ.Generator.Directives.DirectiveParser
+    method Parse(String):ValueTuple<DirectiveModel,String>
+class Extrode.JauntyQ.Generator.Directives.ExplicitParam
+    ctor .ctor(String,String)
+    prop CSharpType:String
+    prop Name:String
+class Extrode.JauntyQ.Generator.Directives.InlineColumn
+    ctor .ctor(String,String)
+    prop Name:String
+    prop Type:String
+class Extrode.JauntyQ.Generator.Directives.TypeDirective
+    ctor .ctor(String,String)
+    prop Alias:String
+    prop DbType:String
+class Extrode.JauntyQ.Generator.IdentifierGuard
+    method Escape(String):String
+    method IsReservedKeyword(String):Boolean
+    method IsValidIdentifier(String):Boolean
+    method ToStringLiteral(String):String
+class Extrode.JauntyQ.Generator.Inflector
+    method RowTypeName(String):String
+    method Singularize(String):String
+class Extrode.JauntyQ.Generator.JauntyDiagnostics
+    field JNT0001:DiagnosticDescriptor
+    field JNT1001:DiagnosticDescriptor
+    field JNT1002:DiagnosticDescriptor
+    field JNT1003:DiagnosticDescriptor
+    field JNT1004:DiagnosticDescriptor
+    field JNT1005:DiagnosticDescriptor
+    field JNT1006:DiagnosticDescriptor
+    field JNT1007:DiagnosticDescriptor
+    field JNT1008:DiagnosticDescriptor
+    field JNT1009:DiagnosticDescriptor
+    field JNT2001:DiagnosticDescriptor
+    field JNT2002:DiagnosticDescriptor
+    field JNT2003:DiagnosticDescriptor
+    field JNT2004:DiagnosticDescriptor
+    field JNT2005:DiagnosticDescriptor
+    field JNT2006:DiagnosticDescriptor
+    field JNT2007:DiagnosticDescriptor
+    field JNT2008:DiagnosticDescriptor
+    field JNT2009:DiagnosticDescriptor
+    field JNT2010:DiagnosticDescriptor
+    field JNT2011:DiagnosticDescriptor
+    field JNT2012:DiagnosticDescriptor
+    field JNT2013:DiagnosticDescriptor
+    field JNT2014:DiagnosticDescriptor
+    field JNT2015:DiagnosticDescriptor
+    field JNT2016:DiagnosticDescriptor
+    field JNT2017:DiagnosticDescriptor
+    field JNT2018:DiagnosticDescriptor
+    field JNT2019:DiagnosticDescriptor
+    field JNT2020:DiagnosticDescriptor
+    field JNT2021:DiagnosticDescriptor
+    field JNT2022:DiagnosticDescriptor
+    field JNT2023:DiagnosticDescriptor
+    field JNT2024:DiagnosticDescriptor
+    field JNT2025:DiagnosticDescriptor
+    field JNT2026:DiagnosticDescriptor
+    field JNT3001:DiagnosticDescriptor
+    field JNT3002:DiagnosticDescriptor
+    field JNT3003:DiagnosticDescriptor
+    field JNT3004:DiagnosticDescriptor
+    field JNT3005:DiagnosticDescriptor
+    field JNT3006:DiagnosticDescriptor
+    field JNT3007:DiagnosticDescriptor
+    field JNT3008:DiagnosticDescriptor
+    field JNT3009:DiagnosticDescriptor
+    field JNT3010:DiagnosticDescriptor
+    field JNT3011:DiagnosticDescriptor
+    field JNT4003:DiagnosticDescriptor
+    field JNT4004:DiagnosticDescriptor
+    field JNT5001:DiagnosticDescriptor
+    field JNT5002:DiagnosticDescriptor
+    field JNT5003:DiagnosticDescriptor
+    field JNT6001:DiagnosticDescriptor
+    field JNT6002:DiagnosticDescriptor
+    field JNT6003:DiagnosticDescriptor
+    field JNT7001:DiagnosticDescriptor
+    field JNT7002:DiagnosticDescriptor
+    field JNT7003:DiagnosticDescriptor
+    field JNT8001:DiagnosticDescriptor
+    field JNT8002:DiagnosticDescriptor
+    field JNT8003:DiagnosticDescriptor
+    field JNT8004:DiagnosticDescriptor
+    field JNT8005:DiagnosticDescriptor
+    field JNT8006:DiagnosticDescriptor
+    field JNT8007:DiagnosticDescriptor
+    field JNT8008:DiagnosticDescriptor
+    field JNT8009:DiagnosticDescriptor
+    field JNT8010:DiagnosticDescriptor
+    field JNT8011:DiagnosticDescriptor
+    field JNT8012:DiagnosticDescriptor
+    field JNT9001:DiagnosticDescriptor
+    field JNT9002:DiagnosticDescriptor
+    field JNT9003:DiagnosticDescriptor
+    field JNT9004:DiagnosticDescriptor
+class Extrode.JauntyQ.Generator.JauntyQGenerator
+    ctor .ctor()
+    method Initialize(IncrementalGeneratorInitializationContext):Void
+class Extrode.JauntyQ.Generator.ProjectionBuilder
+    method Build(QueryModel,DatabaseSchema,DirectiveModel):ProjectionModel
+    method Build(QueryModel,List<ColumnRef>,DatabaseSchema,DirectiveModel):ProjectionModel
+class Extrode.JauntyQ.Generator.ProjectionColumn
+    ctor .ctor()
+    prop IsExpression:Boolean
+    prop Name:String
+    prop Ordinal:Int32
+    prop SourceName:String
+    prop Type:String
+    prop UnresolvedExpressionAlias:String
+class Extrode.JauntyQ.Generator.ProjectionModel
+    ctor .ctor()
+    prop Columns:List<ProjectionColumn>
+    prop Name:String
+class Extrode.JauntyQ.Generator.QueryValidator
+    method Validate(QueryModel,DatabaseSchema):List<ValidationError>
+class Extrode.JauntyQ.Generator.ValidationError
+    ctor .ctor(DiagnosticDescriptor,String)
+    method ToString():String
+    prop Code:String
+    prop Descriptor:DiagnosticDescriptor
+    prop Message:String
+    prop Severity:ValidationSeverity
+enum Extrode.JauntyQ.Generator.ValidationSeverity
+    field Error:ValidationSeverity
+    field Warning:ValidationSeverity
+class Extrode.JauntyQ.Schema.AcceptanceEntry
+    ctor .ctor()
+    prop Column:String
+    prop Reason:String
+    prop Table:String
+class Extrode.JauntyQ.Schema.AcceptanceFile
+    ctor .ctor()
+    prop AllowUnindexed:List<AcceptanceEntry>
+class Extrode.JauntyQ.Schema.AcceptanceLoader
+    method Load(String):AcceptanceFile
+class Extrode.JauntyQ.Schema.ColumnSchema
+    ctor .ctor()
+    prop DbType:String
+    prop EnumName:String
+    prop IsComputed:Boolean
+    prop IsIdentity:Boolean
+    prop IsNullable:Boolean
+    prop IsPrimaryKey:Boolean
+    prop IsRowVersion:Boolean
+    prop IsUnicode:Nullable<Boolean>
+    prop MaxLength:Nullable<Int32>
+    prop Name:String
+    prop Precision:Nullable<Int32>
+    prop ResolvedFromUserType:String
+    prop Scale:Nullable<Int32>
+class Extrode.JauntyQ.Schema.DatabaseSchema
+    ctor .ctor()
+    prop Dialect:String
+    prop Enums:Dictionary<String,EnumSchema>
+    prop ForeignKeys:List<ForeignKeySchema>
+    prop Functions:Dictionary<String,FunctionSchema>
+    prop Procedures:Dictionary<String,ProcedureSchema>
+    prop Sequences:Dictionary<String,SequenceSchema>
+    prop Tables:Dictionary<String,TableSchema>
+    prop UserTypes:Dictionary<String,UserTypeSchema>
+class Extrode.JauntyQ.Schema.EnumMember
+    ctor .ctor()
+    prop CSharpName:String
+    prop Value:String
+class Extrode.JauntyQ.Schema.EnumMemberNaming
+    method Fold(String):String
+class Extrode.JauntyQ.Schema.EnumSchema
+    ctor .ctor()
+    prop Members:List<EnumMember>
+    prop Name:String
+class Extrode.JauntyQ.Schema.ForeignKeySchema
+    ctor .ctor()
+    prop FromColumn:String
+    prop FromTable:String
+    prop ToColumn:String
+    prop ToTable:String
+class Extrode.JauntyQ.Schema.FunctionParam
+    ctor .ctor()
+    prop DbType:String
+    prop IsNullable:Boolean
+    prop MaxLength:Nullable<Int32>
+    prop Name:String
+    prop Precision:Nullable<Int32>
+    prop ResolvedFromUserType:String
+    prop Scale:Nullable<Int32>
+class Extrode.JauntyQ.Schema.FunctionReturn
+    ctor .ctor()
+    prop DbType:String
+    prop IsNullable:Boolean
+    prop MaxLength:Nullable<Int32>
+    prop Precision:Nullable<Int32>
+    prop ResolvedFromUserType:String
+    prop Scale:Nullable<Int32>
+class Extrode.JauntyQ.Schema.FunctionSchema
+    ctor .ctor()
+    prop Name:String
+    prop Params:List<FunctionParam>
+    prop Return:FunctionReturn
+    prop Schema:String
+class Extrode.JauntyQ.Schema.IndexSchema
+    ctor .ctor()
+    prop Columns:List<String>
+    prop HasExpressionKeyPart:Boolean
+    prop HasPrefixKeyPart:Boolean
+    prop IsUnique:Boolean
+    prop Name:String
+class Extrode.JauntyQ.Schema.ProcedureParam
+    ctor .ctor()
+    prop DbType:String
+    prop Direction:ProcedureParamDirection
+    prop IsNullable:Boolean
+    prop MaxLength:Nullable<Int32>
+    prop Name:String
+    prop Precision:Nullable<Int32>
+    prop Scale:Nullable<Int32>
+enum Extrode.JauntyQ.Schema.ProcedureParamDirection
+    field In:ProcedureParamDirection
+    field InOut:ProcedureParamDirection
+    field Out:ProcedureParamDirection
+    field ReturnValue:ProcedureParamDirection
+class Extrode.JauntyQ.Schema.ProcedureSchema
+    ctor .ctor()
+    prop Name:String
+    prop Params:List<ProcedureParam>
+    prop Results:List<ColumnSchema>
+class Extrode.JauntyQ.Schema.SchemaLoader
+    method Load(String):DatabaseSchema
+    method Serialize(DatabaseSchema):String
+class Extrode.JauntyQ.Schema.SequenceSchema
+    ctor .ctor()
+    prop CurrentValue:Nullable<Int64>
+    prop Increment:Int64
+    prop MaxValue:Nullable<Int64>
+    prop MinValue:Nullable<Int64>
+    prop Name:String
+    prop StartValue:Int64
+class Extrode.JauntyQ.Schema.TableSchema
+    ctor .ctor()
+    prop Columns:Dictionary<String,ColumnSchema>
+    prop Indexes:List<IndexSchema>
+    prop IsInsertable:Boolean
+    prop IsView:Boolean
+    prop Name:String
+enum Extrode.JauntyQ.Schema.UserTypeKind
+    field Alias:UserTypeKind
+    field Composite:UserTypeKind
+    field Domain:UserTypeKind
+    field TableType:UserTypeKind
+class Extrode.JauntyQ.Schema.UserTypeSchema
+    ctor .ctor()
+    prop IsNullable:Boolean
+    prop Kind:UserTypeKind
+    prop MaxLength:Nullable<Int32>
+    prop Members:List<ColumnSchema>
+    prop Name:String
+    prop Precision:Nullable<Int32>
+    prop Scale:Nullable<Int32>
+    prop Schema:String
+    prop UnderlyingDbType:String
+struct Extrode.JauntyQ.SqlParser.IR.AtomTerm
+    prop Kind:AtomTermKind
+    prop TableAlias:String
+    prop Text:String
+enum Extrode.JauntyQ.SqlParser.IR.AtomTermKind
+    field Column:AtomTermKind
+    field Keyword:AtomTermKind
+    field Literal:AtomTermKind
+    field Operator:AtomTermKind
+    field Parameter:AtomTermKind
+class Extrode.JauntyQ.SqlParser.IR.ColumnRef
+    ctor .ctor()
+    prop AggregateArgColumnName:String
+    prop AggregateArgTableAlias:String
+    prop AggregateFunction:String
+    prop ColumnName:String
+    prop ExpressionSql:String
+    prop InferredDbType:String
+    prop InferredNotNull:Boolean
+    prop IsExpression:Boolean
+    prop OutputAlias:String
+    prop ReferencedColumns:List<ValueTuple<String,String>>
+    prop TableAlias:String
+class Extrode.JauntyQ.SqlParser.IR.CteRef
+    ctor .ctor()
+    prop Body:QueryModel
+    prop DeclaredColumns:List<String>
+    prop Name:String
+    prop VirtualColumns:List<String>
+enum Extrode.JauntyQ.SqlParser.IR.JoinKind
+    field Full:JoinKind
+    field Left:JoinKind
+    field None:JoinKind
+    field Right:JoinKind
+class Extrode.JauntyQ.SqlParser.IR.JoinRef
+    ctor .ctor()
+    prop LeftColumn:String
+    prop LeftTable:String
+    prop RightColumn:String
+    prop RightTable:String
+class Extrode.JauntyQ.SqlParser.IR.LiteralBinding
+    ctor .ctor()
+    prop BoundColumnName:String
+    prop BoundTableAlias:String
+    prop Kind:LiteralKind
+    prop Value:String
+enum Extrode.JauntyQ.SqlParser.IR.LiteralKind
+    field Number:LiteralKind
+    field String:LiteralKind
+enum Extrode.JauntyQ.SqlParser.IR.OrderByItemKind
+    field Expression:OrderByItemKind
+    field Ordinal:OrderByItemKind
+    field PlainColumn:OrderByItemKind
+    field ProjectedAlias:OrderByItemKind
+class Extrode.JauntyQ.SqlParser.IR.OrderByRef
+    ctor .ctor()
+    prop BoundColumnName:String
+    prop BoundTableAlias:String
+    prop Kind:OrderByItemKind
+    prop ReferencedColumns:List<ValueTuple<String,String>>
+class Extrode.JauntyQ.SqlParser.IR.ParameterRef
+    ctor .ctor()
+    prop BoundColumnName:String
+    prop BoundTableAlias:String
+    prop ComparisonOp:String
+    prop IsWriteTarget:Boolean
+    prop Name:String
+class Extrode.JauntyQ.SqlParser.IR.PerfHint
+    ctor .ctor()
+    prop BoundColumnName:String
+    prop BoundTableAlias:String
+    prop Detail:String
+    prop FunctionName:String
+    prop Kind:PerfHintKind
+enum Extrode.JauntyQ.SqlParser.IR.PerfHintKind
+    field ColumnComparedToColumn:PerfHintKind
+    field FunctionOnColumn:PerfHintKind
+    field LeadingWildcardLike:PerfHintKind
+class Extrode.JauntyQ.SqlParser.IR.PredicateAtom
+    ctor .ctor()
+    prop Terms:List<AtomTerm>
+class Extrode.JauntyQ.SqlParser.IR.QueryModel
+    ctor .ctor()
+    prop Columns:List<ColumnRef>
+    prop Ctes:List<CteRef>
+    prop ExpressionsMissingAlias:List<String>
+    prop HasGroupBy:Boolean
+    prop HasReturning:Boolean
+    prop HasRowLimit:Boolean
+    prop Joins:List<JoinRef>
+    prop Literals:List<LiteralBinding>
+    prop Name:String
+    prop OrderBy:List<OrderByRef>
+    prop Parameters:List<ParameterRef>
+    prop PerfHints:List<PerfHint>
+    prop PredicateAtoms:List<PredicateAtom>
+    prop Returning:List<ColumnRef>
+    prop StatementType:StatementType
+    prop Subqueries:List<SubqueryRef>
+    prop Tables:List<TableRef>
+    prop TargetTable:String
+    prop UnsupportedConstructs:List<String>
+    prop WithRecursive:Boolean
+enum Extrode.JauntyQ.SqlParser.IR.StatementType
+    field Delete:StatementType
+    field Insert:StatementType
+    field Select:StatementType
+    field Update:StatementType
+enum Extrode.JauntyQ.SqlParser.IR.SubqueryKind
+    field Exists:SubqueryKind
+    field In:SubqueryKind
+class Extrode.JauntyQ.SqlParser.IR.SubqueryRef
+    ctor .ctor()
+    prop Body:QueryModel
+    prop Kind:SubqueryKind
+class Extrode.JauntyQ.SqlParser.IR.TableRef
+    ctor .ctor()
+    prop Alias:String
+    prop Join:JoinKind
+    prop TableName:String
+class Extrode.JauntyQ.SqlParser.SqlParser
+    method Parse(List<Token>,String):QueryModel
+class Extrode.JauntyQ.SqlParser.SqlTokenizer
+    field MaxInputLength:Int32
+    field MaxNestingDepth:Int32
+    method IsEffectivelyEmpty(List<Token>):Boolean
+    method IsReservedKeyword(String):Boolean
+    method Tokenize(String):List<Token>
+struct Extrode.JauntyQ.SqlParser.Token
+    ctor .ctor(TokenType,String)
+    method ToString():String
+    prop Type:TokenType
+    prop Value:String
+enum Extrode.JauntyQ.SqlParser.Tokens.TokenType
+    field End:TokenType
+    field Identifier:TokenType
+    field Keyword:TokenType
+    field Literal:TokenType
+    field Number:TokenType
+    field Parameter:TokenType
+    field Symbol:TokenType
+    field TooDeep:TokenType
+    field TooLarge:TokenType
+    field Unknown:TokenType
+    field Unterminated:TokenType

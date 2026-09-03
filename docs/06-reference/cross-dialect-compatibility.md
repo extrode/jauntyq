@@ -4,7 +4,7 @@ JauntyQ generates for one dialect at a time, and the same `.sql` file is meant t
 thing on every engine it supports. This page states where that holds and where it does not.
 
 It is not a summary written by hand. Every entry below is produced by
-`samples/JauntyQ.Conduit.Differential.Tests`, which runs one query corpus against SQLite,
+`samples/Extrode.JauntyQ.Conduit.Differential.Tests`, which runs one query corpus against SQLite,
 PostgreSQL, MySQL, MariaDB and SQL Server and compares each engine's rows to the others'. Any
 difference the suite finds that is not listed here fails the build.
 
@@ -106,7 +106,7 @@ where its query and engines were both exercised, the suite fails on the stale en
 
 ## Running it
 
-    dotnet test samples/JauntyQ.Conduit.Differential.Tests
+    dotnet test samples/Extrode.JauntyQ.Conduit.Differential.Tests
 
 With Docker absent the cross-engine tests skip and say which engines were missing; the harness's
 own unit tests and the SQLite-only corpus execution still run. Fewer than two engines is a skip,

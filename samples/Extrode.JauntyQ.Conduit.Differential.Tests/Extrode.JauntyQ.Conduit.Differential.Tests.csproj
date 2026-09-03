@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Matches the five Conduit suites this references: they pin net8.0 with
+         RollForward LatestMinor because Mvc.Testing 8's TestServer response
+         writer breaks on System.Text.Json 10. Referencing them from a net10
+         project would roll the whole graph forward and reintroduce that. -->
+    <RollForward>LatestMinor</RollForward>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Conduit.Differential.Tests</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- No generator reference: this project emits nothing of its own. The
+         five referenced assemblies each carry their own Extrode.JauntyQ.Generated
+         types, which collide by name and are therefore reached only by
+         reflection, never named in source. -->
+    <ProjectReference Include="..\Extrode.JauntyQ.Conduit.Sqlite.Tests\Extrode.JauntyQ.Conduit.Sqlite.Tests.csproj" />
+    <ProjectReference Include="..\Extrode.JauntyQ.Conduit.Postgres.Tests\Extrode.JauntyQ.Conduit.Postgres.Tests.csproj" />
+    <ProjectReference Include="..\Extrode.JauntyQ.Conduit.MySql.Tests\Extrode.JauntyQ.Conduit.MySql.Tests.csproj" />
+    <ProjectReference Include="..\Extrode.JauntyQ.Conduit.MariaDb.Tests\Extrode.JauntyQ.Conduit.MariaDb.Tests.csproj" />
+    <ProjectReference Include="..\Extrode.JauntyQ.Conduit.SqlServer.Tests\Extrode.JauntyQ.Conduit.SqlServer.Tests.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Each fixture reads its DDL from AppContext.BaseDirectory, and a
+         referenced project's CopyToOutputDirectory items do not flow to the
+         referencing project's output. Linked in by their distinct per-engine
+         names (schema.sqlite.sql, schema.postgres.sql, ...) so nothing
+         collides. Verified 2026-08-27: without this the output dir has no
+         .sql at all and every fixture throws FileNotFound. -->
+    <None Include="..\Extrode.JauntyQ.Conduit.Sqlite.Tests\schema.sqlite.sql" Link="schema.sqlite.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Extrode.JauntyQ.Conduit.Postgres.Tests\schema.postgres.sql" Link="schema.postgres.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Extrode.JauntyQ.Conduit.MySql.Tests\schema.mysql.sql" Link="schema.mysql.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Extrode.JauntyQ.Conduit.MariaDb.Tests\schema.mariadb.sql" Link="schema.mariadb.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Extrode.JauntyQ.Conduit.SqlServer.Tests\schema.mssql.sql" Link="schema.mssql.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="allowed-divergences.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

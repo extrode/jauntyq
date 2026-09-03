@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <RootNamespace>Extrode.JauntyQ.SqlParser</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>Extrode.JauntyQ.SqlParser</PackageId>
+    <Description>The dependency-free SQL parser behind JauntyQ: tokenizer and statement model for the SELECT, INSERT, UPDATE, DELETE and DDL subset JauntyQ compiles, across SQL Server, PostgreSQL, MySQL/MariaDB and SQLite. The generator links this source in; the package exists for tooling that needs the same parse outside the build.</Description>
+  </PropertyGroup>
+</Project>

@@ -12,14 +12,14 @@
   </PropertyGroup>
 
   <!-- Test-only test-infra, scoped to the *.Tests sample suites so the AOT
-       smoke app and the plain JauntyQ.Sample stay dependency-free. -->
+       smoke app and the plain Extrode.JauntyQ.Sample stay dependency-free. -->
   <ItemGroup Condition="$(MSBuildProjectName.EndsWith('Tests'))">
     <!-- Docker/Testcontainers soft-skip -> real xUnit SKIP (see tests/Directory.Build.props). -->
     <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
     <!-- Code-coverage collector, same version as tests/Directory.Build.props. Without
          it the sample suites in scripts/coverage.sh's SUITES list run and emit no
          cobertura file at all, so every consumer-side path they exercise — most of
-         JauntyQ.Runtime — read as uncovered. Inert outside an XPlat Code Coverage run. -->
+         Extrode.JauntyQ.Runtime — read as uncovered. Inert outside an XPlat Code Coverage run. -->
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
     <!-- Shared CI-strictness gate for Docker-gated fixtures, compiled once per suite. -->
     <Compile Include="$(MSBuildThisFileDirectory)../test-infra/FixtureGate.cs" Link="TestInfra/FixtureGate.cs" />

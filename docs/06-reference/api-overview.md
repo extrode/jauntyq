@@ -4,7 +4,7 @@ JauntyQ generates code at compile time; there is no runtime API surface to
 browse beyond what your own schema produces. This page orients you to the
 *shape* of that generated surface. Every generated member carries an XML doc
 comment (see `CodeEmitter.cs` and its `Part*.cs` siblings in
-`src/JauntyQ.Generator/` for the exact templates), those doc comments are
+`src/Extrode.JauntyQ.Generator/` for the exact templates), those doc comments are
 the authoritative, always-in-sync reference; this page is a map, not a
 substitute.
 
@@ -45,14 +45,14 @@ outside the scope of this reference page. See `docs/07-roadmap/roadmap.md`.
 - **Directives** (SQL-file comment pragmas: `-- @first`, `-- @stream`,
   `-- @identity`, `-- @result`, `-- @each`, `-- @params`, `-- @type`,
   `-- @proc`, `-- @call`), control codegen shape per query file. See
-  `src/JauntyQ.Generator/Directives/` for the full parser.
+  `src/Extrode.JauntyQ.Generator/Directives/` for the full parser.
 - **Diagnostics**, every `JNTxxxx` code the generator can report, with
   meaning and fix guidance: see `docs/06-reference/diagnostics.md`.
 
 ## Where to look for exact signatures
 
 Generated code is always visible: build once and inspect the emitted
-`*.g.cs` files (in `obj/Debug/<tfm>/generated/JauntyQ.Generator/...` under
+`*.g.cs` files (in `obj/Debug/<tfm>/generated/Extrode.JauntyQ.Generator/...` under
 your project), or read the emission logic directly in
-`src/JauntyQ.Generator/CodeEmitter*.cs` (each `Emit*` method's XML doc
+`src/Extrode.JauntyQ.Generator/CodeEmitter*.cs` (each `Emit*` method's XML doc
 describes exactly what it produces and why).

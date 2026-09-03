@@ -1,4 +1,4 @@
-# Publishes the JauntyQ.* packages and the JauntyQ.Cli tool to NuGet.org and
+# Publishes the Extrode.JauntyQ.* packages and the Extrode.JauntyQ.Cli tool to NuGet.org and
 # attaches them to a GitHub Release. Triggered by version tags only:
 #
 #   git tag v0.5.0 && git push origin v0.5.0

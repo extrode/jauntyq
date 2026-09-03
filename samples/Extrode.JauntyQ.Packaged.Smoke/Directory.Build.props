@@ -1,0 +1,17 @@
+<Project>
+  <!--
+       DELIBERATELY EMPTY, and it must stay that way.
+
+       MSBuild stops walking up at the first Directory.Build.props it finds, so
+       this file's whole job is to cut this project off from
+       samples/Directory.Build.props and the repo root's. A real consumer has
+       neither, and the root one supplies CompilerVisibleProperty entries for
+       JauntyQAutoCrud/JauntyQDialect, which is precisely what the PACKED
+       build/Extrode.JauntyQ.Generator.props is supposed to supply instead. Inheriting
+       it would let this smoke pass while the packed props was broken, which is
+       the one failure it exists to catch.
+
+       Do not add shared metadata here. Anything this project needs, a consumer
+       needs too, so it belongs in the .csproj where a consumer would see it.
+  -->
+</Project>

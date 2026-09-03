@@ -21,7 +21,7 @@ the [feature guides](../03-guides/README.md).
   the `jauntyq` CLI, or checked-in DDL (see
   [DDL as schema source](../03-guides/ddl-as-schema-source.md)).
 
-The `JauntyQ.Runtime` package is `IsAotCompatible`; the generated code uses no
+The `Extrode.JauntyQ.Runtime` package is `IsAotCompatible`; the generated code uses no
 reflection and no runtime SQL parsing, so it is Native AOT and trim compatible
 provided your database provider is too.
 
@@ -31,15 +31,15 @@ The core packages are on NuGet.org. Reference both:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="JauntyQ.Generator" Version="0.5.0" PrivateAssets="all" />
-  <PackageReference Include="JauntyQ.Runtime" Version="0.5.0" />
+  <PackageReference Include="Extrode.JauntyQ.Generator" Version="0.5.0" PrivateAssets="all" />
+  <PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.5.0" />
 </ItemGroup>
 ```
 
-`JauntyQ.Generator` installs as a Roslyn analyzer automatically; the package
+`Extrode.JauntyQ.Generator` installs as a Roslyn analyzer automatically; the package
 ships the MSBuild props that register `JauntyQDialect` and `JauntyQAutoCrud`,
 so no `OutputItemType="Analyzer"` or `<CompilerVisibleProperty>` entries are
-needed when consuming the package. `JauntyQ.Runtime` carries the handful of
+needed when consuming the package. `Extrode.JauntyQ.Runtime` carries the handful of
 types the generated code depends on and must be a normal (non-private)
 reference.
 
@@ -51,10 +51,10 @@ reference:
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\JauntyQ.Generator\JauntyQ.Generator.csproj"
+  <ProjectReference Include="..\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj"
                     OutputItemType="Analyzer"
                     ReferenceOutputAssembly="false" />
-  <ProjectReference Include="..\JauntyQ.Runtime\JauntyQ.Runtime.csproj" />
+  <ProjectReference Include="..\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj" />
 </ItemGroup>
 ```
 
@@ -96,11 +96,11 @@ synthesised for every table unless a same-named `.sql` file overrides them.
 ## First build
 
 1. Pull a snapshot (see the [CLI reference](../06-reference/cli.md)). The CLI ships as a
-   .NET global tool, `dotnet tool install --global JauntyQ.Cli` installs it as `jauntyq` (the premium verbs come with `JauntyQ.Cli.Premium`, same command).
+   .NET global tool, `dotnet tool install --global Extrode.JauntyQ.Cli` installs it as `jauntyq` (the premium verbs come with `Extrode.JauntyQ.Cli.Premium`, same command).
    Working inside a clone of this repository, the equivalent without installing is:
 
    ```bash
-   dotnet run --project src/JauntyQ.Cli -- schema pull --provider sqlserver \
+   dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull --provider sqlserver \
      --connection-env MYDB_CONN \
      --output db/schema/jaunty.schema.json
    ```

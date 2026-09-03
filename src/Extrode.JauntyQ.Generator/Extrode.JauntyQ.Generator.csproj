@@ -1,0 +1,104 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Extrode.JauntyQ.Generator</RootNamespace>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+    <IsPackable>true</IsPackable>
+    <PackageId>Extrode.JauntyQ.Generator</PackageId>
+    <Description>The JauntyQ source generator: validates .sql files against a committed schema snapshot at build time and emits typed, zero-reflection ADO.NET data access. Reference with OutputItemType="Analyzer".</Description>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <!-- Pack the build output directly into the Roslyn analyzer path (instead
+         of lib/), so consumers pick it up as an analyzer. This also satisfies
+         NuGet's "package must have content" check (avoids NU5017) without a
+         custom pack target. -->
+    <IncludeBuildOutput>true</IncludeBuildOutput>
+    <BuildOutputTargetFolder>analyzers/dotnet/cs</BuildOutputTargetFolder>
+  </PropertyGroup>
+  <!-- Ship the CompilerVisibleProperty registration so consumers' <JauntyQAutoCrud>
+       and <JauntyQDialect> reach the generator. NuGet auto-imports
+       build/{PackageId}.props into any referencing project. -->
+  <ItemGroup>
+    <None Include="build\Extrode.JauntyQ.Generator.props" Pack="true" PackagePath="build\" />
+    <None Include="buildTransitive\Extrode.JauntyQ.Generator.props" Pack="true" PackagePath="buildTransitive\" />
+  </ItemGroup>
+  <!-- Expose internal cache-plumbing types (DiagnosticInfo, FileSummary,
+       FileResult, FileSummaryArrayComparer) to the test project so their
+       equality/hash contracts — which drive incremental-generator caching —
+       can be unit-tested directly. Ships only as metadata; no effect on
+       consumers of the analyzer. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Extrode.JauntyQ.Generator.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" PrivateAssets="all" GeneratePathProperty="true" />
+    <!-- System.Text.Json's own netstandard2.0 dependency closure (pinned to
+         the exact versions its nuspec requests), promoted to direct
+         references purely so GeneratePathProperty resolves a $(Pkg...) path
+         for each — see the bundling target below. -->
+    <PackageReference Include="System.Text.Encodings.Web" Version="8.0.0" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="System.Buffers" Version="4.5.1" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="System.Memory" Version="4.5.5" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" PrivateAssets="all" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <!-- SuppressDependenciesWhenPacking above means NuGet never records a nuspec
+       <dependencies> entry for System.Text.Json, so a real consumer restoring
+       the packed nupkg gets no signal to pull it in themselves and can hit a
+       missing-assembly failure at compile time. Roslyn analyzers can't declare
+       ordinary package dependencies (NuGet doesn't resolve/load them into the
+       compiler host), so instead we bundle System.Text.Json.dll and its own
+       netstandard2.0 dependency closure directly into analyzers/dotnet/cs
+       alongside Extrode.JauntyQ.Generator.dll. This deliberately excludes
+       Microsoft.CodeAnalysis.* (and its own System.Collections.Immutable /
+       System.Reflection.Metadata deps): those are supplied by the compiler
+       host itself, and bundling a second copy risks a version mismatch against
+       whatever the host already loaded. -->
+  <PropertyGroup>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);_JauntyQAddBundledDependenciesToPackage</TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+  <Target Name="_JauntyQAddBundledDependenciesToPackage">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(PkgSystem_Text_Json)\lib\netstandard2.0\System.Text.Json.dll" PackagePath="analyzers/dotnet/cs" />
+      <TfmSpecificPackageFile Include="$(PkgSystem_Text_Encodings_Web)\lib\netstandard2.0\System.Text.Encodings.Web.dll" PackagePath="analyzers/dotnet/cs" />
+      <TfmSpecificPackageFile Include="$(PkgMicrosoft_Bcl_AsyncInterfaces)\lib\netstandard2.0\Microsoft.Bcl.AsyncInterfaces.dll" PackagePath="analyzers/dotnet/cs" />
+      <TfmSpecificPackageFile Include="$(PkgSystem_Buffers)\lib\netstandard2.0\System.Buffers.dll" PackagePath="analyzers/dotnet/cs" />
+      <TfmSpecificPackageFile Include="$(PkgSystem_Memory)\lib\netstandard2.0\System.Memory.dll" PackagePath="analyzers/dotnet/cs" />
+      <TfmSpecificPackageFile Include="$(PkgSystem_Runtime_CompilerServices_Unsafe)\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll" PackagePath="analyzers/dotnet/cs" />
+      <TfmSpecificPackageFile Include="$(PkgSystem_Threading_Tasks_Extensions)\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll" PackagePath="analyzers/dotnet/cs" />
+    </ItemGroup>
+  </Target>
+  <!-- MIT attribution for the bundled DLLs above (required by their license). -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+  <!-- Global usings for the compile-included Extrode.JauntyQ.Analysis kernel (the
+       generator consumes these primitives; DialectMapper/AutoCrud/UpsertKeyResolver
+       live in Extrode.JauntyQ.Analysis, the migration types in Extrode.JauntyQ.Analysis.Migrations). -->
+  <ItemGroup>
+    <Using Include="Extrode.JauntyQ.Analysis" />
+    <Using Include="Extrode.JauntyQ.Analysis.Migrations" />
+    <Using Include="Extrode.JauntyQ.Analysis.Diff" />
+    <Using Include="Extrode.JauntyQ.Analysis.Impact" />
+  </ItemGroup>
+  <!-- Compile-include SqlParser, Schema and the shared Analysis kernel for
+       generator embedding. The Generator is a Roslyn analyzer, so it embeds the
+       source rather than referencing the assemblies. -->
+  <ItemGroup>
+    <Compile Include="..\Extrode.JauntyQ.SqlParser\**\*.cs"
+             Exclude="..\Extrode.JauntyQ.SqlParser\obj\**;..\Extrode.JauntyQ.SqlParser\bin\**"
+             Link="Embedded\SqlParser\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Extrode.JauntyQ.Schema\**\*.cs"
+             Exclude="..\Extrode.JauntyQ.Schema\obj\**;..\Extrode.JauntyQ.Schema\bin\**"
+             Link="Embedded\Schema\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Extrode.JauntyQ.Analysis\**\*.cs"
+             Exclude="..\Extrode.JauntyQ.Analysis\obj\**;..\Extrode.JauntyQ.Analysis\bin\**"
+             Link="Embedded\Analysis\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

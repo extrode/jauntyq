@@ -109,7 +109,7 @@ pull` rewrites the snapshot wholesale, so an acceptance recorded there would be
 erased by the next pull. The sidecar is hand-maintained and nothing generates
 over it.
 
-`samples/JauntyQ.Sakila.Sqlite.Tests/db/schema/jaunty.accept.json` is a worked
+`samples/Extrode.JauntyQ.Sakila.Sqlite.Tests/db/schema/jaunty.accept.json` is a worked
 example: the SQLite port of Pagila declares its foreign keys without secondary
 indexes, and its 17 entries take the resulting `JNT8004` count to zero.
 
@@ -133,8 +133,8 @@ Package consumers:
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="JauntyQ.Generator" Version="0.1.0" PrivateAssets="all" />
-    <PackageReference Include="JauntyQ.Runtime" Version="0.1.0" />
+    <PackageReference Include="Extrode.JauntyQ.Generator" Version="0.1.0" PrivateAssets="all" />
+    <PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.1.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -148,9 +148,9 @@ In-repo (project reference) consumers use the analyzer wiring instead:
 
 ```xml
   <ItemGroup>
-    <ProjectReference Include="..\..\src\JauntyQ.Generator\JauntyQ.Generator.csproj"
+    <ProjectReference Include="..\..\src\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="..\..\src\JauntyQ.Runtime\JauntyQ.Runtime.csproj" />
+    <ProjectReference Include="..\..\src\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj" />
   </ItemGroup>
 ```
 

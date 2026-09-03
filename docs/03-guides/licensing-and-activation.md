@@ -18,9 +18,9 @@ What *is* gated are the premium ("moat") CLI features. Today that means:
 | `jauntyq registry resolve\|dependents\|validate\|list` | `contract-testing` (gated 2026-08-01, same family) |
 | `jauntyq explain` | `live-explain` |
 
-That is five commands over four feature keys, enforced inside `JauntyQ.Cli.Premium`;
+That is five commands over four feature keys, enforced inside `Extrode.JauntyQ.Cli.Premium`;
 `schema verify --service` is a second check on top of `schema verify`. Nothing outside
-`JauntyQ.Cli.Premium` consults the gate.
+`Extrode.JauntyQ.Cli.Premium` consults the gate.
 
 The free/paid split across the whole product is described on the
 [pricing page](../00-overview/pricing.md).
@@ -30,7 +30,7 @@ future, not-yet-built feature. It does **not** gate the JNT8006/JNT8007
 deeper-query-analysis diagnostics already shipped in the generator (spec
 004), those are core, build-time diagnostics like every other JNTxxxx
 check, and the core generator is never gated (see below). The embeddable
-`JauntyQ.Schema.Contract` assertion library (used from your own test suite)
+`Extrode.JauntyQ.Schema.Contract` assertion library (used from your own test suite)
 is **not** gated, only the `schema verify` CLI entry point is.
 
 This is **entitlement gating for a source-viewable product, not DRM.** A license
@@ -49,7 +49,7 @@ that reading, and has been in force since 2026-08-17. Under it you may modify,
 compile, distribute and sell generated code, schema snapshot files and reports
 as part of your own applications, with no obligation to disclose source and no
 obligation to reproduce the license text; you may also redistribute
-`JauntyQ.Runtime` in unmodified object form. Your end users do not become
+`Extrode.JauntyQ.Runtime` in unmodified object form. Your end users do not become
 licensees of JauntyQ.
 
 Two limits are deliberate. The ethical use restrictions (Sections 4 and 5)

@@ -27,13 +27,13 @@ sell as part of your applications (see [Licensing](#licensing)).
 ## Paid, team safety
 
 The paid tier is the tooling that catches schema drift and breaking migrations
-before they reach production. It ships as `JauntyQ.Cli.Premium`, which installs
+before they reach production. It ships as `Extrode.JauntyQ.Cli.Premium`, which installs
 the same `jauntyq` command with these verbs added:
 
 - **Migration impact analysis**, `jauntyq migrate impact`: SAFE/RISKY/BREAKING
   classification of pending migrations against your actual query corpus.
 - **Database contract testing**, `jauntyq schema verify` in CI, the
-  `JauntyQ.Schema.Contract` assertion API for your own test suite, and the
+  `Extrode.JauntyQ.Schema.Contract` assertion API for your own test suite, and the
   boot-time startup guard.
 - **Per-service contracts and the schema registry** for shared databases.
 - **Usage-aware severity**: drift on objects your queries provably never touch

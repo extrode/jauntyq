@@ -1,5 +1,5 @@
 ; Enforces the zero-dependency/NativeAOT-trimming mandate for src/ product
-; code (JauntyQ.Runtime and everything it can pull in transitively). LINQ's
+; code (Extrode.JauntyQ.Runtime and everything it can pull in transitively). LINQ's
 ; generic iterator/delegate chains defeat trimming and add allocation the
 ; product doesn't need; List<T>/Array/string already expose native
 ; equivalents for every LINQ call site found in this codebase to date

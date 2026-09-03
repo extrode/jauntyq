@@ -69,10 +69,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
       - name: Publish Native AOT smoke app
-        run: dotnet publish samples/JauntyQ.Aot.Smoke/JauntyQ.Aot.Smoke.csproj -c Release -r linux-x64
+        run: dotnet publish samples/Extrode.JauntyQ.Aot.Smoke/Extrode.JauntyQ.Aot.Smoke.csproj -c Release -r linux-x64
 
       - name: Run the native binary
-        run: ./samples/JauntyQ.Aot.Smoke/bin/Release/net8.0/linux-x64/publish/JauntyQ.Aot.Smoke
+        run: ./samples/Extrode.JauntyQ.Aot.Smoke/bin/Release/net8.0/linux-x64/publish/Extrode.JauntyQ.Aot.Smoke
 
   pack:
     needs: build-test
@@ -100,7 +100,7 @@ jobs:
     # The only job that builds a consumer against the PACKED generator. Every
     # project in the solution references it as a ProjectReference, so build-test
     # above proves nothing about the nuspec, the analyzers/dotnet/cs layout, the
-    # bundled System.Text.Json closure, or the build/JauntyQ.Generator.props
+    # bundled System.Text.Json closure, or the build/Extrode.JauntyQ.Generator.props
     # registration that carries JauntyQAutoCrud/JauntyQDialect to an external
     # consumer. A green solution build says nothing about whether consumers
     # compile, and a consumer reported that on 2026-08-30.

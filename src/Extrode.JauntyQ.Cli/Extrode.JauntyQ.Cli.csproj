@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Extrode.JauntyQ.Cli</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <!-- The free tool: the core verb list run through CliHost. Ships from the
+       public repository to NuGet.org. Extrode.JauntyQ.Cli.Premium installs the same
+       command name with the premium verbs added, and replaces this package
+       rather than sitting beside it (spec 020, R14 to R16). -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>jauntyq</ToolCommandName>
+    <PackageId>Extrode.JauntyQ.Cli</PackageId>
+    <Description>The JauntyQ command-line tool: reflect a PostgreSQL, SQL Server, MySQL/MariaDB or SQLite database into the jaunty.schema.json snapshot the source generator compiles against. Install with 'dotnet tool install --global Extrode.JauntyQ.Cli' and invoke as 'jauntyq'. Contract testing, migration impact analysis, live EXPLAIN and the schema registry are in Extrode.JauntyQ.Cli.Premium.</Description>
+    <!-- A tool bundles its own dependency closure into tools/; leaving symbol
+         generation on emits a .snupkg that carries no debugging value for a
+         packed tool. -->
+    <IncludeSymbols>false</IncludeSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Extrode.JauntyQ.Cli.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Extrode.JauntyQ.Cli.Core\Extrode.JauntyQ.Cli.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -12,16 +12,16 @@ classifier** as [contract testing](contract-testing.md). On breaking drift it
 fails fast (or warns, per policy), in the deploy that has the problem, instead
 of on the first unlucky query.
 
-The guard lives in **`JauntyQ.Schema.Contract`** (the non-core package that
+The guard lives in **`Extrode.JauntyQ.Schema.Contract`** (the non-core package that
 already carries the ADO.NET providers and the comparer). The zero-dependency
-`JauntyQ.Runtime` is untouched: apps that do not opt in keep a pristine core.
+`Extrode.JauntyQ.Runtime` is untouched: apps that do not opt in keep a pristine core.
 
 ## Basic usage
 
 Call the guard **once**, from the startup path (`Program.cs` / `Startup`):
 
 ```csharp
-using JauntyQ.Schema.Contract;
+using Extrode.JauntyQ.Schema.Contract;
 
 // Program.cs, after configuration, before serving traffic.
 await StartupSchemaGuard.VerifyAsync(
@@ -97,7 +97,7 @@ SnapshotSource.FromSchema(databaseSchema);                        // an object y
 ### Embedding the snapshot at build time
 
 To make a self-contained binary carry its own contract, opt in from the project
-that references `JauntyQ.Schema.Contract`:
+that references `Extrode.JauntyQ.Schema.Contract`:
 
 ```xml
 <PropertyGroup>

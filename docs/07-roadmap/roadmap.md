@@ -14,7 +14,7 @@ currently queued.
 
 Under evaluation (built, ship/hold decision pending):
 - **License enforcement.** Signed offline `jaunty.license.json`, `jauntyq activate`
-  and entitlement gating are built and live in `JauntyQ.Cli.Premium`: `schema verify`,
+  and entitlement gating are built and live in `Extrode.JauntyQ.Cli.Premium`: `schema verify`,
   `migrate impact`, `explain`, `registry` and `usage export` consult the gate. The
   core codegen is never gated, and a lapse only warns, never hard-fails. What remains
   is commercial rather than technical. See
@@ -30,13 +30,13 @@ Dropped:
   validator to report which queries a pending migration set affects, classified
   **SAFE / RISKY / BREAKING**, at build time (`JNT9004` RISKY warning) and via
   the offline `jauntyq migrate impact` CLI verb. The shared Roslyn-free engine now
-  lives in `JauntyQ.Analysis`..
+  lives in `Extrode.JauntyQ.Analysis`..
 - **Deeper query analysis (004).** Added `JNT8006` (join-not-a-foreign-key) and
   `JNT8007` (ORDER BY without a supporting index) to the offline JNT8xxx perf
   pass, plus ORDER BY capture in the SqlParser IR. The **N+1 heuristic** from the
   original scope was split out as 008, which has since shipped too (see below)..
 - **Database contract testing (005).** The structural CI-gate core shipped: the
-  `JauntyQ.Schema.Contract` NuGet (test-embeddable assertion API + a fixed
+  `Extrode.JauntyQ.Schema.Contract` NuGet (test-embeddable assertion API + a fixed
   breaking/compatible severity model) and an upgraded `jauntyq schema verify`
   (`--format`, `--fail-on`); the extractors were relocated out of the CLI so the
   core stays zero-dependency. The **per-service contracts** and **central
@@ -48,13 +48,13 @@ Dropped:
   (already-`IN`, joined child, single-row-PK parent, no FK, project-level
   suppression). The perf check split out of 004..
 - **Opt-in live EXPLAIN plan analyzer (007).** `jauntyq explain` CLI verb only, so
-  the Roslyn generator stays offline; lives in the **non-core** `JauntyQ.Explain`
+  the Roslyn generator stays offline; lives in the **non-core** `Extrode.JauntyQ.Explain`
   library. Per-dialect estimate-only `EXPLAIN` (Postgres/SQLite/MySQL/SQL Server),
   capped, cached at `.jaunty/explain-cache.json`, report-only (exit 0; opt-in
   `--fail-on`), a missing/unreachable DB skips cleanly. Entitlement-gated..
 - **Central schema-dependency registry (009).** `jaunty.registry.json` naming
   schema snapshots + the services that depend on them, with `registry
-  resolve|dependents|validate|list`, in the **non-core** `JauntyQ.Registry`
+  resolve|dependents|validate|list`, in the **non-core** `Extrode.JauntyQ.Registry`
   library. Additive/opt-in; the substrate for per-service contracts..
 - **Per-service contracts (010).** Registry-driven scope filter for `schema
   verify` (`--service`/`--registry`) that narrows a contract to the slice a
@@ -62,8 +62,8 @@ Dropped:
   change does not fail this service's gate. Builds on 005 + 009..
 - **Runtime startup verification (011).** Opt-in boot-time `StartupSchemaGuard`
   (fail-fast / warn / skip per policy) in the **non-core**
-  `JauntyQ.Schema.Contract` package, with optional `<JauntyQEmbedSnapshot>`
-  build wiring; `JauntyQ.Runtime` stays zero-dependency..
+  `Extrode.JauntyQ.Schema.Contract` package, with optional `<JauntyQEmbedSnapshot>`
+  build wiring; `Extrode.JauntyQ.Runtime` stays zero-dependency..
 - **Usage-aware severity (012).** Opt-in, downgrade-only `UsageAwareReclassifier`
   + `jauntyq usage export` (usage manifest from `ReferencedObjects`); `schema
   verify --usage` downgrades breaking drift on objects no generated query
@@ -107,7 +107,7 @@ Dropped:
 - **API reference / JNT diagnostics reference docs.**
   `docs/06-reference/diagnostics.md` (every JNTxxxx code, severity, meaning)
   and `docs/06-reference/api-overview.md` (shape of the generated surface,
-  pointing to XML doc comments in `src/JauntyQ.Generator/CodeEmitter*.cs` as the
+  pointing to XML doc comments in `src/Extrode.JauntyQ.Generator/CodeEmitter*.cs` as the
   authoritative reference), alongside the CLI, configuration, snapshot-format,
   directives, and dialect references under `docs/06-reference/`. Full
   XML-doc-driven site generation (DocFX or similar) remains deferred; see below.

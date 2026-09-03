@@ -11,7 +11,7 @@ with a message that pointed at their schema for a table the parser had
 invented. Reading a list is cheaper than that.
 
 **Every claim here is measured, not remembered.** The source is
-`tests/JauntyQ.SqlParser.Tests/SupportedSurfaceProbeTests.cs`, which parses each
+`tests/Extrode.JauntyQ.SqlParser.Tests/SupportedSurfaceProbeTests.cs`, which parses each
 shape below and asserts the outcome, plus `RegistryParityTests`, which asserts
 that every `JNTxxxx` code named on this page resolves to a real descriptor. A
 change that widens or narrows the surface turns those red.

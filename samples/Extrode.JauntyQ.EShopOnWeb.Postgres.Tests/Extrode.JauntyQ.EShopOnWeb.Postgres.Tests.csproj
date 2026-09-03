@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Microsoft.eShopWeb.Postgres.Tests</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Npgsql" Version="8.0.6" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.14.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <AdditionalFiles Include="db\**\*.sql" />
+    <AdditionalFiles Include="db\schema\*.schema.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="schema.postgres.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

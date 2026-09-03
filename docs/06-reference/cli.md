@@ -11,20 +11,20 @@ connects to a database; only `schema pull`/`schema verify`/`explain` do, `migrat
 
 | Package | Feed | Verbs | Install |
 |---|---|---|---|
-| `JauntyQ.Cli` | NuGet.org | `schema pull` | `dotnet tool install --global JauntyQ.Cli` |
-| `JauntyQ.Cli.Premium` | a private feed for subscribers | everything in `JauntyQ.Cli` plus `schema verify`, `usage export`, `migrate impact`, `explain`, `registry`, `activate`, `license` | `dotnet tool install --global JauntyQ.Cli.Premium --add-source <feed>` |
+| `Extrode.JauntyQ.Cli` | NuGet.org | `schema pull` | `dotnet tool install --global Extrode.JauntyQ.Cli` |
+| `Extrode.JauntyQ.Cli.Premium` | a private feed for subscribers | everything in `Extrode.JauntyQ.Cli` plus `schema verify`, `usage export`, `migrate impact`, `explain`, `registry`, `activate`, `license` | `dotnet tool install --global Extrode.JauntyQ.Cli.Premium --add-source <feed>` |
 
 Both install the same command, `jauntyq`. The premium package replaces the
 free one; never install both. `schema pull` is implemented once, in the shared
-`JauntyQ.Cli.Core` library, so it behaves identically in either. A premium verb
+`Extrode.JauntyQ.Cli.Core` library, so it behaves identically in either. A premium verb
 typed at the free tool exits `3` and prints the install line; it never reads
 its inputs.
 
 In the repository the tools run via `dotnet run`:
 
 ```bash
-dotnet run --project src/JauntyQ.Cli -- schema pull --provider sqlserver ...
-dotnet run --project src/JauntyQ.Cli.Premium -- schema verify --provider sqlserver ...
+dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull --provider sqlserver ...
+dotnet run --project src/Extrode.JauntyQ.Cli.Premium -- schema verify --provider sqlserver ...
 ```
 
 The examples below use `jauntyq`.
@@ -111,7 +111,7 @@ structural rule set (independent of which queries reference the object):
 
 For a test-embeddable equivalent, asserting a live database matches the snapshot
 from inside your own xUnit/NUnit/MSTest suite, use the
-[`JauntyQ.Schema.Contract`](../03-guides/contract-testing.md) package, which
+[`Extrode.JauntyQ.Schema.Contract`](../03-guides/contract-testing.md) package, which
 shares the exact same classifier. The same package also offers
 [boot-time verification](../03-guides/startup-verification.md)
 (`StartupSchemaGuard`) so an app can fail fast at startup when the database it
@@ -412,7 +412,7 @@ emits, so `--provider mariadb` maps to the `mysql` dialect in the snapshot.
 | `0` | Success. `pull`: snapshot written. `verify`: snapshot matches (with `--usage`, this includes runs whose only drift was downgraded to informational). `usage export`: manifest written. `activate`/`license`: completed. |
 | `1` | Usage or runtime error, bad/missing arguments, unknown provider, no connection string, invalid `--output` path, an extraction/connection failure, an activation failure (bad signature, malformed license, wrong product, unknown version), or a `registry` error (missing registry file, unknown schema id). |
 | `2` | `verify`: schema drift detected (differences listed on stderr). `migrate impact`: an entry at or above `--fail-on` exists, or `--fail-on-warnings` is set and the run warned. `explain`: a plan problem at or above `--fail-on` exists. `registry validate`: the registry has problems (each named on stderr). |
-| `3` | Reserved: a premium command (`migrate impact`, `schema verify`, `explain`, `registry`, `usage export`) was run without an entitling license, or any premium verb was run at the free `JauntyQ.Cli` tool, which prints the `JauntyQ.Cli.Premium` install line instead. Distinct from `1`/`2` so scripts can tell "not licensed" from "found problems." A lapsed license does **not** produce this code, it runs with a warning. |
+| `3` | Reserved: a premium command (`migrate impact`, `schema verify`, `explain`, `registry`, `usage export`) was run without an entitling license, or any premium verb was run at the free `Extrode.JauntyQ.Cli` tool, which prints the `Extrode.JauntyQ.Cli.Premium` install line instead. Distinct from `1`/`2` so scripts can tell "not licensed" from "found problems." A lapsed license does **not** produce this code, it runs with a warning. |
 
 ## Examples
 

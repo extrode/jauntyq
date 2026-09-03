@@ -21,7 +21,7 @@ when it can see your files and schema through MSBuild.
   hide a fixed configuration issue.
 
 **Inspect what was emitted.** Set `<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>`
-and look under `obj/<config>/<tfm>/generated/JauntyQ.Generator/` to see the
+and look under `obj/<config>/<tfm>/generated/Extrode.JauntyQ.Generator/` to see the
 actual `.g.cs` files.
 
 ### First, find out whether the generator ran at all
@@ -42,7 +42,7 @@ your SQL or schema.
 | `JNT0001` in the build output | The generator threw. This is a bug in JauntyQ, not in your project. | Nothing on your side. The message names the stage and the exception, please report it. Generated output may be partly or entirely missing, and the `CS0246`s are consequences of it. |
 
 Without `EmitCompilerGeneratedFiles`, the same question is answerable from code:
-`typeof(JauntyQ.Generated.JauntyQShapeGuard)` compiles if and only if the
+`typeof(Extrode.JauntyQ.Generated.JauntyQShapeGuard)` compiles if and only if the
 generator ran.
 
 Note that a generator which **throws** is also reported by Roslyn as a warning
@@ -120,7 +120,7 @@ in the connection string, and `local_infile` enabled on the server. See the
 
 ## Native AOT publish warnings
 
-JauntyQ's generated code and `JauntyQ.Runtime` are trim/AOT-safe. Remaining
+JauntyQ's generated code and `Extrode.JauntyQ.Runtime` are trim/AOT-safe. Remaining
 warnings almost always come from the **database provider**; use an AOT-friendly
 provider stack (e.g. `Microsoft.Data.Sqlite.Core` +
 `SQLitePCLRaw.bundle_e_sqlite3`).

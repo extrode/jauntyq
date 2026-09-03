@@ -1,0 +1,8 @@
+{
+  "stryker-config": {
+    "project": "Extrode.JauntyQ.Analysis.csproj",
+    "reporters": ["progress", "json"],
+    "verbosity": "info",
+    "thresholds": { "high": 80, "low": 65, "break": 0 }
+  }
+}
