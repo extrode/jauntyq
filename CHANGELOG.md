@@ -13,7 +13,7 @@ condensed.
 
 ### Added
 - **`THIRD-PARTY-NOTICES.md` covers the CLI tool as well as the generator.** The tool package
-  bundles 30 third-party assemblies alongside the six JauntyQ ones, and the notices now name
+  bundles 32 third-party assemblies alongside the six JauntyQ ones, and the notices now name
   each with its package, version and licence, reproducing the MIT, PostgreSQL, Apache-2.0 and
   Microsoft SNI terms. The notices and the README are packed into every package, so nuget.org
   renders a package page and the attribution travels in the box.
