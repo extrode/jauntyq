@@ -20,12 +20,14 @@ free one; never install both. `schema pull` is implemented once, in the shared
 typed at the free tool exits `3` and prints the install line; it never reads
 its inputs.
 
-In the repository the tools run via `dotnet run`:
+In this repository the free tool runs via `dotnet run`:
 
 ```bash
 dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull --provider sqlserver ...
-dotnet run --project src/Extrode.JauntyQ.Cli.Premium -- schema verify --provider sqlserver ...
 ```
+
+The premium verbs come from an installed `Extrode.JauntyQ.Cli.Premium`, which is
+built elsewhere; there is no project here to run them from.
 
 The examples below use `jauntyq`.
 

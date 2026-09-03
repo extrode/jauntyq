@@ -7,7 +7,7 @@
     <NoWarn>$(NoWarn);RS2008</NoWarn>
     <IsPackable>true</IsPackable>
     <PackageId>Extrode.JauntyQ.Generator</PackageId>
-    <Description>The JauntyQ source generator: validates .sql files against a committed schema snapshot at build time and emits typed, zero-reflection ADO.NET data access. Reference with OutputItemType="Analyzer".</Description>
+    <Description>The JauntyQ source generator: validates .sql files against a committed schema snapshot at build time and emits typed, zero-reflection ADO.NET data access. Add it as an ordinary PackageReference; NuGet installs it as an analyzer and no OutputItemType is needed.</Description>
     <DevelopmentDependency>true</DevelopmentDependency>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <!-- Pack the build output directly into the Roslyn analyzer path (instead
@@ -74,10 +74,8 @@
       <TfmSpecificPackageFile Include="$(PkgSystem_Threading_Tasks_Extensions)\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll" PackagePath="analyzers/dotnet/cs" />
     </ItemGroup>
   </Target>
-  <!-- MIT attribution for the bundled DLLs above (required by their license). -->
-  <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <None Include="$(MSBuildThisFileDirectory)..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
-  </ItemGroup>
+  <!-- Attribution for the bundled DLLs above is packed for every package by
+       Directory.Build.props, which lists them beside the licence files. -->
   <!-- Global usings for the compile-included Extrode.JauntyQ.Analysis kernel (the
        generator consumes these primitives; DialectMapper/AutoCrud/UpsertKeyResolver
        live in Extrode.JauntyQ.Analysis, the migration types in Extrode.JauntyQ.Analysis.Migrations). -->

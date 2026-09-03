@@ -244,7 +244,8 @@ entitlement (see
 an activated license, it exits `3` with an entitlement-required message
 instead of the `0`/`2` outcomes below, that is expected, not a setup mistake.
 If you have an evaluation license, activate it first
-(`dotnet run --project src/Extrode.JauntyQ.Cli.Premium -- activate --license path/to/jaunty.license.json`);
+(`jauntyq activate --license path/to/jaunty.license.json`, from an installed
+`Extrode.JauntyQ.Cli.Premium`; that tool is not built from this repository);
 otherwise, read through this exercise to understand the behavior rather than
 running it directly.
 
@@ -255,7 +256,7 @@ running it directly.
 sqlite3 tutorial.db "ALTER TABLE Products ADD COLUMN Notes VARCHAR(100);"
 
 # TODO: run schema verify against the now-drifted database and read its output
-dotnet run --project src/Extrode.JauntyQ.Cli.Premium -- schema verify \
+jauntyq schema verify \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json
@@ -281,7 +282,7 @@ dotnet run --project src/Extrode.JauntyQ.Cli.Premium -- schema verify \
 ```bash
 sqlite3 tutorial.db "ALTER TABLE Products ADD COLUMN Notes VARCHAR(100);"
 
-dotnet run --project src/Extrode.JauntyQ.Cli.Premium -- schema verify \
+jauntyq schema verify \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json

@@ -34,7 +34,9 @@ jobs:
     steps:
       - name: NuGet.org login (OIDC, short-lived key)
         id: nuget-login
-        uses: NuGet/login@v1
+        # Pinned by digest: this step mints the nuget.org publishing key, so a
+        # moving tag here would be a moving trust boundary. v1 = 8d19675.
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         with:
           # The nuget.org profile name, not an email address.
           user: ${{ vars.NUGET_USER }}
@@ -65,6 +67,10 @@ jobs:
       id-token: write   # NuGet/login
     steps:
       - uses: actions/checkout@v4
+        with:
+          # SourceLink resolves commit URLs from the full history, and this is
+          # the only build whose output reaches nuget.org.
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -91,11 +97,13 @@ jobs:
         # succeeded, so the packages were built and never reached the feed.
         run: |
           dotnet tool install --global CycloneDX --version 6.2.0
-          dotnet CycloneDX JauntyQ.slnx -o dist/sbom -F Json -fn jauntyq-sbom.json
+          dotnet CycloneDX JauntyQ.slnx -o dist/sbom -F Json -fn jauntyq-sbom.json -t
 
       - name: NuGet.org login (OIDC, short-lived key)
         id: nuget-login
-        uses: NuGet/login@v1
+        # Pinned by digest: this step mints the nuget.org publishing key, so a
+        # moving tag here would be a moving trust boundary. v1 = 8d19675.
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         with:
           # The nuget.org profile name, not an email address.
           user: ${{ vars.NUGET_USER }}

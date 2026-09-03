@@ -12,6 +12,11 @@ condensed.
 ## [Unreleased]
 
 ### Added
+- **`THIRD-PARTY-NOTICES.md` covers the CLI tool as well as the generator.** The tool package
+  bundles 30 third-party assemblies alongside the six JauntyQ ones, and the notices now name
+  each with its package, version and licence, reproducing the MIT, PostgreSQL, Apache-2.0 and
+  Microsoft SNI terms. The notices and the README are packed into every package, so nuget.org
+  renders a package page and the attribution travels in the box.
 - **This repository.** The core is public from 0.5.0, under the Islamic Software License -
   Restricted (ISL-R) 1.2 with the Output Exception (ISL-OE) 1.2. `LICENSE.md`, `EXCEPTION.md`
   and `NOTICE.md` ship inside every package. The history behind this release is the core's real

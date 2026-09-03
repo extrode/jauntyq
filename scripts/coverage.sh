@@ -34,12 +34,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 SUITES=(
   tests/Extrode.JauntyQ.Analysis.Tests
   tests/Extrode.JauntyQ.Cli.Tests
-  [REDACTED]
-  [REDACTED]
   tests/Extrode.JauntyQ.Generator.Tests
-  [REDACTED]
-  [REDACTED]
-  [REDACTED]
   tests/Extrode.JauntyQ.SqlParser.Tests
   tests/Extrode.JauntyQ.Schema.Extraction.Tests
   samples/Extrode.JauntyQ.Sqlite.Tests

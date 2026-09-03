@@ -53,6 +53,10 @@
     <!-- Default: nothing packs unless a project opts in. Test and sample
          projects stay non-packable automatically. -->
     <IsPackable>false</IsPackable>
+
+    <!-- nuget.org renders this on the package page. Packed just below, under
+         the same IsPackable condition as the licence files. -->
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -78,5 +82,10 @@
     <None Include="$(MSBuildThisFileDirectory)LICENSE.md" Pack="true" PackagePath="\" />
     <None Include="$(MSBuildThisFileDirectory)EXCEPTION.md" Pack="true" PackagePath="\" />
     <None Include="$(MSBuildThisFileDirectory)NOTICE.md" Pack="true" PackagePath="\" />
+    <!-- The notices cover what Extrode.JauntyQ.Generator and Extrode.JauntyQ.Cli
+         bundle. They travel with every package so the attribution is in the box
+         a consumer actually downloaded, not only in the repository. -->
+    <None Include="$(MSBuildThisFileDirectory)THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
