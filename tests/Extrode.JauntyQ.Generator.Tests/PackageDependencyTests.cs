@@ -52,6 +52,17 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
     }
 
     [Fact]
+    public void FreeTool_BundlesNothingFromBeforeTheExtrodeRename()
+    {
+        string[] unprefixed = _packed.BundledJauntyAssemblies("Extrode.JauntyQ.Cli")
+            .Where(name => !name.StartsWith("Extrode.", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.True(unprefixed.Length == 0,
+            $"stale pre-rename assemblies in the tool bundle: [{string.Join(", ", unprefixed)}]");
+    }
+
+    [Fact]
     public void FreeTool_DeclaresTheDotnetToolPackageType_AndNoDependencies()
     {
         Assert.Contains("DotnetTool", _packed.PackageTypes("Extrode.JauntyQ.Cli"));
@@ -73,6 +84,23 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
         Assert.Contains("LICENSE.md", files);
         Assert.Contains("EXCEPTION.md", files);
         Assert.Contains("NOTICE.md", files);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllPackages))]
+    public void EveryPackage_CarriesTheThirdPartyNoticesAndTheReadme(string packageId)
+    {
+        var files = _packed.RootFiles(packageId);
+
+        Assert.Contains("THIRD-PARTY-NOTICES.md", files);
+        Assert.Contains("README.md", files);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllPackages))]
+    public void EveryPackage_DeclaresReadmeMdSoNuGetOrgRendersIt(string packageId)
+    {
+        Assert.Equal("README.md", _packed.ReadmeElement(packageId));
     }
 
     [Theory]
@@ -177,6 +205,13 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
             return doc.Descendants(ns + "license").SingleOrDefault()?.Value;
         }
 
+        public string? ReadmeElement(string packageId)
+        {
+            var doc = Nuspec(packageId);
+            XNamespace ns = doc.Root!.Name.Namespace;
+            return doc.Descendants(ns + "readme").SingleOrDefault()?.Value;
+        }
+
         public string[] RootFiles(string packageId)
         {
             using var zip = ZipFile.OpenRead(NupkgPath(packageId));
@@ -193,7 +228,7 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
             return zip.Entries
                 .Where(e => e.FullName.StartsWith("tools/", StringComparison.Ordinal)
                          && e.FullName.EndsWith(".dll", StringComparison.Ordinal)
-                         && Path.GetFileName(e.FullName).StartsWith("Extrode.JauntyQ.", StringComparison.Ordinal))
+                         && Path.GetFileName(e.FullName).Contains("JauntyQ.", StringComparison.Ordinal))
                 .Select(e => Path.GetFileName(e.FullName))
                 .OrderBy(x => x, StringComparer.Ordinal)
                 .ToArray();

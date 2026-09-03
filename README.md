@@ -168,8 +168,7 @@ only which end you author from, and when the mismatch is caught.
   production.
 - You want the generated code to be the code you would have hand-written: ordinal reads, typed
   parameters, no reflection, no runtime parsing.
-- You want auto-CRUD, FK loaders, migration impact analysis and a build-time performance analyzer
-  over your own SQL.
+- You want auto-CRUD, FK loaders and a build-time performance analyzer over your own SQL.
 
 ### Choose Jaunty if
 

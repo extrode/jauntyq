@@ -10,7 +10,7 @@
 // WHY THIS EXISTS
 //
 // `dotnet test` exits 0 when an assembly skips every test it owns. The
-// 2026-07-30 work ([internal doc, not in this repo])
+// 2026-07-30 work
 // stopped FixtureGate laundering arbitrary failures into "Docker unavailable",
 // but nothing enforced the result at the RUN level, so a regression in that
 // classification goes invisible again the moment it happens.

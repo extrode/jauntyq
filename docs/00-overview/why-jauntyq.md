@@ -31,7 +31,7 @@ Rename a column, drop a table, shrink a `varchar` - the build breaks at your des
 
 ## The problems JauntyQ solves
 
-**Schema drift discovered too late.** The classic ORM failure: the database changes, the code compiles fine, and the mismatch surfaces as a runtime exception or - worse - silently wrong data. In JauntyQ the schema snapshot is part of your source tree and every query is parsed against it on every build. `jauntyq schema verify` closes the loop against the live database (exit 0 = match, exit 2 = drift, differences listed).
+**Schema drift discovered too late.** The classic ORM failure: the database changes, the code compiles fine, and the mismatch surfaces as a runtime exception or - worse - silently wrong data. In JauntyQ the schema snapshot is part of your source tree and every query is parsed against it on every build. `jauntyq schema verify` closes the loop against the live database (exit 0 = match, exit 2 = drift, differences listed); it is a paid verb, and the free tool exits `3` pointing at the install line.
 
 **Runtime mapping cost.** There is nothing to optimize at runtime because nothing happens at runtime: no reflection, no per-row boxing, no SQL parsing, typed ordinal getters emitted per query. A one-time shape guard validates each result set on first use, then gets out of the way. The generated code is Native AOT and trim compatible by construction.
 
