@@ -41,6 +41,12 @@ bad()   { printf 'FAIL:  %s\n' "$1" >&2; }
 
 cd "$REPO_ROOT"
 
+# The git-filter-repo.exe wrapper on PATH produces no stdout/stderr in this
+# shell and can exit nonzero on valid input; invoke the underlying Python
+# module directly instead so its diagnostics are actually visible.
+FILTER_REPO_PY="$(python3 -c 'import git_filter_repo; print(git_filter_repo.__file__)')"
+git_filter_repo() { python3 "$FILTER_REPO_PY" "$@"; }
+
 if [[ -n "$(git status --porcelain)" ]]; then
   bad "working tree is not clean; commit or stash before running this"
   exit 1
@@ -53,7 +59,7 @@ if [[ "$EXECUTE" -eq 0 ]]; then
   # --force is required even for --dry-run: filter-repo refuses to run at all
   # (dry-run or not) unless the repo is a fresh clone or --force is given.
   rm -f "$ALREADY_RAN"
-  git filter-repo --force --dry-run \
+  git_filter_repo --force --dry-run \
     --replace-message "$HERE/scrub-message-rules.txt" \
     --replace-text "$HERE/scrub-text-rules.txt"
   dry "review .git/filter-repo/ for the analysis; re-run with --execute to apply"
@@ -68,7 +74,7 @@ ok "backup written: $BACKUP"
 
 doing "rewriting history (git filter-repo --force)"
 rm -f "$ALREADY_RAN"
-git filter-repo --force \
+git_filter_repo --force \
   --replace-message "$HERE/scrub-message-rules.txt" \
   --replace-text "$HERE/scrub-text-rules.txt"
 ok "history rewritten"

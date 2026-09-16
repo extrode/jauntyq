@@ -33,6 +33,14 @@ function Bad   { param($m) Write-Output "FAIL:  $m" }
 
 Set-Location $RepoRoot
 
+# The git-filter-repo.exe wrapper on PATH produces no stdout/stderr in this
+# shell and can exit nonzero on valid input; invoke the underlying Python
+# module directly instead so its diagnostics are actually visible.
+$FilterRepoPy = python3 -c "import git_filter_repo; print(git_filter_repo.__file__)"
+function Invoke-GitFilterRepo {
+    python3 $FilterRepoPy @args
+}
+
 $status = git status --porcelain
 if ($status) {
     Bad "working tree is not clean; commit or stash before running this"
@@ -46,7 +54,7 @@ if (-not $Execute) {
     # --force is required even for --dry-run: filter-repo refuses to run at all
     # (dry-run or not) unless the repo is a fresh clone or --force is given.
     Remove-Item -Force -ErrorAction SilentlyContinue $AlreadyRan
-    git filter-repo --force --dry-run `
+    Invoke-GitFilterRepo --force --dry-run `
         --replace-message (Join-Path $Here "scrub-message-rules.txt") `
         --replace-text (Join-Path $Here "scrub-text-rules.txt")
     Dry "review .git/filter-repo/ for the analysis; re-run with -Execute to apply"
@@ -63,7 +71,7 @@ Ok "backup written: $backup"
 
 Doing "rewriting history (git filter-repo --force)"
 Remove-Item -Force -ErrorAction SilentlyContinue $AlreadyRan
-git filter-repo --force `
+Invoke-GitFilterRepo --force `
     --replace-message (Join-Path $Here "scrub-message-rules.txt") `
     --replace-text (Join-Path $Here "scrub-text-rules.txt")
 Ok "history rewritten"
