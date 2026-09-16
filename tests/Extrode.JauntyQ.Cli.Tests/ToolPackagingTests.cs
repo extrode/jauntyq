@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -52,8 +53,10 @@ public class ToolPackagingTests
     [Fact]
     public void Cli_ReferencesOnlyTheCoreLibrary()
     {
+        // csproj ProjectReference paths are backslash-separated by repo convention; Path.GetFileName
+        // only splits on the current OS's separator, so this must split on both to pass on Linux CI.
         var references = Regex.Matches(CliCsproj(), @"<ProjectReference Include=""([^""]+)""")
-            .Select(m => Path.GetFileName(m.Groups[1].Value))
+            .Select(m => m.Groups[1].Value.Split(['\\', '/']).Last())
             .ToArray();
 
         Assert.Equal(["Extrode.JauntyQ.Cli.Core.csproj"], references);
