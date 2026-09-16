@@ -26,7 +26,7 @@ not let you publish a modified JauntyQ as your own product; that stays prohibite
 
 JauntyQ adopts the **ISL-CLA, Version 1.1**, by reference. The text is reproduced whole and
 unmodified in [CLA.md](CLA.md) and published at
-[islamiclicense.org/isl-cla](https://islamiclicense.org/isl-cla/). As that Agreement requires, the
+[islamiclicense.org/isl-cla](https://islamiclicense.org/isl-cla/1.1/CLA.md). As that Agreement requires, the
 Project states here:
 
 | | Statement |
