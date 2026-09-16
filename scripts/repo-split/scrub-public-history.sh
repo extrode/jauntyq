@@ -2,15 +2,16 @@
 set -euo pipefail
 
 # Rewrites jauntyq's git history to remove:
-#   - the two commit messages naming the old company as "Extrode LLC" /
-#     the old GitHub org "github.com/extrode/jauntyq" (replaced with Extrode)
+#   - two early commit messages naming the pre-Extrode company/org identity
+#     (see scrub-message-rules.txt for detail; already applied, kept for
+#     provenance -- do not put the literal old strings back in this file)
 #   - premium/paid-tier test-suite names briefly committed to scripts/coverage.sh
 #     before this repo's first public push
 #   - a dangling internal-doc path reference in the same early commit
 #
-# Author/committer identity (Syed Beparey <syed@beparey.com>) is left
-# untouched on purpose -- it is the maintainer's own verified identity, not
-# a leak, and is not scrubbed by this script.
+# Author/committer identity (the maintainer's own verified name/email) is
+# left untouched on purpose -- it is not a leak, and is not scrubbed by
+# this script.
 #
 # Usage:
 #   ./scrub-public-history.sh                    dry run (default, no changes)
@@ -21,7 +22,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 ORIGIN_URL="https://github.com/extrode/jauntyq.git"
-EXPECTED_DEV_SHA="8a670317f00c0083f0beb7b4763c70085fdb1f97"
+EXPECTED_DEV_SHA="9b89a4b20df2d9d7cd71992e5474cde4642b04db"
 
 EXECUTE=0
 FORCE_PUSH=0

@@ -1,3 +1,5 @@
-Extrode LLC==>Extrode LLC
-https://github.com/extrode/jauntyq==>https://github.com/extrode/jauntyq
-beparey/premium leaks==>premium leaks
+# This file's rules already ran (2026-09-16) and their target commits are no
+# longer reachable from dev. Left empty of the old literal strings on purpose
+# -- putting them back here would re-leak them into a tracked, pushed blob.
+# Kept only so --replace-message has a file to point at; content is inert.
+[inert]==>[inert]
