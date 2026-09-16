@@ -46,9 +46,14 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
+ALREADY_RAN="$REPO_ROOT/.git/filter-repo/already_ran"
+
 if [[ "$EXECUTE" -eq 0 ]]; then
   dry "previewing rewrite (git filter-repo --dry-run); no changes will be made"
-  git filter-repo --dry-run \
+  # --force is required even for --dry-run: filter-repo refuses to run at all
+  # (dry-run or not) unless the repo is a fresh clone or --force is given.
+  rm -f "$ALREADY_RAN"
+  git filter-repo --force --dry-run \
     --replace-message "$HERE/scrub-message-rules.txt" \
     --replace-text "$HERE/scrub-text-rules.txt"
   dry "review .git/filter-repo/ for the analysis; re-run with --execute to apply"
@@ -62,6 +67,7 @@ git bundle create "$BACKUP" --all
 ok "backup written: $BACKUP"
 
 doing "rewriting history (git filter-repo --force)"
+rm -f "$ALREADY_RAN"
 git filter-repo --force \
   --replace-message "$HERE/scrub-message-rules.txt" \
   --replace-text "$HERE/scrub-text-rules.txt"

@@ -39,9 +39,14 @@ if ($status) {
     exit 1
 }
 
+$AlreadyRan = Join-Path $RepoRoot ".git\filter-repo\already_ran"
+
 if (-not $Execute) {
     Dry "previewing rewrite (git filter-repo --dry-run); no changes will be made"
-    git filter-repo --dry-run `
+    # --force is required even for --dry-run: filter-repo refuses to run at all
+    # (dry-run or not) unless the repo is a fresh clone or --force is given.
+    Remove-Item -Force -ErrorAction SilentlyContinue $AlreadyRan
+    git filter-repo --force --dry-run `
         --replace-message (Join-Path $Here "scrub-message-rules.txt") `
         --replace-text (Join-Path $Here "scrub-text-rules.txt")
     Dry "review .git/filter-repo/ for the analysis; re-run with -Execute to apply"
@@ -57,6 +62,7 @@ git bundle create $backup --all
 Ok "backup written: $backup"
 
 Doing "rewriting history (git filter-repo --force)"
+Remove-Item -Force -ErrorAction SilentlyContinue $AlreadyRan
 git filter-repo --force `
     --replace-message (Join-Path $Here "scrub-message-rules.txt") `
     --replace-text (Join-Path $Here "scrub-text-rules.txt")
