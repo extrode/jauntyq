@@ -312,7 +312,11 @@ public class SqlServerExtractor : ISchemaExtractor
                     "WHERE name IS NOT NULL ORDER BY column_ordinal";
                 var p = cmd.CreateParameter();
                 p.ParameterName = "@sql";
-                p.Value = "EXEC " + proc.Name;
+                // Bracket-quoted: an unquoted proc.Name containing a space,
+                // hyphen or other non-identifier character breaks the EXEC
+                // syntax outright, and the catch below swallows that failure
+                // indistinguishably from the genuinely-undeterminable case.
+                p.Value = "EXEC [" + proc.Name.Replace("]", "]]") + "]";
                 cmd.Parameters.Add(p);
 
                 await using var reader = await cmd.ExecuteReaderAsync();

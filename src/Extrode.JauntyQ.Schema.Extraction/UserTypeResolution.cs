@@ -79,24 +79,51 @@ public static class UserTypeResolution
             {
                 if (p.ResolvedFromUserType != null)
                     continue;
-                if (!resolvable.TryGetValue(p.DbType, out var ut))
-                    continue;
 
-                p.ResolvedFromUserType = ut.Name;
-                p.DbType = ut.UnderlyingDbType!;
-                p.MaxLength ??= ut.MaxLength;
-                p.Precision ??= ut.Precision;
-                p.Scale ??= ut.Scale;
+                // Chased to a fixed point rather than one hop: unlike columns,
+                // a function param/return comes from a raw catalog rendering
+                // (Postgres format_type) with no ResolvedFromUserType pre-set,
+                // so a DOMAIN declared over another DOMAIN would otherwise
+                // resolve only the outer layer and leave DbType holding a
+                // still-unresolved user-type name.
+                string current = p.DbType;
+                UserTypeSchema? first = null;
+                int hops = 0;
+                while (hops++ < resolvable.Count && resolvable.TryGetValue(current, out var ut))
+                {
+                    first ??= ut;
+                    p.MaxLength ??= ut.MaxLength;
+                    p.Precision ??= ut.Precision;
+                    p.Scale ??= ut.Scale;
+                    current = ut.UnderlyingDbType!;
+                }
+
+                if (first != null)
+                {
+                    p.ResolvedFromUserType = first.Name;
+                    p.DbType = current;
+                }
             }
 
-            if (fn.Return.ResolvedFromUserType == null &&
-                resolvable.TryGetValue(fn.Return.DbType, out var rt))
+            if (fn.Return.ResolvedFromUserType == null)
             {
-                fn.Return.ResolvedFromUserType = rt.Name;
-                fn.Return.DbType = rt.UnderlyingDbType!;
-                fn.Return.MaxLength ??= rt.MaxLength;
-                fn.Return.Precision ??= rt.Precision;
-                fn.Return.Scale ??= rt.Scale;
+                string current = fn.Return.DbType;
+                UserTypeSchema? first = null;
+                int hops = 0;
+                while (hops++ < resolvable.Count && resolvable.TryGetValue(current, out var rt))
+                {
+                    first ??= rt;
+                    fn.Return.MaxLength ??= rt.MaxLength;
+                    fn.Return.Precision ??= rt.Precision;
+                    fn.Return.Scale ??= rt.Scale;
+                    current = rt.UnderlyingDbType!;
+                }
+
+                if (first != null)
+                {
+                    fn.Return.ResolvedFromUserType = first.Name;
+                    fn.Return.DbType = current;
+                }
             }
         }
     }

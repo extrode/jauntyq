@@ -32,16 +32,6 @@ internal static class CliEnvironment
     internal const string VerboseOptIn = "1";
 
     /// <summary>
-    /// True when the caller has opted into full exception detail.
-    ///
-    /// Deliberately exact and ordinal, preserving the behavior all three
-    /// original sites had: <c>"true"</c>, <c>"yes"</c>, <c>"0"</c> and
-    /// <c>" 1"</c> are all off. The variable gates whether provider exception
-    /// messages — which can echo host and credential fragments out of a
-    /// connection string (CWE-532) — reach the log, so a permissive reading
-    /// that guessed at intent would be the wrong direction to be generous in.
-    /// </summary>
-    /// <summary>
     /// The <c>--connection-env</c>-overrides-the-default rule, held once.
     ///
     /// AUD-R89-01: `schema pull/verify` and `explain` each carried their own
@@ -59,6 +49,16 @@ internal static class CliEnvironment
         System.Environment.GetEnvironmentVariable(
             string.IsNullOrEmpty(connectionEnv) ? ConnectionEnvVar : connectionEnv!);
 
+    /// <summary>
+    /// True when the caller has opted into full exception detail.
+    ///
+    /// Deliberately exact and ordinal, preserving the behavior all three
+    /// original sites had: <c>"true"</c>, <c>"yes"</c>, <c>"0"</c> and
+    /// <c>" 1"</c> are all off. The variable gates whether provider exception
+    /// messages — which can echo host and credential fragments out of a
+    /// connection string (CWE-532) — reach the log, so a permissive reading
+    /// that guessed at intent would be the wrong direction to be generous in.
+    /// </summary>
     internal static bool VerboseErrors =>
         string.Equals(
             System.Environment.GetEnvironmentVariable(VerboseEnvVar),
