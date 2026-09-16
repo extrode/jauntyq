@@ -17,10 +17,10 @@
     <ProjectReference Include="..\..\src\Extrode.JauntyQ.SqlParser\Extrode.JauntyQ.SqlParser.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
     <!-- Pin transitive SQLitePCLRaw past CVE-2025-6965 (fixed in 3.0.2+, bundles SQLite 3.50.4.2). -->
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
   </ItemGroup>
   <ItemGroup>
     <AdditionalFiles Include="db\**\*.sql" />

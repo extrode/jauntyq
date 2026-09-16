@@ -15,11 +15,11 @@
     <InternalsVisibleTo Include="Extrode.JauntyQ.Schema.Extraction.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Npgsql" Version="8.0.6" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
-    <PackageReference Include="MySqlConnector" Version="2.4.0" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="MySqlConnector" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
     <!-- Pin transitive SQLitePCLRaw past CVE-2025-6965 (fixed in 3.0.2+, bundles SQLite 3.50.4.2). -->
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
   </ItemGroup>
 </Project>

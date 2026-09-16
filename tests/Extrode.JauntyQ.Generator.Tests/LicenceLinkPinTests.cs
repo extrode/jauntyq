@@ -89,9 +89,19 @@ public class LicenceLinkPinTests
     }
 
     [Fact]
-    public void NoContributorAgreementIsAdopted()
+    public void ContributorAgreementIsIslCla11()
     {
-        Assert.Empty(Directory.GetFiles(RepoRoot(), "*CLA*", SearchOption.TopDirectoryOnly));
-        Assert.DoesNotContain("ISL-CLA", File.ReadAllText(Path.Combine(RepoRoot(), "NOTICE.md")));
+        var first = File.ReadLines(Path.Combine(RepoRoot(), "CLA.md")).First();
+
+        Assert.Equal("# Islamic Software License - Contributor License Agreement (ISL-CLA), Version 1.1", first);
+    }
+
+    [Fact]
+    public void ContributingFile_AdoptsTheClaWithAPinnedUrl()
+    {
+        var contributing = File.ReadAllText(Path.Combine(RepoRoot(), "CONTRIBUTING.md"));
+
+        Assert.Contains("ISL-CLA, Version 1.1", contributing);
+        Assert.Contains("https://islamiclicense.org/isl-cla/1.1/CLA.md", contributing);
     }
 }
