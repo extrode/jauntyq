@@ -50,3 +50,7 @@ work/
 # both name out/fuzz, out/corpus and out/fuzz-findings; the committed seeds
 # live in tools/Extrode.JauntyQ.Fuzz/corpus/ and are tracked.
 out/
+
+# Private audit tracking. This repo is public; unfixed findings don't belong in its
+# history. `audit/` is an NTFS junction into the sibling jauntyq-audit repo.
+audit/
