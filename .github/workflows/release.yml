@@ -68,13 +68,13 @@ jobs:
       contents: write   # gh release create
       id-token: write   # NuGet/login
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # SourceLink resolves commit URLs from the full history, and this is
           # the only build whose output reaches nuget.org.
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v6.0.0
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 8.0.x
 
