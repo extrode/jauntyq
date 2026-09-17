@@ -6,20 +6,20 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
     <!-- Pin transitive SQLitePCLRaw past CVE-2025-6965 (fixed in 3.0.2+, bundles SQLite 3.50.4.2). -->
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
-    <PackageReference Include="Testcontainers.MsSql" Version="4.14.0" />
-    <PackageReference Include="Testcontainers.PostgreSql" Version="4.14.0" />
-    <PackageReference Include="Testcontainers.MySql" Version="4.14.0" />
-    <PackageReference Include="Testcontainers.MariaDb" Version="4.14.0" />
-    <PackageReference Include="MySqlConnector" Version="2.4.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    <PackageReference Include="Testcontainers.MsSql" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.MySql" />
+    <PackageReference Include="Testcontainers.MariaDb" />
+    <PackageReference Include="MySqlConnector" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj" />

@@ -54,9 +54,9 @@
          packed, and pinning would mean editing this file at every version bump
          for no gain. A consumer would pin.
     -->
-    <PackageReference Include="Extrode.JauntyQ.Generator" Version="*-*" PrivateAssets="all" />
-    <PackageReference Include="Extrode.JauntyQ.Runtime" Version="*-*" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+    <PackageReference Include="Extrode.JauntyQ.Generator" VersionOverride="*-*" PrivateAssets="all" />
+    <PackageReference Include="Extrode.JauntyQ.Runtime" VersionOverride="*-*" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>
 
   <ItemGroup>

@@ -609,7 +609,8 @@ public static class SchemaSimulator
         IsUnicode = col.IsUnicode,
         IsRowVersion = col.IsRowVersion,
         IsComputed = col.IsComputed,
-        EnumName = col.EnumName
+        EnumName = col.EnumName,
+        ResolvedFromUserType = col.ResolvedFromUserType
     };
 
     private static string Truncate(string text) =>

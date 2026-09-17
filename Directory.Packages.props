@@ -1,0 +1,61 @@
+<Project>
+  <!--
+    Central Package Management. One version per package, set once here; every csproj below
+    keeps <PackageReference Include="X" /> with no Version attribute (except where a
+    VersionOverride is needed, noted at that PackageReference).
+
+    Npgsql has two versions in use before this file existed: 8.0.6 in
+    src/Extrode.JauntyQ.Schema.Extraction (production code) and 10.0.3 in
+    tests/Extrode.JauntyQ.Generator.Tests. The src version is kept as the central default;
+    the test project keeps its newer version via VersionOverride rather than bumping the
+    production dependency as a side effect of this migration.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- NU1507 fires because this machine's NuGet.Config (outside this repo) lists two sources
+         (nuget.org, jauntyq-github) with no package source mapping - unrelated to CPM itself, but
+         the SDK escalates it to an error only once CPM is on. Adding package source mapping is a
+         machine-level nuget.config change, not something this repo should assume or set for every
+         contributor's environment, so the warning is suppressed instead. -->
+    <NoWarn>$(NoWarn);NU1507</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
+    <PackageVersion Include="System.Buffers" Version="4.5.1" />
+    <PackageVersion Include="System.Memory" Version="4.5.5" />
+    <PackageVersion Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
+    <PackageVersion Include="System.Text.Encodings.Web" Version="8.0.0" />
+    <PackageVersion Include="System.Text.Json" Version="8.0.5" />
+    <PackageVersion Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
+    <!-- Database drivers -->
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+    <PackageVersion Include="MySqlConnector" Version="2.4.0" />
+    <PackageVersion Include="Npgsql" Version="8.0.6" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <!-- Test framework -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="CsCheck" Version="4.8.0" />
+    <!-- Integration test containers -->
+    <PackageVersion Include="Testcontainers.MariaDb" Version="4.14.0" />
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.14.0" />
+    <PackageVersion Include="Testcontainers.MySql" Version="4.14.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.14.0" />
+    <!-- Test-project extras (coverage, skippable facts, sample-only deps) -->
+    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.23" />
+    <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="8.0.11" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.2" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.0.1" />
+    <!-- Analyzer/build-time infrastructure -->
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.112" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
+    <!-- Benchmarks / fuzzing -->
+    <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
+    <PackageVersion Include="SharpFuzz" Version="2.3.0" />
+  </ItemGroup>
+</Project>

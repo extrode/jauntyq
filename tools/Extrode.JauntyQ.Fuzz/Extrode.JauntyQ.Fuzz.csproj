@@ -13,6 +13,6 @@
     <ProjectReference Include="..\..\src\Extrode.JauntyQ.SqlParser\Extrode.JauntyQ.SqlParser.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="SharpFuzz" Version="2.3.0" />
+    <PackageReference Include="SharpFuzz" />
   </ItemGroup>
 </Project>

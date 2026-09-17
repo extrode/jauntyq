@@ -22,7 +22,7 @@
        plus a namespace-level analyzer ban below gives two independent,
        build-breaking layers instead of relying on code review to catch it. -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
   </ItemGroup>
 </Project>

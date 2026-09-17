@@ -6,28 +6,28 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
-    <PackageReference Include="Npgsql" Version="10.0.3" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
-    <PackageReference Include="MySqlConnector" Version="2.4.0" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Npgsql" VersionOverride="10.0.3" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="MySqlConnector" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <!-- Spec 013 T12a/T13: the enum write binding and the unknown-value throw
          are claims about what a real server accepts, and both were wrong once
          already when asserted on emitted text alone. Same versions as
          tests/Extrode.JauntyQ.Tests. -->
-    <PackageReference Include="Testcontainers.PostgreSql" Version="4.14.0" />
-    <PackageReference Include="Testcontainers.MySql" Version="4.14.0" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.MySql" />
     <!-- Spec 014 T6: the function round-trip runs on all three dialects that
          have functions, and SQL Server is the one that most needs it — alias
          types and table types are its flavor of the feature. Same version as
          tests/Extrode.JauntyQ.Tests, Extrode.JauntyQ.Explain.Tests and
          Extrode.JauntyQ.Schema.Contract.Tests, which already carry it. -->
-    <PackageReference Include="Testcontainers.MsSql" Version="4.14.0" />
+    <PackageReference Include="Testcontainers.MsSql" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj" />

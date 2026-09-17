@@ -7,6 +7,6 @@
     <Description>The jaunty.schema.json snapshot model and loader for JauntyQ: tables, columns, indexes, foreign keys, sequences, procedures, functions, enums and user types. Dependency-free apart from System.Text.Json; the generator links this source in, and Extrode.JauntyQ.Schema.Extraction and Extrode.JauntyQ.Schema.Contract build on the package.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 </Project>

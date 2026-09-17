@@ -69,7 +69,7 @@
 
   <!-- SourceLink for GitHub. -->
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 
   <!-- Every .nupkg carries the license (required by PackageLicenseFile), the

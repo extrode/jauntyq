@@ -17,10 +17,10 @@
          activates when XPlat Code Coverage is collected (see scripts/coverage.sh).
          Test-only dependency: the offline/AOT mandate applies to the shipped
          product, not the test suites. -->
-    <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <PackageReference Include="coverlet.collector" />
     <!-- Turns the Docker/Testcontainers soft-skip pattern into a real xUnit
          SKIP (Skip.IfNot) instead of a silent PASS. Test-only dependency. -->
-    <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
+    <PackageReference Include="Xunit.SkippableFact" />
   </ItemGroup>
   <ItemGroup>
     <!-- Shared CI-strictness gate for Docker-gated fixtures, compiled into
