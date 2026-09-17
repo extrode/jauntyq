@@ -6,7 +6,7 @@ namespace Extrode.JauntyQ.Cli.Tests;
 
 /// <summary>
 /// Guards the CLI's distribution channel. Before 2026-08-29 the CLI was a plain Exe with no
-/// IsPackable, so publish.yml never shipped it and every license-gated verb lived in a binary
+/// IsPackable, so release.yml never shipped it and every license-gated verb lived in a binary
 /// nobody could install. These assert the packaging identity, that the packed command name
 /// agrees with the command name the CLI prints at users, and that the publish workflow packs
 /// the solution rather than a project list a new package could fall out of.
@@ -83,7 +83,7 @@ public class ToolPackagingTests
     }
 
     /// <summary>
-    /// publish.yml packs the whole solution, so opting a project into IsPackable is all that is
+    /// release.yml packs the whole solution, so opting a project into IsPackable is all that is
     /// needed to ship it. If that ever becomes an explicit project list, a newly packable project
     /// would be silently omitted — which is the failure this CLI already suffered once.
     /// </summary>
@@ -91,7 +91,7 @@ public class ToolPackagingTests
     public void PublishWorkflow_PacksTheSolution()
     {
         string workflow = File.ReadAllText(Path.Combine(
-            RepoRoot(), ".github", "workflows", "publish.yml"));
+            RepoRoot(), ".github", "workflows", "release.yml"));
 
         Assert.Contains("dotnet pack JauntyQ.slnx", workflow);
     }

@@ -14,7 +14,7 @@ namespace Extrode.JauntyQ.Generator.Tests;
 /// .
 ///
 /// The stamp is two coupled facts and this suite asserts both, because breaking either silently
-/// is easy: <c>&lt;Version&gt;</c> must stay a bare literal on its own line, since publish.yml's
+/// is easy: <c>&lt;Version&gt;</c> must stay a bare literal on its own line, since release.yml's
 /// tag guard seds the first such line and compares it to the tag; and the -dev suffix must be
 /// appended off a tag build and absent on one.
 /// </summary>
@@ -32,7 +32,7 @@ public class VersionStampContractTests
     }
 
     /// <summary>
-    /// The exact value publish.yml's guard step computes:
+    /// The exact value release.yml's guard step computes:
     /// <c>sed -n 's/.*&lt;Version&gt;\(.*\)&lt;\/Version&gt;.*/\1/p' Directory.Build.props | head -1</c>.
     /// Reimplemented rather than shelled out so the test runs on Windows too.
     /// </summary>
@@ -48,7 +48,7 @@ public class VersionStampContractTests
                 return m.Groups["version"].Value;
         }
 
-        throw new Xunit.Sdk.XunitException("no <Version> element in Directory.Build.props; publish.yml's tag guard would compare the tag against an empty string and every tag would fail to publish.");
+        throw new Xunit.Sdk.XunitException("no <Version> element in Directory.Build.props; release.yml's tag guard would compare the tag against an empty string and every tag would fail to publish.");
     }
 
     [Fact]

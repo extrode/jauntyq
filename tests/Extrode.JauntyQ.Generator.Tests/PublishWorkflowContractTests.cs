@@ -16,7 +16,7 @@ public class PublishWorkflowContractTests
 
     // Normalized so the line-anchored patterns below hold on a CRLF checkout too.
     private static string Workflow() =>
-        File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", "publish.yml"))
+        File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", "release.yml"))
             .Replace("\r\n", "\n");
 
     private static string RootProps() =>
@@ -25,8 +25,8 @@ public class PublishWorkflowContractTests
 
     private static string PublishJob()
     {
-        var m = Regex.Match(Workflow(), @"(?ms)^  publish:\n(.*?)(?=^  \S|\z)");
-        Assert.True(m.Success, "publish.yml has no publish job");
+        var m = Regex.Match(Workflow(), @"(?ms)^  release:\n(.*?)(?=^  \S|\z)");
+        Assert.True(m.Success, "release.yml has no release job");
         return m.Groups[1].Value;
     }
 

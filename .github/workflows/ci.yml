@@ -90,7 +90,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Pack (artifacts only; publish.yml pushes to NuGet.org on a tag)
+      - name: Pack (artifacts only; release.yml pushes to NuGet.org on a tag)
         run: dotnet pack JauntyQ.slnx -c Release -o ./artifacts
 
       - name: Upload packages

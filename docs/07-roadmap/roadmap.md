@@ -111,7 +111,7 @@ Dropped:
   authoritative reference), alongside the CLI, configuration, snapshot-format,
   directives, and dialect references under `docs/06-reference/`. Full
   XML-doc-driven site generation (DocFX or similar) remains deferred; see below.
-- **SBOM generation.** `.github/workflows/publish.yml` generates a CycloneDX
+- **SBOM generation.** `.github/workflows/release.yml` generates a CycloneDX
   SBOM (`dotnet CycloneDX`) for every tagged release and attaches it alongside
   the packages, no signing cert needed for this part.
 - **Parser hardening (report M3).** Unterminated-token diagnostics (JNT1002)
