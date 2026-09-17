@@ -254,7 +254,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // full foreign key with a parent-collection query over the FK's
         // parent table, which needs the whole corpus plus the FK graph.
         var nPlusOneInput = perFile
-            .Select(static (r, _) => (Name: r.Summary.EntityName + "." + r.Summary.MethodName, Path: r.Path, Query: r.Query))
+            .Select(static (r, _) => (Name: r.Summary.EntityName + "." + r.Summary.MethodName, Path: r.Path, Query: r.Query, AllowNPlusOneReason: r.AllowNPlusOneReason))
             .Collect()
             .Combine(schemaState)
             .WithTrackingName("JauntyQ_NPlusOne");

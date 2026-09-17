@@ -177,6 +177,7 @@ class Extrode.JauntyQ.Generator.CodeEmitter
     method InferParameterType(String,QueryModel,ProjectionModel,DatabaseSchema,DirectiveModel):String
 class Extrode.JauntyQ.Generator.Directives.DirectiveModel
     ctor .ctor()
+    prop AllowNPlusOneReason:String
     prop AllowSortReason:String
     prop AllowUnindexedReason:String
     prop CallProcName:String
@@ -288,6 +289,7 @@ class Extrode.JauntyQ.Generator.JauntyDiagnostics
     field JNT8010:DiagnosticDescriptor
     field JNT8011:DiagnosticDescriptor
     field JNT8012:DiagnosticDescriptor
+    field JNT8013:DiagnosticDescriptor
     field JNT9001:DiagnosticDescriptor
     field JNT9002:DiagnosticDescriptor
     field JNT9003:DiagnosticDescriptor

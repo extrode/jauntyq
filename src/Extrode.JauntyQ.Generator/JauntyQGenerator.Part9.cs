@@ -46,7 +46,14 @@ internal sealed class FileResult
     /// </summary>
     public string? MirrorsTarget { get; }
 
-    public FileResult(string? hintName, string? source, ImmutableArray<DiagnosticInfo> diagnostics, FileSummary summary, string? fingerprint = null, QueryModel? query = null, string? path = null, string? mirrorsTarget = null)
+    /// <summary>
+    /// The <c>-- @allow-n-plus-one</c> reason this file declared, verbatim.
+    /// Kept for the JNT8008/JNT8013 pass at the aggregate stage, the only place
+    /// the child/parent pairing is decided. Null when the directive is absent.
+    /// </summary>
+    public string? AllowNPlusOneReason { get; }
+
+    public FileResult(string? hintName, string? source, ImmutableArray<DiagnosticInfo> diagnostics, FileSummary summary, string? fingerprint = null, QueryModel? query = null, string? path = null, string? mirrorsTarget = null, string? allowNPlusOneReason = null)
     {
         HintName = hintName;
         Source = source;
@@ -56,6 +63,7 @@ internal sealed class FileResult
         Query = query;
         Path = path;
         MirrorsTarget = mirrorsTarget;
+        AllowNPlusOneReason = allowNPlusOneReason;
     }
 
     public static FileResult None(string entityName, string methodName, bool claims) =>
