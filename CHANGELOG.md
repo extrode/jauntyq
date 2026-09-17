@@ -37,6 +37,8 @@ condensed.
   that runs the same SQL through every dialect the generator supports.
 - **Trusted publishing.** Releases go to NuGet.org through NuGet's OIDC login from a reviewed
   GitHub environment; no publishing key exists to leak.
+- **`-- @allow-n-plus-one <reason>`**, a per-query opt-out for `JNT8008` (possible N+1 access
+  pattern), with **`JNT8013`** for a dead suppression that never matched an N+1 child lookup.
 
 ### Changed
 - **The command is `jauntyq`, not `jaunty`.** The old name collided with a sibling product.

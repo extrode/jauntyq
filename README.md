@@ -208,6 +208,7 @@ Directives are `--` comment lines at the top of a `.sql` file, stripped from the
 | `-- @mirrors OtherQuery` | Declares this query's WHERE must match another query's, and has the build check it (`JNT8011`) — for a paginated list and its count query drifting apart. |
 | `-- @allow-unindexed <reason>` | Accepts an unindexed filter column deliberately, suppressing `JNT8004` for this query only. Reason is mandatory. |
 | `-- @allow-sort <reason>` | Accepts a runtime sort deliberately, suppressing `JNT8007` for this query only. Reason is mandatory. |
+| `-- @allow-n-plus-one <reason>` | Accepts a point-lookup query deliberately, suppressing `JNT8008` for this query only. Reason is mandatory. |
 
 A parameter type the parser can't infer from the SQL is a build error (`JNT4003`) naming the exact
 fix, never a silent `object` fallback.

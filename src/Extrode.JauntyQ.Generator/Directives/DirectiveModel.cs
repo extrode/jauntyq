@@ -137,10 +137,12 @@ public class DirectiveModel
     /// declined and reported as JNT3008), nothing else silenced, and a directive
     /// that suppresses nothing reported as JNT8013.
     ///
-    /// JNT8013 rather than JNT8012 because JNT8008 is decided at the aggregate
-    /// stage, where the whole corpus is visible, so the dead-directive check
-    /// lives there too — and a dedicated code keeps each check resting on its
-    /// own evidence. Null when the directive is absent.
+    /// JNT8013 rather than JNT8012 because the two dead-directive checks rest
+    /// on different evidence: JNT8012 (allow-unindexed) reads index metadata,
+    /// JNT8013 (allow-n-plus-one) reads the FK graph and the query corpus.
+    /// A consumer configures diagnostic severity per code, so someone who
+    /// silences JNT8012 for stale index acceptances should not also lose the
+    /// dead-N+1 check by sharing its code. Null when the directive is absent.
     /// </summary>
     public string? AllowNPlusOneReason { get; set; }
 

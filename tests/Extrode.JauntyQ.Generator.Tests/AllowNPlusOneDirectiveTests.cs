@@ -165,6 +165,7 @@ public class AllowNPlusOneDirectiveTests
 
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT3002");
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8013");
     }
 
     [Fact]
@@ -176,5 +177,110 @@ public class AllowNPlusOneDirectiveTests
                 "-- @allow-unindexed the order_id index ships in migration 0042\n" + ChildGetByOrderId));
 
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT8008");
+    }
+
+    [Fact]
+    public void DirectiveOnTheParent_LeavesTheChildsJNT8008Firing_AndGetsItsOwnJNT8013()
+    {
+        var result = Run(
+            ("db/Orders/GetAll.sql", $"-- @allow-n-plus-one {Reason}\n" + ParentGetAll),
+            ("db/OrderItems/GetByOrderId.sql", ChildGetByOrderId));
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8008");
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT8013");
+        Assert.Equal("db/Orders/GetAll.sql", diag.Location.GetLineSpan().Path);
+    }
+
+    [Fact]
+    public void DirectiveOnAnAlreadySetBasedChild_IsReportedAsJNT8013()
+    {
+        var result = Run(
+            ("db/Orders/GetAll.sql", ParentGetAll),
+            ("db/OrderItems/GetByOrderIds.sql",
+                $"-- @allow-n-plus-one {Reason}\nselect order_item_id, sku, quantity\nfrom order_items\n" +
+                "-- @each OrderIds\nwhere order_items.order_id in (@OrderIds)"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8013");
+    }
+
+    [Fact]
+    public void JNT8013_IsAnchoredAtTheChildsSqlPath()
+    {
+        var result = Run(
+            ("db/OrderItems/GetByOrderId.sql", $"-- @allow-n-plus-one {Reason}\n" + ChildGetByOrderId));
+
+        var diag = Assert.Single(result.Diagnostics, d => d.Id == "JNT8013");
+        Assert.Equal("db/OrderItems/GetByOrderId.sql", diag.Location.GetLineSpan().Path);
+    }
+
+    [Fact]
+    public void RepeatedDirective_IsReportedAsJNT3011()
+    {
+        var result = Run(
+            ("db/Orders/GetAll.sql", ParentGetAll),
+            ("db/OrderItems/GetByOrderId.sql",
+                $"-- @allow-n-plus-one {Reason}\n-- @allow-n-plus-one a different reason\n" + ChildGetByOrderId));
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT3011");
+    }
+
+    [Fact]
+    public void AllowUnindexedAndAllowNPlusOne_BothLive_SuppressBothWithNeitherDeadDirectiveWarning()
+    {
+        const string unindexedSchema = @"{
+  ""dialect"": ""sqlserver"",
+  ""tables"": {
+    ""orders"": {
+      ""name"": ""orders"",
+      ""columns"": {
+        ""order_id"": { ""name"": ""order_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""customer_name"": { ""name"": ""customer_name"", ""dbType"": ""nvarchar"", ""isNullable"": false, ""maxLength"": 60 },
+        ""placed_at"": { ""name"": ""placed_at"", ""dbType"": ""datetime"", ""isNullable"": false }
+      },
+      ""indexes"": []
+    },
+    ""order_items"": {
+      ""name"": ""order_items"",
+      ""columns"": {
+        ""order_item_id"": { ""name"": ""order_item_id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""order_id"": { ""name"": ""order_id"", ""dbType"": ""int"", ""isNullable"": false },
+        ""sku"": { ""name"": ""sku"", ""dbType"": ""nvarchar"", ""isNullable"": false, ""maxLength"": 40 },
+        ""quantity"": { ""name"": ""quantity"", ""dbType"": ""int"", ""isNullable"": false }
+      },
+      ""indexes"": []
+    }
+  },
+  ""foreignKeys"": [
+    { ""fromTable"": ""order_items"", ""fromColumn"": ""order_id"", ""toTable"": ""orders"", ""toColumn"": ""order_id"" }
+  ]
+}";
+
+        var compilation = CSharpCompilation.Create("AllowNPlusOneTestAssembly",
+            new[] { CSharpSyntaxTree.ParseText("") },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var texts = new List<AdditionalText>
+        {
+            new InMemoryAdditionalText("schema/jaunty.schema.json", unindexedSchema),
+            new InMemoryAdditionalText("db/Orders/GetAll.sql", ParentGetAll),
+            new InMemoryAdditionalText("db/OrderItems/GetByOrderId.sql",
+                "-- @allow-unindexed the order_id index ships in migration 0042\n" +
+                $"-- @allow-n-plus-one {Reason}\n" + ChildGetByOrderId),
+        };
+
+        var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
+            .AddAdditionalTexts(texts.ToImmutableArray())
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud: false));
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
+        var result = driver.GetRunResult();
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8004");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8012");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8013");
     }
 }
