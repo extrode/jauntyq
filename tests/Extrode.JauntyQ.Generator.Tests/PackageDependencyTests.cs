@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Threading.Tasks;
 using System.Xml.Linq;
 using Xunit;
 
@@ -175,9 +176,15 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
                 UseShellExecute = false,
             };
             using var p = Process.Start(psi)!;
-            string stdout = p.StandardOutput.ReadToEnd();
-            string stderr = p.StandardError.ReadToEnd();
+            // Reading stdout and stderr synchronously in sequence deadlocks: if the
+            // child fills the unread stream's OS pipe buffer before exiting, it blocks
+            // on that write while this thread blocks on the other ReadToEnd(). Read
+            // both concurrently instead.
+            Task<string> stdoutTask = p.StandardOutput.ReadToEndAsync();
+            Task<string> stderrTask = p.StandardError.ReadToEndAsync();
             p.WaitForExit();
+            string stdout = stdoutTask.Result;
+            string stderr = stderrTask.Result;
             Assert.True(p.ExitCode == 0, $"dotnet pack {project} failed ({p.ExitCode}):\n{stdout}\n{stderr}");
         }
 
