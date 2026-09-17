@@ -1,5 +1,7 @@
 # Publishes the Extrode.JauntyQ.* packages and the Extrode.JauntyQ.Cli tool to NuGet.org and
-# attaches them to a GitHub Release. Triggered by version tags only:
+# attaches them to a GitHub Release. Untouched since the pre-public force-push, so GitHub Actions
+# never scanned and registered it; this comment is the touch that gets it discovered.
+# Triggered by version tags only:
 #
 #   git tag v0.5.0 && git push origin v0.5.0
 #
