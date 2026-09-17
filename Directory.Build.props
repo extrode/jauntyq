@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared package and versioning metadata. Applies to every project; the
        actual .nupkg outputs are gated per project with <IsPackable>. Packages
-       publish to NuGet.org via .github/workflows/publish.yml on v* tags; the
+       publish to NuGet.org via .github/workflows/release.yml on v* tags; the
        workflow authenticates with NuGet trusted publishing, so no publish keys
        live here or in the repository secrets. -->
   <PropertyGroup>
@@ -15,11 +15,11 @@
          Appended to <Version> rather than expressed as <VersionSuffix>, because
          MSBuild ignores VersionPrefix/VersionSuffix entirely once <Version> is
          set, and <Version> has to stay a literal on its own line for
-         publish.yml's tag guard to sed it out. That guard takes `head -1`, so
+         release.yml's tag guard to sed it out. That guard takes `head -1`, so
          it reads 0.5.0 and is unaffected by the line below.
 
          GITHUB_REF_TYPE is 'tag' only on a tag build, which is the only trigger
-         publish.yml has, so a published package is bare and everything else,
+         release.yml has, so a published package is bare and everything else,
          including a CI build of dev and every local build, is -dev. Override
          with -p:JauntyQDevSuffix=false to pack a release-shaped package by
          hand. -->
