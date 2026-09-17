@@ -1,6 +1,6 @@
 # Publishes the Extrode.JauntyQ.* packages and the Extrode.JauntyQ.Cli tool to NuGet.org and
-# attaches them to a GitHub Release. Untouched since the pre-public force-push, so GitHub Actions
-# never scanned and registered it; this comment is the touch that gets it discovered.
+# attaches them to a GitHub Release. Named release.yml to match jaunty's workflow naming
+# convention (both repos' nuget.org trusted-publishing policies name this file explicitly).
 # Triggered by version tags only:
 #
 #   git tag v0.5.0 && git push origin v0.5.0
@@ -11,9 +11,9 @@
 # Trusted publishing (OIDC), not a stored key. There is no API key secret to
 # rotate or leak: NuGet/login exchanges the workflow's short-lived OIDC token
 # for a key valid for one hour. The policy on nuget.org must name this file,
-# publish.yml, and the environment `packages`, because the job below declares
+# release.yml, and the environment `packages`, because the job below declares
 # it. Setting one without the other fails the token exchange.
-name: publish
+name: release
 
 on:
   push:
@@ -52,7 +52,7 @@ jobs:
             exit 1
           fi
 
-  publish:
+  release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     # A tag push builds and tests, then waits here for a required reviewer
