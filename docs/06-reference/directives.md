@@ -33,6 +33,7 @@ stripped from the emitted `CommandText`; the SQL that runs never contains them.
 | [`-- @mirrors`](#-mirrors) | any with a WHERE | Declare that this query filters identically to another, and have the build check it. |
 | [`-- @allow-unindexed`](#-allow-unindexed) | any with a WHERE | Accept this query's unindexed filter columns deliberately. Reason mandatory. |
 | [`-- @allow-sort`](#-allow-sort) | any with an ORDER BY | Accept this query's runtime sort deliberately. Reason mandatory. |
+| [`-- @allow-n-plus-one`](#-allow-n-plus-one) | any child point lookup by a foreign key | Accept this query's N+1 shape deliberately. Reason mandatory. |
 
 ---
 
@@ -368,6 +369,45 @@ backward scan plus an incremental sort for the tiebreak, and from `(a DESC, b)`
 with no sort at all. When ties on `a` are common that difference is real and no
 JauntyQ diagnostic will point at it.
 
+### `-- @allow-n-plus-one`
+
+Accepts this query's N+1 access pattern deliberately, suppressing `JNT8008` for
+this query and nothing else. A reason is required.
+
+```sql
+-- @allow-n-plus-one one customer at a time on the service desk screen, never called per row of a list
+SELECT rental.rental_id, rental.rental_date
+FROM rental
+WHERE rental.customer_id = @CustomerId
+```
+
+**Why it exists.** Unlike its siblings, `JNT8008` already has a suppression
+route: it is an ordinary Roslyn diagnostic, so `<NoWarn>$(NoWarn);JNT8008</NoWarn>`
+or `dotnet_diagnostic.JNT8008.severity = none` turns it off. That route is
+project- or file-wide and carries no reason in the diff, which is the wrong
+shape for this rule: JNT8008 is a corpus-level heuristic, so the query it
+misjudges is usually one query among many the rule gets right, and switching the
+whole code off to accept that one takes the rest of the corpus down with it.
+This directive is the per-query alternative, with the justification recorded
+where the decision was made.
+
+**The reason is mandatory.** A bare `-- @allow-n-plus-one` suppresses nothing and
+is reported as `JNT3008`, like every other value-taking directive written bare.
+The reason is the whole point: it puts the decision in the query file, where it
+shows up in the diff and can be argued with at review time. A suppression whose
+justification is not written down is a `NoWarn` entry with extra steps.
+
+**It suppresses only `JNT8008`.** Every other diagnostic the query would raise
+still fires, `JNT8004` included, accepting a per-row lookup is not accepting a
+scan on top of it.
+
+**A suppression that suppresses nothing is reported** (`JNT8013`, not `JNT8012`,
+which is its siblings' code). Once the pairing that justified the directive is
+gone, because the parent-collection query was deleted or the child lookup was
+made set-based, the directive stops hiding an accepted pattern and starts hiding
+a future one, so the build asks for it to be removed. The message repeats the
+stated reason.
+
 ## Related diagnostics
 
 `JNT3003` (invalid directive combination), `JNT7001` (identity unavailable),
@@ -375,4 +415,5 @@ JauntyQ diagnostic will point at it.
 `JNT4003` (parameter type unresolved), `JNT2004` (illegal identifier),
 `JNT2005` (procedure not found), `JNT3006` (unknown `@type` alias),
 `JNT8004` (unindexed filter column), `JNT8012` (unnecessary unindexed
-acceptance). Full list in [diagnostics](diagnostics.md).
+acceptance), `JNT8013` (unnecessary N+1 acceptance). Full list in
+[diagnostics](diagnostics.md).

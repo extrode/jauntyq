@@ -673,7 +673,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             ComputeFingerprint(tokens),
             queryModel,
             sqlFile.Path,
-            directives.MirrorsTarget);
+            directives.MirrorsTarget,
+            directives.AllowNPlusOneReason);
     }
 
     /// <summary>

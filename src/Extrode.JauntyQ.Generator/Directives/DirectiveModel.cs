@@ -130,13 +130,29 @@ public class DirectiveModel
     public string? AllowSortReason { get; set; }
 
     /// <summary>
+    /// The stated reason from: -- @allow-n-plus-one &lt;reason&gt;
+    /// Suppresses JNT8008 (cross-query N+1 access pattern) for THIS query only,
+    /// on the same terms as its siblings <see cref="AllowUnindexedReason"/> and
+    /// <see cref="AllowSortReason"/>: reason mandatory (the bare directive is
+    /// declined and reported as JNT3008), nothing else silenced, and a directive
+    /// that suppresses nothing reported as JNT8013.
+    ///
+    /// JNT8013 rather than JNT8012 because JNT8008 is decided at the aggregate
+    /// stage, where the whole corpus is visible, so the dead-directive check
+    /// lives there too — and a dedicated code keeps each check resting on its
+    /// own evidence. Null when the directive is absent.
+    /// </summary>
+    public string? AllowNPlusOneReason { get; set; }
+
+    /// <summary>
     /// True if any directives were specified.
     /// </summary>
     public bool HasDirectives =>
         ResultTypeName != null || ResultIsVoid || InlineColumns != null
         || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity || IsStream
         || CallProcName != null || TypeDirectives != null || EachParams != null
-        || MirrorsTarget != null || AllowUnindexedReason != null || AllowSortReason != null;
+        || MirrorsTarget != null || AllowUnindexedReason != null || AllowSortReason != null
+        || AllowNPlusOneReason != null;
 
     /// <summary>
     /// JNT3008 warning messages for directive-lookalike comment lines that
