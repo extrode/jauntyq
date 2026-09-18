@@ -37,6 +37,9 @@ condensed.
   that runs the same SQL through every dialect the generator supports.
 - **Trusted publishing.** Releases go to NuGet.org through NuGet's OIDC login from a reviewed
   GitHub environment; no publishing key exists to leak.
+- **Free/core packages also publish to GitHub Packages**, using the workflow's own `GITHUB_TOKEN`
+  (scoped to the run, not a stored secret), so they list under this repo's own Packages sidebar.
+  NuGet.org stays the primary feed the README's install line depends on.
 - **`-- @allow-n-plus-one <reason>`**, a per-query opt-out for `JNT8008` (possible N+1 access
   pattern), with **`JNT8013`** for a dead suppression that never matched an N+1 child lookup.
 

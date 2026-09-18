@@ -53,7 +53,14 @@ public class PublishWorkflowContractTests
     public void Workflow_KeepsNoLongLivedApiKey()
     {
         Assert.DoesNotMatch(@"secrets\.NUGET", Workflow());
-        Assert.DoesNotContain("nuget.pkg.github.com", Workflow());
+    }
+
+    [Fact]
+    public void PublishJob_AlsoPushesToGitHubPackages()
+    {
+        Assert.Contains("nuget.pkg.github.com", PublishJob());
+        Assert.Contains("secrets.GITHUB_TOKEN", PublishJob());
+        Assert.Matches(@"(?m)^\s+packages:\s*write\b", PublishJob());
     }
 
     [Fact]
