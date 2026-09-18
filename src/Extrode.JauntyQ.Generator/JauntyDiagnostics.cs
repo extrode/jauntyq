@@ -834,6 +834,19 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // The companion to -- @allow-n-plus-one, on the same terms as JNT8012 is
+    // to -- @allow-unindexed: the directive is present but this query was never
+    // matched as an N+1 child lookup, so it silences nothing. Its own code
+    // rather than JNT8012's because the verdict is reached at the aggregate
+    // stage, where the whole corpus is visible, not per file.
+    public static readonly DiagnosticDescriptor JNT8013 = new(
+        "JNT8013",
+        "Unnecessary N+1 Acceptance",
+        "{0}",
+        "JauntyQ.Performance",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 9xxx: Migrations ──────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT9001 = new(

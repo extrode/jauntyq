@@ -19,7 +19,11 @@ namespace Extrode.JauntyQ.Generator;
 /// column, or joins/reads the parent table) never fires; a parent query
 /// narrowed to a single row by its primary key is not a collection; an
 /// aggregate-only parent projection returns one row, not a collection; and
-/// with no foreign keys in the snapshot the pass is inert.
+/// with no foreign keys in the snapshot the pass is inert. Alongside those
+/// structural guards a child lookup may carry <c>-- @allow-n-plus-one
+/// &lt;reason&gt;</c>, the explicit, reason-carrying suppression: it silences
+/// JNT8008 for that query only, and is itself reported as JNT8013 when it
+/// suppresses nothing.
 /// </summary>
 internal static class NPlusOneAnalyzer
 {
@@ -40,14 +44,16 @@ internal static class NPlusOneAnalyzer
 
     /// <summary>
     /// Analyzes the whole query corpus against the snapshot's FK graph and
-    /// returns the JNT8008 diagnostics. <paramref name="corpus"/> entries with
-    /// a null query (files that failed validation, @call procs, empty files)
-    /// are skipped. At most one diagnostic is emitted per child lookup, and
-    /// identical inputs always produce identical output (entries and FK groups
-    /// are processed in sorted order).
+    /// returns the JNT8008 diagnostics, plus JNT8013 for every
+    /// <c>-- @allow-n-plus-one</c> that matched no child lookup and so
+    /// suppressed nothing. <paramref name="corpus"/> entries with a null query
+    /// (files that failed validation, @call procs, empty files) are skipped. At
+    /// most one diagnostic is emitted per child lookup, and identical inputs
+    /// always produce identical output (entries and FK groups are processed in
+    /// sorted order).
     /// </summary>
     public static List<Diagnostic> Analyze(
-        IReadOnlyList<(string Name, string? Path, QueryModel? Query)> corpus,
+        IReadOnlyList<(string Name, string? Path, QueryModel? Query, string? AllowNPlusOneReason)> corpus,
         DatabaseSchema schema)
     {
         var diagnostics = new List<Diagnostic>();
@@ -60,15 +66,29 @@ internal static class NPlusOneAnalyzer
         if (fkGroups.Count == 0)
             return diagnostics;
 
-        // Classify each parsed SELECT once.
+        // Classify each parsed SELECT once. The -- @allow-n-plus-one reasons
+        // are collected alongside: QueryFacts has no use for them, the pairing
+        // loop below looks them up by name, and whichever of them never
+        // suppressed anything is reported as JNT8013 at the end.
         var facts = new List<QueryFacts>();
-        foreach (var (name, path, query) in corpus)
+        var reasonByName = new Dictionary<string, string>(StringComparer.Ordinal);
+        var declared = new List<(string Name, string? Path, string Reason)>();
+        foreach (var (name, path, query, allowNPlusOneReason) in corpus)
         {
+            if (allowNPlusOneReason != null)
+            {
+                reasonByName[name] = allowNPlusOneReason;
+                declared.Add((name, path, allowNPlusOneReason));
+            }
+
             if (query == null || query.StatementType != StatementType.Select || query.Tables.Count == 0)
                 continue;
             facts.Add(QueryFacts.Build(name, path, query, schema));
         }
         facts.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
+        declared.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
+
+        var suppressedNames = new HashSet<string>(StringComparer.Ordinal);
 
         // Name -> facts, so a candidate parent collection can be inspected (e.g.
         // to see whether it already joins the child table).
@@ -153,11 +173,33 @@ internal static class NPlusOneAnalyzer
                 if (parent == null)
                     continue;
 
+                // -- @allow-n-plus-one: the pairing stands, the report does not.
+                // The break still happens -- the lookup WAS matched, which is
+                // what keeps the directive out of the JNT8013 list below.
+                if (reasonByName.ContainsKey(fact.Name))
+                {
+                    suppressedNames.Add(fact.Name);
+                    break;
+                }
+
                 // Anchor to the child lookup's .sql file so the IDE can navigate.
                 diagnostics.Add(Diagnostic.Create(JauntyDiagnostics.JNT8008, JauntyQGenerator.FileLocation(fact.Path),
                     BuildMessage(fact, group, parent)));
                 break; // at most once per child lookup (FR-007)
             }
+        }
+
+        // JNT8013: a directive that suppressed nothing. Same reasoning as
+        // JNT8012 one level up -- an exemption outliving the condition that
+        // justified it is how an escape hatch becomes the default.
+        foreach (var entry in declared)
+        {
+            if (suppressedNames.Contains(entry.Name))
+                continue;
+            diagnostics.Add(Diagnostic.Create(JauntyDiagnostics.JNT8013, JauntyQGenerator.FileLocation(entry.Path),
+                "-- @allow-n-plus-one is declared but this query was never matched as an N+1 child " +
+                "lookup against any parent-collection query in the corpus, so it suppresses nothing. " +
+                $"Remove the directive. (Stated reason: {entry.Reason})"));
         }
 
         return diagnostics;

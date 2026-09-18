@@ -81,7 +81,7 @@ the value-safety step later in this guide possible.
 ## Step 2: Pull a schema snapshot
 
 ```bash
-dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull \
+dotnet run --project src/Extrode.JauntyQ.Cli -f net8.0 -- schema pull \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json
@@ -213,7 +213,7 @@ sqlite3 tutorial.db "ALTER TABLE Products RENAME COLUMN ProductName TO Name;"
 Re-pull the snapshot so it reflects the live database:
 
 ```bash
-dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull \
+dotnet run --project src/Extrode.JauntyQ.Cli -f net8.0 -- schema pull \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json

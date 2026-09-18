@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DDL as schema source — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Guides &#8250; DDL as schema source</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html" class="active" aria-current="page">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#when-to-use-it">When to use it</a><a class="toc-l2" href="#setup">Setup</a><a class="toc-l2" href="#precedence-json-snapshot-always-wins">Precedence: JSON snapshot always wins</a><a class="toc-l2" href="#migrations-still-apply-on-top">Migrations still apply on top</a><a class="toc-l2" href="#supported-ddl">Supported DDL</a><a class="toc-l2" href="#diagnostics">Diagnostics</a><a class="toc-l2" href="#limitations">Limitations</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Guides &#8250; DDL as schema source</nav>
+        <article>
+<h1 id="ddl-as-schema-source">DDL as schema source</h1>
+<p>JauntyQ normally validates your queries against a schema snapshot you pull from
+a live database with <code>jauntyq schema pull</code> and commit as <code>.schema.json</code>. DDL mode
+is an <em>alternative</em> input for projects that would rather define the schema from
+<code>CREATE TABLE</code> files, with no database connection ever required, sqlc-style.</p>
+<h2 id="when-to-use-it">When to use it</h2>
+<ul>
+<li>You keep your schema as checked-in DDL and do not want a separate snapshot
+step.</li>
+<li>CI has no database to pull from and you would rather not commit a JSON
+snapshot.</li>
+<li>You are prototyping a schema before any database exists.</li>
+</ul>
+<p>If you already pull a <code>.schema.json</code>, keep doing that: the snapshot carries
+richer metadata (see <a href="#limitations">Limitations</a>).</p>
+<h2 id="setup">Setup</h2>
+<ol>
+<li><p>Put your schema DDL under a <code>db/ddl/</code> folder, ordered by filename:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">db/
+  ddl/
+    001_schema.sql
+    002_more_tables.sql
+</code></pre>
+</div>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- db/ddl/001_schema.sql</span>
+<span class="tok-kw">CREATE</span> <span class="tok-kw">TABLE</span> Widgets (
+    WidgetId  <span class="tok-type">INTEGER</span> <span class="tok-kw">PRIMARY</span> <span class="tok-kw">KEY</span>,
+    Name      <span class="tok-type">TEXT</span> <span class="tok-kw">NOT</span> <span class="tok-kw">NULL</span>,
+    Quantity  <span class="tok-type">INTEGER</span> <span class="tok-kw">NOT</span> <span class="tok-kw">NULL</span>
+);
+</code></pre>
+</div>
+</li>
+<li><p>Declare the dialect in the <code>.csproj</code> (DDL mode has no snapshot to infer it
+from):</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">JauntyQDialect</span><span class="tok-punc">&gt;</span>sqlite<span class="tok-punc">&lt;/</span><span class="tok-tag">JauntyQDialect</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+
+<span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\**\*.sql&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p>Valid values: <code>sqlserver</code>, <code>postgres</code>, <code>mysql</code>, <code>sqlite</code>. The standard
+<code>db\**\*.sql</code> glob already picks up <code>db/ddl/*.sql</code>; you do not need a separate
+entry. When you consume JauntyQ as a package, <code>&lt;JauntyQDialect&gt;</code> reaches the
+generator automatically (the package ships the property registration); no
+extra <code>&lt;CompilerVisibleProperty&gt;</code> is required.</p>
+</li>
+<li><p>Do <strong>not</strong> commit a <code>db/schema/*.schema.json</code> snapshot for this project. See
+precedence below.</p>
+</li>
+</ol>
+<p>That is all. Build the project and the full typed surface (auto-CRUD, row
+POCOs, value-safety guards) is generated from the DDL exactly as it would be
+from a pulled snapshot.</p>
+<h2 id="precedence-json-snapshot-always-wins">Precedence: JSON snapshot always wins</h2>
+<p>DDL mode is only active when <strong>no</strong> <code>.schema.json</code> snapshot is present. If a
+snapshot is present, it is authoritative and any <code>db/ddl/*.sql</code> files are
+silently ignored (no merge, no error). This keeps a pulled snapshot the single
+source of truth whenever you have one.</p>
+<h2 id="migrations-still-apply-on-top">Migrations still apply on top</h2>
+<p><code>db/migrations/*.sql</code> migrations are applied on top of the DDL-built base schema
+exactly as they apply on top of a pulled snapshot. The base schema (from DDL) is
+built first, then migrations simulate on top of it.</p>
+<h2 id="supported-ddl">Supported DDL</h2>
+<p>The same subset the migration simulator understands:</p>
+<ul>
+<li><code>CREATE TABLE</code>, column definitions, type facets, <code>NOT NULL</code>, <code>PRIMARY KEY</code>
+(inline or table-level), <code>IDENTITY</code>.</li>
+<li><code>DROP TABLE [IF EXISTS]</code>.</li>
+<li><code>ALTER TABLE ADD / DROP COLUMN / ALTER COLUMN</code> (plus MySQL <code>MODIFY</code> and
+PostgreSQL <code>TYPE</code>).</li>
+</ul>
+<p>Statements split on <code>;</code> and <code>GO</code>. Index, transaction, and permission statements
+are ignored (they cannot change the model JauntyQ needs). Anything else, renames
+in particular, is <code>JNT9001</code> (a warning that the effective schema may be
+incomplete). DDL that is invalid against the schema being built (creating a
+table that exists, dropping one that does not) is <code>JNT9002</code> (an error).</p>
+<h2 id="diagnostics">Diagnostics</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>JNT9003</code></td>
+<td><code>db/ddl/*.sql</code> files are present with no snapshot, but <code>&lt;JauntyQDialect&gt;</code> is missing or not one of <code>sqlserver</code>/<code>postgres</code>/<code>mysql</code>/<code>sqlite</code>.</td>
+</tr>
+<tr>
+<td><code>JNT9002</code></td>
+<td>A DDL statement targets a table/column that does not exist (or already exists).</td>
+</tr>
+<tr>
+<td><code>JNT9001</code></td>
+<td>A DDL statement is not simulated (e.g. a rename); the effective schema may be incomplete.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="limitations">Limitations</h2>
+<p>The migration parser and schema simulator do <strong>not</strong> carry secondary
+<code>UNIQUE</code>-index metadata. A DDL-sourced table exposes its primary key, identity,
+and column types, but no secondary unique indexes. Two consequences, both
+matching every migration-based schema (not specific to DDL mode):</p>
+<ul>
+<li>The <code>JNT8004</code> composite-index performance check and Upsert alternate-key
+resolution only ever see the primary key for a DDL-sourced table.</li>
+<li>If you rely on unique-index-aware performance analysis or alternate-key
+upserts, pull a <code>.schema.json</code> snapshot instead; it captures index metadata.</li>
+</ul>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="03-guides-contract-testing.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Database contract testing</span>
+</a><a class="pn-next" href="03-guides-explain-analysis.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Live EXPLAIN plan analysis</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

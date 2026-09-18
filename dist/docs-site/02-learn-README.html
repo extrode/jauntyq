@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your first hour with JauntyQ — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Learn &#8250; Your first hour with JauntyQ</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html" class="active" aria-current="page">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#what-youll-build">What you'll build</a><a class="toc-l2" href="#how-the-pieces-fit-together">How the pieces fit together</a><a class="toc-l2" href="#step-1-create-the-database">Step 1: Create the database</a><a class="toc-l2" href="#step-2-pull-a-schema-snapshot">Step 2: Pull a schema snapshot</a><a class="toc-l2" href="#step-3-wire-up-the-generator">Step 3: Wire up the generator</a><a class="toc-l2" href="#step-4-zero-sql-full-crud">Step 4: Zero SQL, full CRUD</a><a class="toc-l2" href="#step-5-your-first-custom-query">Step 5: Your first custom query</a><a class="toc-l2" href="#step-6-one-row-not-a-list------first">Step 6: One row, not a list - -- @first</a><a class="toc-l2" href="#step-7-getting-the-new-id-back------identity">Step 7: Getting the new id back - -- @identity</a><a class="toc-l2" href="#step-8-break-the-build-on-purpose">Step 8: Break the build on purpose</a><a class="toc-l2" href="#step-9-transactions-with-jauntydb">Step 9: Transactions with JauntyDb</a><a class="toc-l2" href="#step-10-a-value-safety-error-on-purpose">Step 10: A value-safety error, on purpose</a><a class="toc-l2" href="#what-you-now-have">What you now have</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Learn &#8250; Your first hour with JauntyQ</nav>
+        <article>
+<h1 id="your-first-hour-with-jauntyq">Your first hour with JauntyQ</h1>
+<p>This is a hands-on walkthrough, not a reference page. You will create a tiny SQLite
+database, point JauntyQ at it, and watch typed C# appear before you write a single
+<code>.sql</code> file. Then you will write your first query, break the build on purpose (twice,
+for two different reasons), and see why both breaks are good news.</p>
+<p>Everything here runs against SQLite, so there is no server to install and no
+connection string to fight with. The APIs and directives are identical on SQL
+Server, PostgreSQL, and MySQL - only the <code>--provider</code> flag and the connection
+string change.</p>
+<h2 id="what-youll-build">What you'll build</h2>
+<p>A <code>tutorial</code> project with:</p>
+<ul>
+<li>A <code>tutorial.db</code> SQLite file with two tables and a foreign key.</li>
+<li>A committed schema snapshot (<code>db/schema/jaunty.schema.json</code>).</li>
+<li>Zero hand-written SQL at first, then two small <code>.sql</code> files.</li>
+<li>A generator wired into the <code>.csproj</code> that turns both of those into typed C#.</li>
+</ul>
+<h2 id="how-the-pieces-fit-together">How the pieces fit together</h2>
+<p>JauntyQ never talks to your database at build time. It reads two things you
+committed - your <code>.sql</code> files and a schema snapshot - and emits C#. Nothing here
+requires a live connection during <code>dotnet build</code>.</p>
+<figure class="diagram" style="--dw:1077px"><svg id="dg0" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width:1077px;" viewBox="0 0 1077.46875 210" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#dg0{font-family:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;font-size:14px;fill:var(--dg-text, #e6edf3);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#dg0 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#dg0 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#dg0 .error-icon{fill:var(--dg-cluster-bg, #141922);}#dg0 .error-text{fill:var(--dg-edge-label, #ebe6dd);stroke:var(--dg-edge-label, #ebe6dd);}#dg0 .edge-thickness-normal{stroke-width:1px;}#dg0 .edge-thickness-thick{stroke-width:3.5px;}#dg0 .edge-pattern-solid{stroke-dasharray:0;}#dg0 .edge-thickness-invisible{stroke-width:0;fill:none;}#dg0 .edge-pattern-dashed{stroke-dasharray:3;}#dg0 .edge-pattern-dotted{stroke-dasharray:2;}#dg0 .marker{fill:var(--dg-line, #8b97a8);stroke:var(--dg-line, #8b97a8);}#dg0 .marker.cross{stroke:var(--dg-line, #8b97a8);}#dg0 svg{font-family:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;font-size:14px;}#dg0 p{margin:0;}#dg0 .label{font-family:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;color:var(--dg-text, #e6edf3);}#dg0 .cluster-label text{fill:var(--dg-title, #f0ece6);}#dg0 .cluster-label span{color:var(--dg-title, #f0ece6);}#dg0 .cluster-label span p{background-color:transparent;}#dg0 .label text,#dg0 span{fill:var(--dg-text, #e6edf3);color:var(--dg-text, #e6edf3);}#dg0 .node rect,#dg0 .node circle,#dg0 .node ellipse,#dg0 .node polygon,#dg0 .node path{fill:var(--dg-node-bg, #161b24);stroke:var(--dg-border, #2b323d);stroke-width:1px;}#dg0 .rough-node .label text,#dg0 .node .label text,#dg0 .image-shape .label,#dg0 .icon-shape .label{text-anchor:middle;}#dg0 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#dg0 .rough-node .label,#dg0 .node .label,#dg0 .image-shape .label,#dg0 .icon-shape .label{text-align:center;}#dg0 .node.clickable{cursor:pointer;}#dg0 .root .anchor path{fill:var(--dg-line, #8b97a8)!important;stroke-width:0;stroke:var(--dg-line, #8b97a8);}#dg0 .arrowheadPath{fill:var(--dg-title, #f0ece6);}#dg0 .edgePaths .path{stroke:var(--dg-line, #8b97a8);stroke-width:1px;}#dg0 .flowchart-link{stroke:var(--dg-line, #8b97a8);fill:none;}#dg0 .edgeLabel{background-color:var(--dg-node-bg-2, #1b2230);text-align:center;}#dg0 .edgeLabel p{background-color:var(--dg-node-bg-2, #1b2230);}#dg0 .edgeLabel rect{opacity:0.5;background-color:var(--dg-node-bg-2, #1b2230);fill:var(--dg-node-bg-2, #1b2230);}#dg0 .labelBkg{background-color:var(--dg-label-bg, rgba(27, 34, 48, 0.5));}#dg0 .cluster rect{fill:var(--dg-cluster-bg, #141922);stroke:hsl(218.5714285714, 0%, 0.5882352941%);stroke-width:1px;}#dg0 .cluster text{fill:var(--dg-title, #f0ece6);}#dg0 .cluster span{color:var(--dg-title, #f0ece6);}#dg0 .node .collapsed-indicator{fill:hsl(218.5714285714, 0%, 0.5882352941%);stroke:none;opacity:0.6;}#dg0 .node .collapsed-separator{stroke:hsl(218.5714285714, 0%, 0.5882352941%);stroke-width:0.75px;}#dg0 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;font-size:12px;background:var(--dg-cluster-bg, #141922);border:1px solid hsl(218.5714285714, 0%, 0.5882352941%);border-radius:2px;pointer-events:none;z-index:100;}#dg0 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:var(--dg-text, #e6edf3);}#dg0 rect.text{fill:none;stroke-width:0;}#dg0 .icon-shape,#dg0 .image-shape{background-color:var(--dg-node-bg-2, #1b2230);text-align:center;}#dg0 .icon-shape p,#dg0 .image-shape p{background-color:var(--dg-node-bg-2, #1b2230);padding:2px;}#dg0 .icon-shape .label rect,#dg0 .image-shape .label rect{opacity:0.5;background-color:var(--dg-node-bg-2, #1b2230);fill:var(--dg-node-bg-2, #1b2230);}#dg0 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#dg0 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#dg0 .node .neo-node{stroke:var(--dg-border, #2b323d);}#dg0 [data-look="neo"].node rect,#dg0 [data-look="neo"].cluster rect,#dg0 [data-look="neo"].node polygon{stroke:url(#dg0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#dg0 [data-look="neo"].swimlane.cluster rect{filter:none;}#dg0 [data-look="neo"].node path{stroke:url(#dg0-gradient);stroke-width:1px;}#dg0 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#dg0 [data-look="neo"].node .neo-line path{stroke:var(--dg-border, #2b323d);filter:none;}#dg0 [data-look="neo"].node circle{stroke:url(#dg0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#dg0 [data-look="neo"].node circle .state-start{fill:#000000;}#dg0 [data-look="neo"].icon-shape .icon{fill:url(#dg0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#dg0 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#dg0-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#dg0 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}#dg0 [stop-color="#2b323d"]{stop-color:var(--dg-border, #2b323d);}</style><g><marker id="dg0_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="dg0_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="dg0_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="dg0_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="dg0_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="dg0_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="dg0_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="dg0_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="dg0_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="dg0_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="dg0_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="dg0_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path d="M222.43,44L233.777,44C245.125,44,267.82,44,292.192,49.651C316.565,55.303,342.614,66.605,355.638,72.257L368.663,77.908" id="dg0-L_A_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_A_C_0" data-points="W3sieCI6MjIyLjQyOTY4NzUsInkiOjQ0fSx7IngiOjI5MC41MTU2MjUsInkiOjQ0fSx7IngiOjM3Mi4zMzIwMzEyNSwieSI6NzkuNX1d" data-look="classic" marker-end="url(#dg0_flowchart-v2-pointEnd)"></path><path d="M265.516,166L269.682,166C273.849,166,282.182,166,299.373,160.349C316.565,154.697,342.614,143.395,355.638,137.743L368.663,132.092" id="dg0-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MjY1LjUxNTYyNSwieSI6MTY2fSx7IngiOjI5MC41MTU2MjUsInkiOjE2Nn0seyJ4IjozNzIuMzMyMDMxMjUsInkiOjEzMC41fV0=" data-look="classic" marker-end="url(#dg0_flowchart-v2-pointEnd)"></path><path d="M546.688,105L550.854,105C555.021,105,563.354,105,571.021,105C578.688,105,585.688,105,589.188,105L592.688,105" id="dg0-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6NTQ2LjY4NzUsInkiOjEwNX0seyJ4Ijo1NzEuNjg3NSwieSI6MTA1fSx7IngiOjU5Ni42ODc1LCJ5IjoxMDV9XQ==" data-look="classic" marker-end="url(#dg0_flowchart-v2-pointEnd)"></path><path d="M805.844,105L810.01,105C814.177,105,822.51,105,830.177,105C837.844,105,844.844,105,848.344,105L851.844,105" id="dg0-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6ODA1Ljg0Mzc1LCJ5IjoxMDV9LHsieCI6ODMwLjg0Mzc1LCJ5IjoxMDV9LHsieCI6ODU1Ljg0Mzc1LCJ5IjoxMDV9XQ==" data-look="classic" marker-end="url(#dg0_flowchart-v2-pointEnd)"></path></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_A_C_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_B_C_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_C_D_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_D_E_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="dg0-flowchart-A-0" data-look="classic" transform="translate(136.7578125, 44)"><rect class="basic label-container" style="" x="-85.671875" y="-36" width="171.34375" height="72"></rect><g class="label" style="" transform="translate(-55.671875, -21)"><rect></rect><foreignObject width="111.34375" height="42"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 300px; text-align: center;"><span class="nodeLabel"><p>db/tables/**/*.sql<br>(your queries)</p></span></div></foreignObject></g></g><g class="node default" id="dg0-flowchart-C-1" data-look="classic" transform="translate(431.1015625, 105)"><rect class="basic label-container" style="" x="-115.5859375" y="-25.5" width="231.171875" height="51"></rect><g class="label" style="" transform="translate(-85.5859375, -10.5)"><rect></rect><foreignObject width="171.171875" height="21"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 300px; text-align: center;"><span class="nodeLabel"><p>Extrode.JauntyQ.Generator</p></span></div></foreignObject></g></g><g class="node default" id="dg0-flowchart-B-2" data-look="classic" transform="translate(136.7578125, 166)"><rect class="basic label-container" style="" x="-128.7578125" y="-36" width="257.515625" height="72"></rect><g class="label" style="" transform="translate(-98.7578125, -21)"><rect></rect><foreignObject width="197.515625" height="42"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 300px; text-align: center;"><span class="nodeLabel"><p>db/schema/jaunty.schema.json<br>(schema snapshot)</p></span></div></foreignObject></g></g><g class="node default" id="dg0-flowchart-D-5" data-look="classic" transform="translate(701.265625, 105)"><rect class="basic label-container" style="" x="-104.578125" y="-36" width="209.15625" height="72"></rect><g class="label" style="" transform="translate(-74.578125, -21)"><rect></rect><foreignObject width="149.15625" height="42"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 300px; text-align: center;"><span class="nodeLabel"><p>Typed C# methods<br>Row POCOs + JauntyDb</p></span></div></foreignObject></g></g><g class="node default" id="dg0-flowchart-E-7" data-look="classic" transform="translate(962.65625, 105)"><rect class="basic label-container" style="" x="-106.8125" y="-36" width="213.625" height="72"></rect><g class="label" style="" transform="translate(-76.8125, -21)"><rect></rect><foreignObject width="153.625" height="42"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 300px; text-align: center;"><span class="nodeLabel"><p>Your application<br>(compiled, AOT-friendly)</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="dg0-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="dg0-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="dg0-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#2b323d" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(220, 0%, 4.7058823529%)" stop-opacity="1"></stop></linearGradient></svg></figure>
+<p>The snapshot is produced separately, by <code>Extrode.JauntyQ.Cli</code>, against a real database
+(or a file, for SQLite). You commit it like any other source file.</p>
+<h2 id="step-1-create-the-database">Step 1: Create the database</h2>
+<p>Create <code>tutorial.db</code> from this DDL (<code>schema.sql</code>), for example with the <code>sqlite3</code>
+CLI: <code>sqlite3 tutorial.db &lt; schema.sql</code>.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-kw">CREATE</span> <span class="tok-kw">TABLE</span> Categories (
+    CategoryId   <span class="tok-type">INTEGER</span> <span class="tok-kw">PRIMARY</span> <span class="tok-kw">KEY</span>,
+    CategoryName <span class="tok-type">VARCHAR</span>(<span class="tok-num">30</span>) <span class="tok-kw">NOT</span> <span class="tok-kw">NULL</span>
+);
+
+<span class="tok-kw">CREATE</span> <span class="tok-kw">TABLE</span> Products (
+    ProductId    <span class="tok-type">INTEGER</span> <span class="tok-kw">PRIMARY</span> <span class="tok-kw">KEY</span>,
+    ProductName  <span class="tok-type">VARCHAR</span>(<span class="tok-num">40</span>) <span class="tok-kw">NOT</span> <span class="tok-kw">NULL</span>,
+    CategoryId   <span class="tok-type">INTEGER</span> <span class="tok-kw">NULL</span> <span class="tok-kw">REFERENCES</span> Categories(CategoryId),
+    UnitPrice    <span class="tok-type">NUMERIC</span> <span class="tok-kw">NULL</span>
+);
+
+<span class="tok-kw">CREATE</span> <span class="tok-kw">TABLE</span> Shippers (
+    ShipperId   <span class="tok-type">INTEGER</span> <span class="tok-kw">PRIMARY</span> <span class="tok-kw">KEY</span>,
+    CompanyName <span class="tok-type">VARCHAR</span>(<span class="tok-num">40</span>) <span class="tok-kw">NOT</span> <span class="tok-kw">NULL</span>,
+    Phone       <span class="tok-type">VARCHAR</span>(<span class="tok-num">24</span>) <span class="tok-kw">NULL</span>
+);
+
+<span class="tok-kw">INSERT</span> <span class="tok-kw">INTO</span> Categories (CategoryName) <span class="tok-kw">VALUES</span> (<span class="tok-str">'Beverages'</span>), (<span class="tok-str">'Condiments'</span>);
+
+<span class="tok-kw">INSERT</span> <span class="tok-kw">INTO</span> Products (ProductName, CategoryId, UnitPrice) <span class="tok-kw">VALUES</span>
+    (<span class="tok-str">'Chai'</span>, <span class="tok-num">1</span>, <span class="tok-num">18.00</span>),
+    (<span class="tok-str">'Chang'</span>, <span class="tok-num">1</span>, <span class="tok-num">19.00</span>),
+    (<span class="tok-str">'Aniseed Syrup'</span>, <span class="tok-num">2</span>, <span class="tok-num">10.00</span>);
+
+<span class="tok-kw">INSERT</span> <span class="tok-kw">INTO</span> Shippers (CompanyName, Phone) <span class="tok-kw">VALUES</span>
+    (<span class="tok-str">'Speedy Express'</span>, <span class="tok-str">'(503) 555-9831'</span>);
+</code></pre>
+</div>
+<p><code>INTEGER PRIMARY KEY</code> in SQLite is the rowid alias (auto-increment). JauntyQ's
+SQLite extractor recognizes a single-column integer primary key as an identity
+column, the same as <code>IDENTITY</code> on SQL Server. The explicit <code>VARCHAR(n)</code> facets
+matter too: SQLite has no real column-length enforcement, so the snapshot only
+records a max length when the declared type carries one - that is what makes
+the value-safety step later in this guide possible.</p>
+<h2 id="step-2-pull-a-schema-snapshot">Step 2: Pull a schema snapshot</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli <span class="tok-attr">-f</span> net8.<span class="tok-num">0</span> -- schema pull \
+  <span class="tok-attr">--provider</span> sqlite \
+  <span class="tok-attr">--connection</span> <span class="tok-str">&quot;Data Source=tutorial.db&quot;</span> \
+  <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
+</code></pre>
+</div>
+<p>This writes <code>db/schema/jaunty.schema.json</code>: table names, column names, types,
+nullability, primary key and identity flags, plus the foreign key from
+<code>Products.CategoryId</code> to <code>Categories.CategoryId</code>. Commit this file. It is the
+contract the generator validates every query against - no database connection
+is needed at build time from here on.</p>
+<h2 id="step-3-wire-up-the-generator">Step 3: Wire up the generator</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\**\*.sql&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\schema\*.schema.json&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+
+<span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">ProjectReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;..\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj&quot;</span>
+                    <span class="tok-attr">OutputItemType</span>=<span class="tok-str">&quot;Analyzer&quot;</span>
+                    <span class="tok-attr">ReferenceOutputAssembly</span>=<span class="tok-str">&quot;false&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">ProjectReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;..\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<h2 id="step-4-zero-sql-full-crud">Step 4: Zero SQL, full CRUD</h2>
+<p>Build the project. You have not written a single <code>.sql</code> file yet, and you
+already have a typed data layer. For every table in the snapshot, JauntyQ
+synthesizes <code>GetAll</code>, <code>GetById</code>, <code>Insert</code>, <code>Update</code>, and <code>Delete</code>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">using</span> <span class="tok-type">Microsoft</span>.<span class="tok-var">Data</span>.<span class="tok-var">Sqlite</span>;
+<span class="tok-kw">using</span> <span class="tok-type">Extrode</span>.<span class="tok-var">JauntyQ</span>.<span class="tok-var">Generated</span>;
+
+<span class="tok-kw">using</span> <span class="tok-kw">var</span> conn = <span class="tok-kw">new</span> <span class="tok-type">SqliteConnection</span>(<span class="tok-str">&quot;Data Source=tutorial.db&quot;</span>);
+<span class="tok-kw">var</span> db = <span class="tok-kw">new</span> <span class="tok-type">JauntyDb</span>(conn);
+
+<span class="tok-type">List</span>&lt;<span class="tok-type">Product</span>&gt; products = db.<span class="tok-var">Products</span>.<span class="tok-fn">GetAll</span>();
+<span class="tok-type">Product</span>?      chai     = db.<span class="tok-var">Products</span>.<span class="tok-fn">GetById</span>(<span class="tok-num">1</span>);
+
+<span class="tok-com">// Products.CategoryId is a foreign key: you also get a loader for free.</span>
+<span class="tok-type">List</span>&lt;<span class="tok-type">Product</span>&gt; beverages = db.<span class="tok-var">Products</span>.<span class="tok-fn">GetByCategoryId</span>(<span class="tok-num">1</span>);
+
+<span class="tok-kw">int</span> newId = db.<span class="tok-var">Categories</span>.<span class="tok-fn">Insert</span>(<span class="tok-str">&quot;Grains/Cereals&quot;</span>);
+db.<span class="tok-var">Categories</span>.<span class="tok-fn">Delete</span>(newId);
+</code></pre>
+</div>
+<p>This is the moment worth pausing on: nothing above came from a <code>.sql</code> file.
+Every method is generated from the schema snapshot alone, with ordinal reads,
+typed parameters, and an async twin (<code>GetAllAsync</code>, <code>GetByIdAsync</code>, ...) for
+each one.</p>
+<h2 id="step-5-your-first-custom-query">Step 5: Your first custom query</h2>
+<p>Auto-CRUD covers full-table reads and single-column writes; anything with a
+<code>WHERE</code>, <code>JOIN</code>, or projection is a query you write yourself. Create
+<code>db/tables/Products/GetByCategory.sql</code>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-kw">select</span> ProductId, ProductName, CategoryId, UnitPrice
+<span class="tok-kw">from</span> Products
+<span class="tok-kw">where</span> CategoryId = <span class="tok-var">@CategoryId</span>
+</code></pre>
+</div>
+<p>Rebuild. JauntyQ parses the file, validates every column against the
+snapshot, and emits <code>List&lt;Product&gt; GetByCategory(int categoryId)</code> (plus
+<code>GetByCategoryAsync</code>):</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-type">List</span>&lt;<span class="tok-type">Product</span>&gt; beverages = db.<span class="tok-var">Products</span>.<span class="tok-fn">GetByCategory</span>(<span class="tok-num">1</span>);
+</code></pre>
+</div>
+<p>Folder name = entity, file name (without <code>.sql</code>) = method name. That is the
+entire convention.</p>
+<h2 id="step-6-one-row-not-a-list------first">Step 6: One row, not a list - <code>-- @first</code></h2>
+<p>Directives are <code>--</code> comment lines at the top of the file, stripped before the
+SQL reaches the database. Create <code>db/tables/Products/GetByName.sql</code>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @first</span>
+<span class="tok-kw">select</span> ProductId, ProductName, CategoryId, UnitPrice
+<span class="tok-kw">from</span> Products
+<span class="tok-kw">where</span> ProductName = <span class="tok-var">@ProductName</span>
+</code></pre>
+</div>
+<p><code>-- @first</code> changes the return type from <code>List&lt;Row&gt;</code> to <code>Row?</code> - a single row
+or null, instead of a list you would only ever use the first element of:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-type">Product</span>? chai = db.<span class="tok-var">Products</span>.<span class="tok-fn">GetByName</span>(<span class="tok-str">&quot;Chai&quot;</span>);
+</code></pre>
+</div>
+<h2 id="step-7-getting-the-new-id-back------identity">Step 7: Getting the new id back - <code>-- @identity</code></h2>
+<p>Auto-CRUD's synthetic <code>Insert</code> already carries <code>-- @identity</code> automatically
+on tables with exactly one identity column, which is why <code>db.Categories.Insert(...)</code>
+above returned an <code>int</code>. You can also write that explicitly, and override the
+synthetic in the process. Create <code>db/tables/Categories/Insert.sql</code>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @identity</span>
+<span class="tok-kw">insert</span> <span class="tok-kw">into</span> Categories (CategoryName) <span class="tok-kw">values</span> (<span class="tok-var">@CategoryName</span>)
+</code></pre>
+</div>
+<p>On SQLite (and PostgreSQL) this compiles to an insert with a <code>RETURNING</code>
+clause; on SQL Server it is <code>OUTPUT INSERTED.&lt;col&gt;</code>; on MySQL, a narrowed
+<code>SELECT LAST_INSERT_ID()</code>. You do not choose the dialect-specific SQL - the
+snapshot's <code>dialect</code> field decides that for you, and the C# signature is the
+same on every provider:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">int</span> id = db.<span class="tok-var">Categories</span>.<span class="tok-fn">Insert</span>(<span class="tok-str">&quot;Grains/Cereals&quot;</span>);
+</code></pre>
+</div>
+<h2 id="step-8-break-the-build-on-purpose">Step 8: Break the build on purpose</h2>
+<p>This is the step that should change how you think about ORMs. Rename a
+column directly in the database:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">sqlite3</span> tutorial.db <span class="tok-str">&quot;ALTER TABLE Products RENAME COLUMN ProductName TO Name;&quot;</span>
+</code></pre>
+</div>
+<p>Re-pull the snapshot so it reflects the live database:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli <span class="tok-attr">-f</span> net8.<span class="tok-num">0</span> -- schema pull \
+  <span class="tok-attr">--provider</span> sqlite \
+  <span class="tok-attr">--connection</span> <span class="tok-str">&quot;Data Source=tutorial.db&quot;</span> \
+  <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
+</code></pre>
+</div>
+<p>Rebuild. <code>GetByCategory.sql</code> and <code>GetByName.sql</code> both still say
+<code>ProductName</code>, and that column no longer exists. The build fails with
+<code>JNT2002</code>, naming the missing column and the table it was expected on.</p>
+<p>This is the entire point of the design. A production system without this
+check would not fail here - it would fail the first time a real request hit
+that query, at 2am, in front of a customer. Here it fails on your machine,
+during <code>dotnet build</code>, before you ever deploy. Fix it by updating the <code>.sql</code>
+files to select <code>Name</code> instead of <code>ProductName</code>, and rebuild clean.</p>
+<h2 id="step-9-transactions-with-jauntydb">Step 9: Transactions with JauntyDb</h2>
+<p><code>JauntyDb</code> exposes <code>BeginTransaction()</code> (and an async twin), returning a
+<code>Transaction</code> that wraps the underlying <code>DbTransaction</code>. Instance calls on
+<code>db.*</code> auto-enlist - no extra parameter to pass:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">using</span> <span class="tok-kw">var</span> tx = db.<span class="tok-fn">BeginTransaction</span>();
+<span class="tok-kw">int</span> categoryId = db.<span class="tok-var">Categories</span>.<span class="tok-fn">Insert</span>(<span class="tok-str">&quot;Grains/Cereals&quot;</span>);
+db.<span class="tok-var">Products</span>.<span class="tok-fn">Insert</span>(<span class="tok-str">&quot;Gnocchi di Nonna Alice&quot;</span>, categoryId, <span class="tok-num">38.00m</span>);
+tx.<span class="tok-fn">Commit</span>();
+</code></pre>
+</div>
+<p>Disposing without calling <code>Commit()</code> rolls back - the safe default if
+something throws mid-flight. Static methods (<code>Products.Insert(conn, ...)</code>)
+never see the <code>JauntyDb</code> that holds the transaction, so they do not
+auto-enlist; stay on <code>db.*</code> inside a transaction block.</p>
+<h2 id="step-10-a-value-safety-error-on-purpose">Step 10: A value-safety error, on purpose</h2>
+<p><code>Shippers.CompanyName</code> is <code>VARCHAR(40)</code>. Try inserting a literal that does not
+fit, in a throwaway <code>.sql</code> file or directly in a query you are testing:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-kw">insert</span> <span class="tok-kw">into</span> Shippers (CompanyName, Phone)
+<span class="tok-kw">values</span> (<span class="tok-str">'Trans National Overnight Parcel Delivery Services'</span>, <span class="tok-str">'555-0100'</span>)
+</code></pre>
+</div>
+<p>That literal is 49 characters. The build fails before it ever reaches a
+database:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">error JNT5001: String literal (49 chars) exceeds shippers.companyname max
+length of 40. It would truncate on write and can never match on read.
+</code></pre>
+</div>
+<p>The same guard runs at runtime for parameterized writes: <code>Insert</code>, <code>Update</code>,
+<code>Upsert</code>, and the POCO overloads all validate string and binary parameter
+lengths before opening the connection, raising an <code>ArgumentException</code> that
+names the exact column and limit instead of a round-trip that ends in a
+silent truncation.</p>
+<h2 id="what-you-now-have">What you now have</h2>
+<p>A database with two custom queries, one deliberate build break you fixed,
+one value-safety error you saw coming, and a transaction that touched two
+tables atomically - all without writing a single line of ADO.NET.</p>
+<p>The feedback loop is the whole product: rename a column, and the build tells
+you where it hurts, at compile time, with the exact query and column named.
+That is a fundamentally different failure mode than the one most data access
+code lives with.</p>
+<p>Continue to <a href="02-learn-exercises.html">exercises.md</a> to practice this on your own,
+without a script to follow.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="01-getting-started-README.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Getting started</span>
+</a><a class="pn-next" href="02-learn-exercises.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Exercises</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

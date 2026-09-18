@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sequences — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Guides &#8250; Sequences</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html" class="active" aria-current="page">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#how-it-works">How it works</a><a class="toc-l2" href="#transactions-and-connection-lifecycle">Transactions and connection lifecycle</a><a class="toc-l2" href="#when-it-appears">When it appears</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Guides &#8250; Sequences</nav>
+        <article>
+<h1 id="sequences">Sequences</h1>
+<p>For databases with true sequence objects, JauntyQ generates typed accessors that
+advance a sequence and return the next value. Supported on <strong>SQL Server</strong>,
+<strong>PostgreSQL</strong>, and <strong>MariaDB</strong> (via its <code>CREATE SEQUENCE</code> support since 10.3).
+Real/Oracle MySQL and SQLite have no sequence object, so their snapshots carry
+no sequences and no accessors are generated. MariaDB shares the <code>mysql</code>
+dialect string with real MySQL, but is detected separately by the extractor
+and generator so its sequences are still picked up.</p>
+<h2 id="how-it-works">How it works</h2>
+<p><code>jauntyq schema pull</code> captures every sequence object into the schema snapshot
+(SQL Server via <code>sys.sequences</code>, PostgreSQL via <code>information_schema.sequences</code>
+joined to <code>pg_sequences</code>, MariaDB via its <code>information_schema.sequences</code>-style
+catalog), recording its start value, increment, min/max, and current value.</p>
+<p>When the snapshot has sequences, the generator emits a lazily-constructed
+<code>db.Sequences</code> accessor with one method per sequence, named <code>Next{Name}()</code>
+(plus an async twin). The name is PascalCased from the sequence name.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> db = <span class="tok-kw">new</span> <span class="tok-type">JauntyDb</span>(conn);
+
+<span class="tok-kw">long</span> id  = db.<span class="tok-var">Sequences</span>.<span class="tok-fn">NextOrderNumber</span>();
+<span class="tok-kw">long</span> id2 = <span class="tok-ctl">await</span> db.<span class="tok-var">Sequences</span>.<span class="tok-fn">NextOrderNumberAsync</span>(cancellationToken);
+</code></pre>
+</div>
+<p>Each method returns <code>long</code> (the newly advanced value) and runs the
+dialect-native statement:</p>
+<table>
+<thead>
+<tr>
+<th>Dialect</th>
+<th>Emitted SQL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SQL Server</td>
+<td><code>SELECT NEXT VALUE FOR {name}</code></td>
+</tr>
+<tr>
+<td>PostgreSQL</td>
+<td><code>SELECT nextval('{name}')</code></td>
+</tr>
+<tr>
+<td>MariaDB</td>
+<td><code>SELECT NEXTVAL({name})</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="transactions-and-connection-lifecycle">Transactions and connection lifecycle</h2>
+<p><code>db.Sequences.Next*</code> follows the same rules as every other <code>db.*</code> call:</p>
+<ul>
+<li>It enlists in the ambient <code>JauntyDb</code> transaction if one is active (via
+<code>BeginTransaction()</code>), so a sequence value drawn inside a transaction is
+covered by it.</li>
+<li>It opens the connection if closed and closes it again afterward; if the
+connection is already open, it is left open.</li>
+</ul>
+<p>Note that in most databases sequence advancement is <strong>not</strong> rolled back with a
+transaction: rolling back after drawing a value typically leaves a gap in the
+sequence. That is standard sequence behavior, not a JauntyQ choice.</p>
+<h2 id="when-it-appears">When it appears</h2>
+<p>The <code>db.Sequences</code> accessor is only generated when the snapshot actually
+contains sequences. Add a sequence to the database, re-run <code>jauntyq schema pull</code>,
+and rebuild to pick it up.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="03-guides-schema-registry.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Central schema-dependency registry</span>
+</a><a class="pn-next" href="03-guides-startup-verification.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Runtime startup schema verification</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

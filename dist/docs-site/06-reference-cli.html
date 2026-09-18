@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLI reference: `jauntyq` — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Reference &#8250; CLI reference: `jauntyq`</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html" class="active" aria-current="page">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#two-packages-one-command">Two packages, one command</a><a class="toc-l2" href="#synopsis">Synopsis</a><a class="toc-l2" href="#commands">Commands</a><a class="toc-l3" href="#schema-pull">schema pull</a><a class="toc-l3" href="#schema-verify">schema verify</a><a class="toc-l3" href="#usage-export">usage export</a><a class="toc-l3" href="#migrate-impact">migrate impact</a><a class="toc-l3" href="#explain">explain</a><a class="toc-l3" href="#registry-resolve--dependents--validate--list">registry resolve / dependents / validate / list</a><a class="toc-l3" href="#activate">activate</a><a class="toc-l3" href="#license-status--license-deactivate">license status / license deactivate</a><a class="toc-l3" href="#license-and-entitlements">License and entitlements</a><a class="toc-l2" href="#options">Options</a><a class="toc-l3" href="#--output-constraints">--output constraints</a><a class="toc-l2" href="#providers">Providers</a><a class="toc-l2" href="#environment-variables">Environment variables</a><a class="toc-l2" href="#exit-codes">Exit codes</a><a class="toc-l2" href="#examples">Examples</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; CLI reference: `jauntyq`</nav>
+        <article>
+<h1 id="cli-reference-jauntyq">CLI reference: <code>jauntyq</code></h1>
+<p>The <code>jauntyq</code> command-line tool extracts a database schema into a committed
+<code>.schema.json</code> snapshot (<code>schema pull</code>), checks a snapshot against a live
+database (<code>schema verify</code>), reports the blast radius of a pending migration
+set offline (<code>migrate impact</code>), and runs the query corpus through the
+database's estimate-only EXPLAIN (<code>explain</code>). The generator itself never
+connects to a database; only <code>schema pull</code>/<code>schema verify</code>/<code>explain</code> do, <code>migrate impact</code> and <code>registry</code> are fully offline.</p>
+<h2 id="two-packages-one-command">Two packages, one command</h2>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Feed</th>
+<th>Verbs</th>
+<th>Install</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Extrode.JauntyQ.Cli</code></td>
+<td>NuGet.org</td>
+<td><code>schema pull</code></td>
+<td><code>dotnet tool install --global Extrode.JauntyQ.Cli</code></td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Cli.Premium</code></td>
+<td>a private feed for subscribers</td>
+<td>everything in <code>Extrode.JauntyQ.Cli</code> plus <code>schema verify</code>, <code>usage export</code>, <code>migrate impact</code>, <code>explain</code>, <code>registry</code>, <code>activate</code>, <code>license</code></td>
+<td><code>dotnet tool install --global Extrode.JauntyQ.Cli.Premium --add-source &lt;feed&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<p>Both install the same command, <code>jauntyq</code>. The premium package replaces the
+free one; never install both. <code>schema pull</code> is implemented once, in the shared
+<code>Extrode.JauntyQ.Cli.Core</code> library, so it behaves identically in either. A premium verb
+typed at the free tool exits <code>3</code> and prints the install line; it never reads
+its inputs.</p>
+<p>In this repository the free tool runs via <code>dotnet run</code>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli <span class="tok-attr">-f</span> net8.<span class="tok-num">0</span> -- schema pull <span class="tok-attr">--provider</span> sqlserver ...
+</code></pre>
+</div>
+<p>The premium verbs come from an installed <code>Extrode.JauntyQ.Cli.Premium</code>, which is
+built elsewhere; there is no project here to run them from.</p>
+<p>The examples below use <code>jauntyq</code>.</p>
+<h2 id="synopsis">Synopsis</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">jauntyq schema pull    --provider &lt;provider&gt; (--connection-env &lt;VAR&gt; | --connection &lt;connstr&gt;) [--output &lt;path&gt;]
+jauntyq schema verify  --provider &lt;provider&gt; (--connection-env &lt;VAR&gt; | --connection &lt;connstr&gt;) [--output &lt;snapshot-path&gt;] [--format text|json] [--fail-on any|breaking] [--service &lt;id&gt; [--registry &lt;path&gt;]] [--usage &lt;path&gt;]
+jauntyq usage export   [--queries &lt;dir&gt;] [--snapshot &lt;path&gt;] [--output &lt;file&gt;] [--no-auto-crud]
+jauntyq migrate impact [--snapshot &lt;path&gt;] [--migrations &lt;dir&gt;] [--queries &lt;dir&gt;] [--format text|json] [--fail-on breaking|risky] [--fail-on-warnings]
+jauntyq explain        --provider &lt;provider&gt; [--connection-env &lt;VAR&gt; | --connection &lt;connstr&gt;] [--queries &lt;dir&gt;] [--max &lt;n&gt;] [--format text|json] [--fail-on high|informational] [--cache-dir &lt;dir&gt;]
+jauntyq registry resolve    --schema &lt;id&gt; [--registry &lt;path&gt;] [--format text|json]
+jauntyq registry dependents (--schema &lt;id&gt; | --table &lt;schemaId.table&gt;) [--registry &lt;path&gt;] [--format text|json]
+jauntyq registry validate   [--registry &lt;path&gt;] [--format text|json]
+jauntyq registry list       [--registry &lt;path&gt;] [--format text|json]
+jauntyq activate       --license &lt;path&gt;
+jauntyq license status
+jauntyq license deactivate
+</code></pre>
+</div>
+<p>Top-level commands are <code>schema</code> (subcommands <code>pull</code>, <code>verify</code>), <code>usage</code>
+(subcommand <code>export</code>), <code>migrate</code> (subcommand <code>impact</code>), <code>explain</code>, <code>registry</code>
+(subcommands <code>resolve</code>, <code>dependents</code>, <code>validate</code>, <code>list</code>), <code>activate</code>, and
+<code>license</code> (subcommands <code>status</code>, <code>deactivate</code>).</p>
+<p><strong>Premium gating.</strong> <code>migrate impact</code>, <code>schema verify</code>, <code>explain</code>, <code>registry</code>
+(every subcommand) and <code>usage export</code> are premium features: they require an
+entitling license and otherwise exit <code>3</code> without doing the work;
+<code>schema verify --service</code> requires a further, separate entitlement on top of
+base <code>schema verify</code> (see
+<a href="#license-and-entitlements">License and entitlements</a>). <code>schema pull</code>,
+<code>activate</code>, <code>license</code>, and the core source generator are never gated.</p>
+<p>Being <strong>offline</strong> and being <strong>ungated</strong> are independent: <code>migrate impact</code>,
+<code>registry</code> and <code>usage export</code> need no database connection and are still gated.</p>
+<h2 id="commands">Commands</h2>
+<h3 id="schema-pull"><code>schema pull</code></h3>
+<p>Connects to the database, extracts tables, columns, foreign keys, stored
+procedures, and sequences, and writes the snapshot to <code>--output</code>. Creates the
+output directory if it does not exist. On success prints the table and
+foreign-key counts and <code>Schema written to &lt;output&gt;</code>.</p>
+<h3 id="schema-verify"><code>schema verify</code></h3>
+<p>Loads the snapshot at <code>--output</code>, re-extracts the live schema, and compares
+them. Use it in CI or locally to catch drift between the committed snapshot and
+the real database.</p>
+<p>Each difference is classified <strong>breaking</strong> or <strong>compatible</strong> by a fixed
+structural rule set (independent of which queries reference the object):</p>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Table or column missing from the live database</td>
+<td>breaking</td>
+</tr>
+<tr>
+<td>Column reorder / rename at a position (readers bind by ordinal)</td>
+<td>breaking</td>
+</tr>
+<tr>
+<td>Type change, length narrowing, precision/scale change</td>
+<td>breaking</td>
+</tr>
+<tr>
+<td><code>null</code> → <code>not null</code>, primary-key / identity / row-version / unicode change</td>
+<td>breaking</td>
+</tr>
+<tr>
+<td>Column added, length widening, <code>not null</code> → <code>null</code></td>
+<td>compatible</td>
+</tr>
+<tr>
+<td>Table present live but absent from the snapshot</td>
+<td>informational (never fails)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Options</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--format text\|json</code></td>
+<td><code>text</code></td>
+<td>Human-readable report or the machine-readable JSON report (<code>{ &quot;drifts&quot;: [ { &quot;kind&quot;, &quot;objectPath&quot;, &quot;severity&quot;, &quot;message&quot;, ... } ], &quot;hasBreaking&quot; }</code>), with severities as strings. A scoped run (<code>--service</code>) adds a <code>&quot;scope&quot;</code> block: <code>{ &quot;serviceId&quot;, &quot;isEmpty&quot;, &quot;comparedTables&quot;: [ { &quot;name&quot;, &quot;ownership&quot; } ] }</code>.</td>
+</tr>
+<tr>
+<td><code>--fail-on any\|breaking</code></td>
+<td><code>any</code></td>
+<td><code>any</code> (default) exits <code>2</code> on any difference, preserving the prior behavior, while a brand-new table stays informational. <code>breaking</code> exits <code>2</code> only when breaking drift is present, letting compatible drift pass.</td>
+</tr>
+<tr>
+<td><code>--service &lt;id&gt;</code></td>
+<td>,</td>
+<td><strong>Per-service scoping.</strong> Verify only the slice the named service declares in the registry (its <code>consumes</code> tables): drift inside the slice is classified by the same rules; changes outside it produce no drift of any severity and cannot fail this service's gate. The report names the service and the compared tables (no silent scope). Requires the separate <code>per-service-contracts</code> entitlement in addition to base <code>contract-testing</code> (exit <code>3</code> if missing, before any comparison runs).</td>
+</tr>
+<tr>
+<td><code>--registry &lt;path&gt;</code></td>
+<td><code>./jaunty.registry.json</code></td>
+<td>The registry to derive the <code>--service</code> scope from. Only meaningful with <code>--service</code>.</td>
+</tr>
+<tr>
+<td><code>--usage &lt;path&gt;</code></td>
+<td>,</td>
+<td><strong>Usage-aware severity (opt-in, downgrade-only).</strong> Reclassifies the structural report against the referenced-objects manifest written by <a href="#usage-export"><code>usage export</code></a>: breaking drift on an object <strong>no generated query references</strong> becomes <strong>informational</strong>, still listed, annotated with the reason and its original structural severity, but never gate-failing (neither under <code>breaking</code> nor under the strict <code>any</code> default, like a brand-new table). Referenced objects always keep their structural severity; any uncertainty (unqualified references, unresolved queries, a referenced column on a dropped/reordered table) keeps the structural verdict. Composes with <code>--service</code>: scope filters what is compared, usage adjusts the severity of the remainder. The JSON report adds a <code>&quot;usage&quot;</code> block (<code>{ &quot;manifestSnapshotHash&quot;, &quot;verifiedSnapshotHash&quot;, &quot;stale&quot;, &quot;downgradedCount&quot;, &quot;unresolvedQueryCount&quot; }</code>) and per-drift <code>&quot;downgraded&quot;</code>/<code>&quot;downgradeReason&quot;</code>/<code>&quot;structuralSeverity&quot;</code> fields. If the manifest was built against a different snapshot, a staleness warning is printed on stderr (exit code unaffected, downgrade-only semantics cannot become unsafe). A missing/unreadable manifest exits <code>1</code>, never a silent structural fallback.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Exit <code>0</code>, snapshot matches, or only differences below the <code>--fail-on</code>
+threshold (e.g. compatible drift under <code>--fail-on breaking</code>). With
+<code>--service</code>, this includes any change outside the service's slice, and the
+vacuous case where the service declares no <code>consumes</code> (printed as an explicit
+&quot;no scope declared&quot; note, never as a verified pass).</li>
+<li>Exit <code>2</code>, a difference at or above the threshold; each is listed on stderr
+with its severity. With <code>--service</code>, only in-slice differences count.</li>
+<li>Exit <code>1</code>, with <code>--service</code>: a scope/registry error (registry unreadable,
+unknown service id, or a scope table the snapshot does not declare), deliberately distinct from both a pass and drift.</li>
+</ul>
+<p>For a test-embeddable equivalent, asserting a live database matches the snapshot
+from inside your own xUnit/NUnit/MSTest suite, use the
+<a href="03-guides-contract-testing.html"><code>Extrode.JauntyQ.Schema.Contract</code></a> package, which
+shares the exact same classifier. The same package also offers
+<a href="03-guides-startup-verification.html">boot-time verification</a>
+(<code>StartupSchemaGuard</code>) so an app can fail fast at startup when the database it
+actually connects to has drifted.</p>
+<h3 id="usage-export"><code>usage export</code></h3>
+<p>Writes the <strong>usage manifest</strong> (<code>jaunty.usage.json</code>) consumed by
+<code>schema verify --usage</code> and <code>SchemaContract.WithUsage(...)</code>: the union of every
+table and <code>table.column</code> the project's generated queries reference, hand-written
+<code>.sql</code> files <strong>plus</strong> the auto-CRUD synthetics the generator emits, resolved by
+the same offline analysis that powers <code>migrate impact</code>. No database connection.
+Gated on <code>contract-testing</code>, the same entitlement as the verb it feeds,
+<code>schema verify --usage</code>, since a manifest is useless without it.</p>
+<p>The manifest also records the hash of the snapshot it was built against, so a
+verification against a different snapshot can warn that usage may be stale.
+Commit the manifest and regenerate it in CI whenever queries or the snapshot
+change.</p>
+<p>Uncertainty is encoded conservatively (downgrades must never be unsafe): an
+unqualified column reference in a multi-table query marks every in-scope table's
+columns potentially referenced (<code>table.*</code>); a query that is invalid against the
+snapshot or uses unsupported constructs marks all its tables <code>table.*</code>; a query
+that cannot be parsed/attributed at all is recorded under <code>unresolvedQueries</code>,
+which disables <strong>all</strong> downgrades until it is fixed (the export prints a warning
+listing each one).</p>
+<p><strong>Options</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--queries &lt;dir&gt;</code></td>
+<td>,</td>
+<td>Directory of hand-written <code>.sql</code> query files (searched recursively). Omit to cover only auto-CRUD synthetics.</td>
+</tr>
+<tr>
+<td><code>--snapshot &lt;path&gt;</code></td>
+<td><code>schema/jaunty.schema.json</code></td>
+<td>Committed snapshot: seeds the auto-CRUD synthetics and the staleness hash.</td>
+</tr>
+<tr>
+<td><code>--output &lt;file&gt;</code></td>
+<td><code>jaunty.usage.json</code></td>
+<td>Where to write the manifest.</td>
+</tr>
+<tr>
+<td><code>--no-auto-crud</code></td>
+<td>,</td>
+<td>Exclude the auto-CRUD synthetics, only for projects that set <code>&lt;JauntyQAutoCrud&gt;false&lt;/JauntyQAutoCrud&gt;</code> (otherwise the generated CRUD really does reference every table).</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Exit <code>0</code>, manifest written.</li>
+<li>Exit <code>1</code>, argument or I/O error (e.g. snapshot not found).</li>
+<li>Exit <code>3</code>, not entitled (<code>contract-testing</code>), checked before any work.</li>
+</ul>
+<p><strong>Manifest shape</strong>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">JSON</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="json"><code class="language-json"><span class="tok-punc">{</span>
+  <span class="tok-key">&quot;snapshotHash&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;sha256:9f2c…&quot;</span><span class="tok-punc">,</span>
+  <span class="tok-key">&quot;tables&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span><span class="tok-str">&quot;customers&quot;</span><span class="tok-punc">,</span> <span class="tok-str">&quot;orders&quot;</span><span class="tok-punc">]</span><span class="tok-punc">,</span>
+  <span class="tok-key">&quot;columns&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span><span class="tok-str">&quot;customers.*&quot;</span><span class="tok-punc">,</span> <span class="tok-str">&quot;orders.order_id&quot;</span><span class="tok-punc">,</span> <span class="tok-str">&quot;orders.total&quot;</span><span class="tok-punc">]</span><span class="tok-punc">,</span>
+  <span class="tok-key">&quot;unresolvedQueries&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span><span class="tok-punc">]</span>
+<span class="tok-punc">}</span>
+</code></pre>
+</div>
+<h3 id="migrate-impact"><code>migrate impact</code></h3>
+<p>Reports how a pending <code>db/migrations/*.sql</code> set affects your queries, fully
+offline (snapshot + migration files + query files; no database connection). Each
+hand-written query and each auto-CRUD synthetic is classified as exactly one of:</p>
+<ul>
+<li><strong>SAFE</strong>, references no object the migration changed.</li>
+<li><strong>RISKY</strong>, still compiles, but a referenced column changed type, nullability,
+length, or precision (or a referenced table was changed by a statement the
+simulator could not model). Reported at build time as the <code>JNT9004</code> warning.</li>
+<li><strong>BREAKING</strong>, the migration removes a referenced table or column, so the query
+no longer compiles. These already fail the build through the existing <code>JNT2xxx</code>
+validation errors; <code>migrate impact</code> names and groups them.</li>
+</ul>
+<p>A query already invalid against the baseline snapshot is <strong>not</strong> attributed to
+the migration (reported SAFE, no reasons).</p>
+<p><strong>Options</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--snapshot &lt;path&gt;</code></td>
+<td><code>schema/jaunty.schema.json</code></td>
+<td>Committed baseline snapshot.</td>
+</tr>
+<tr>
+<td><code>--migrations &lt;dir&gt;</code></td>
+<td><code>db/migrations</code></td>
+<td>Directory of pending <code>*.sql</code> migrations (applied in filename order).</td>
+</tr>
+<tr>
+<td><code>--queries &lt;dir&gt;</code></td>
+<td>,</td>
+<td>Directory of hand-written <code>.sql</code> query files (searched recursively). Omit to classify only auto-CRUD synthetics.</td>
+</tr>
+<tr>
+<td><code>--format text\|json</code></td>
+<td><code>text</code></td>
+<td>Human-readable report or the machine-readable JSON shape below.</td>
+</tr>
+<tr>
+<td><code>--fail-on breaking\|risky</code></td>
+<td>,</td>
+<td>Exit non-zero when an entry at or above the threshold exists. Omit for report-only (always exit 0).</td>
+</tr>
+<tr>
+<td><code>--fail-on-warnings</code></td>
+<td>off</td>
+<td>Also exit <code>2</code> when the run produced any warning. A warning always means the analyzed corpus was narrower than the invocation asked for, a <code>--migrations</code> or <code>--queries</code> directory that does not exist, or a migration statement the simulator could not apply, so the report is a verdict over less than it appears to cover. Independent of <code>--fail-on</code>: the two gates are ORed, and classification is unaffected.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Exit <code>0</code>, report-only, or nothing reached the <code>--fail-on</code> threshold.</li>
+<li>Exit <code>2</code>, an entry at or above <code>--fail-on</code> exists, or <code>--fail-on-warnings</code> is set and the run warned.</li>
+<li>Exit <code>1</code>, usage or I/O error (e.g. snapshot not found).</li>
+</ul>
+<p><strong>JSON shape</strong> (<code>--format json</code>):</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">JSON</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="json"><code class="language-json"><span class="tok-punc">{</span>
+  <span class="tok-key">&quot;baselineId&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;schema/jaunty.schema.json&quot;</span><span class="tok-punc">,</span>
+  <span class="tok-key">&quot;migrationSet&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span><span class="tok-str">&quot;0007_drop_legacy_col.sql&quot;</span><span class="tok-punc">]</span><span class="tok-punc">,</span>
+  <span class="tok-key">&quot;entries&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span>
+    <span class="tok-punc">{</span>
+      <span class="tok-key">&quot;queryFile&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;Queries/GetUser.sql&quot;</span><span class="tok-punc">,</span>
+      <span class="tok-key">&quot;entityMethod&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;User.GetById&quot;</span><span class="tok-punc">,</span>
+      <span class="tok-key">&quot;classification&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;BREAKING&quot;</span><span class="tok-punc">,</span>
+      <span class="tok-key">&quot;reasons&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span>
+        <span class="tok-punc">{</span> <span class="tok-key">&quot;schemaObject&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;users.legacy_flag&quot;</span><span class="tok-punc">,</span> <span class="tok-key">&quot;changeKind&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;removed&quot;</span><span class="tok-punc">,</span> <span class="tok-key">&quot;effect&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;column referenced by the query no longer exists&quot;</span> <span class="tok-punc">}</span>
+      <span class="tok-punc">]</span>
+    <span class="tok-punc">}</span>
+  <span class="tok-punc">]</span>
+<span class="tok-punc">}</span>
+</code></pre>
+</div>
+<p><strong>MVP limitations</strong></p>
+<ul>
+<li>JauntyQ has no rename tracking: a rename is a drop + an add, so queries on the
+old name are BREAKING and the new column is simply available.</li>
+<li>A committed JSON snapshot baseline is the supported path; DDL-as-schema-source
+projects are analyzed against the DDL-built base.</li>
+<li>Attribution is per-migration-set (cumulative effective schema), not per file.</li>
+<li>Index DDL (<code>CREATE</code>/<code>DROP INDEX</code>) is not modeled at all: <code>MigrationParser</code>
+classifies it <code>Ignored</code>, so it produces no diagnostic and no RISKY
+classification. An index drop that breaks a query's performance assumptions
+is currently invisible to both <code>migrate impact</code> and the build.</li>
+<li>Entity naming uses the query file's immediate folder (or <code>Queries</code> at the
+root); structural <code>tables/</code>/<code>views/</code> prefixes are not special-cased.</li>
+</ul>
+<h3 id="explain"><code>explain</code></h3>
+<p>Runs each <code>.sql</code> file under <code>--queries</code> through the target database's
+<strong>estimate-only</strong> EXPLAIN, parses the plan, and reports access paths, planner
+estimates, and severity-tagged plan problems per query file. Opt-in and
+on-demand only, the source generator never runs this and a normal build is
+unaffected. See the <a href="03-guides-explain-analysis.html">live EXPLAIN guide</a> for
+the guardrails, heuristics, and optional MSBuild wiring.</p>
+<ul>
+<li><strong>Estimate-only, never executes</strong>: Postgres <code>EXPLAIN (FORMAT JSON)</code>, SQLite
+<code>EXPLAIN QUERY PLAN</code>, MySQL <code>EXPLAIN FORMAT=JSON</code>, SQL Server estimated
+<code>SHOWPLAN_XML</code>. Write statements are skipped with a note.</li>
+<li><strong>Capped</strong>: at most <code>--max</code> live EXPLAIN calls per run; the remainder is
+listed as <code>not analyzed (cap reached)</code>.</li>
+<li><strong>Cached</strong>: <code>.jaunty/explain-cache.json</code>, keyed by dialect + normalized-SQL
+fingerprint + schema-snapshot fingerprint; cached queries do not consume the
+cap.</li>
+<li><strong>Never breaks</strong>: unreachable database, auth failure, or an unexplainable
+query → per-query skip, exit <code>0</code>. No connection string configured → clean
+no-op, exit <code>0</code>.</li>
+</ul>
+<p><strong>Options</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--provider &lt;provider&gt;</code></td>
+<td>required</td>
+<td>Database provider / dialect (same values as <code>schema pull</code>).</td>
+</tr>
+<tr>
+<td><code>--connection-env &lt;VAR&gt;</code> / <code>--connection</code></td>
+<td>,</td>
+<td>Connection string source (same resolution as <code>schema pull</code>). <strong>Unlike</strong> <code>schema pull</code>, no connection is not an error: the run is a clean exit-<code>0</code> no-op.</td>
+</tr>
+<tr>
+<td><code>--queries &lt;dir&gt;</code></td>
+<td><code>db/tables</code></td>
+<td>Directory of <code>.sql</code> query files (searched recursively).</td>
+</tr>
+<tr>
+<td><code>--max &lt;n&gt;</code></td>
+<td><code>10</code></td>
+<td>Cap on live EXPLAIN calls per run.</td>
+</tr>
+<tr>
+<td><code>--format text\|json</code></td>
+<td><code>text</code></td>
+<td>Human-readable report or the machine-readable JSON report (<code>{ &quot;dialect&quot;, &quot;cap&quot;, &quot;results&quot;: [ { &quot;queryFile&quot;, &quot;status&quot;, &quot;planSummary&quot;, &quot;problems&quot;: [...] } ], &quot;notes&quot; }</code>).</td>
+</tr>
+<tr>
+<td><code>--fail-on high\|informational</code></td>
+<td>,</td>
+<td>Exit <code>2</code> when a problem at or above the severity exists. <code>info</code> is accepted as an alias for <code>informational</code>. Omit for report-only (always exit <code>0</code>).</td>
+</tr>
+<tr>
+<td><code>--cache-dir &lt;dir&gt;</code></td>
+<td><code>.jaunty</code></td>
+<td>Where <code>explain-cache.json</code> lives.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Exit <code>0</code>, report-only, nothing at/above <code>--fail-on</code>, or nothing analyzed
+(no/unreachable database).</li>
+<li>Exit <code>2</code>, a problem at or above <code>--fail-on</code> exists.</li>
+<li>Exit <code>1</code>, usage error (bad flag values, missing <code>--provider</code>).</li>
+<li>Exit <code>3</code>, not entitled (<code>live-explain</code>).</li>
+</ul>
+<p>Severity heuristics (documented in the guide): sequential/full scan with est.
+rows ≥ 10,000 → high; cost-dominant sort (≥ 50% of total plan cost) → high;
+SQLite <code>USE TEMP B-TREE</code> → high; smaller scans/sorts and estimate-less full
+scans → informational. Costs are planner estimates from the connected database
+at run time; thresholds compare within a run only.</p>
+<h3 id="registry-resolve--dependents--validate--list"><code>registry resolve</code> / <code>dependents</code> / <code>validate</code> / <code>list</code></h3>
+<p>Offline queries against a checked-in <code>jaunty.registry.json</code>, the central
+schema-dependency registry naming schema snapshots and the services that
+depend on them. Additive and opt-in: a project without a registry is
+completely unaffected. Fully offline, but <strong>gated on <code>contract-testing</code></strong>, the registry is part of the contract-testing family, not a free verb. See the
+<a href="03-guides-schema-registry.html">schema registry guide</a> for the file format
+and workflow.</p>
+<table>
+<thead>
+<tr>
+<th>Subcommand</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>resolve --schema &lt;id&gt;</code></td>
+<td>Prints the schema's snapshot path (resolved relative to the registry file), dialect, and owner, resolve-by-name for builds/scripts.</td>
+</tr>
+<tr>
+<td><code>dependents --schema &lt;id&gt;</code></td>
+<td>Lists every service whose <code>dependsOn</code> names the schema.</td>
+</tr>
+<tr>
+<td><code>dependents --table &lt;schemaId.table&gt;</code></td>
+<td>Narrows to services whose <code>consumes</code> declares that table. A service that depends on the schema but declares <strong>no</strong> <code>consumes</code> list cannot be confirmed or ruled out at table granularity, so it is not counted as a dependent; it is listed separately under &quot;N further service(s) … declare no consumes list, so their use of this table is unknown&quot; (JSON: an <code>unknownUsage</code> array beside <code>dependents</code>). Both are omitted when there are none.</td>
+</tr>
+<tr>
+<td><code>validate</code></td>
+<td>Checks the whole graph: unique ids, snapshot exists within the registry tree, <code>dependsOn</code> resolvable, consumed tables present in the snapshot. Every problem is individually named.</td>
+</tr>
+<tr>
+<td><code>list</code></td>
+<td>Summarizes the registry's schemas and services.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Options</strong> (all subcommands)</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--registry &lt;path&gt;</code></td>
+<td><code>./jaunty.registry.json</code></td>
+<td>The registry file to query.</td>
+</tr>
+<tr>
+<td><code>--format text\|json</code></td>
+<td><code>text</code></td>
+<td>Human-readable or machine-readable output.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Exit <code>0</code>, success (<code>validate</code>: no problems).</li>
+<li>Exit <code>1</code>, usage or error: missing registry file, unknown schema id, or a
+malformed <code>--table</code> reference.</li>
+<li>Exit <code>2</code>, <code>validate</code> found problems (each listed and named on stderr, e.g.
+<code>DanglingDependsOn: service 'billing' depends on undeclared schema 'inventory'.</code>).</li>
+<li>Exit <code>3</code>, not entitled (<code>contract-testing</code>), checked before the registry is
+even read, so an unlicensed run cannot be told apart from a missing registry
+by anything but the exit code.</li>
+</ul>
+<p>Snapshot paths declared in the registry must be <strong>relative to the registry
+file</strong> and stay inside its directory tree, rooted paths and <code>..</code> escapes are
+rejected at load, mirroring the <a href="#--output-constraints"><code>--output</code> constraints</a>.</p>
+<h3 id="activate"><code>activate</code></h3>
+<p>Verifies a signed <code>jaunty.license.json</code> offline against the tool's embedded
+public key and installs it to the per-user location. Nothing is installed on
+failure; the error distinguishes a bad signature, malformed JSON, a wrong
+product, and an unrecognized license version.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">jauntyq activate --license path/to/jaunty.license.json
+</code></pre>
+</div>
+<ul>
+<li>Exit <code>0</code>, verified and installed (prints tier, licensee, entitlements).</li>
+<li>Exit <code>1</code>, missing/unreadable file, malformed JSON, bad signature, wrong
+product, or unknown license version.</li>
+</ul>
+<h3 id="license-status--license-deactivate"><code>license status</code> / <code>license deactivate</code></h3>
+<p><code>license status</code> prints the active tier, licensee, seats, term dates,
+entitlements, and whether the license has lapsed, fully offline, no network.
+<code>license deactivate</code> removes the installed license. Both exit <code>0</code>.</p>
+<h3 id="license-and-entitlements">License and entitlements</h3>
+<p><code>migrate impact</code> (entitlement <code>migration-impact</code>), <code>schema verify</code>
+(entitlement <code>contract-testing</code>; <code>--service</code> additionally requires
+<code>per-service-contracts</code>), <code>usage export</code> and every <code>registry</code> subcommand
+(both <code>contract-testing</code>, gated 2026-08-01 with the commercialization model, they predate it and were ungated by accident of shipping order), and <code>explain</code>
+(entitlement <code>live-explain</code>) each consult a single offline entitlement gate
+before doing premium work:</p>
+<ul>
+<li><strong>Entitled</strong>, runs normally.</li>
+<li><strong>Lapsed</strong> (term ended), still runs and prints a non-blocking warning; the
+perpetual-use grant means a lapse never blocks a feature you were entitled to.</li>
+<li><strong>Not entitled</strong> (no license, or the license does not grant the feature), prints the entitlement-required message and exits <code>3</code>, doing no premium work.</li>
+</ul>
+<p>The <strong>core source generator, JNT1xxx–JNT7xxx validation, and the runtime are
+never gated</strong>: generated output and diagnostics are identical with or without a
+license. This is entitlement gating for a source-viewable product, not DRM. In
+CI, set <code>JAUNTYQ_LICENSE</code> to a license file path instead of running <code>activate</code>.
+Feature keys: <code>migration-impact</code>, <code>contract-testing</code>, <code>per-service-contracts</code>,
+<code>live-explain</code>, and the reserved <code>deep-query-analysis</code> (defined for a future,
+not-yet-built feature, it does not gate the JNT8006/JNT8007 diagnostics
+already shipped in the generator, which are core and never gated). See the
+<a href="03-guides-licensing-and-activation.html">licensing and activation guide</a>.</p>
+<h2 id="options">Options</h2>
+<p>These apply to <code>schema pull</code> and <code>schema verify</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Required</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--provider &lt;provider&gt;</code></td>
+<td>Yes</td>
+<td>,</td>
+<td>Database provider / dialect. See values below.</td>
+</tr>
+<tr>
+<td><code>--connection-env &lt;VAR&gt;</code></td>
+<td>See note</td>
+<td>,</td>
+<td>Name of an environment variable holding the connection string. <strong>Preferred.</strong></td>
+</tr>
+<tr>
+<td><code>--connection &lt;connstr&gt;</code></td>
+<td>See note</td>
+<td>,</td>
+<td>Inline connection string. Avoid: visible in process lists, shell history, and CI logs.</td>
+</tr>
+<tr>
+<td><code>--output &lt;path&gt;</code></td>
+<td>No</td>
+<td><code>schema/jaunty.schema.json</code></td>
+<td>Snapshot path, <strong>relative</strong> to the current directory. For <code>verify</code>, the snapshot to compare against.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Connection note:</strong> a connection string must come from exactly one source.
+Resolution order, most secure first:</p>
+<ol>
+<li><code>--connection-env &lt;VAR&gt;</code>, read from the named environment variable.</li>
+<li><code>JAUNTYQ_CONNECTION</code>, used when neither flag is given.</li>
+<li><code>--connection &lt;connstr&gt;</code>, inline, least secure.</li>
+</ol>
+<p>If none is present the command errors and prints usage.</p>
+<h3 id="--output-constraints"><code>--output</code> constraints</h3>
+<p>The path must be <strong>relative</strong> and must stay inside the project directory. A
+rooted path (<code>C:\...</code>, <code>/etc/...</code>) or one that escapes the tree with <code>..</code> is
+rejected. The convention is <code>db/schema/jaunty.schema.json</code>; the built-in
+default (<code>schema/jaunty.schema.json</code>) is used only when <code>--output</code> is omitted.</p>
+<h2 id="providers">Providers</h2>
+<table>
+<thead>
+<tr>
+<th><code>--provider</code> value</th>
+<th>Aliases</th>
+<th>Driver</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sqlserver</code></td>
+<td><code>mssql</code></td>
+<td>Microsoft.Data.SqlClient</td>
+</tr>
+<tr>
+<td><code>postgres</code></td>
+<td><code>postgresql</code></td>
+<td>Npgsql</td>
+</tr>
+<tr>
+<td><code>mysql</code></td>
+<td><code>mariadb</code></td>
+<td>MySqlConnector</td>
+</tr>
+<tr>
+<td><code>sqlite</code></td>
+<td>,</td>
+<td>Microsoft.Data.Sqlite</td>
+</tr>
+</tbody>
+</table>
+<p>Provider matching is case-insensitive. An unrecognised value prints
+<code>Error: unknown provider '&lt;value&gt;'. Supported: postgres, sqlserver, mysql, mariadb, sqlite.</code>
+and exits 1. MariaDB is wire/SQL-compatible with MySQL for everything JauntyQ
+emits, so <code>--provider mariadb</code> maps to the <code>mysql</code> dialect in the snapshot.</p>
+<h2 id="environment-variables">Environment variables</h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>JAUNTYQ_CONNECTION</code></td>
+<td>Default connection string when neither <code>--connection-env</code> nor <code>--connection</code> is given.</td>
+</tr>
+<tr>
+<td><code>JAUNTYQ_VERBOSE</code></td>
+<td>Set to <code>1</code> to print full exception detail on failure. Otherwise errors are anonymized to avoid leaking connection-string secrets into logs.</td>
+</tr>
+<tr>
+<td><code>JAUNTYQ_LICENSE</code></td>
+<td>Path to a <code>jaunty.license.json</code> used for premium-feature entitlement checks. Overrides the per-user install; intended for CI so it need not run <code>activate</code> interactively.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="exit-codes">Exit codes</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Success. <code>pull</code>: snapshot written. <code>verify</code>: snapshot matches (with <code>--usage</code>, this includes runs whose only drift was downgraded to informational). <code>usage export</code>: manifest written. <code>activate</code>/<code>license</code>: completed.</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Usage or runtime error, bad/missing arguments, unknown provider, no connection string, invalid <code>--output</code> path, an extraction/connection failure, an activation failure (bad signature, malformed license, wrong product, unknown version), or a <code>registry</code> error (missing registry file, unknown schema id).</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td><code>verify</code>: schema drift detected (differences listed on stderr). <code>migrate impact</code>: an entry at or above <code>--fail-on</code> exists, or <code>--fail-on-warnings</code> is set and the run warned. <code>explain</code>: a plan problem at or above <code>--fail-on</code> exists. <code>registry validate</code>: the registry has problems (each named on stderr).</td>
+</tr>
+<tr>
+<td><code>3</code></td>
+<td>Reserved: a premium command (<code>migrate impact</code>, <code>schema verify</code>, <code>explain</code>, <code>registry</code>, <code>usage export</code>) was run without an entitling license, or any premium verb was run at the free <code>Extrode.JauntyQ.Cli</code> tool, which prints the <code>Extrode.JauntyQ.Cli.Premium</code> install line instead. Distinct from <code>1</code>/<code>2</code> so scripts can tell &quot;not licensed&quot; from &quot;found problems.&quot; A lapsed license does <strong>not</strong> produce this code, it runs with a warning.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="examples">Examples</h2>
+<p>Pull with the connection string from an environment variable (recommended):</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-kw">export</span> MYDB_CONN=<span class="tok-str">'Host=localhost;Database=app;Username=app;Password=...'</span>
+<span class="tok-fn">jauntyq</span> schema pull <span class="tok-attr">--provider</span> postgres <span class="tok-attr">--connection-env</span> MYDB_CONN \
+  <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
+</code></pre>
+</div>
+<p>Verify in CI, failing the job on drift:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">jauntyq</span> schema verify <span class="tok-attr">--provider</span> sqlserver <span class="tok-attr">--connection-env</span> CI_DB_CONN \
+  <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
+<span class="tok-com"># exit 0 = match, exit 2 = drift</span>
+</code></pre>
+</div>
+<p>Optional MSBuild wiring that verifies before every build when a connection is
+available (CI often has none, which is why the snapshot is committed):</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">Target</span> <span class="tok-attr">Name</span>=<span class="tok-str">&quot;VerifyJauntySchema&quot;</span> <span class="tok-attr">BeforeTargets</span>=<span class="tok-str">&quot;Build&quot;</span>
+        <span class="tok-attr">Condition</span>=<span class="tok-str">&quot;'$(JAUNTY_VERIFY_CONN)' != ''&quot;</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">Exec</span> <span class="tok-attr">Command</span>=<span class="tok-str">&quot;jauntyq schema verify --provider sqlserver --connection-env JAUNTY_VERIFY_CONN --output db/schema/jaunty.schema.json&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">Target</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p>See the <a href="06-reference-schema-snapshot-format.html">schema snapshot format</a> for the structure
+of the file this command writes.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="06-reference-api-overview.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">API reference overview</span>
+</a><a class="pn-next" href="06-reference-configuration.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Configuration reference (MSBuild &amp; file conventions)</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

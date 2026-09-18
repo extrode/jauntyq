@@ -100,7 +100,7 @@ synthesised for every table unless a same-named `.sql` file overrides them.
    Working inside a clone of this repository, the equivalent without installing is:
 
    ```bash
-   dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull --provider sqlserver \
+   dotnet run --project src/Extrode.JauntyQ.Cli -f net8.0 -- schema pull --provider sqlserver \
      --connection-env MYDB_CONN \
      --output db/schema/jaunty.schema.json
    ```

@@ -66,17 +66,20 @@ jobs:
     # trusted-publishing policy.
     permissions:
       contents: write   # gh release create
+      packages: write   # push to GitHub Packages
       id-token: write   # NuGet/login
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # SourceLink resolves commit URLs from the full history, and this is
           # the only build whose output reaches nuget.org.
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Guard - tag matches Directory.Build.props Version
         run: |
@@ -100,6 +103,19 @@ jobs:
         run: |
           dotnet tool install --global CycloneDX --version 6.2.0
           dotnet CycloneDX JauntyQ.slnx -o dist/sbom -F Json -fn jauntyq-sbom.json -t
+
+      # GitHub Packages, authenticated with the built-in GITHUB_TOKEN (no external
+      # secret). Lists the free/core packages under this repo's own Packages
+      # sidebar, alongside nuget.org, which stays the primary feed the README's
+      # install line depends on.
+      - name: Push to GitHub Packages
+        run: |
+          for pkg in dist/packages/*.nupkg; do
+            dotnet nuget push "$pkg" \
+              --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+              --api-key "${{ secrets.GITHUB_TOKEN }}" \
+              --skip-duplicate
+          done
 
       - name: NuGet.org login (OIDC, short-lived key)
         id: nuget-login

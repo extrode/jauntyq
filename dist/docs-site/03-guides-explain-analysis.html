@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live EXPLAIN plan analysis — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Guides &#8250; Live EXPLAIN plan analysis</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html" class="active" aria-current="page">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#the-contract-opt-in-estimates-only-never-breaks-a-build">The contract: opt-in, estimates only, never breaks a build</a><a class="toc-l2" href="#parameters">Parameters</a><a class="toc-l2" href="#severity-heuristics">Severity heuristics</a><a class="toc-l2" href="#failing-a-pipeline-on-purpose---fail-on">Failing a pipeline on purpose: --fail-on</a><a class="toc-l2" href="#optional-msbuild-wiring-off-by-default">Optional MSBuild wiring (off by default)</a><a class="toc-l2" href="#what-it-will-not-do">What it will not do</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Guides &#8250; Live EXPLAIN plan analysis</nav>
+        <article>
+<h1 id="live-explain-plan-analysis">Live EXPLAIN plan analysis</h1>
+<p>JauntyQ's static performance diagnostics (JNT8001–JNT8011) reason about queries
+against the committed snapshot, entirely offline. They cannot see what the
+database's <strong>actual planner</strong> will do: row-count estimates, chosen access paths,
+sequential scans on large tables, or expensive sorts. The database already knows
+all of this via <code>EXPLAIN</code>.</p>
+<p><strong><code>jauntyq explain</code></strong> closes that gap: point it at a representative database and
+it runs each <code>.sql</code> query in your corpus through the dialect's <em>estimate-only</em>
+EXPLAIN, parses the plan, and reports plan-level problems by severity, attributed to the query file that produced them.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-kw">export</span> DEV_DB=<span class="tok-str">'Host=localhost;Database=shop;Username=dev;Password=...'</span>
+<span class="tok-fn">jauntyq</span> explain <span class="tok-attr">--provider</span> postgres <span class="tok-attr">--connection-env</span> DEV_DB <span class="tok-attr">--queries</span> db/tables
+</code></pre>
+</div>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">jauntyq explain, postgres (estimated plans; costs are planner estimates from the connected database at run time)
+Orders/GetByCustomer.sql: Seq Scan on orders [est. cost 23345]
+  [high] sequential scan on 'orders' (est. 1,200,000 rows), consider an index covering the filtered column(s)
+Articles/GetBySlug.sql: Index Scan on articles [est. cost 8.3]
+1 analyzed, 1 cached, 0 skipped, 0 not analyzed (cap 10); 1 high / 0 informational problem(s).
+</code></pre>
+</div>
+<p>This is a premium feature (entitlement <code>live-explain</code>); without an entitling
+license the verb exits <code>3</code> and does nothing.</p>
+<h2 id="the-contract-opt-in-estimates-only-never-breaks-a-build">The contract: opt-in, estimates only, never breaks a build</h2>
+<ul>
+<li><strong>Never in the generator.</strong> The Roslyn source generator stays fully offline;
+it never opens a database connection and a normal <code>dotnet build</code> is completely
+unaffected by this feature. <code>jauntyq explain</code> is a separate, on-demand CLI tool.</li>
+<li><strong>Estimate-only.</strong> Every dialect uses the plan-without-executing variant:
+Postgres <code>EXPLAIN (FORMAT JSON)</code> (never <code>ANALYZE</code>), SQLite
+<code>EXPLAIN QUERY PLAN</code>, MySQL <code>EXPLAIN FORMAT=JSON</code>, SQL Server estimated
+<code>SET SHOWPLAN_XML ON</code>. No query runs; no data is read or mutated. Write
+statements (<code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code>/DDL, including data-modifying CTEs) are
+<strong>skipped entirely</strong>, safety over coverage.</li>
+<li><strong>Never breaks.</strong> Report-only by default (exit <code>0</code>). An unreachable database,
+auth failure, or unexplainable query is a per-query <em>skip with a note</em>, never
+an error. With no connection string configured the run is a clean no-op, which is what makes the optional CI wiring below safe.</li>
+<li><strong>Capped.</strong> At most <code>--max</code> (default <code>10</code>) live EXPLAIN calls per run; any
+remainder is listed explicitly as <code>not analyzed (cap reached)</code>, no silent
+truncation.</li>
+<li><strong>Cached.</strong> Results are memoized in <code>.jaunty/explain-cache.json</code> (gitignored),
+keyed by <em>(dialect, normalized-SQL fingerprint, schema-snapshot fingerprint)</em>.
+Unchanged queries cost nothing on repeat runs, and cached queries do not
+consume the cap, successive runs walk further through a large corpus.
+Editing a query or re-pulling the snapshot invalidates exactly the affected
+entries.</li>
+</ul>
+<h2 id="parameters">Parameters</h2>
+<p>EXPLAIN needs bindable placeholders, not real values. The analyzer scans each
+query for <code>@Name</code> / <code>:Name</code> / <code>$Name</code> (and Postgres <code>$1</code> positional)
+placeholders and binds representative <strong>typed nulls</strong>, plans are estimates, so
+sample data is unnecessary.</p>
+<h2 id="severity-heuristics">Severity heuristics</h2>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sequential/full table scan, est. rows ≥ threshold (default 10,000)</td>
+<td><strong>high</strong></td>
+</tr>
+<tr>
+<td>Sequential/full table scan below the threshold</td>
+<td>informational</td>
+</tr>
+<tr>
+<td>Full scan where the dialect exposes no row estimate (SQLite)</td>
+<td>informational</td>
+</tr>
+<tr>
+<td>Sort step whose est. cost is ≥ 50% of the plan's total cost</td>
+<td><strong>high</strong></td>
+</tr>
+<tr>
+<td>Sort step below the dominance ratio</td>
+<td>informational</td>
+</tr>
+<tr>
+<td>SQLite <code>USE TEMP B-TREE FOR ORDER BY/GROUP BY</code> (always means no supporting index)</td>
+<td><strong>high</strong></td>
+</tr>
+<tr>
+<td>Index-backed access (seeks, index/covering-index scans)</td>
+<td>not flagged</td>
+</tr>
+</tbody>
+</table>
+<p>Costs and row counts are <strong>planner estimates from the connected database at run
+time</strong>, they vary with statistics, data volume, and engine version. Thresholds
+compare within a single run; do not treat costs as comparable across
+environments.</p>
+<h2 id="failing-a-pipeline-on-purpose---fail-on">Failing a pipeline on purpose: <code>--fail-on</code></h2>
+<p>By default the exit code is <code>0</code> no matter what the report says. To gate a
+dedicated CI stage, opt in:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">jauntyq</span> explain <span class="tok-attr">--provider</span> postgres <span class="tok-attr">--connection-env</span> CI_EXPLAIN_DB \
+  <span class="tok-attr">--queries</span> db/tables <span class="tok-attr">--fail-on</span> high
+<span class="tok-com"># exit 0 = nothing at/above the threshold; exit 2 = a high-severity plan problem</span>
+</code></pre>
+</div>
+<p><code>--fail-on informational</code> fails on any finding; <code>--fail-on high</code> (recommended)
+fails only on high-severity ones.</p>
+<h2 id="optional-msbuild-wiring-off-by-default">Optional MSBuild wiring (off by default)</h2>
+<p>Exactly like the documented <code>schema verify</code> wiring: an explicit <code>Exec</code> target
+<strong>guarded by a connection variable</strong>. When the variable is unset, the default
+everywhere, including CI, the target does not run and the build is untouched.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">Target</span> <span class="tok-attr">Name</span>=<span class="tok-str">&quot;ExplainJauntyQueries&quot;</span> <span class="tok-attr">AfterTargets</span>=<span class="tok-str">&quot;Build&quot;</span>
+        <span class="tok-attr">Condition</span>=<span class="tok-str">&quot;'$(JAUNTY_EXPLAIN_CONN)' != ''&quot;</span><span class="tok-punc">&gt;</span>
+  <span class="tok-com">&lt;!-- No fail-on switch: report-only, never fails the build. --&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">Exec</span> <span class="tok-attr">Command</span>=<span class="tok-str">&quot;jauntyq explain --provider postgres --connection-env JAUNTY_EXPLAIN_CONN --queries db/tables&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">Target</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p>Even if the variable is set and the database is down, the command exits <code>0</code>
+(clean skip), the build cannot break.</p>
+<h2 id="what-it-will-not-do">What it will not do</h2>
+<ul>
+<li>Run inside the Roslyn generator, ever (the generator has no connection code).</li>
+<li>Execute or mutate anything (<code>EXPLAIN ANALYZE</code> is deliberately unsupported).</li>
+<li>Explain write statements (skipped with a note).</li>
+<li>Prescribe DDL, it reports the problem and the hint, not a migration.</li>
+</ul>
+<p>See the <a href="06-reference-cli.html">CLI reference</a> for the full option table and
+exit codes.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="03-guides-ddl-as-schema-source.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">DDL as schema source</span>
+</a><a class="pn-next" href="03-guides-licensing-and-activation.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Licensing and activation</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

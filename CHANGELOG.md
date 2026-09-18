@@ -11,6 +11,31 @@ condensed.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-18
+
+### Added
+- **net10.0 joins netstandard2.0 and net8.0 as a real build target** across every core `src/`
+  and `tests/` project, not just an advertised claim. CI, nightly and release workflows now
+  install both the 8.0.x and 10.0.x SDKs so the new TFM actually builds in CI.
+- **A JauntyQ-specific mark**: the flame glyph shared with jaunty's logo, with a Q-tail added
+  to the inner ring and recolored red to distinguish it from jaunty's gold.
+
+### Fixed
+- **`PackageDependencyTests` no longer races itself** when net8.0 and net10.0 run the fixture
+  as concurrent xunit hosts: each `dotnet pack` invocation is now serialized with a cross-process
+  named mutex instead of the two hosts writing the same `obj/` output at once.
+- **Every documented `dotnet run --project src/Extrode.JauntyQ.Cli` command works again.** The
+  CLI's new net10.0 target made it multi-targeted, which `dotnet run` refuses to build without
+  `-f <tfm>`; added `-f net8.0` to all seven occurrences across `docs/`.
+- **The README logo renders on GitHub again** after briefly trying an absolute
+  `raw.githubusercontent.com` URL that 404s against unreleased content; reverted to the
+  relative-path embed jaunty itself uses.
+- **`git status` no longer reports `dist/docs-site/*.html` and `search-index.js` as
+  perpetually modified** after a clean rebuild; `.gitattributes` now pins `eol=lf` for the
+  site's text output instead of relying on `text=auto` alone.
+
+## [0.5.0] - 2026-09-17
+
 ### Added
 - **`THIRD-PARTY-NOTICES.md` covers the CLI tool as well as the generator.** The tool package
   bundles 32 third-party assemblies alongside the six JauntyQ ones, and the notices now name
@@ -37,6 +62,11 @@ condensed.
   that runs the same SQL through every dialect the generator supports.
 - **Trusted publishing.** Releases go to NuGet.org through NuGet's OIDC login from a reviewed
   GitHub environment; no publishing key exists to leak.
+- **Free/core packages also publish to GitHub Packages**, using the workflow's own `GITHUB_TOKEN`
+  (scoped to the run, not a stored secret), so they list under this repo's own Packages sidebar.
+  NuGet.org stays the primary feed the README's install line depends on.
+- **`-- @allow-n-plus-one <reason>`**, a per-query opt-out for `JNT8008` (possible N+1 access
+  pattern), with **`JNT8013`** for a dead suppression that never matched an N+1 child lookup.
 
 ### Changed
 - **The command is `jauntyq`, not `jaunty`.** The old name collided with a sibling product.
