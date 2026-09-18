@@ -23,7 +23,9 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Restore
         run: dotnet restore JauntyQ.slnx
@@ -52,7 +54,9 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Publish the harness
         run: dotnet publish tools/Extrode.JauntyQ.Fuzz -c Release -o out/fuzz
@@ -146,7 +150,9 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Install Stryker.NET
         run: dotnet tool install --global dotnet-stryker
@@ -171,7 +177,9 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Run BenchmarkDotNet
         run: dotnet run --project benchmarks/Extrode.JauntyQ.Benchmarks -c Release -- --filter '*' --exporters json
