@@ -219,7 +219,7 @@ the value-safety step later in this guide possible.</p>
     <span class="code-lang">bash</span>
     <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli -- schema pull \
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli <span class="tok-attr">-f</span> net8.<span class="tok-num">0</span> -- schema pull \
   <span class="tok-attr">--provider</span> sqlite \
   <span class="tok-attr">--connection</span> <span class="tok-str">&quot;Data Source=tutorial.db&quot;</span> \
   <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
@@ -373,7 +373,7 @@ column directly in the database:</p>
     <span class="code-lang">bash</span>
     <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli -- schema pull \
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli <span class="tok-attr">-f</span> net8.<span class="tok-num">0</span> -- schema pull \
   <span class="tok-attr">--provider</span> sqlite \
   <span class="tok-attr">--connection</span> <span class="tok-str">&quot;Data Source=tutorial.db&quot;</span> \
   <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
