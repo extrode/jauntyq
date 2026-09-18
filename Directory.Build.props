@@ -5,7 +5,7 @@
        workflow authenticates with NuGet trusted publishing, so no publish keys
        live here or in the repository secrets. -->
   <PropertyGroup>
-    <Version>0.5.0</Version>
+    <Version>0.5.1</Version>
 
     <!-- A checkout is not a release. The working tree and the published
          package used to report the same bare version, so a consumer running a
