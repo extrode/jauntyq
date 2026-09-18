@@ -12,30 +12,44 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
 
     public PackageDependencyTests(PackedFixture packed) => _packed = packed;
 
+    // System.Text.Json ships in the net8.0/net10.0 shared framework, so the SDK prunes it from
+    // those groups' declared dependencies once net10.0 joins the multi-target set; netstandard2.0
+    // has no shared framework to prune against and still needs it declared.
     public static IEnumerable<object[]> ExpectedDependencies() =>
     [
-        ["Extrode.JauntyQ.Runtime", Array.Empty<string>()],
-        ["Extrode.JauntyQ.SqlParser", Array.Empty<string>()],
-        ["Extrode.JauntyQ.Schema", new[] { "System.Text.Json" }],
-        ["Extrode.JauntyQ.Analysis", new[] { "Extrode.JauntyQ.Schema", "Extrode.JauntyQ.SqlParser", "System.Text.Json" }],
+        ["Extrode.JauntyQ.Runtime", Array.Empty<string>(), Array.Empty<string>()],
+        ["Extrode.JauntyQ.SqlParser", Array.Empty<string>(), Array.Empty<string>()],
+        ["Extrode.JauntyQ.Schema", Array.Empty<string>(), new[] { "System.Text.Json" }],
+        ["Extrode.JauntyQ.Analysis",
+            new[] { "Extrode.JauntyQ.Schema", "Extrode.JauntyQ.SqlParser" },
+            new[] { "Extrode.JauntyQ.Schema", "Extrode.JauntyQ.SqlParser", "System.Text.Json" }],
         ["Extrode.JauntyQ.Schema.Extraction", new[]
         {
             "Extrode.JauntyQ.Schema", "Microsoft.Data.SqlClient", "Microsoft.Data.Sqlite",
             "MySqlConnector", "Npgsql", "SQLitePCLRaw.bundle_e_sqlite3",
+        }, new[]
+        {
+            "Extrode.JauntyQ.Schema", "Microsoft.Data.SqlClient", "Microsoft.Data.Sqlite",
+            "MySqlConnector", "Npgsql", "SQLitePCLRaw.bundle_e_sqlite3",
         }],
-        ["Extrode.JauntyQ.Cli.Core", new[] { "Extrode.JauntyQ.Analysis", "Extrode.JauntyQ.Schema", "Extrode.JauntyQ.Schema.Extraction", "Extrode.JauntyQ.SqlParser" }],
+        ["Extrode.JauntyQ.Cli.Core",
+            new[] { "Extrode.JauntyQ.Analysis", "Extrode.JauntyQ.Schema", "Extrode.JauntyQ.Schema.Extraction", "Extrode.JauntyQ.SqlParser" },
+            new[] { "Extrode.JauntyQ.Analysis", "Extrode.JauntyQ.Schema", "Extrode.JauntyQ.Schema.Extraction", "Extrode.JauntyQ.SqlParser" }],
     ];
 
     [Theory]
     [MemberData(nameof(ExpectedDependencies))]
-    public void PackedNuspec_DeclaresExactlyThePlannedDependencies(string packageId, string[] expected)
+    public void PackedNuspec_DeclaresExactlyThePlannedDependencies(string packageId, string[] expectedPruned, string[] expectedNetStandard)
     {
         var groups = _packed.DependencyGroups(packageId);
 
         Assert.NotEmpty(groups);
         foreach (var (framework, ids) in groups)
+        {
+            var expected = framework == ".NETStandard2.0" ? expectedNetStandard : expectedPruned;
             Assert.True(expected.OrderBy(x => x).SequenceEqual(ids.OrderBy(x => x)),
                 $"{packageId} [{framework}] declares [{string.Join(", ", ids)}], expected [{string.Join(", ", expected)}]");
+        }
     }
 
     [Fact]
@@ -166,6 +180,17 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
             return dir!.FullName;
         }
 
+        // net8.0 and net10.0 run this fixture as separate, concurrent xunit hosts (this
+        // project multi-targets both), and dotnet pack builds every TargetFramework of the
+        // packed project regardless of which host is running -- both would otherwise write
+        // the same src/<project>/obj/Debug/net10.0/*.dll at once and CS2012 on the write
+        // lock. A cross-process named mutex serializes each individual pack call between
+        // the two hosts; overriding BaseIntermediateOutputPath/BaseOutputPath instead was tried and
+        // reverted, since it relocates the SDK's default compile-item exclude glob (which
+        // is keyed off those same properties) and pulls stale generated *.cs from the
+        // project's normal obj/ into the isolated build as duplicate sources.
+        private static readonly Mutex PackMutex = new(false, "Global\\JauntyQ.PackageDependencyTests.Pack");
+
         private void Pack(string project)
         {
             var psi = new ProcessStartInfo("dotnet",
@@ -175,17 +200,27 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
                 RedirectStandardError = true,
                 UseShellExecute = false,
             };
-            using var p = Process.Start(psi)!;
-            // Reading stdout and stderr synchronously in sequence deadlocks: if the
-            // child fills the unread stream's OS pipe buffer before exiting, it blocks
-            // on that write while this thread blocks on the other ReadToEnd(). Read
-            // both concurrently instead.
-            Task<string> stdoutTask = p.StandardOutput.ReadToEndAsync();
-            Task<string> stderrTask = p.StandardError.ReadToEndAsync();
-            p.WaitForExit();
-            string stdout = stdoutTask.Result;
-            string stderr = stderrTask.Result;
-            Assert.True(p.ExitCode == 0, $"dotnet pack {project} failed ({p.ExitCode}):\n{stdout}\n{stderr}");
+            // AbandonedMutexException means the other host died mid-pack while holding the
+            // lock -- ownership still transfers to us, so proceed rather than fail the fixture.
+            try { PackMutex.WaitOne(); } catch (AbandonedMutexException) { }
+            try
+            {
+                using var p = Process.Start(psi)!;
+                // Reading stdout and stderr synchronously in sequence deadlocks: if the
+                // child fills the unread stream's OS pipe buffer before exiting, it blocks
+                // on that write while this thread blocks on the other ReadToEnd(). Read
+                // both concurrently instead.
+                Task<string> stdoutTask = p.StandardOutput.ReadToEndAsync();
+                Task<string> stderrTask = p.StandardError.ReadToEndAsync();
+                p.WaitForExit();
+                string stdout = stdoutTask.Result;
+                string stderr = stderrTask.Result;
+                Assert.True(p.ExitCode == 0, $"dotnet pack {project} failed ({p.ExitCode}):\n{stdout}\n{stderr}");
+            }
+            finally
+            {
+                PackMutex.ReleaseMutex();
+            }
         }
 
         private string NupkgPath(string packageId) =>
@@ -252,30 +287,32 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
                          && e.FullName.EndsWith(".dll", StringComparison.Ordinal)
                          && Path.GetFileName(e.FullName).Contains("JauntyQ.", StringComparison.Ordinal))
                 .Select(e => Path.GetFileName(e.FullName))
+                .Distinct(StringComparer.Ordinal)
                 .OrderBy(x => x, StringComparer.Ordinal)
                 .ToArray();
         }
 
         public string[] BundledThirdPartyAssemblies(string packageId)
-    {
-        using var zip = ZipFile.OpenRead(NupkgPath(packageId));
-        return zip.Entries
-            .Where(e => (e.FullName.StartsWith("tools/", StringComparison.Ordinal)
-                      || e.FullName.StartsWith("analyzers/", StringComparison.Ordinal))
-                     && e.FullName.EndsWith(".dll", StringComparison.Ordinal)
-                     && !Path.GetFileName(e.FullName).Contains("JauntyQ.", StringComparison.Ordinal))
-            .Select(e => Path.GetFileName(e.FullName))
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(x => x, StringComparer.Ordinal)
-            .ToArray();
-    }
+        {
+            using var zip = ZipFile.OpenRead(NupkgPath(packageId));
+            return zip.Entries
+                .Where(e => (e.FullName.StartsWith("tools/", StringComparison.Ordinal)
+                          || e.FullName.StartsWith("analyzers/", StringComparison.Ordinal))
+                         && e.FullName.EndsWith(".dll", StringComparison.Ordinal)
+                         && !Path.GetFileName(e.FullName).Contains("JauntyQ.", StringComparison.Ordinal))
+                .Select(e => Path.GetFileName(e.FullName))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(x => x, StringComparer.Ordinal)
+                .ToArray();
+        }
 
-    public string[] LibEntries(string packageId)
+        public string[] LibEntries(string packageId)
         {
             using var zip = ZipFile.OpenRead(NupkgPath(packageId));
             return zip.Entries
                 .Where(e => e.FullName.StartsWith("lib/", StringComparison.Ordinal) && e.FullName.EndsWith(".dll", StringComparison.Ordinal))
                 .Select(e => Path.GetFileName(e.FullName))
+                .Distinct(StringComparer.Ordinal)
                 .OrderBy(x => x)
                 .ToArray();
         }

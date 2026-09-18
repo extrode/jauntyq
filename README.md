@@ -1,14 +1,19 @@
 # JauntyQ
 
+<p align="center">
+  <img src="docs/_assets/logo/jauntyq-mark.svg" alt="JauntyQ" width="160">
+</p>
+
 A compile-time SQL-to-C# generator. You write real `.sql` files; JauntyQ validates them at
 build time against a committed schema snapshot and emits typed, ordinal-read C# with no
 reflection and no runtime parsing.
 
 [![CI](https://github.com/extrode/jauntyq/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/extrode/jauntyq/actions/workflows/ci.yml)
 [![License: ISL-R](https://img.shields.io/badge/license-ISL--R%201.2-blue)](LICENSE.md)
-[![Targets](https://img.shields.io/badge/targets-netstandard2.0%20%7C%20net8.0-512BD4)](#installation)
+[![Targets](https://img.shields.io/badge/targets-netstandard2.0%20%7C%20net8.0%20%7C%20net10.0-512BD4)](#installation)
 [![NativeAOT](https://img.shields.io/badge/NativeAOT-verified%20in%20CI-brightgreen)](#why-compile-time-sql)
-[![Providers](https://img.shields.io/badge/providers-SQL%20Server%20%7C%20PostgreSQL%20%7C%20MySQL%20%7C%20SQLite-informational)](#supported-providers)
+[![Dependencies](https://img.shields.io/badge/dependencies-System.Text.Json%20only-informational)](#installation)
+[![Providers](https://img.shields.io/badge/providers-SQL%20Server%20%7C%20PostgreSQL%20%7C%20MySQL%20%2F%20MariaDB%20%7C%20SQLite-informational)](#supported-providers)
 
 > [!IMPORTANT]
 > The core is free, no seat count, no trial clock, no telemetry: the generator, the runtime,
@@ -336,7 +341,7 @@ dotnet tool install --global Extrode.JauntyQ.Cli
 <PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.5.0" />
 ```
 
-Targets `netstandard2.0` and `net8.0`. The generator installs as a Roslyn analyzer automatically;
+Targets `netstandard2.0`, `net8.0` and `net10.0`. The generator installs as a Roslyn analyzer automatically;
 no `OutputItemType` wiring needed on the package reference.
 
 ---
