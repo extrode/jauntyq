@@ -31,8 +31,8 @@ The core packages are on NuGet.org. Reference both:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Extrode.JauntyQ.Generator" Version="0.5.0" PrivateAssets="all" />
-  <PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.5.0" />
+  <PackageReference Include="Extrode.JauntyQ.Generator" Version="0.5.1" PrivateAssets="all" />
+  <PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.5.1" />
 </ItemGroup>
 ```
 
