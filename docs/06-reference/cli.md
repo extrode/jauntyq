@@ -23,7 +23,7 @@ its inputs.
 In this repository the free tool runs via `dotnet run`:
 
 ```bash
-dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull --provider sqlserver ...
+dotnet run --project src/Extrode.JauntyQ.Cli -f net8.0 -- schema pull --provider sqlserver ...
 ```
 
 The premium verbs come from an installed `Extrode.JauntyQ.Cli.Premium`, which is

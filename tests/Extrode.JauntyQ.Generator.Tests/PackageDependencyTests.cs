@@ -12,9 +12,10 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
 
     public PackageDependencyTests(PackedFixture packed) => _packed = packed;
 
-    // System.Text.Json ships in the net8.0/net10.0 shared framework, so the SDK prunes it from
-    // those groups' declared dependencies once net10.0 joins the multi-target set; netstandard2.0
-    // has no shared framework to prune against and still needs it declared.
+    // System.Text.Json ships in the net8.0/net10.0 shared framework, and the .NET 10 SDK prunes
+    // it from those groups' declared dependencies since the pinned version (Directory.Packages.props)
+    // is at or below the shared-framework version; netstandard2.0 has no shared framework to prune
+    // against and still needs it declared.
     public static IEnumerable<object[]> ExpectedDependencies() =>
     [
         ["Extrode.JauntyQ.Runtime", Array.Empty<string>(), Array.Empty<string>()],

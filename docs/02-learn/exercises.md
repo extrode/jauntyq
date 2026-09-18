@@ -36,7 +36,7 @@ CREATE TABLE Suppliers (
 **Hints:**
 
 - The command is the same one from the tutorial:
-  `dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull --provider sqlite --connection "Data Source=tutorial.db" --output db/schema/jaunty.schema.json`.
+  `dotnet run --project src/Extrode.JauntyQ.Cli -f net8.0 -- schema pull --provider sqlite --connection "Data Source=tutorial.db" --output db/schema/jaunty.schema.json`.
 - A foreign key only shows up in the snapshot if it is a real `REFERENCES`
   (or table-level `FOREIGN KEY`) constraint in the DDL - a same-named column
   alone is not enough.
@@ -57,7 +57,7 @@ ALTER TABLE Products ADD COLUMN SupplierId INTEGER REFERENCES Suppliers(Supplier
 ```
 
 ```bash
-dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull \
+dotnet run --project src/Extrode.JauntyQ.Cli -f net8.0 -- schema pull \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json
@@ -290,7 +290,7 @@ jauntyq schema verify \
 # live database", listing the new Products.Notes column.
 
 # Reconcile the snapshot with reality:
-dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull \
+dotnet run --project src/Extrode.JauntyQ.Cli -f net8.0 -- schema pull \
   --provider sqlite \
   --connection "Data Source=tutorial.db" \
   --output db/schema/jaunty.schema.json
