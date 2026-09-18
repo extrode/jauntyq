@@ -187,7 +187,7 @@ writing a single <code>.sql</code> file.</p>
 <p><strong>Hints:</strong></p>
 <ul>
 <li>The command is the same one from the tutorial:
-<code>dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull --provider sqlite --connection &quot;Data Source=tutorial.db&quot; --output db/schema/jaunty.schema.json</code>.</li>
+<code>dotnet run --project src/Extrode.JauntyQ.Cli -f net8.0 -- schema pull --provider sqlite --connection &quot;Data Source=tutorial.db&quot; --output db/schema/jaunty.schema.json</code>.</li>
 <li>A foreign key only shows up in the snapshot if it is a real <code>REFERENCES</code>
 (or table-level <code>FOREIGN KEY</code>) constraint in the DDL - a same-named column
 alone is not enough.</li>
@@ -215,7 +215,7 @@ alone is not enough.</li>
     <span class="code-lang">bash</span>
     <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli -- schema pull \
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli <span class="tok-attr">-f</span> net8.<span class="tok-num">0</span> -- schema pull \
   <span class="tok-attr">--provider</span> sqlite \
   <span class="tok-attr">--connection</span> <span class="tok-str">&quot;Data Source=tutorial.db&quot;</span> \
   <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
@@ -468,7 +468,7 @@ the generator picks up the new column if you want to query it.</li>
 <span class="tok-com"># live database&quot;, listing the new Products.Notes column.</span>
 
 <span class="tok-com"># Reconcile the snapshot with reality:</span>
-<span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli -- schema pull \
+<span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli <span class="tok-attr">-f</span> net8.<span class="tok-num">0</span> -- schema pull \
   <span class="tok-attr">--provider</span> sqlite \
   <span class="tok-attr">--connection</span> <span class="tok-str">&quot;Data Source=tutorial.db&quot;</span> \
   <span class="tok-attr">--output</span> db/schema/jaunty.schema.json

@@ -257,7 +257,7 @@ Working inside a clone of this repository, the equivalent without installing is:
     <span class="code-lang">bash</span>
     <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli -- schema pull <span class="tok-attr">--provider</span> sqlserver \
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli <span class="tok-attr">-f</span> net8.<span class="tok-num">0</span> -- schema pull <span class="tok-attr">--provider</span> sqlserver \
   <span class="tok-attr">--connection-env</span> MYDB_CONN \
   <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
 </code></pre>
