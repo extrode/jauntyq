@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Central schema-dependency registry — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Guides &#8250; Central schema-dependency registry</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html" class="active" aria-current="page">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#the-registry-file">The registry file</a><a class="toc-l3" href="#schemas-the-named-snapshots">schemas, the named snapshots</a><a class="toc-l3" href="#services-the-dependents">services, the dependents</a><a class="toc-l2" href="#cli-verbs">CLI verbs</a><a class="toc-l2" href="#workflow-owner-declares-consumers-declare-ci-validates">Workflow: owner declares, consumers declare, CI validates</a><a class="toc-l2" href="#programmatic-use">Programmatic use</a><a class="toc-l2" href="#non-goals-current">Non-goals (current)</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Guides &#8250; Central schema-dependency registry</nav>
+        <article>
+<h1 id="central-schema-dependency-registry">Central schema-dependency registry</h1>
+<p>Real systems are not one-service-one-schema: several services read the same
+database, one team owns the schema, and others consume slices of it. The
+<strong>central schema-dependency registry</strong>, a checked-in <code>jaunty.registry.json</code>, names the canonical schema snapshots and records which services depend on which
+schema (and, optionally, which tables). With it, tooling can resolve a snapshot
+by id, enumerate a schema's or a table's dependents, and keep the declared
+graph honest in CI.</p>
+<p>The registry is <strong>tooling metadata, opt-in, and additive</strong>: a project without
+one behaves exactly as today, the generator is unchanged, and nothing about it
+exists at runtime.</p>
+<h2 id="the-registry-file">The registry file</h2>
+<p><code>jaunty.registry.json</code> lives at the root the platform team chooses (typically
+the repo root of the schema-owning project, or a shared infra repo). It has two
+lists:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">JSON</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="json"><code class="language-json"><span class="tok-punc">{</span>
+  <span class="tok-key">&quot;schemas&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span>
+    <span class="tok-punc">{</span>
+      <span class="tok-key">&quot;id&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;sales&quot;</span><span class="tok-punc">,</span>
+      <span class="tok-key">&quot;snapshot&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;schemas/sales.schema.json&quot;</span><span class="tok-punc">,</span>
+      <span class="tok-key">&quot;dialect&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;postgres&quot;</span><span class="tok-punc">,</span>
+      <span class="tok-key">&quot;owner&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;platform-team&quot;</span>
+    <span class="tok-punc">}</span>
+  <span class="tok-punc">]</span><span class="tok-punc">,</span>
+  <span class="tok-key">&quot;services&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span>
+    <span class="tok-punc">{</span>
+      <span class="tok-key">&quot;id&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;billing&quot;</span><span class="tok-punc">,</span>
+      <span class="tok-key">&quot;dependsOn&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span><span class="tok-str">&quot;sales&quot;</span><span class="tok-punc">]</span><span class="tok-punc">,</span>
+      <span class="tok-key">&quot;consumes&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span><span class="tok-str">&quot;sales.orders&quot;</span><span class="tok-punc">,</span> <span class="tok-str">&quot;sales.invoices&quot;</span><span class="tok-punc">]</span><span class="tok-punc">,</span>
+      <span class="tok-key">&quot;owner&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;billing-team&quot;</span>
+    <span class="tok-punc">}</span><span class="tok-punc">,</span>
+    <span class="tok-punc">{</span>
+      <span class="tok-key">&quot;id&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;reporting&quot;</span><span class="tok-punc">,</span>
+      <span class="tok-key">&quot;dependsOn&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span><span class="tok-str">&quot;sales&quot;</span><span class="tok-punc">]</span>
+    <span class="tok-punc">}</span>
+  <span class="tok-punc">]</span>
+<span class="tok-punc">}</span>
+</code></pre>
+</div>
+<h3 id="schemas-the-named-snapshots"><code>schemas</code>, the named snapshots</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Yes</td>
+<td>Unique schema id, referenced by services' <code>dependsOn</code>.</td>
+</tr>
+<tr>
+<td><code>snapshot</code></td>
+<td>Yes</td>
+<td>Snapshot path, <strong>relative to the registry file</strong>. Rooted paths and <code>..</code> escapes are rejected (same rules as the CLI <code>--output</code>).</td>
+</tr>
+<tr>
+<td><code>dialect</code></td>
+<td>Yes</td>
+<td><code>postgres</code>, <code>sqlserver</code>, <code>mysql</code>, or <code>sqlite</code>.</td>
+</tr>
+<tr>
+<td><code>owner</code></td>
+<td>No</td>
+<td>Owning team/contact.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="services-the-dependents"><code>services</code>, the dependents</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Yes</td>
+<td>Unique service id.</td>
+</tr>
+<tr>
+<td><code>dependsOn</code></td>
+<td>Yes</td>
+<td>Ids of the schemas the service depends on.</td>
+</tr>
+<tr>
+<td><code>consumes</code></td>
+<td>No</td>
+<td>Declared table usage: <code>&quot;schemaId.table&quot;</code>, or a bare <code>&quot;table&quot;</code> when the service depends on exactly one schema. When omitted, dependents-by-table cannot narrow for this service, it appears under schema-level dependents only.</td>
+</tr>
+<tr>
+<td><code>owner</code>, <code>description</code></td>
+<td>No</td>
+<td>Team/contact and free-form notes.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cli-verbs">CLI verbs</h2>
+<p>All verbs are offline and read-only. The registry defaults to
+<code>./jaunty.registry.json</code>; <code>--registry &lt;path&gt;</code> overrides. All verbs accept
+<code>--format text|json</code> (default <code>text</code>).</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-com"># Resolve a snapshot by name instead of copying the file:</span>
+<span class="tok-fn">jauntyq</span> registry resolve <span class="tok-attr">--schema</span> sales
+<span class="tok-com"># schema:   sales</span>
+<span class="tok-com"># snapshot: /abs/path/to/schemas/sales.schema.json</span>
+<span class="tok-com"># dialect:  postgres</span>
+<span class="tok-com"># owner:    platform-team</span>
+
+<span class="tok-com"># Who depends on the schema at all?</span>
+<span class="tok-fn">jauntyq</span> registry dependents <span class="tok-attr">--schema</span> sales
+
+<span class="tok-com"># Who consumes a specific table? (the blast-radius question)</span>
+<span class="tok-fn">jauntyq</span> registry dependents <span class="tok-attr">--table</span> sales.orders
+
+<span class="tok-com"># Keep the registry honest in CI:</span>
+<span class="tok-fn">jauntyq</span> registry validate
+
+<span class="tok-com"># Summarize everything:</span>
+<span class="tok-fn">jauntyq</span> registry list
+</code></pre>
+</div>
+<p><strong>Exit codes</strong>: <code>0</code> ok; <code>1</code> usage or error (missing registry, unknown schema
+id, bad <code>--table</code> reference); <code>2</code>, <code>validate</code> found problems (each problem is
+individually named, e.g. <code>DanglingDependsOn: service 'billing' depends on undeclared schema 'inventory'.</code>).</p>
+<p><code>validate</code> checks: unique schema/service ids; every snapshot path is
+relative-within-tree and the file exists and parses; every <code>dependsOn</code> points
+at a declared schema; every <code>consumes</code> entry resolves to a schema the service
+depends on and to a table that exists in that schema's snapshot.</p>
+<h2 id="workflow-owner-declares-consumers-declare-ci-validates">Workflow: owner declares, consumers declare, CI validates</h2>
+<ol>
+<li><strong>The owning team</strong> pulls the canonical snapshot (<code>jauntyq schema pull</code>),
+commits it, and declares it in the registry under a stable id.</li>
+<li><strong>Each consuming team</strong> adds its service with <code>dependsOn</code> (and ideally
+<code>consumes</code>, so table-level blast radius works for it).</li>
+<li><strong>CI runs <code>jauntyq registry validate</code></strong> on every change to the registry or a
+snapshot, so a dangling reference or a consumed table that no longer exists
+fails the build.</li>
+<li><strong>Before a schema change</strong>, the owner runs
+<code>jauntyq registry dependents --table &lt;schemaId.table&gt;</code> to see exactly who is
+affected, and <code>--schema &lt;id&gt;</code> for the full dependent list.</li>
+</ol>
+<p>A build or script can consume <code>resolve</code> instead of copying snapshots around:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">SNAPSHOT</span>=$(<span class="tok-fn">jauntyq</span> registry resolve <span class="tok-attr">--schema</span> sales <span class="tok-attr">--format</span> json | <span class="tok-fn">jq</span> <span class="tok-attr">-r</span> .snapshot)
+</code></pre>
+</div>
+<h2 id="programmatic-use">Programmatic use</h2>
+<p>The registry lives in the non-core <code>Extrode.JauntyQ.Registry</code> library (references only
+<code>Extrode.JauntyQ.Schema</code>): <code>RegistryLoader.LoadFile(path)</code> returns a <code>SchemaRegistry</code>
+with <code>ResolveSchema(id)</code>, <code>DependentsOfSchema(id)</code>, and
+<code>DependentsOfTable(schemaId, table)</code>; <code>RegistryValidator.Validate(registry)</code>
+returns every problem, named. Per-service contracts (feature 010) build on this
+surface.</p>
+<h2 id="non-goals-current">Non-goals (current)</h2>
+<ul>
+<li><strong>Multi-schema code generation</strong>, the registry only <em>locates</em> a snapshot;
+codegen stays single-schema. The <code>&lt;JauntyQSchemaId&gt;</code>/<code>&lt;JauntyQRegistry&gt;</code>
+build-property hook is deferred with it.</li>
+<li><strong>A hosted/served registry</strong>, it is a checked-in JSON file, not a service.</li>
+<li><strong>Runtime use</strong>, build/tooling metadata only; nothing ships in your app.</li>
+<li><strong>Auto-derived <code>consumes</code></strong>, declare table usage explicitly for now;
+deriving it from a service's query corpus is a planned follow-up.</li>
+<li><strong>Cross-service <code>migrate impact --registry</code></strong>, a follow-up built on
+dependents enumeration.</li>
+<li><strong>Federation</strong>, one registry file per invocation.</li>
+</ul>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="03-guides-migrating-from-dapper-and-ef.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Migrating from Dapper or EF Core</span>
+</a><a class="pn-next" href="03-guides-sequences.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Sequences</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exercises — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Learn &#8250; Exercises</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html" class="active" aria-current="page">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#exercise-1-add-a-table-get-crud-for-free">Exercise 1: Add a table, get CRUD for free</a><a class="toc-l2" href="#exercise-2-override-a-synthetic">Exercise 2: Override a synthetic</a><a class="toc-l2" href="#exercise-3-fix-a-join-the-analyzer-flags">Exercise 3: Fix a JOIN the analyzer flags</a><a class="toc-l2" href="#exercise-4-atomic-parent--children-insert">Exercise 4: Atomic parent + children insert</a><a class="toc-l2" href="#exercise-5-simulate-schema-drift">Exercise 5: Simulate schema drift</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Learn &#8250; Exercises</nav>
+        <article>
+<h1 id="exercises">Exercises</h1>
+<p>These build directly on the tutorial database from <a href="02-learn-README.html">README.md</a>:
+<code>Categories</code>, <code>Products</code>, and <code>Shippers</code> in <code>tutorial.db</code>, with the schema
+snapshot at <code>db/schema/jaunty.schema.json</code>. Work through them in order - each
+one assumes the previous one's schema changes are in place and re-pulled.</p>
+<h2 id="exercise-1-add-a-table-get-crud-for-free">Exercise 1: Add a table, get CRUD for free</h2>
+<p><strong>Goal:</strong> Add a <code>Suppliers</code> table and use its full auto-CRUD surface without
+writing a single <code>.sql</code> file.</p>
+<p><strong>Starter:</strong></p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- Add to your schema (e.g. run against tutorial.db with sqlite3):</span>
+<span class="tok-kw">CREATE</span> <span class="tok-kw">TABLE</span> Suppliers (
+    SupplierId  <span class="tok-type">INTEGER</span> <span class="tok-kw">PRIMARY</span> <span class="tok-kw">KEY</span>,
+    CompanyName <span class="tok-type">VARCHAR</span>(<span class="tok-num">40</span>) <span class="tok-kw">NOT</span> <span class="tok-kw">NULL</span>,
+    City        <span class="tok-type">VARCHAR</span>(<span class="tok-num">15</span>) <span class="tok-kw">NULL</span>
+    <span class="tok-com">-- TODO: no other columns needed yet</span>
+);
+
+<span class="tok-com">-- TODO: give Products a foreign key to Suppliers so a loader gets generated:</span>
+<span class="tok-com">-- ALTER TABLE Products ADD COLUMN SupplierId INTEGER REFERENCES Suppliers(SupplierId);</span>
+</code></pre>
+</div>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-com">// TODO: re-pull the schema snapshot, rebuild, then:</span>
+<span class="tok-com">// - insert a supplier and capture its id</span>
+<span class="tok-com">// - fetch it back with GetById</span>
+<span class="tok-com">// - insert a product referencing it</span>
+<span class="tok-com">// - call the FK loader JauntyQ generated for you</span>
+</code></pre>
+</div>
+<p><strong>Hints:</strong></p>
+<ul>
+<li>The command is the same one from the tutorial:
+<code>dotnet run --project src/Extrode.JauntyQ.Cli -- schema pull --provider sqlite --connection &quot;Data Source=tutorial.db&quot; --output db/schema/jaunty.schema.json</code>.</li>
+<li>A foreign key only shows up in the snapshot if it is a real <code>REFERENCES</code>
+(or table-level <code>FOREIGN KEY</code>) constraint in the DDL - a same-named column
+alone is not enough.</li>
+<li>The loader is named <code>GetBy&lt;FkColumn&gt;</code>, so a <code>SupplierId</code> foreign key on
+<code>Products</code> gives you <code>db.Products.GetBySupplierId(int)</code>.</li>
+</ul>
+<details>
+<summary>Solution</summary>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-kw">CREATE</span> <span class="tok-kw">TABLE</span> Suppliers (
+    SupplierId  <span class="tok-type">INTEGER</span> <span class="tok-kw">PRIMARY</span> <span class="tok-kw">KEY</span>,
+    CompanyName <span class="tok-type">VARCHAR</span>(<span class="tok-num">40</span>) <span class="tok-kw">NOT</span> <span class="tok-kw">NULL</span>,
+    City        <span class="tok-type">VARCHAR</span>(<span class="tok-num">15</span>) <span class="tok-kw">NULL</span>
+);
+
+<span class="tok-kw">ALTER</span> <span class="tok-kw">TABLE</span> Products <span class="tok-kw">ADD</span> <span class="tok-kw">COLUMN</span> SupplierId <span class="tok-type">INTEGER</span> <span class="tok-kw">REFERENCES</span> Suppliers(SupplierId);
+</code></pre>
+</div>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli -- schema pull \
+  <span class="tok-attr">--provider</span> sqlite \
+  <span class="tok-attr">--connection</span> <span class="tok-str">&quot;Data Source=tutorial.db&quot;</span> \
+  <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
+</code></pre>
+</div>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">int</span> supplierId = db.<span class="tok-var">Suppliers</span>.<span class="tok-fn">Insert</span>(<span class="tok-str">&quot;Exotic Liquids&quot;</span>, <span class="tok-str">&quot;London&quot;</span>);
+<span class="tok-type">Supplier</span>? supplier = db.<span class="tok-var">Suppliers</span>.<span class="tok-fn">GetById</span>(supplierId);
+
+<span class="tok-kw">int</span> productId = db.<span class="tok-var">Products</span>.<span class="tok-fn">Insert</span>(<span class="tok-str">&quot;Chai&quot;</span>, <span class="tok-num">1</span>, <span class="tok-num">18.00m</span>, supplierId);
+
+<span class="tok-type">List</span>&lt;<span class="tok-type">Product</span>&gt; fromSupplier = db.<span class="tok-var">Products</span>.<span class="tok-fn">GetBySupplierId</span>(supplierId);
+</code></pre>
+</div>
+<p>No <code>.sql</code> file was written for any of this: <code>Insert</code>, <code>GetById</code>, and the
+<code>GetBySupplierId</code> FK loader are all synthesized from the snapshot alone.</p>
+</details>
+<h2 id="exercise-2-override-a-synthetic">Exercise 2: Override a synthetic</h2>
+<p><strong>Goal:</strong> Confirm that a user <code>.sql</code> file with the same entity and method
+name as a synthetic wins, silently.</p>
+<p><strong>Starter:</strong></p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- db/tables/Products/GetAll.sql</span>
+<span class="tok-com">-- TODO: select the same columns as the synthetic GetAll, but order the</span>
+<span class="tok-com">-- rows by UnitPrice descending instead of the synthetic's default order.</span>
+<span class="tok-kw">select</span> ProductId, ProductName, CategoryId, UnitPrice
+<span class="tok-kw">from</span> Products
+<span class="tok-com">-- TODO: add an ORDER BY here</span>
+</code></pre>
+</div>
+<p><strong>Hints:</strong></p>
+<ul>
+<li>The rule from the tutorial: &quot;A user <code>.sql</code> file with the matching entity +
+method name overrides the synthetic.&quot; Folder name = entity, file name
+(without <code>.sql</code>) = method name - <code>db/tables/Products/GetAll.sql</code> overrides
+<code>Products.GetAll</code>.</li>
+<li>You do not need to change any C# call site: <code>db.Products.GetAll()</code> now
+runs your SQL instead of the generated one.</li>
+<li>Prove the override took effect by asserting the returned order, not just
+that the call compiles.</li>
+</ul>
+<details>
+<summary>Solution</summary>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- db/tables/Products/GetAll.sql</span>
+<span class="tok-kw">select</span> ProductId, ProductName, CategoryId, UnitPrice
+<span class="tok-kw">from</span> Products
+<span class="tok-kw">order</span> <span class="tok-kw">by</span> UnitPrice <span class="tok-kw">desc</span>
+</code></pre>
+</div>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-type">List</span>&lt;<span class="tok-type">Product</span>&gt; products = db.<span class="tok-var">Products</span>.<span class="tok-fn">GetAll</span>();
+
+<span class="tok-com">// If the synthetic (unordered by price) were still in effect, this would</span>
+<span class="tok-com">// not reliably hold. With the override in place, it always does:</span>
+<span class="tok-ctl">for</span> (<span class="tok-kw">int</span> i = <span class="tok-num">1</span>; i &lt; products.<span class="tok-var">Count</span>; i++)
+{
+    <span class="tok-type">Debug</span>.<span class="tok-fn">Assert</span>(products[i - <span class="tok-num">1</span>].<span class="tok-var">UnitPrice</span> &gt;= products[i].<span class="tok-var">UnitPrice</span>);
+}
+</code></pre>
+</div>
+</details>
+<h2 id="exercise-3-fix-a-join-the-analyzer-flags">Exercise 3: Fix a JOIN the analyzer flags</h2>
+<p><strong>Goal:</strong> Write a join between <code>Products</code> and <code>Categories</code>, trigger a
+<code>JNT8002</code> warning by wrapping a filter column in a function, then fix it.</p>
+<p><strong>Starter:</strong></p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- db/tables/Products/GetByCategoryName.sql</span>
+<span class="tok-kw">select</span> p.ProductId, p.ProductName, p.UnitPrice, c.CategoryName
+<span class="tok-kw">from</span> Products p
+<span class="tok-kw">join</span> Categories c <span class="tok-kw">on</span> c.CategoryId = p.CategoryId
+<span class="tok-kw">where</span> <span class="tok-fn">upper</span>(c.CategoryName) = <span class="tok-var">@CategoryName</span>
+<span class="tok-com">-- TODO: this compiles, but rebuild and read the warning JauntyQ prints.</span>
+<span class="tok-com">-- TODO: rewrite the WHERE clause so the column is not wrapped in a function.</span>
+</code></pre>
+</div>
+<p><strong>Hints:</strong></p>
+<ul>
+<li>This is <code>JNT8002</code> from the performance analyzer: &quot;a function on the
+column defeats any index.&quot; It fires because <code>upper(...)</code> wraps
+<code>c.CategoryName</code>, not because of the join itself.</li>
+<li>The fix direction from the analyzer's own message: &quot;Compute on the
+parameter side instead.&quot; Keep the column bare in the <code>WHERE</code> clause and
+normalize the value before you bind it as a parameter (or pass a
+correctly-cased value directly, since the exercise data is small enough
+that exact-case matching is fine).</li>
+<li>JNT8002 is a warning, not an error - the query still compiles either way.
+The point of the exercise is to make the warning go away, not to work
+around a build failure.</li>
+</ul>
+<details>
+<summary>Solution</summary>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- db/tables/Products/GetByCategoryName.sql</span>
+<span class="tok-kw">select</span> p.ProductId, p.ProductName, p.UnitPrice, c.CategoryName
+<span class="tok-kw">from</span> Products p
+<span class="tok-kw">join</span> Categories c <span class="tok-kw">on</span> c.CategoryId = p.CategoryId
+<span class="tok-kw">where</span> c.CategoryName = <span class="tok-var">@CategoryName</span>
+</code></pre>
+</div>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-com">// Normalize on the call side instead of wrapping the column in SQL:</span>
+<span class="tok-type">List</span>&lt;<span class="tok-type">Result</span>&gt; beverages = db.<span class="tok-var">Products</span>.<span class="tok-fn">GetByCategoryName</span>(<span class="tok-str">&quot;Beverages&quot;</span>);
+</code></pre>
+</div>
+<p>The column (<code>c.CategoryName</code>) is now bare in the <code>WHERE</code> clause, so nothing
+prevents an index seek on it. <code>JNT8002</code> no longer fires because the check
+looks for a function wrapping the column, not the parameter.</p>
+</details>
+<h2 id="exercise-4-atomic-parent--children-insert">Exercise 4: Atomic parent + children insert</h2>
+<p><strong>Goal:</strong> Insert a new <code>Category</code> and several <code>Products</code> that reference it,
+all inside one transaction, using the identity JauntyQ hands back from the
+parent insert.</p>
+<p><strong>Starter:</strong></p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">public</span> <span class="tok-kw">static</span> <span class="tok-kw">void</span> <span class="tok-fn">AddCategoryWithProducts</span>(<span class="tok-type">JauntyDb</span> db)
+{
+    <span class="tok-com">// TODO: start a transaction on db</span>
+    <span class="tok-com">// TODO: insert a new Category, capture its identity</span>
+    <span class="tok-com">// TODO: insert two or more Products using that CategoryId</span>
+    <span class="tok-com">// TODO: commit - and make sure a thrown exception rolls everything back</span>
+}
+</code></pre>
+</div>
+<p><strong>Hints:</strong></p>
+<ul>
+<li><code>Categories.Insert</code> already returns the new identity as an <code>int</code> - that is
+what <code>-- @identity</code> (implicit on auto-CRUD inserts, or explicit if you
+write it yourself) gives you.</li>
+<li>Stay on <code>db.*</code> for every call inside the transaction. Static methods
+(<code>Products.Insert(conn, ...)</code>) do not see the <code>JauntyDb</code>-held transaction
+and will not auto-enlist.</li>
+<li>Disposing the transaction without calling <code>Commit()</code> rolls back - you do
+not need a manual <code>try/catch</code> to undo a partial insert on failure, just
+don't call <code>Commit()</code> on the failing path.</li>
+</ul>
+<details>
+<summary>Solution</summary>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">public</span> <span class="tok-kw">static</span> <span class="tok-kw">void</span> <span class="tok-fn">AddCategoryWithProducts</span>(<span class="tok-type">JauntyDb</span> db)
+{
+    <span class="tok-kw">using</span> <span class="tok-kw">var</span> tx = db.<span class="tok-fn">BeginTransaction</span>();
+
+    <span class="tok-kw">int</span> categoryId = db.<span class="tok-var">Categories</span>.<span class="tok-fn">Insert</span>(<span class="tok-str">&quot;Grains/Cereals&quot;</span>);
+
+    db.<span class="tok-var">Products</span>.<span class="tok-fn">Insert</span>(<span class="tok-str">&quot;Gnocchi di Nonna Alice&quot;</span>, categoryId, <span class="tok-num">38.00m</span>);
+    db.<span class="tok-var">Products</span>.<span class="tok-fn">Insert</span>(<span class="tok-str">&quot;Singaporean Hokkien Fried Mee&quot;</span>, categoryId, <span class="tok-num">14.00m</span>);
+
+    tx.<span class="tok-fn">Commit</span>();
+}
+</code></pre>
+</div>
+<p>If anything above throws before <code>tx.Commit()</code> runs, disposing <code>tx</code> at the
+end of the <code>using</code> block rolls back the category insert along with both
+product inserts - there is no partially-created category left behind.</p>
+</details>
+<h2 id="exercise-5-simulate-schema-drift">Exercise 5: Simulate schema drift</h2>
+<p><strong>Goal:</strong> Change the live database without re-pulling, run <code>schema verify</code>,
+read the reported drift, then reconcile it.</p>
+<p><strong>Before you start:</strong> <code>schema verify</code> is gated by the <code>contract-testing</code>
+entitlement (see
+<a href="03-guides-licensing-and-activation.html">Licensing and activation</a>). Without
+an activated license, it exits <code>3</code> with an entitlement-required message
+instead of the <code>0</code>/<code>2</code> outcomes below, that is expected, not a setup mistake.
+If you have an evaluation license, activate it first
+(<code>jauntyq activate --license path/to/jaunty.license.json</code>, from an installed
+<code>Extrode.JauntyQ.Cli.Premium</code>; that tool is not built from this repository);
+otherwise, read through this exercise to understand the behavior rather than
+running it directly.</p>
+<p><strong>Starter:</strong></p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-com"># TODO: alter tutorial.db directly, without touching db/schema/jaunty.schema.json</span>
+<span class="tok-fn">sqlite3</span> tutorial.db <span class="tok-str">&quot;ALTER TABLE Products ADD COLUMN Notes VARCHAR(100);&quot;</span>
+
+<span class="tok-com"># TODO: run schema verify against the now-drifted database and read its output</span>
+<span class="tok-fn">jauntyq</span> schema verify \
+  <span class="tok-attr">--provider</span> sqlite \
+  <span class="tok-attr">--connection</span> <span class="tok-str">&quot;Data Source=tutorial.db&quot;</span> \
+  <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
+
+<span class="tok-com"># TODO: what exit code did that produce? Check it, then fix the drift.</span>
+</code></pre>
+</div>
+<p><strong>Hints:</strong></p>
+<ul>
+<li><code>schema verify</code> never touches your <code>.sql</code> files or the generator - it
+only compares the live database against the committed snapshot and
+reports. Exit code <code>0</code> means match, exit code <code>2</code> means drift, with the
+differences listed.</li>
+<li>A brand-new table would print as an informational &quot;new table... not in
+snapshot&quot; line rather than counting as drift; a changed column on an
+existing table (like this one) counts as drift and produces exit code <code>2</code>.</li>
+<li>The fix is the same command you already know: re-pull, then rebuild so
+the generator picks up the new column if you want to query it.</li>
+</ul>
+<details>
+<summary>Solution</summary>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">sqlite3</span> tutorial.db <span class="tok-str">&quot;ALTER TABLE Products ADD COLUMN Notes VARCHAR(100);&quot;</span>
+
+<span class="tok-fn">jauntyq</span> schema verify \
+  <span class="tok-attr">--provider</span> sqlite \
+  <span class="tok-attr">--connection</span> <span class="tok-str">&quot;Data Source=tutorial.db&quot;</span> \
+  <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
+<span class="tok-com"># exit code 2 - &quot;SCHEMA DRIFT: 1 difference(s) between snapshot ... and the</span>
+<span class="tok-com"># live database&quot;, listing the new Products.Notes column.</span>
+
+<span class="tok-com"># Reconcile the snapshot with reality:</span>
+<span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli -- schema pull \
+  <span class="tok-attr">--provider</span> sqlite \
+  <span class="tok-attr">--connection</span> <span class="tok-str">&quot;Data Source=tutorial.db&quot;</span> \
+  <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
+
+<span class="tok-com"># Re-running verify now exits 0: &quot;Snapshot ... matches the live database.&quot;</span>
+</code></pre>
+</div>
+<p>Auto-CRUD's synthetic <code>GetAll</code>/<code>Insert</code>/etc. for <code>Products</code> now include
+<code>Notes</code> too, without any <code>.sql</code> file changes - the snapshot is the only
+thing that changed.</p>
+</details>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="02-learn-README.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Your first hour with JauntyQ</span>
+</a><a class="pn-next" href="03-guides-README.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Guides</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

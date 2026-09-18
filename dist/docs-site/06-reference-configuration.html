@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configuration reference (MSBuild &amp; file conventions) — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Reference &#8250; Configuration reference (MSBuild &amp; file conventions)</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html" class="active" aria-current="page">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#msbuild-properties">MSBuild properties</a><a class="toc-l2" href="#additionalfiles">AdditionalFiles</a><a class="toc-l2" href="#how-files-are-classified">How files are classified</a><a class="toc-l2" href="#schema-source-precedence">Schema-source precedence</a><a class="toc-l2" href="#the-acceptance-sidecar-acceptjson">The acceptance sidecar (*.accept.json)</a><a class="toc-l2" href="#entity-and-method-naming">Entity and method naming</a><a class="toc-l2" href="#consumer-project-template">Consumer project template</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Configuration reference (MSBuild &amp; file conventions)</nav>
+        <article>
+<h1 id="configuration-reference-msbuild--file-conventions">Configuration reference (MSBuild &amp; file conventions)</h1>
+<p>Everything the generator reads is either an MSBuild property or an
+<code>AdditionalFiles</code> item classified by its path. There are exactly two properties
+and one set of folder conventions.</p>
+<h2 id="msbuild-properties">MSBuild properties</h2>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Values</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>JauntyQDialect</code></td>
+<td><code>sqlserver</code>, <code>postgres</code>, <code>mysql</code>, <code>sqlite</code> (case-insensitive)</td>
+<td>unset</td>
+<td>Declares the target dialect <strong>for DDL-as-schema-source mode</strong> (no <code>.schema.json</code> present). Ignored when a snapshot exists, because the snapshot already carries its dialect. Missing or invalid while <code>db/ddl/*.sql</code> files are present raises <code>JNT9003</code>.</td>
+</tr>
+<tr>
+<td><code>JauntyQAutoCrud</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td><code>true</code></td>
+<td>Whether the generator synthesises CRUD methods (<code>GetAll</code>/<code>GetById</code>/<code>Insert</code>/<code>Update</code>/<code>Delete</code>/<code>Upsert</code>/<code>BulkInsert</code>) for every table. Set <code>false</code> to emit nothing but your hand-written queries.</td>
+</tr>
+</tbody>
+</table>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">JauntyQDialect</span><span class="tok-punc">&gt;</span>sqlite<span class="tok-punc">&lt;/</span><span class="tok-tag">JauntyQDialect</span><span class="tok-punc">&gt;</span>   <span class="tok-com">&lt;!-- only for DDL mode --&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">JauntyQAutoCrud</span><span class="tok-punc">&gt;</span>false<span class="tok-punc">&lt;/</span><span class="tok-tag">JauntyQAutoCrud</span><span class="tok-punc">&gt;</span>   <span class="tok-com">&lt;!-- optional --&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p>Both are surfaced to the analyzer through <code>CompilerVisibleProperty</code>
+registrations. When you consume JauntyQ as a package, the shipped MSBuild props
+(<code>build/</code> and <code>buildTransitive/</code>) register them automatically, you do <strong>not</strong>
+add <code>&lt;CompilerVisibleProperty&gt;</code> yourself. In-repo builds get the same
+registration from <code>Directory.Build.props</code>.</p>
+<p>No other analyzer-config keys (<code>build_metadata.*</code>, <code>.editorconfig</code> values) are
+read by the generator, apart from the standard
+<code>dotnet_diagnostic.&lt;code&gt;.severity</code> mechanism you can use to tune or suppress
+individual <code>JNTxxxx</code> diagnostics.</p>
+<h2 id="additionalfiles">AdditionalFiles</h2>
+<p>The generator consumes these <code>AdditionalFiles</code> globs:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\**\*.sql&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\schema\*.schema.json&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\schema\*.accept.json&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p>The single <code>db\**\*.sql</code> glob covers queries, migrations, and DDL, they are
+distinguished by folder, not by separate globs. The third glob is optional and
+only needed if you use <a href="#the-acceptance-sidecar-acceptjson">the acceptance
+sidecar</a>.</p>
+<h2 id="how-files-are-classified">How files are classified</h2>
+<p>Classification is by <strong>path segment</strong> (case-insensitive, <code>/</code> and <code>\</code> both
+match):</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Recognized by</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Schema snapshot</strong></td>
+<td>file ends in <code>.schema.json</code> (convention <code>db/schema/*.schema.json</code>)</td>
+<td>Authoritative schema when present.</td>
+</tr>
+<tr>
+<td><strong>Acceptance sidecar</strong></td>
+<td>file ends in <code>.accept.json</code> (convention <code>db/schema/jaunty.accept.json</code>)</td>
+<td>Accepts unindexed scans in <strong>generated</strong> queries. Optional.</td>
+</tr>
+<tr>
+<td><strong>DDL</strong></td>
+<td>a <code>ddl</code> path segment (convention <code>db/ddl/*.sql</code>)</td>
+<td>Builds the base schema <strong>only when no snapshot exists</strong>. Requires <code>JauntyQDialect</code>.</td>
+</tr>
+<tr>
+<td><strong>Migration</strong></td>
+<td>a <code>migrations</code> path segment (convention <code>db/migrations/*.sql</code>)</td>
+<td>Applied on top of the base schema, in filename order.</td>
+</tr>
+<tr>
+<td><strong>Query</strong></td>
+<td>any other <code>.sql</code> under <code>db/</code> (convention <code>db/tables/&lt;Entity&gt;/&lt;Method&gt;.sql</code>)</td>
+<td>Parsed, validated, and emitted as a typed method.</td>
+</tr>
+</tbody>
+</table>
+<p>Any path component literally named <code>ddl</code> or <code>migrations</code> triggers that
+classification, regardless of depth.</p>
+<h2 id="schema-source-precedence">Schema-source precedence</h2>
+<ol>
+<li>If a <code>.schema.json</code> snapshot is present, it is authoritative and any
+<code>db/ddl/*.sql</code> files are <strong>ignored</strong> (no merge, no error).</li>
+<li>Otherwise, if <code>db/ddl/*.sql</code> files are present, they build the base schema
+(requires <code>JauntyQDialect</code>).</li>
+<li>Migrations, if any, are always simulated on top of the result of step 1 or
+2, in filename order.</li>
+</ol>
+<p>See <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a> for the DDL
+path and <a href="06-reference-dialects.html">dialect differences</a> for what each dialect emits.</p>
+<h2 id="the-acceptance-sidecar-acceptjson">The acceptance sidecar (<code>*.accept.json</code>)</h2>
+<p>Auto-CRUD synthesizes a <code>GetBy&lt;Fk&gt;</code> loader for every foreign-key column, and on
+engines that do not index foreign keys automatically (SQLite, unlike InnoDB)
+those loaders scan, so they raise <code>JNT8004</code>. A synthesized query has no file,
+so it cannot carry <a href="06-reference-directives.html#-allow-unindexed"><code>-- @allow-unindexed</code></a>. The
+sidecar is where a generated scan is accepted instead:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">JSON</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="json"><code class="language-json"><span class="tok-punc">{</span>
+  <span class="tok-key">&quot;allowUnindexed&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span>
+    <span class="tok-punc">{</span> <span class="tok-key">&quot;table&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;address&quot;</span><span class="tok-punc">,</span> <span class="tok-key">&quot;column&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;city_id&quot;</span><span class="tok-punc">,</span> <span class="tok-key">&quot;reason&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;upstream schema, the index is not ours to add&quot;</span> <span class="tok-punc">}</span>
+  <span class="tok-punc">]</span>
+<span class="tok-punc">}</span>
+</code></pre>
+</div>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Per column</strong></td>
+<td><code>table</code> and <code>column</code> name one column. There is no wildcard and no table-level form; each accepted scan is a decision someone made.</td>
+</tr>
+<tr>
+<td><strong>Reason mandatory</strong></td>
+<td>Same contract as the directive. A blank reason is <code>JNT6003</code> and the entry accepts nothing.</td>
+</tr>
+<tr>
+<td><strong>Generated queries only</strong></td>
+<td>A hand-written query filtering an accepted column still raises <code>JNT8004</code>. It has a file; the file carries the directive.</td>
+</tr>
+<tr>
+<td><strong>One file</strong></td>
+<td>More than one <code>*.accept.json</code> is <code>JNT6003</code>; the ordinal-lowest path wins and the others are ignored entirely, they are not merged.</td>
+</tr>
+<tr>
+<td><strong>Structural problems are <code>JNT6003</code></strong></td>
+<td>Unparseable JSON, a missing <code>table</code>/<code>column</code>/<code>reason</code>, a table or column the snapshot does not have, or the same column accepted twice (the first entry stays in force). Every one is a warning, and the entry is dropped.</td>
+</tr>
+<tr>
+<td><strong>Dead entries are <code>JNT8012</code></strong></td>
+<td>An entry that suppressed nothing on a build that ran synthesis. Either an index now covers the column, delete the entry, or a hand-written <code>.sql</code> claimed that loader's slot, in which case the acceptance belongs in that file as <code>-- @allow-unindexed &lt;reason&gt;</code>.</td>
+</tr>
+<tr>
+<td><strong>Off with auto-CRUD</strong></td>
+<td>Under <code>&lt;JauntyQAutoCrud&gt;false&lt;/JauntyQAutoCrud&gt;</code> no entry can be used, so the dead-entry sweep does not run. Structural problems are still reported.</td>
+</tr>
+</tbody>
+</table>
+<p>It suppresses <code>JNT8004</code> and nothing else. Table and column are matched
+case-insensitively, as everywhere else an identifier is resolved against the
+snapshot.</p>
+<p><strong>Why a separate file rather than a field on the snapshot.</strong> <code>jauntyq schema pull</code> rewrites the snapshot wholesale, so an acceptance recorded there would be
+erased by the next pull. The sidecar is hand-maintained and nothing generates
+over it.</p>
+<p><code>samples/Extrode.JauntyQ.Sakila.Sqlite.Tests/db/schema/jaunty.accept.json</code> is a worked
+example: the SQLite port of Pagila declares its foreign keys without secondary
+indexes, and its 17 entries take the resulting <code>JNT8004</code> count to zero.</p>
+<h2 id="entity-and-method-naming">Entity and method naming</h2>
+<ul>
+<li><strong>Entity name</strong> = the folder under <code>db/tables/</code> (e.g. <code>Products</code> →
+<code>db.Products</code>, generated class <code>Products</code>).</li>
+<li><strong>Method name</strong> = the <code>.sql</code> file name without extension (e.g.
+<code>GetByCategory.sql</code> → <code>GetByCategory</code>).</li>
+<li>A hand-written file whose name matches an auto-CRUD method <strong>overrides</strong> the
+synthetic one; hand-written always wins.</li>
+</ul>
+<h2 id="consumer-project-template">Consumer project template</h2>
+<p>Package consumers:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">Project</span> <span class="tok-attr">Sdk</span>=<span class="tok-str">&quot;Microsoft.NET.Sdk&quot;</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+    <span class="tok-punc">&lt;</span><span class="tok-tag">TargetFramework</span><span class="tok-punc">&gt;</span>net8.0<span class="tok-punc">&lt;/</span><span class="tok-tag">TargetFramework</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;/</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+
+  <span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+    <span class="tok-punc">&lt;</span><span class="tok-tag">PackageReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;Extrode.JauntyQ.Generator&quot;</span> <span class="tok-attr">Version</span>=<span class="tok-str">&quot;0.1.0&quot;</span> <span class="tok-attr">PrivateAssets</span>=<span class="tok-str">&quot;all&quot;</span> <span class="tok-punc">/&gt;</span>
+    <span class="tok-punc">&lt;</span><span class="tok-tag">PackageReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;Extrode.JauntyQ.Runtime&quot;</span> <span class="tok-attr">Version</span>=<span class="tok-str">&quot;0.1.0&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+
+  <span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+    <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\**\*.sql&quot;</span> <span class="tok-punc">/&gt;</span>
+    <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\schema\*.schema.json&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">Project</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p>In-repo (project reference) consumers use the analyzer wiring instead:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml">  <span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+    <span class="tok-punc">&lt;</span><span class="tok-tag">ProjectReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;..\..\src\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj&quot;</span>
+                      <span class="tok-attr">OutputItemType</span>=<span class="tok-str">&quot;Analyzer&quot;</span> <span class="tok-attr">ReferenceOutputAssembly</span>=<span class="tok-str">&quot;false&quot;</span> <span class="tok-punc">/&gt;</span>
+    <span class="tok-punc">&lt;</span><span class="tok-tag">ProjectReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;..\..\src\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p>For DDL-as-schema-source projects, add <code>&lt;JauntyQDialect&gt;</code> and omit the
+<code>.schema.json</code> glob.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="06-reference-cli.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">CLI reference: jauntyq</span>
+</a><a class="pn-next" href="06-reference-cross-dialect-compatibility.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Cross-dialect compatibility</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

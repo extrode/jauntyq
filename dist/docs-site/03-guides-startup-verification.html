@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Runtime startup schema verification — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Guides &#8250; Runtime startup schema verification</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html" class="active" aria-current="page">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#basic-usage">Basic usage</a><a class="toc-l2" href="#modes">Modes</a><a class="toc-l3" href="#the-warn-sink">The Warn sink</a><a class="toc-l2" href="#locating-the-compiled-snapshot">Locating the compiled snapshot</a><a class="toc-l3" href="#embedding-the-snapshot-at-build-time">Embedding the snapshot at build time</a><a class="toc-l2" href="#failures-are-honest-and-distinct">Failures are honest and distinct</a><a class="toc-l2" href="#see-also">See also</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Guides &#8250; Runtime startup schema verification</nav>
+        <article>
+<h1 id="runtime-startup-schema-verification">Runtime startup schema verification</h1>
+<p>Contract testing catches drift in CI, but CI verifies the database CI points
+at, not necessarily the one a given deployment connects to at runtime. A service
+can pass CI and still boot against a database that drifted: a hand-run
+migration, a wrong connection string, a replica lagging a DDL change.</p>
+<p><strong>Startup verification</strong> closes that last gap. At boot, after the app knows its
+connection string and before it serves traffic, <code>StartupSchemaGuard</code> reflects
+the live database and compares it to the compiled snapshot with the <strong>same
+classifier</strong> as <a href="03-guides-contract-testing.html">contract testing</a>. On breaking drift it
+fails fast (or warns, per policy), in the deploy that has the problem, instead
+of on the first unlucky query.</p>
+<p>The guard lives in <strong><code>Extrode.JauntyQ.Schema.Contract</code></strong> (the non-core package that
+already carries the ADO.NET providers and the comparer). The zero-dependency
+<code>Extrode.JauntyQ.Runtime</code> is untouched: apps that do not opt in keep a pristine core.</p>
+<h2 id="basic-usage">Basic usage</h2>
+<p>Call the guard <strong>once</strong>, from the startup path (<code>Program.cs</code> / <code>Startup</code>):</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">using</span> <span class="tok-type">Extrode</span>.<span class="tok-var">JauntyQ</span>.<span class="tok-var">Schema</span>.<span class="tok-var">Contract</span>;
+
+<span class="tok-com">// Program.cs, after configuration, before serving traffic.</span>
+<span class="tok-ctl">await</span> <span class="tok-type">StartupSchemaGuard</span>.<span class="tok-fn">VerifyAsync</span>(
+    connectionString,
+    <span class="tok-type">ContractDialect</span>.<span class="tok-var">SqlServer</span>,
+    <span class="tok-type">SnapshotSource</span>.<span class="tok-fn">FromFile</span>(<span class="tok-str">&quot;db/schema/jaunty.schema.json&quot;</span>),
+    <span class="tok-type">StartupVerificationMode</span>.<span class="tok-var">Throw</span>);
+</code></pre>
+</div>
+<p>If the live database has breaking drift from the snapshot, this throws a
+<code>StartupSchemaException</code> naming every breaking object, and the app fails to
+start. With no breaking drift it returns the comparison report and startup
+proceeds. A synchronous <code>StartupSchemaGuard.Verify(...)</code> exists for plain
+<code>Main</code> paths.</p>
+<blockquote>
+<p><strong>Run once, at boot.</strong> Every call reflects the live schema over the network.
+Do not call the guard per request, per connection, or on a hot path.</p>
+</blockquote>
+<h2 id="modes">Modes</h2>
+<p>The mode is a <code>StartupVerificationMode</code>, chosen by the host, typically from
+configuration or an environment variable, never hard-coded on:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Behavior</th>
+<th>Use for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Throw</code></td>
+<td>Breaking drift throws <code>StartupSchemaException</code>; app fails to start</td>
+<td>Canaries, staging, fail-fast production</td>
+</tr>
+<tr>
+<td><code>Warn</code></td>
+<td>Drift is written to the sink; startup proceeds</td>
+<td>Observability without blocking</td>
+</tr>
+<tr>
+<td><code>Off</code></td>
+<td>Returns immediately, no snapshot load, <strong>no database I/O</strong></td>
+<td>Environments that must not reflect at boot</td>
+</tr>
+</tbody>
+</table>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> mode = <span class="tok-type">Environment</span>.<span class="tok-fn">GetEnvironmentVariable</span>(<span class="tok-str">&quot;SCHEMA_GUARD&quot;</span>) <span class="tok-ctl">switch</span>
+{
+    <span class="tok-str">&quot;warn&quot;</span> =&gt; <span class="tok-type">StartupVerificationMode</span>.<span class="tok-var">Warn</span>,
+    <span class="tok-str">&quot;off&quot;</span>  =&gt; <span class="tok-type">StartupVerificationMode</span>.<span class="tok-var">Off</span>,
+    _      =&gt; <span class="tok-type">StartupVerificationMode</span>.<span class="tok-var">Throw</span>,
+};
+</code></pre>
+</div>
+<p>In <code>Throw</code> mode, <strong>compatible-only</strong> drift (an added table, a widened column)
+never fails startup. Pass <code>strict: true</code> to reject any drift at all, the
+boot-time mirror of <code>AssertNoDrift()</code>.</p>
+<h3 id="the-warn-sink">The Warn sink</h3>
+<p><code>Warn</code> takes a plain <code>Action&lt;string&gt;</code>, deliberately not a logging framework,
+so this package adds no logging dependency. Adapt it to whatever you use:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-ctl">await</span> <span class="tok-type">StartupSchemaGuard</span>.<span class="tok-fn">VerifyAsync</span>(
+    connectionString, <span class="tok-type">ContractDialect</span>.<span class="tok-var">Postgres</span>,
+    <span class="tok-type">SnapshotSource</span>.<span class="tok-fn">FromFile</span>(<span class="tok-str">&quot;db/schema/jaunty.schema.json&quot;</span>),
+    <span class="tok-type">StartupVerificationMode</span>.<span class="tok-var">Warn</span>,
+    warnSink: <span class="tok-type">msg</span> =&gt; logger.<span class="tok-fn">LogWarning</span>(<span class="tok-str">&quot;{SchemaDrift}&quot;</span>, msg));
+</code></pre>
+</div>
+<p>When no sink is supplied, Warn writes to <strong>stderr</strong>, it is never silent.</p>
+<h2 id="locating-the-compiled-snapshot">Locating the compiled snapshot</h2>
+<p>The guard is only meaningful against the exact snapshot the app was compiled
+with. <code>SnapshotSource</code> offers three ways to supply it:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-type">SnapshotSource</span>.<span class="tok-fn">FromFile</span>(<span class="tok-str">&quot;db/schema/jaunty.schema.json&quot;</span>);          <span class="tok-com">// shipped alongside the app</span>
+<span class="tok-type">SnapshotSource</span>.<span class="tok-fn">FromEmbeddedResource</span>(<span class="tok-kw">typeof</span>(<span class="tok-type">Program</span>).<span class="tok-var">Assembly</span>,
+                                    <span class="tok-str">&quot;jaunty.schema.json&quot;</span>);        <span class="tok-com">// single-file / AOT friendly</span>
+<span class="tok-type">SnapshotSource</span>.<span class="tok-fn">FromSchema</span>(databaseSchema);                        <span class="tok-com">// an object you already hold</span>
+</code></pre>
+</div>
+<p><code>FromEmbeddedResource</code> accepts the full manifest name or a unique suffix
+(resource names are prefixed with the root namespace and folder path).</p>
+<h3 id="embedding-the-snapshot-at-build-time">Embedding the snapshot at build time</h3>
+<p>To make a self-contained binary carry its own contract, opt in from the project
+that references <code>Extrode.JauntyQ.Schema.Contract</code>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">JauntyQEmbedSnapshot</span><span class="tok-punc">&gt;</span>true<span class="tok-punc">&lt;/</span><span class="tok-tag">JauntyQEmbedSnapshot</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p>The package's build targets then embed the snapshot from the conventional
+locations (<code>schema/*.schema.json</code> or <code>db/schema/*.schema.json</code>), or from an
+explicit <code>&lt;JauntyQSnapshotPath&gt;path/to/jaunty.schema.json&lt;/JauntyQSnapshotPath&gt;</code>, as an assembly resource. Projects that do not set the property are
+completely unaffected.</p>
+<h2 id="failures-are-honest-and-distinct">Failures are honest and distinct</h2>
+<p>A verification that could not run is <strong>never</strong> reported as passing:</p>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Exception</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Snapshot missing / unreadable / malformed</td>
+<td><code>SnapshotSourceException</code></td>
+</tr>
+<tr>
+<td>Database unreachable / reflection failed</td>
+<td><code>SchemaContractConnectionException</code></td>
+</tr>
+<tr>
+<td>Drift rejected by policy (Throw mode)</td>
+<td><code>StartupSchemaException</code> (carries the full <code>Report</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><code>Off</code> mode is the only path that skips verification, explicitly, by policy,
+before any I/O.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="03-guides-contract-testing.html">Database contract testing</a>, the same classifier at
+test time, gating CI on drift.</li>
+<li><a href="06-reference-cli.html">CLI reference, <code>schema verify</code></a>, the classifier
+for pipelines without a test host.</li>
+<li><a href="06-reference-schema-snapshot-format.html">Schema snapshot format</a>, the
+contract file itself.</li>
+</ul>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="03-guides-sequences.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Sequences</span>
+</a><a class="pn-next" href="06-reference-README.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Reference</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

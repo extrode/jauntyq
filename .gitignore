@@ -1,10 +1,13 @@
 # Build output
 bin/
 obj/
-dist/
 artifacts/
 *.nupkg
 *.snupkg
+
+# Generated documentation (public HTML docs go in dist/docs-site, which is committed)
+/dist/*
+!/dist/docs-site/
 
 # IDE / editor
 .vs/

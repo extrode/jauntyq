@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Licensing and activation — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Guides &#8250; Licensing and activation</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html" class="active" aria-current="page">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#the-code-jauntyq-generates-is-yours">The code JauntyQ generates is yours</a><a class="toc-l2" href="#the-license-file">The license file</a><a class="toc-l2" href="#activate">Activate</a><a class="toc-l2" href="#inspect">Inspect</a><a class="toc-l2" href="#using-premium-features">Using premium features</a><a class="toc-l2" href="#preview-licenses-pre-10">Preview licenses (pre-1.0)</a><a class="toc-l2" href="#lapse">Lapse</a><a class="toc-l2" href="#ci">CI</a><a class="toc-l2" href="#seats">Seats</a><a class="toc-l2" href="#how-licenses-are-issued">How licenses are issued</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Guides &#8250; Licensing and activation</nav>
+        <article>
+<h1 id="licensing-and-activation">Licensing and activation</h1>
+<p>JauntyQ's <strong>core is never gated.</strong> The source generator, every <code>JNTxxxx</code> build
+diagnostic (including the deep <code>JNT8xxx</code> query analysis), and the runtime always
+work, with or without a license, valid or lapsed. That is the perpetual-use grant in the EULA, and it is enforced
+structurally: no core assembly can even reference the licensing code, so
+generated output and diagnostics are identical regardless of license state.</p>
+<p>What <em>is</em> gated are the premium (&quot;moat&quot;) CLI features. Today that means:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Entitlement (feature key)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>jauntyq migrate impact</code></td>
+<td><code>migration-impact</code></td>
+</tr>
+<tr>
+<td><code>jauntyq schema verify</code></td>
+<td><code>contract-testing</code></td>
+</tr>
+<tr>
+<td><code>jauntyq schema verify --service &lt;id&gt;</code></td>
+<td><code>per-service-contracts</code> (in addition to <code>contract-testing</code>)</td>
+</tr>
+<tr>
+<td><code>jauntyq schema verify --usage &lt;path&gt;</code></td>
+<td>rides the <code>contract-testing</code> gate (no extra key)</td>
+</tr>
+<tr>
+<td><code>jauntyq usage export</code></td>
+<td><code>contract-testing</code> (gated 2026-08-01, it feeds <code>schema verify --usage</code>)</td>
+</tr>
+<tr>
+<td><code>jauntyq registry resolve\|dependents\|validate\|list</code></td>
+<td><code>contract-testing</code> (gated 2026-08-01, same family)</td>
+</tr>
+<tr>
+<td><code>jauntyq explain</code></td>
+<td><code>live-explain</code></td>
+</tr>
+</tbody>
+</table>
+<p>That is five commands over four feature keys, enforced inside <code>Extrode.JauntyQ.Cli.Premium</code>;
+<code>schema verify --service</code> is a second check on top of <code>schema verify</code>. Nothing outside
+<code>Extrode.JauntyQ.Cli.Premium</code> consults the gate.</p>
+<p>The free/paid split across the whole product is described on the
+<a href="00-overview-pricing.html">pricing page</a>.</p>
+<p><code>deep-query-analysis</code> is the one remaining reserved key, defined for a
+future, not-yet-built feature. It does <strong>not</strong> gate the JNT8006/JNT8007
+deeper-query-analysis diagnostics already shipped in the generator (spec
+004), those are core, build-time diagnostics like every other JNTxxxx
+check, and the core generator is never gated (see below). The embeddable
+<code>Extrode.JauntyQ.Schema.Contract</code> assertion library (used from your own test suite)
+is <strong>not</strong> gated, only the <code>schema verify</code> CLI entry point is.</p>
+<p>This is <strong>entitlement gating for a source-viewable product, not DRM.</strong> A license
+is a signed, tamper-evident record of what you are entitled to, verified offline.
+It optimizes for a clean legitimate path (activate once, works offline forever
+within your entitlement), not for defeating a determined bypasser.</p>
+<h2 id="the-code-jauntyq-generates-is-yours">The code JauntyQ generates is yours</h2>
+<p>The question this page gets asked first, so it is answered before the mechanics.
+Both licenses define a Derivative Work as anything that <em>incorporates</em> the
+Software, which, read without qualification, would make your application a
+forbidden derivative the moment you compiled generated code into it. The
+Output Exception exists to stop
+that reading, and has been in force since 2026-08-17. Under it you may modify,
+compile, distribute and sell generated code, schema snapshot files and reports
+as part of your own applications, with no obligation to disclose source and no
+obligation to reproduce the license text; you may also redistribute
+<code>Extrode.JauntyQ.Runtime</code> in unmodified object form. Your end users do not become
+licensees of JauntyQ.</p>
+<p>Two limits are deliberate. The ethical use restrictions (Sections 4 and 5)
+continue to bind what you build with the output, this is not an unrestricted
+compiler exception, and that is the point of it. And the Exception grants
+nothing over the Software itself: the generator and CLI stay unmodifiable and
+non-redistributable.</p>
+<p>The Exception ships inside every package alongside the license, and applies
+under both ISL-R and the ISL-EULA, so it does not matter which half emitted the
+artifact.</p>
+<h2 id="the-license-file">The license file</h2>
+<p>A license is a signed <code>jaunty.license.json</code> issued to you out of band. It carries
+a payload (licensee, tier, entitlements, seats, issue/term dates, product id,
+format version) and a detached RSA-2048/PSS signature over the payload's
+canonical bytes. The tool verifies it offline against a public key embedded in
+the build; <strong>no network calls are ever made</strong> for licensing.</p>
+<h2 id="activate">Activate</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">jauntyq</span> activate <span class="tok-attr">--license</span> path/to/jaunty.license.json
+</code></pre>
+</div>
+<p>The tool verifies the signature against the embedded public key, checks the
+product and format version, and installs the license to a per-user location:</p>
+<table>
+<thead>
+<tr>
+<th>OS</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows</td>
+<td><code>%APPDATA%\JauntyQ\jaunty.license.json</code></td>
+</tr>
+<tr>
+<td>Linux</td>
+<td><code>~/.config/JauntyQ/jaunty.license.json</code></td>
+</tr>
+<tr>
+<td>macOS</td>
+<td><code>~/Library/Application Support/JauntyQ/jaunty.license.json</code></td>
+</tr>
+</tbody>
+</table>
+<p>If verification fails, <strong>nothing is installed</strong> and the error tells you why: a
+bad signature, malformed JSON, a license for a different product, or a license
+format newer than your JauntyQ build understands (upgrade JauntyQ).</p>
+<p>Activation never checks the term/expiry, so a wrong system clock can never brick
+activation, expiry only ever matters at <em>use</em> time (see <a href="#lapse">Lapse</a>).</p>
+<h2 id="inspect">Inspect</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">jauntyq</span> license status
+</code></pre>
+</div>
+<p>Prints the tier, licensee, seat count, term dates, entitlements, and whether the
+license has lapsed, fully offline. A preview license reports its release scope in
+place of the term. <code>jauntyq license deactivate</code> removes the
+installed license (e.g. when moving to another machine).</p>
+<h2 id="using-premium-features">Using premium features</h2>
+<p>With an entitling license installed, the five commands in the table above run
+normally. Without one (or with a license that does not grant that feature), they
+print an entitlement-required message and exit with the reserved code <strong><code>3</code></strong>, distinct from <code>1</code> (usage/error) and <code>2</code> (drift/findings) so CI can tell &quot;not
+licensed&quot; apart from &quot;found problems.&quot; They do no premium work when not entitled.</p>
+<h2 id="preview-licenses-pre-10">Preview licenses (pre-1.0)</h2>
+<p>While JauntyQ is pre-1.0 the premium commands are free, and that is implemented by
+minting free licenses rather than by ungating anything: a preview license is an
+ordinary signed license with <code>tier: &quot;Preview&quot;</code>, minted perpetual, granting the paid
+entitlements. The gate is unchanged, so an unlicensed caller still exits <code>3</code>.</p>
+<p><strong>A preview license is scoped to the releases the preview covers.</strong> Every <code>0.x</code>
+build honors it forever; a <code>1.0</code> or later build classifies it <code>NotEntitled</code> with
+its own message and an upgrade path, not the generic entitlement-required wording:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">your free preview license covers pre-1.0 releases only
+</code></pre>
+</div>
+<p>This is a <strong>tier</strong> check, not an expiry check, and it is ordered ahead of the expiry
+test. Expiry could not do the job: a lapse runs with a warning by design and never
+becomes <code>NotEntitled</code>, so a short-dated preview license would keep working on every
+release JauntyQ ever ships. <code>jauntyq license status</code> reports the scope rather than
+printing &quot;perpetual (no expiry)&quot;, which would be true of the date and misleading
+about what it covers.</p>
+<p>Nothing is revoked and no existing build changes behavior, a <code>0.x</code> binary keeps
+accepting the license after 1.0 ships.</p>
+<h2 id="lapse">Lapse</h2>
+<p>A term can end (the payload may carry an <code>expiresUtc</code>; a perpetual license has
+none). After expiry, features you were <strong>already entitled to keep working</strong> and
+print a non-blocking warning:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">warning: your license has lapsed; migration impact analysis still works, but renew to keep receiving updates.
+</code></pre>
+</div>
+<p>A lapse <strong>never</strong> turns a granted feature into &quot;not entitled&quot; and never produces
+exit <code>3</code>. This matches the pricing term that a lapsed customer keeps perpetual
+use of the versions they already have.</p>
+<h2 id="ci">CI</h2>
+<p>CI rarely runs an interactive <code>activate</code>. Point <code>JAUNTYQ_LICENSE</code> at a license
+file instead, the same offline verification applies:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-kw">export</span> JAUNTYQ_LICENSE=<span class="tok-str">&quot;$CI_SECRETS/jaunty.license.json&quot;</span>
+<span class="tok-fn">jauntyq</span> schema verify <span class="tok-attr">--provider</span> sqlserver <span class="tok-attr">--connection-env</span> CI_DB_CONN \
+  <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
+</code></pre>
+</div>
+<p>Resolution order for reads is <code>JAUNTYQ_LICENSE</code> → the per-user install → none.</p>
+<h2 id="seats">Seats</h2>
+<p>Seat count is recorded as informational metadata. JauntyQ does <strong>not</strong> attempt
+machine-count enforcement, that is unverifiable offline without a phone-home,
+which is deliberately out of scope.</p>
+<h2 id="how-licenses-are-issued">How licenses are issued</h2>
+<p>The private signing key is <strong>never</strong> in this repository or in any shipped
+binary; only the public key is embedded, for verification. Extrode mints
+licenses out of band with the production key and sends you the signed file.
+No build phones home to check it.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="03-guides-explain-analysis.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Live EXPLAIN plan analysis</span>
+</a><a class="pn-next" href="03-guides-migrating-from-dapper-and-ef.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Migrating from Dapper or EF Core</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>
