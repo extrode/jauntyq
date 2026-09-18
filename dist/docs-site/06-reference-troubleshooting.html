@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Troubleshooting &amp; FAQ — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Reference &#8250; Troubleshooting &amp; FAQ</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html" class="active" aria-current="page">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#nothing-is-generated">Nothing is generated</a><a class="toc-l3" href="#first-find-out-whether-the-generator-ran-at-all">First, find out whether the generator ran at all</a><a class="toc-l2" href="#jauntyqautocrud-or-jauntyqdialect-seems-ignored">&lt;JauntyQAutoCrud&gt; or &lt;JauntyQDialect&gt; seems ignored</a><a class="toc-l2" href="#build-fails-after-a-schema-or-migration-change">Build fails after a schema or migration change</a><a class="toc-l2" href="#jnt9002-table-already-exists-on-a-migration">JNT9002: table already exists on a migration</a><a class="toc-l2" href="#jnt9003-in-a-ddl-project">JNT9003 in a DDL project</a><a class="toc-l2" href="#jnt4003-parameter-type-could-not-be-inferred">JNT4003: parameter type could not be inferred</a><a class="toc-l2" href="#jnt5001--jnt5002-on-a-literal">JNT5001 / JNT5002 on a literal</a><a class="toc-l2" href="#a-query-runs-but-reads-the-wrong-column-or-the-shape-guard-throws">A query runs but reads the wrong column, or the shape guard throws</a><a class="toc-l2" href="#jauntyq-schema-pull-fails-or-leaks-nothing-useful">jauntyq schema pull fails or leaks nothing useful</a><a class="toc-l2" href="#mysql-bulkinsert-throws-at-runtime">MySQL BulkInsert throws at runtime</a><a class="toc-l2" href="#native-aot-publish-warnings">Native AOT publish warnings</a><a class="toc-l2" href="#suppressing-a-performance-warning-jnt8xxx">Suppressing a performance warning (JNT8xxx)</a><a class="toc-l2" href="#faq">FAQ</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Troubleshooting &amp; FAQ</nav>
+        <article>
+<h1 id="troubleshooting--faq">Troubleshooting &amp; FAQ</h1>
+<p>Common problems, why they happen, and the fix. For the full list of build
+diagnostics see <a href="06-reference-diagnostics.html">diagnostics</a>; this page maps symptoms to
+causes.</p>
+<h2 id="nothing-is-generated">Nothing is generated</h2>
+<p><strong>No <code>db.*</code> accessors exist / <code>JauntyDb</code> is missing.</strong> The generator only runs
+when it can see your files and schema through MSBuild.</p>
+<ul>
+<li>Confirm the <code>AdditionalFiles</code> globs are present and match your layout:
+<code>db\**\*.sql</code> and <code>db\schema\*.schema.json</code>. See
+<a href="06-reference-configuration.html">configuration</a>.</li>
+<li>Confirm the generator is referenced as an <strong>analyzer</strong>
+(<code>OutputItemType=&quot;Analyzer&quot;</code> for a project reference; the package wires this
+automatically).</li>
+<li>Confirm a schema source exists, a committed <code>.schema.json</code>, or <code>db/ddl/*.sql</code>
+plus <code>&lt;JauntyQDialect&gt;</code>. Without either you get <code>JNT6001</code>.</li>
+<li>Do a clean rebuild. Roslyn caches generator output; an incremental build can
+hide a fixed configuration issue.</li>
+</ul>
+<p><strong>Inspect what was emitted.</strong> Set <code>&lt;EmitCompilerGeneratedFiles&gt;true&lt;/EmitCompilerGeneratedFiles&gt;</code>
+and look under <code>obj/&lt;config&gt;/&lt;tfm&gt;/generated/Extrode.JauntyQ.Generator/</code> to see the
+actual <code>.g.cs</code> files.</p>
+<h3 id="first-find-out-whether-the-generator-ran-at-all">First, find out whether the generator ran at all</h3>
+<p>This is worth doing before anything above, because the two failures behind
+&quot;nothing is generated&quot; have opposite fixes and a screen of <code>CS0246</code>s looks
+identical either way. One file tells them apart.</p>
+<p><code>JauntyQShapeGuard.g.cs</code> is a <strong>post-initialization output</strong>: Roslyn emits it
+before any of JauntyQ's pipeline runs, so it exists if and only if the generator
+loaded and started. It is also the only generated file that does not depend on
+your SQL or schema.</p>
+<table>
+<thead>
+<tr>
+<th>What you see</th>
+<th>What it means</th>
+<th>Where to look next</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No <code>JauntyQShapeGuard.g.cs</code> at all</td>
+<td>The generator never loaded or never started. Not a schema, SQL or configuration problem, nothing of yours has been read yet.</td>
+<td>The analyzer reference itself. Roslyn reports a generator it cannot load as <code>CS8784</code>/<code>CS8034</code>, both <strong>warnings</strong>, so check the build log for those; the usual cause is a version or dependency mismatch between the generator and the compiler.</td>
+</tr>
+<tr>
+<td><code>JauntyQShapeGuard.g.cs</code> present, nothing else</td>
+<td>The generator ran and emitted nothing. Your files or schema did not reach it, or every file was refused.</td>
+<td>The <code>AdditionalFiles</code> globs and the <code>JNT</code> diagnostics in the build log, per the list above.</td>
+</tr>
+<tr>
+<td><code>JNT0001</code> in the build output</td>
+<td>The generator threw. This is a bug in JauntyQ, not in your project.</td>
+<td>Nothing on your side. The message names the stage and the exception, please report it. Generated output may be partly or entirely missing, and the <code>CS0246</code>s are consequences of it.</td>
+</tr>
+</tbody>
+</table>
+<p>Without <code>EmitCompilerGeneratedFiles</code>, the same question is answerable from code:
+<code>typeof(Extrode.JauntyQ.Generated.JauntyQShapeGuard)</code> compiles if and only if the
+generator ran.</p>
+<p>Note that a generator which <strong>throws</strong> is also reported by Roslyn as a warning
+(<code>CS8785</code>) rather than an error, which is why the build can go on and leave you
+with nothing but <code>CS0246</code>s. <code>JNT0001</code> exists to end that silence, but it can only
+fire for a throw JauntyQ catches, if the generator failed to load, it never got
+far enough to report anything, and the shape guard's absence is the tell.</p>
+<h2 id="jauntyqautocrud-or-jauntyqdialect-seems-ignored"><code>&lt;JauntyQAutoCrud&gt;</code> or <code>&lt;JauntyQDialect&gt;</code> seems ignored</h2>
+<p>The property must reach the analyzer as a <code>CompilerVisibleProperty</code>. The
+package ships this registration; if you consume via a project reference in a
+repository without <code>Directory.Build.props</code>, add:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">CompilerVisibleProperty</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;JauntyQAutoCrud&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">CompilerVisibleProperty</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;JauntyQDialect&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<h2 id="build-fails-after-a-schema-or-migration-change">Build fails after a schema or migration change</h2>
+<p>The build validates every query against the effective (post-migration) schema, this is intended. A <code>JNT2001</code>/<code>JNT2002</code> after a migration means a query still
+references a table/column the migration removed or renamed; fix the query or the
+migration together. See <a href="06-reference-diagnostics.html">diagnostics</a> for each code.</p>
+<h2 id="jnt9002-table-already-exists-on-a-migration"><code>JNT9002: table already exists</code> on a migration</h2>
+<p><code>db/migrations/</code> is for <strong>pending</strong> migrations only. Once a migration is
+deployed and you re-pull the snapshot, the snapshot already embodies it, so
+re-applying its <code>CREATE</code> fails. Archive the migration file out of
+<code>db/migrations/</code>.</p>
+<h2 id="jnt9003-in-a-ddl-project"><code>JNT9003</code> in a DDL project</h2>
+<p><code>db/ddl/*.sql</code> files are present with no snapshot, but <code>JauntyQDialect</code> is unset
+or not one of <code>sqlserver</code>/<code>postgres</code>/<code>mysql</code>/<code>sqlite</code>. Add it:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span><span class="tok-punc">&lt;</span><span class="tok-tag">JauntyQDialect</span><span class="tok-punc">&gt;</span>sqlite<span class="tok-punc">&lt;/</span><span class="tok-tag">JauntyQDialect</span><span class="tok-punc">&gt;</span><span class="tok-punc">&lt;/</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<h2 id="jnt4003-parameter-type-could-not-be-inferred"><code>JNT4003: parameter type could not be inferred</code></h2>
+<p>The parser could not derive a parameter's type from its use (common with
+subqueries and expressions). Declare it with
+<a href="06-reference-directives.html#-params"><code>-- @params</code></a>; the error message includes the exact
+line to add.</p>
+<h2 id="jnt5001--jnt5002-on-a-literal"><code>JNT5001</code> / <code>JNT5002</code> on a literal</h2>
+<p>A string or numeric literal in your SQL cannot fit the target column
+(length/precision/range). This is a compile-time value-safety check, the value
+would truncate or overflow at runtime. Shorten the literal, or widen the column
+(and re-pull/re-migrate the schema).</p>
+<h2 id="a-query-runs-but-reads-the-wrong-column-or-the-shape-guard-throws">A query runs but reads the wrong column, or the shape guard throws</h2>
+<p>The database has drifted from the snapshot (a column renamed or reordered in
+production without a re-pull). Run <code>jauntyq schema verify</code> to see the drift, then
+<code>jauntyq schema pull</code> to refresh the snapshot and rebuild. See the
+<a href="06-reference-cli.html">CLI reference</a>.</p>
+<h2 id="jauntyq-schema-pull-fails-or-leaks-nothing-useful"><code>jauntyq schema pull</code> fails or leaks nothing useful</h2>
+<p>Errors are anonymized by default so connection-string secrets never reach logs.
+Set <code>JAUNTYQ_VERBOSE=1</code> to see the full exception while debugging locally.</p>
+<h2 id="mysql-bulkinsert-throws-at-runtime">MySQL <code>BulkInsert</code> throws at runtime</h2>
+<p><code>MySqlBulkCopy</code> needs <code>LOCAL INFILE</code> on both sides: <code>AllowLoadLocalInfile=true</code>
+in the connection string, and <code>local_infile</code> enabled on the server. See the
+<a href="03-guides-bulk-insert.html">bulk insert guide</a>.</p>
+<h2 id="native-aot-publish-warnings">Native AOT publish warnings</h2>
+<p>JauntyQ's generated code and <code>Extrode.JauntyQ.Runtime</code> are trim/AOT-safe. Remaining
+warnings almost always come from the <strong>database provider</strong>; use an AOT-friendly
+provider stack (e.g. <code>Microsoft.Data.Sqlite.Core</code> +
+<code>SQLitePCLRaw.bundle_e_sqlite3</code>).</p>
+<h2 id="suppressing-a-performance-warning-jnt8xxx">Suppressing a performance warning (<code>JNT8xxx</code>)</h2>
+<p>The <code>JNT8xxx</code> codes are advisory (the query still compiles). If a scan is
+intentional, suppress per-project in <code>.editorconfig</code>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">INI</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="ini"><code class="language-ini"><span class="tok-key">dotnet_diagnostic.JNT8004.severity</span> = none
+</code></pre>
+</div>
+<h2 id="faq">FAQ</h2>
+<p><strong>Does JauntyQ connect to my database at build time?</strong> No. Only the <code>jauntyq</code>
+CLI connects. The generator reads the committed snapshot.</p>
+<p><strong>Is it a DbContext / ORM with change tracking?</strong> No. <code>JauntyDb</code> is a stateless
+router: no tracking, no caching, no unit of work. <code>new</code> one per request.</p>
+<p><strong>Can I still write raw SQL?</strong> That is the whole model, every query is a <code>.sql</code>
+file. Auto-CRUD is a convenience layered on top and any synthetic is overridden
+by a same-named file.</p>
+<p><strong>Does it support MariaDB?</strong> Yes, via the <code>mysql</code> dialect. See
+<a href="06-reference-dialects.html">dialect differences</a>.</p>
+<p><strong>Where do I see exact generated signatures?</strong> Build and inspect the emitted
+<code>.g.cs</code> files, or read the <a href="06-reference-api-overview.html">API overview</a>.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="06-reference-supported-sql.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Supported SQL surface</span>
+</a><a class="pn-next" href="06-reference-versioning-and-support.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Versioning &amp; support policy</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

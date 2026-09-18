@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supported SQL surface — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Reference &#8250; Supported SQL surface</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html" class="active" aria-current="page">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#the-shape-of-the-rule">The shape of the rule</a><a class="toc-l2" href="#one-statement-per-file">One statement per file</a><a class="toc-l2" href="#supported">Supported</a><a class="toc-l3" href="#expressions-need-an-alias">Expressions need an alias</a><a class="toc-l2" href="#not-supported">Not supported</a><a class="toc-l3" href="#a-measured-gap">A measured gap</a><a class="toc-l3" href="#escaping-a-quote-inside-a-string-literal">Escaping a quote inside a string literal</a><a class="toc-l2" href="#things-that-are-not-the-parser">Things that are not the parser</a><a class="toc-l2" href="#see-also">See also</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Supported SQL surface</nav>
+        <article>
+<h1 id="supported-sql-surface">Supported SQL surface</h1>
+<p>What JauntyQ's parser accepts, what it refuses, and which diagnostic you get
+when you cross the line.</p>
+<p>This page exists because the alternative is probing. A consumer report on
+2026-08-17 described writing five variants of one query to discover by trial
+which shapes the generator would take, three of them rejected with a message
+that named the construct but not the boundary, and one (<code>LATERAL</code>) rejected
+with a message that pointed at their schema for a table the parser had
+invented. Reading a list is cheaper than that.</p>
+<p><strong>Every claim here is measured, not remembered.</strong> The source is
+<code>tests/Extrode.JauntyQ.SqlParser.Tests/SupportedSurfaceProbeTests.cs</code>, which parses each
+shape below and asserts the outcome, plus <code>RegistryParityTests</code>, which asserts
+that every <code>JNTxxxx</code> code named on this page resolves to a real descriptor. A
+change that widens or narrows the surface turns those red.</p>
+<h2 id="the-shape-of-the-rule">The shape of the rule</h2>
+<p>JauntyQ parses SQL to model the <strong>result shape</strong>, which columns come back, from
+which tables, with what nullability, so it can emit a typed mapper. It is not a
+SQL engine and does not need to be: the text you write is the text that runs,
+verbatim. So the boundary is not &quot;what is valid SQL&quot;, it is <strong>&quot;what can be
+modeled without guessing&quot;</strong>. A construct is refused when the model JauntyQ would
+build from it could disagree with what the database actually returns, because a
+wrong model produces code that compiles and then throws at runtime.</p>
+<p>That is why <code>UNION</code> is an error and <code>GROUP BY</code> is not.</p>
+<h2 id="one-statement-per-file">One statement per file</h2>
+<p>JauntyQ generates one method per <code>.sql</code> file from one statement. A file holding
+two statements is <strong>JNT1008</strong>, an error: a second <code>SELECT</code>'s tables and columns
+are merged into the first statement's model, and a second write statement is
+dropped entirely, so the generated code matches neither. Split them.</p>
+<h2 id="supported">Supported</h2>
+<table>
+<thead>
+<tr>
+<th>Shape</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code></td>
+<td>One per file.</td>
+</tr>
+<tr>
+<td><code>INSERT ... SELECT</code></td>
+<td>Parses as an <code>INSERT</code>.</td>
+</tr>
+<tr>
+<td><code>RETURNING</code></td>
+<td>On any write statement; makes it row-returning, and composes with <code>-- @first</code>.</td>
+</tr>
+<tr>
+<td><code>JOIN</code>, <code>INNER</code> / <code>LEFT</code> / <code>RIGHT</code> / <code>FULL</code> / <code>CROSS</code></td>
+<td>Outer joins widen the joined table's columns to nullable in the generated row type.</td>
+</tr>
+<tr>
+<td><code>ON</code> and <code>USING (...)</code> join conditions</td>
+<td><code>USING</code> is expanded to the equivalent same-named-column equalities.</td>
+</tr>
+<tr>
+<td>Comma-separated implicit joins (<code>FROM a, b</code>)</td>
+<td>Every table is registered, not just the first.</td>
+</tr>
+<tr>
+<td><code>WHERE</code> with <code>=</code> <code>!=</code> <code>&lt;&gt;</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code> <code>LIKE</code> <code>BETWEEN</code> <code>IN (...)</code> <code>IS [NOT] NULL</code> <code>AND</code> <code>OR</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>[NOT] IN (SELECT ...)</code> and <code>[NOT] EXISTS (SELECT ...)</code> <strong>in <code>WHERE</code></strong></td>
+<td>Lifted and validated as their own scope. Correlated <code>EXISTS</code> included.</td>
+</tr>
+<tr>
+<td><code>GROUP BY</code> and <code>HAVING</code></td>
+<td>Including over a join.</td>
+</tr>
+<tr>
+<td>Aggregates, <code>COUNT</code> <code>SUM</code> <code>AVG</code> <code>MIN</code> <code>MAX</code>, and dialect functions such as <code>bool_or</code></td>
+<td><code>COUNT(*) FILTER (WHERE ...)</code> parses.</td>
+</tr>
+<tr>
+<td><code>ORDER BY</code> with <code>ASC</code> / <code>DESC</code>, by column, ordinal, or output alias</td>
+<td></td>
+</tr>
+<tr>
+<td><code>LIMIT</code> / <code>OFFSET</code>, T-SQL <code>OFFSET n ROWS FETCH NEXT m ROWS ONLY</code>, and <code>TOP n</code> (including <code>TOP n PERCENT</code> and <code>TOP n WITH TIES</code>)</td>
+<td>See the pagination note below. A column genuinely named <code>percent</code> is still projected: <code>PERCENT</code> is read as a modifier only when another projection item follows it, since the tokenizer strips quoting and cannot tell <code>[percent]</code> from the keyword.</td>
+</tr>
+<tr>
+<td><code>DISTINCT</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>CASE WHEN ... THEN ... ELSE ... END</code></td>
+<td>Needs <code>AS alias</code>, see expressions below.</td>
+</tr>
+<tr>
+<td>Window functions (<code>... OVER (PARTITION BY ... ORDER BY ...)</code>)</td>
+<td>Parse as aliased expressions; the type is not inferred from the schema, so declare it with <a href="06-reference-directives.html"><code>-- @result</code></a>.</td>
+</tr>
+<tr>
+<td><code>CAST</code>, <code>COALESCE</code>, <code>NULLIF</code></td>
+<td></td>
+</tr>
+<tr>
+<td>Non-recursive CTEs (<code>WITH x AS (...) SELECT ...</code>)</td>
+<td>Each CTE is an in-scope virtual table for the final statement.</td>
+</tr>
+<tr>
+<td>Schema-qualified names (<code>dbo.Products</code>, <code>public.users</code>)</td>
+<td>The qualifier is stripped for schema resolution and preserved verbatim in the emitted SQL.</td>
+</tr>
+<tr>
+<td>Parameters <code>@name</code></td>
+<td>Repeated use of one name binds one parameter.</td>
+</tr>
+<tr>
+<td>Views</td>
+<td>Readable like tables in every dialect. Writes to them are <strong>JNT2021</strong>, see below. The index and foreign-key analyses (<strong>JNT8004</strong>, <strong>JNT8006</strong>, <strong>JNT8007</strong>) stay silent on a view: it declares neither, so those checks would be reporting the absence of metadata rather than a real finding.</td>
+</tr>
+<tr>
+<td>Materialized views</td>
+<td><strong>PostgreSQL only.</strong> They live in <code>pg_class</code>/<code>pg_attribute</code> and are invisible to <code>information_schema</code>, so a dialect whose extractor reads only the standard views cannot report them. SQL Server indexed views are deliberately not captured. Their columns carry the same type facets (length, precision, scale, Unicode) as a base table's, until 2026-08-18 they carried none, which silently disabled the JNT5001 literal-length check on them.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="expressions-need-an-alias">Expressions need an alias</h3>
+<p>Any projection item that is not a plain column reference must carry <code>AS alias</code>.
+Without one there is no name to give the generated property, and inventing one
+from the expression text produces a name that changes whenever the expression is
+edited. Missing alias is <strong>JNT3004</strong>.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-kw">select</span> u.id, <span class="tok-fn">count</span>(*) <span class="tok-kw">as</span> order_count          <span class="tok-com">-- fine</span>
+<span class="tok-kw">select</span> u.id, <span class="tok-fn">count</span>(*)                         <span class="tok-com">-- JNT3004</span>
+</code></pre>
+</div>
+<h2 id="not-supported">Not supported</h2>
+<table>
+<thead>
+<tr>
+<th>Shape</th>
+<th>Diagnostic</th>
+<th>Severity</th>
+<th>What to write instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UNION</code> / <code>UNION ALL</code> / <code>INTERSECT</code> / <code>EXCEPT</code></td>
+<td><strong>JNT1006</strong></td>
+<td>Error</td>
+<td>Separate queries merged in application code. Only the first branch's column shape would be modeled, so a second branch with different nullability generates code that reads <code>NULL</code> as non-nullable.</td>
+</tr>
+<tr>
+<td>Scalar subquery in the projection list</td>
+<td><strong>JNT1007</strong></td>
+<td>Error</td>
+<td>A <code>JOIN</code> with <code>GROUP BY</code>, or a CTE.</td>
+</tr>
+<tr>
+<td>Derived table in <code>FROM</code> (<code>from (select ...) x</code>)</td>
+<td><strong>JNT1007</strong></td>
+<td>Error</td>
+<td>A CTE.</td>
+</tr>
+<tr>
+<td><code>LATERAL</code> joins, in <code>FROM</code> or in a join</td>
+<td><strong>JNT1009</strong></td>
+<td>Error</td>
+<td>A plain <code>JOIN</code>, a <code>WHERE</code>-clause <code>IN</code>/<code>EXISTS</code>, or a <code>GROUP BY</code> with aggregates.</td>
+</tr>
+<tr>
+<td><code>CROSS APPLY</code> / <code>OUTER APPLY</code> (SQL Server)</td>
+<td><strong>JNT1009</strong></td>
+<td>Error</td>
+<td>The same rewrites as <code>LATERAL</code>, this is T-SQL's spelling of it.</td>
+</tr>
+<tr>
+<td><code>DISTINCT ON (...)</code> (PostgreSQL)</td>
+<td><strong>JNT1009</strong></td>
+<td>Error</td>
+<td><code>row_number() over (partition by &lt;the DISTINCT ON columns&gt; order by &lt;your ORDER BY&gt;)</code> in a CTE, filtered to <code>1</code> outside it; or two queries. Plain <code>DISTINCT</code> is unaffected and still supported.</td>
+</tr>
+<tr>
+<td><code>SELECT ... INTO &lt;table&gt;</code> (T-SQL)</td>
+<td><strong>JNT1009</strong></td>
+<td>Error</td>
+<td>Move the table creation into a migration and keep the <code>SELECT</code> here as a plain query. It creates a table rather than returning rows, so there is no result shape to map. PL/pgSQL's <code>SELECT ... INTO &lt;variable&gt;</code> belongs in a stored procedure. <code>INSERT INTO</code> is unaffected and still supported. Every target spelling reaches the same refusal on its own: T-SQL <code>#temp</code> and <code>##global</code>, and PostgreSQL's <code>INTO TEMP</code> / <code>TEMPORARY</code> / <code>UNLOGGED [TABLE] name</code>.</td>
+</tr>
+<tr>
+<td><code>WITH RECURSIVE</code></td>
+<td><strong>JNT1001</strong></td>
+<td>Warning</td>
+<td>Iterate in application code.</td>
+</tr>
+<tr>
+<td>More than one statement in a file</td>
+<td><strong>JNT1008</strong></td>
+<td>Error</td>
+<td>One statement per file.</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>JNT1009</code> is new in v0.3.0 and is why this page exists.</strong> <code>LATERAL</code> is not a
+tokenizer keyword, so it used to arrive in the table-name position as an
+ordinary identifier and the parser recorded a relation literally named
+<code>lateral</code>. What the consumer then saw was <code>JNT2001: Table 'lateral' does not exist in schema</code>, true of a table the parser had invented, and advice pointing
+at a schema that was perfectly correct. Missing grammar and a missing relation
+are different failures needing opposite responses, so they no longer share a
+code: <strong>JNT2001 now means only &quot;this relation is not in your snapshot&quot;</strong>, and
+JNT1009 means &quot;JauntyQ has no grammar for this&quot;.</p>
+<p>The guarantee is about the construct, not about where you wrote it. The first
+cut of this fix guarded only the join position, so <code>FROM LATERAL (...)</code>, the
+comma form <code>FROM a, LATERAL (...)</code>, and <code>CROSS APPLY</code> all still invented a
+relation, the fix held for the one shape that had been reported and nowhere
+else. Every relation position is covered now, and
+<code>UnmodeledRelationTests</code> has a case per position rather than trusting one to
+stand for the rest.</p>
+<h3 id="a-measured-gap">A measured gap</h3>
+<p><code>UPDATE ... FROM other_table</code> parses without complaint but models only the
+target table, so the second relation is invisible to validation. It is neither
+supported nor refused, which is the worst of the three; it is recorded in
+<code>the todo list</code> and pinned by
+<code>SupportedSurfaceProbeTests.UpdateFrom_ParsesButDoesNotModelTheSecondRelation</code>.</p>
+<p><code>DISTINCT ON</code> (PostgreSQL) <strong>was</strong> in the same state and is no longer: since
+2026-08-18 it is refused as <strong>JNT1009</strong> and appears in the table above. Why it
+was worth fixing rather than documenting: the <code>ON</code> and its parenthesized list
+glued onto the first projected column as one opaque expression, so the query
+modeled one fewer real column than it returns. Unaliased that reached JNT3004
+(&quot;this expression needs an alias&quot;), loud, but blaming a column the consumer
+did not write. Aliased, it passed validation outright and the generated mapper
+typed its first property from expression-shape inference over the text
+<code>ON ( ... ) &lt;column&gt;</code>.</p>
+<h3 id="escaping-a-quote-inside-a-string-literal">Escaping a quote inside a string literal</h3>
+<p>Double it. <code>'it''s'</code> works on every dialect JauntyQ supports.</p>
+<p>MySQL's backslash form, <code>'it\'s'</code>, does <strong>not</strong>: the tokenizer implements only
+the ANSI <code>''</code> escape, so the backslash leaves the quotes unbalanced and the file
+is refused with JNT1002. That refusal is deliberate and the message names the
+backslash when it finds one, but it is a refusal, not a silent mis-parse, and
+there is no build in which a backslash-escaped file produces wrong SQL. Pinned
+by <code>TokenizerTests</code>'s three backslash cases, which also pin why the fix is not
+simply &quot;honor the backslash&quot;: <code>'C:\'</code> is a complete literal under ANSI rules
+and tokenizes as one today.</p>
+<h2 id="things-that-are-not-the-parser">Things that are not the parser</h2>
+<p>Three refusals get mistaken for grammar gaps.</p>
+<p><strong>A missing relation is JNT2001</strong>, and it means what it says: the table or view
+is not in your schema snapshot. Re-run <code>jauntyq schema pull</code>. Since v0.3.0 this
+code is never raised for a construct the parser failed to understand.</p>
+<p><strong>An unindexed filter is JNT8004</strong>, a performance warning, not a rejection. The
+query is fine; the column you filter on has no index. Add the index, or accept
+the scan for this one query with
+<a href="06-reference-directives.html"><code>-- @allow-unindexed &lt;reason&gt;</code></a>. If your project sets
+<code>TreatWarningsAsErrors</code>, every JauntyQ warning arrives as a build error, that
+escalation is your setting, not JauntyQ's severity.</p>
+<p><strong>Unstable pagination is JNT8009 / JNT8010</strong>, also warnings. A <code>LIMIT</code>/<code>OFFSET</code>
+page whose <code>ORDER BY</code> does not resolve to a unique key can return the same row
+on two pages and skip another, because the engine is free to break the tie
+differently per query. Add the primary key as the last <code>ORDER BY</code> term.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="06-reference-diagnostics.html">Diagnostics</a>, every <code>JNTxxxx</code> code.</li>
+<li><a href="06-reference-directives.html">Directives</a>, <code>-- @result</code>, <code>-- @params</code>, <code>-- @allow-unindexed</code>.</li>
+<li><a href="06-reference-dialects.html">Dialect differences</a>, what the emitted SQL looks like per engine.</li>
+<li><a href="06-reference-troubleshooting.html">Troubleshooting</a>, symptoms mapped to causes.</li>
+</ul>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="06-reference-schema-snapshot-format.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Schema snapshot format (.schema.json)</span>
+</a><a class="pn-next" href="06-reference-troubleshooting.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Troubleshooting &amp; FAQ</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

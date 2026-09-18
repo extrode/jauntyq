@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JNT diagnostics reference — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Reference &#8250; JNT diagnostics reference</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html" class="active" aria-current="page">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#0xxx-generator-internal">0xxx, Generator Internal</a><a class="toc-l2" href="#1xxx-sql-parsing">1xxx, SQL Parsing</a><a class="toc-l2" href="#2xxx-schema-validation">2xxx, Schema Validation</a><a class="toc-l2" href="#3xxx-query-shape--projection">3xxx, Query Shape / Projection</a><a class="toc-l2" href="#4xxx-parameter-binding">4xxx, Parameter Binding</a><a class="toc-l2" href="#5xxx-value-safety">5xxx, Value Safety</a><a class="toc-l2" href="#6xxx-configuration">6xxx, Configuration</a><a class="toc-l2" href="#7xxx-dialect">7xxx, Dialect</a><a class="toc-l2" href="#8xxx-performance">8xxx, Performance</a><a class="toc-l2" href="#9xxx-migrations">9xxx, Migrations</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; JNT diagnostics reference</nav>
+        <article>
+<h1 id="jnt-diagnostics-reference">JNT diagnostics reference</h1>
+<p>Every diagnostic JauntyQ can report, generated from the registry in
+<code>src/Extrode.JauntyQ.Generator/JauntyDiagnostics.cs</code>. Format: <code>JNTxxxx</code> where the
+first digit is the category. An <strong>Error</strong> blocks code generation for that
+query/table; a <strong>Warning</strong> still emits code.</p>
+<h2 id="0xxx-generator-internal">0xxx, Generator Internal</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Title</th>
+<th>Severity</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JNT0001</td>
+<td>Generator Internal Error</td>
+<td>Error</td>
+<td>JauntyQ itself threw. Not a fault in your SQL, schema or configuration. It exists because Roslyn's own story for a generator that throws is CS8785, which is a <strong>warning</strong>: the build continues, every type the generator would have emitted is simply absent, and you see only the CS0246s that follow. The message names the stage that failed and the exception; the generated output may be incomplete or entirely missing depending on which stage it was. Please report it.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="1xxx-sql-parsing">1xxx, SQL Parsing</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Title</th>
+<th>Severity</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JNT1001</td>
+<td>Unsupported SQL Construct</td>
+<td>Warning</td>
+<td>The tokenizer/parser hit a construct it doesn't model explicitly. Usually harmless, most SQL passes through verbatim. UNION and unsupported subqueries are excluded from this generic warning; see JNT1006/JNT1007.</td>
+</tr>
+<tr>
+<td>JNT1002</td>
+<td>Unterminated Token</td>
+<td>Error</td>
+<td>A block comment (<code>/* ...</code>), bracket- or quote-delimited identifier (<code>[...</code>, <code>&quot;...</code>, <code>`...</code>) or string literal (<code>'...</code>) ran to end-of-file with no closing delimiter. Fix the file. If the literal looks closed to you and you write MySQL, check for <code>\'</code>, JauntyQ implements only the ANSI <code>''</code> escape, and the message says so when it finds one.</td>
+</tr>
+<tr>
+<td>JNT1003</td>
+<td>Input Too Large</td>
+<td>Error</td>
+<td>The <code>.sql</code> file exceeds <code>SqlTokenizer.MaxInputLength</code> (1 MiB). Split the file or check for accidental content.</td>
+</tr>
+<tr>
+<td>JNT1004</td>
+<td>Unsupported Character</td>
+<td>Error</td>
+<td>The SQL contains a character the tokenizer does not recognize (e.g. <code>$</code>, <code>\</code>). JauntyQ refuses to parse rather than risk a silently wrong model. Remove the character or rewrite the construct.</td>
+</tr>
+<tr>
+<td>JNT1005</td>
+<td>Nesting Too Deep</td>
+<td>Error</td>
+<td>Parentheses nest beyond <code>SqlTokenizer.MaxNestingDepth</code> (1000). The recursive-descent parser is O(n²) in depth, so JauntyQ refuses pathologically deep input (almost always a generated-SQL or copy-paste error) rather than let a single file hang the build.</td>
+</tr>
+<tr>
+<td>JNT1006</td>
+<td>Unsupported UNION</td>
+<td>Error</td>
+<td><code>UNION</code>/<code>UNION ALL</code> is not supported: the generator only models the first branch's column shape, so a second branch with different nullability could silently generate code that reads <code>NULL</code> as non-nullable and throws at runtime. Split into separate queries, or model the combined result as an application-level merge.</td>
+</tr>
+<tr>
+<td>JNT1007</td>
+<td>Unsupported Subquery</td>
+<td>Error</td>
+<td>A nested <code>SELECT</code> that isn't a WHERE-clause <code>[NOT] IN (SELECT ...)</code>/<code>[NOT] EXISTS (SELECT ...)</code> predicate (a scalar subquery in the projection list, or a derived table in <code>FROM</code>) falls through to the enclosing statement's ordinary parsing instead of being lifted as its own scope, so the outer query's shape may already be misparsed. Rewrite using a <code>JOIN</code>, a WHERE-clause <code>IN</code>/<code>EXISTS</code> predicate, or a CTE.</td>
+</tr>
+<tr>
+<td>JNT1008</td>
+<td>Multiple Statements In One File</td>
+<td>Error</td>
+<td>The file holds more than one top-level statement (a <code>;</code> followed by more SQL). JauntyQ generates one method per file from one statement: a second <code>SELECT</code>'s tables and columns are merged into the first statement's model, and a second statement after an <code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code> is dropped entirely, so the generated mapper matches neither statement. Split each statement into its own <code>.sql</code> file.</td>
+</tr>
+<tr>
+<td>JNT1009</td>
+<td>Unsupported Syntax</td>
+<td>Error</td>
+<td>Syntax the parser has no grammar for, reported as such rather than as a schema problem. Currently: <code>LATERAL</code> joins, <code>CROSS APPLY</code>/<code>OUTER APPLY</code>, and PostgreSQL's <code>DISTINCT ON (...)</code>. Split out of <code>JNT2001</code>, which was reporting both &quot;this relation is not in your schema&quot; and &quot;this keyword is not in my grammar&quot;, for <code>LEFT JOIN LATERAL</code> the parser read the keyword as the joined table's name, so the consumer was told a table they had never written was missing from their schema. The two failures need opposite responses from the reader, so they no longer share a code. See <code>supported-sql.md</code> for the accepted surface.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2xxx-schema-validation">2xxx, Schema Validation</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Title</th>
+<th>Severity</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JNT2001</td>
+<td>Table Not Found</td>
+<td>Error</td>
+<td>Query references a table absent from the schema snapshot. Re-run <code>jauntyq schema pull</code> or fix the table name.</td>
+</tr>
+<tr>
+<td>JNT2002</td>
+<td>Column Not Found</td>
+<td>Error</td>
+<td>Query references a column absent from the resolved table.</td>
+</tr>
+<tr>
+<td>JNT2003</td>
+<td>Ambiguous Column</td>
+<td>Error</td>
+<td>An unqualified column name matches more than one joined table; qualify it with an alias.</td>
+</tr>
+<tr>
+<td>JNT2004</td>
+<td>Illegal Identifier</td>
+<td>Error</td>
+<td>A table/column/alias/parameter name can't form a valid C# identifier after <code>DialectMapper.ToPascalCase</code>.</td>
+</tr>
+<tr>
+<td>JNT2005</td>
+<td>Stored Procedure Not Found</td>
+<td>Error</td>
+<td><code>-- @call &lt;Proc&gt;</code> names a procedure absent from the schema snapshot's <code>procedures</code> section.</td>
+</tr>
+<tr>
+<td>JNT2006</td>
+<td>Entity/Row POCO Name Collision</td>
+<td>Error</td>
+<td>Two tables would generate identical entity or row-POCO class names.</td>
+</tr>
+<tr>
+<td>JNT2007</td>
+<td>Unmapped Column Type</td>
+<td>Warning</td>
+<td><code>DialectMapper.MapDbTypeToCSharp</code> fell through to <code>object</code> for this column's db type, no C# type mapping exists.</td>
+</tr>
+<tr>
+<td>JNT2008</td>
+<td>Duplicate Generated File</td>
+<td>Error</td>
+<td>Two <code>.sql</code> files produce the same generated file name, compared case-insensitively as Roslyn's <code>AddSource</code> does (e.g. <code>getUsers.sql</code> and <code>GetUsers.sql</code> in one folder, possible on a case-sensitive filesystem). Left unchecked this crashes the whole generator (<code>CS8785</code>); rename one so the generated names differ by more than case.</td>
+</tr>
+<tr>
+<td>JNT2009</td>
+<td>Duplicate Sequence Accessor Name</td>
+<td>Error</td>
+<td>Two sequences whose PascalCased names collide would generate the same accessor method; only the first is emitted. Rename one.</td>
+</tr>
+<tr>
+<td>JNT2010</td>
+<td>Duplicate Entity Accessor Name</td>
+<td>Error</td>
+<td>Two or more tables whose PascalCased names collide all generate the same <code>db.&lt;Entity&gt;</code> accessor; only the first table's auto-CRUD is emitted and the rest are invisible. Rename the tables, or write their queries by hand.</td>
+</tr>
+<tr>
+<td>JNT2011</td>
+<td>Duplicate Column Property Name</td>
+<td>Error</td>
+<td>Two result columns of a stored procedure map to the same generated property, which the Result DTO cannot declare twice. Alias one distinctly in the procedure's own <code>SELECT</code>.</td>
+</tr>
+<tr>
+<td>JNT2012</td>
+<td>Reserved Parameter Name Prefix</td>
+<td>Error</td>
+<td>A <code>.sql</code> query parameter uses the <code>__</code> prefix, which is reserved for JauntyQ's own bookkeeping identifiers (<code>__conn</code>, <code>__cmd</code>, <code>__reader</code>, <code>__weOpened</code> and others). Such a name can silently collide with generated code. Rename it without the leading double underscore. A single leading underscore is fine.</td>
+</tr>
+<tr>
+<td>JNT2013</td>
+<td>Duplicate Parameter Name</td>
+<td>Error</td>
+<td>Two stored-procedure parameters map to the same generated C# parameter, <code>DialectMapper.ToPascalCase</code> strips separators, so <code>order_number</code> and <code>OrderNumber</code> both become <code>orderNumber</code>. The generated method cannot declare it twice, and no rename by the generator can resolve it. Rename one in the procedure definition.</td>
+</tr>
+<tr>
+<td>JNT2014</td>
+<td>Table Skipped For Colliding Column Names</td>
+<td>Warning</td>
+<td>Two of a table's columns map to the same generated property, so no row type or auto-CRUD can be emitted and the table is absent from the generated API entirely. Warning rather than error so an unused table with such a pair does not fail the build. Rename one column, or alias it distinctly in a hand-written query.</td>
+</tr>
+<tr>
+<td>JNT2015</td>
+<td>Table Skipped For Unquotable Identifier</td>
+<td>Warning</td>
+<td>The table's name, or one of its column names, cannot be written unquoted: a keyword JauntyQ's own SQL parser reserves, a word the target engine reserves in that position, an illegal character, or (PostgreSQL only) a mixed-case name an unquoted reference would fold to lower case. Auto-CRUD is skipped and the table is absent from the generated API. Warning rather than error so an unused table does not fail the build. Rename it, or write its queries by hand with the identifier quoted. The per-engine reserved-word lists behind this are the verdict of a live probe against PostgreSQL 16, MySQL 8.0, MariaDB 11.8, SQL Server 2022 and SQLite 3.45, see <code>DialectReservedWords.cs</code>.</td>
+</tr>
+<tr>
+<td>JNT2016</td>
+<td>Duplicate Enum Member Name</td>
+<td>Error</td>
+<td>Two members of a captured database enum fold to the same C# identifier, <code>'in progress'</code> and <code>'in-progress'</code> both become <code>InProgress</code>, and <code>''</code> and <code>'-'</code> both become <code>_</code>. The generated enum cannot declare the member twice, and renaming one in the generator would silently diverge from the value the database stores. Both offending values are named in the message. Rename one member in the database.</td>
+</tr>
+<tr>
+<td>JNT2017</td>
+<td>Enum Type Name Collision</td>
+<td>Error</td>
+<td>A captured enum's generated type name collides with another generated type: a row type, another enum, one of the emitted <code>{EnumName}Values</code> companions, or the shared <code>JauntyQEnumValueException</code>. A table named <code>order_status_values</code> alongside an enum <code>order_status</code> is the reachable case. Renaming silently is the anti-pattern JNT2015 exists to end, so this is an error. Rename the table or the enum.</td>
+</tr>
+<tr>
+<td>JNT2018</td>
+<td>Non-Atomic Key-Targeted MySQL Upsert</td>
+<td>Warning</td>
+<td>The table carries a UNIQUE constraint other than the key the upsert resolved, so MySQL's <code>ON DUPLICATE KEY UPDATE</code>, which names no conflict target and matches whichever UNIQUE the insert violates, would not agree with the key postgres/sqlite <code>ON CONFLICT (cols)</code> and sqlserver <code>MERGE ... ON</code> name explicitly. JauntyQ therefore emits a key-targeted <code>UPDATE ... ; INSERT ... SELECT ... WHERE NOT EXISTS</code> pair instead. Two statements are not atomic, and <strong>a transaction does not make them so</strong>, concurrent upserts of the same new key can fail with <code>1062</code> (both pass the existence check), deadlock with <code>1213</code> (one session's insert-intention lock meets the other's gap lock from the <code>UPDATE</code>), or silently write nothing and return <code>0</code> (another session commits the row between this call's <code>UPDATE</code> and its <code>INSERT</code>). Retry on <code>1062</code>/<code>1213</code> (the call is idempotent) or drop the competing constraint; a <code>0</code> return is <strong>not</strong> by itself evidence of the lost write, since an unchanged re-run also returns <code>0</code> under <code>UseAffectedRows=true</code>. Any UNIQUE whose column set differs from the key counts as competing, with one exception: a <strong>full-column superset</strong> of the key cannot fire independently of it (violating <code>(id, tenant)</code> requires duplicating <code>id</code>) and is not competing. An index with a MySQL <strong>prefix key part</strong> (captured from <code>SUB_PART</code> as <code>IndexSchema.HasPrefixKeyPart</code>) is always competing, whether a superset (<code>UNIQUE (id(3), tenant)</code>) or a restatement of the key's own columns (<code>UNIQUE (id(3))</code> beside a full-column key on <code>id</code>), it fires on rows sharing only the prefix. A UNIQUE with an <strong>expression key part</strong> (MySQL functional index, captured as <code>IndexSchema.HasExpressionKeyPart</code> with only the real-column subset in <code>Columns</code>) always competes, it constrains rows through an expression the key's columns say nothing about, and before 2026-07-30 it was excluded at capture and therefore invisible to this check. Single-UNIQUE tables are unaffected and keep <code>ON DUPLICATE KEY UPDATE</code>.</td>
+</tr>
+<tr>
+<td>JNT2019</td>
+<td>Upsert Skipped For Prefix-Only Unique Key</td>
+<td>Warning</td>
+<td>The only constraint that could serve as the table's upsert key is a UNIQUE over a <strong>column prefix</strong> (MySQL <code>UNIQUE (email(5))</code>, captured from <code>SUB_PART</code> as <code>IndexSchema.HasPrefixKeyPart</code>), either the sole fallback UNIQUE for an identity-only PK, or the <code>PRIMARY</code> index itself (<code>PRIMARY KEY (name(10))</code>). Such an index enforces uniqueness over the truncated prefix, so the engine matches rows sharing only that prefix, not the full value an <code>Upsert(...)</code> signature implies, and no emitted form, atomic or two-statement, can honor the contract. No Upsert is synthesized (the table's other CRUD is unaffected). Add a full-column UNIQUE constraint or a bindable primary key, or write the upsert by hand. A schema snapshot without index entries (e.g. migration simulation) carries no prefix evidence and is never refused.</td>
+</tr>
+<tr>
+<td>JNT2020</td>
+<td>Upsert Skipped For Expression-Only Unique Key</td>
+<td>Warning</td>
+<td>The only constraint that could serve as the table's upsert key is a UNIQUE with an <strong>expression key part</strong> (<code>UNIQUE (lower(email))</code>, captured as <code>IndexSchema.HasExpressionKeyPart</code> with only the real-column subset of its key in <code>Columns</code>). The engine matches conflicts on the expression's value, which no generated method can bind a parameter to, and the snapshot does not carry the expression at all, so such an index can never be the upsert key. No Upsert is synthesized (the table's other CRUD is unaffected). Add a full-column UNIQUE constraint or a bindable primary key, or write the upsert by hand. When a prefix-only refusal (JNT2019) and this one could both apply, only JNT2019 is reported. Before 2026-08-01 this skip was silent, the reading such tables had when expression indexes were excluded at capture entirely (pre-2026-07-30).</td>
+</tr>
+<tr>
+<td>JNT2021</td>
+<td>Write To View</td>
+<td>Error</td>
+<td>An <code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code> targets a relation captured as a view (<code>isView: true</code>). Views enter the snapshot so they can be <strong>read</strong>; they are captured read-only, so no write is generated for one. Keyed on the write's target relation only, an <code>UPDATE</code> against a base table whose predicate joins or subqueries a view is fine, and a <code>SELECT</code> from a view is the case views exist for. Error rather than a silent skip because the consumer authored the statement deliberately: skipping it would emit a method whose SQL the engine rejects at runtime, and warning would let that method be called. Write to the underlying table instead.</td>
+</tr>
+<tr>
+<td>JNT2022</td>
+<td>Lossy Identifier Rename</td>
+<td>Warning</td>
+<td>A table or column name contains a letter or digit outside ASCII, which generated names drop: <code>größe</code> becomes the property <code>GrE</code>, <code>café</code> becomes <code>Caf</code>, <code>日本語</code> becomes <code>_</code>. The code compiles and nothing collides, so JNT2011/JNT2014 never see it, but the property is spelled as a different word from your column. Rename the column, or alias it to an ASCII name in a hand-written query.</td>
+</tr>
+<tr>
+<td>JNT2023</td>
+<td>Function Name Collision</td>
+<td>Error</td>
+<td>Two captured functions fold to one generated method name, or a function's name collides with a table, enum or sequence accessor. PostgreSQL overloads are the common case: <code>f(int)</code> and <code>f(text)</code> are distinct functions whose parameter types often map to the same C# types, so C# overloading cannot carry them. Error rather than a skip because nothing can be emitted for <strong>either</strong> side, choosing one silently would make which function a call site reaches depend on emission order. Rename one function, or exclude it from capture.</td>
+</tr>
+<tr>
+<td>JNT2024</td>
+<td>Unmappable Function Signature</td>
+<td>Warning</td>
+<td>A captured function has a parameter or return type with no C# mapping, so no method is emitted for it. The rest of the schema generates unaffected, one unmappable function does not cost you the others. Hand-write the call, or change the function's signature to a mappable type.</td>
+</tr>
+<tr>
+<td>JNT2025</td>
+<td>Table-Valued Parameter Not Supported</td>
+<td>Warning</td>
+<td>A captured procedure takes a SQL Server table-valued parameter. No method is emitted: binding a TVP needs <code>SqlParameter.SqlDbType = SqlDbType.Structured</code> and <code>SqlDataRecord</code>, which the generated abstract <code>DbParameter</code> path cannot reach. <strong>The message prints the TVP type's full column list</strong>, so you have the shape needed to hand-write the call with <code>IEnumerable&lt;SqlDataRecord&gt;</code>. Previously this generated <code>object</code> with JNT2007, a method that compiled and could not work. TVP support is specified and deferred; if you are hitting this, that is the signal that moves it.</td>
+</tr>
+<tr>
+<td>JNT2026</td>
+<td>Duplicate Return-Value Parameter</td>
+<td>Error</td>
+<td>A captured procedure declares more than one parameter with direction <code>ReturnValue</code>. A procedure has exactly one return status, so at most one of them could ever carry a value and nothing defines which. No method is emitted. Keep one and give the others direction <code>Out</code>. This is only reachable from a hand-authored or externally produced snapshot: <code>jauntyq schema pull</code> never emits the direction.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3xxx-query-shape--projection">3xxx, Query Shape / Projection</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Title</th>
+<th>Severity</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JNT3001</td>
+<td>Empty Query</td>
+<td>Warning</td>
+<td>The <code>.sql</code> file is empty or has no SELECT columns to project.</td>
+</tr>
+<tr>
+<td>JNT3002</td>
+<td>SELECT * Forbidden</td>
+<td>Error</td>
+<td><code>SELECT *</code> is rejected, list columns explicitly so the generated shape is stable.</td>
+</tr>
+<tr>
+<td>JNT3003</td>
+<td>Invalid Directive Combination</td>
+<td>Error</td>
+<td>Two directives on the same query conflict (e.g. <code>-- @stream</code> with <code>-- @first</code>).</td>
+</tr>
+<tr>
+<td>JNT3004</td>
+<td>Expression Projection Missing Alias</td>
+<td>Error</td>
+<td>A computed SELECT expression has no <code>AS alias</code>, so the generator has no property name to emit.</td>
+</tr>
+<tr>
+<td>JNT3005</td>
+<td>Expression Type Unresolved</td>
+<td>Error</td>
+<td>A computed expression's C# type can't be inferred; declare it with <code>-- @type &lt;alias&gt; &lt;type&gt;</code>.</td>
+</tr>
+<tr>
+<td>JNT3006</td>
+<td>Unknown Type Directive Alias</td>
+<td>Error</td>
+<td>A <code>-- @type</code> directive names an alias that doesn't match any projection item.</td>
+</tr>
+<tr>
+<td>JNT3007</td>
+<td>IN-Subquery Column Count</td>
+<td>Error</td>
+<td>An <code>IN (SELECT ...)</code> subquery projects more than one column.</td>
+</tr>
+<tr>
+<td>JNT3008</td>
+<td>Unrecognized Directive</td>
+<td>Warning</td>
+<td>A <code>-- @word</code> comment looks like a directive but parsed as nothing: a value-taking directive written bare (<code>-- @each</code> with no parameter name) or a one-edit typo of a known name (<code>-- @frist</code>). The line stayed a plain comment and had no effect. Ordinary <code>@word</code> comments (<code>-- @author</code>) never trigger this.</td>
+</tr>
+<tr>
+<td>JNT3009</td>
+<td>Duplicate Result Column</td>
+<td>Error</td>
+<td>Two SELECT/RETURNING items map to the same generated property after <code>DialectMapper.ToPascalCase</code> (<code>id as X, y as X</code>, the case-only <code>as x, as X</code>, or the separator fold <code>my_col</code>/<code>myCol</code>). The row type can't declare the member twice (<code>CS0102</code>); give each item a distinct alias.</td>
+</tr>
+<tr>
+<td>JNT3010</td>
+<td>Mirrored Query Not Comparable</td>
+<td>Warning</td>
+<td>A file declares <code>-- @mirrors &lt;Query&gt;</code> but the pairing cannot be compared, so no drift verdict is possible: the target name resolves to no query in the corpus (typo, renamed file, not in <code>AdditionalFiles</code>), a bare method name is ambiguous across two entities (qualify it <code>Entity.Method</code>), the target produced no query model (it failed to parse or validate, or it binds a stored procedure), the target is the declaring query itself, or a WHERE-clause column on either side does not resolve to a schema column (a CTE virtual column, say). Reported rather than silently skipped, and rather than falling back to raw text, a text comparison would invent drift out of a spelling difference, and one false positive kills an opt-in check. Fix the target name or qualify the column, or remove the directive.</td>
+</tr>
+<tr>
+<td>JNT3011</td>
+<td>Duplicate Directive</td>
+<td>Warning</td>
+<td>A non-repeatable directive appears more than once in one <code>.sql</code> file. Every directive except <code>-- @type</code> and <code>-- @each</code> stores into a single field, so the later line overwrites the earlier one, previously without a word, which made two contradictory <code>-- @result</code> lines, or two <code>-- @allow-sort</code> reasons where only the second is in force, invisible in both the SQL and the generated code. Later still wins; the message names the value that was discarded and the one that took its place. A repeat carrying the <em>same</em> value (including a repeated flag such as <code>-- @first</code>) gets the milder wording, since nothing was lost. Bare value-taking lines are not occurrences: <code>-- @call</code> with no name is declined as JNT3008 and does not make a later real <code>-- @call</code> look like a repeat.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4xxx-parameter-binding">4xxx, Parameter Binding</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Title</th>
+<th>Severity</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JNT4003</td>
+<td>Parameter Type Unresolved</td>
+<td>Error</td>
+<td><code>@param</code>'s C# type couldn't be inferred from a bound column; declare it via <code>-- @params name:type</code>.</td>
+</tr>
+<tr>
+<td>JNT4004</td>
+<td>Duplicate Parameter</td>
+<td>Error</td>
+<td>The same <code>@name</code> appears twice in a <code>-- @params</code> directive.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5xxx-value-safety">5xxx, Value Safety</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Title</th>
+<th>Severity</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JNT5001</td>
+<td>String Literal Exceeds Column Length</td>
+<td>Error</td>
+<td>A literal string value in the SQL is longer than the target column's <code>MaxLength</code>.</td>
+</tr>
+<tr>
+<td>JNT5002</td>
+<td>Numeric Literal Out Of Range</td>
+<td>Error</td>
+<td>A literal numeric value can't fit the target column's numeric type/precision. Also covers a value the engine accepts but silently rewrites: a fractional literal beyond the column's scale, and a SQL Server <code>bit</code> given anything but 0 or 1 (stored as 1).</td>
+</tr>
+<tr>
+<td>JNT5003</td>
+<td>Literal Type Mismatch</td>
+<td>Error</td>
+<td>A literal is the wrong kind of value for the column, not merely too long or too large, the server rejects the statement outright. Today: a numeric literal against a PostgreSQL <code>bit</code>/<code>bit(n)</code>, which is a bit string and needs <code>B'1010'</code> form.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="6xxx-configuration">6xxx, Configuration</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Title</th>
+<th>Severity</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JNT6001</td>
+<td>Schema Missing</td>
+<td>Error</td>
+<td>No schema snapshot found and no <code>db/ddl/*.sql</code> DDL source either. Run <code>jauntyq schema pull</code>, or see <code>db/ddl/*.sql</code> + <code>&lt;JauntyQDialect&gt;</code> (JNT9003).</td>
+</tr>
+<tr>
+<td>JNT6002</td>
+<td>Multiple Schema Snapshots</td>
+<td>Warning</td>
+<td>More than one <code>*.schema.json</code> was passed as AdditionalFiles. The ordinal-lowest path wins deterministically; the message names every candidate. Remove the extras (or exclude them from <code>&lt;AdditionalFiles&gt;</code>) so the schema source is unambiguous.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="7xxx-dialect">7xxx, Dialect</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Title</th>
+<th>Severity</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JNT6003</td>
+<td>Invalid Acceptance File</td>
+<td>Warning</td>
+<td>A structural problem in <code>jaunty.accept.json</code>, the sidecar that accepts an unindexed auto-CRUD scan per column (spec 016): the file is not valid JSON, more than one <code>*.accept.json</code> was passed as AdditionalFiles (ordinal-lowest wins, the message names every candidate, and the others are <strong>not</strong> merged), an entry is missing its <code>table</code>, <code>column</code> or <code>reason</code>, an entry names a table or column the snapshot does not have (a typo, or an entry that outlived a dropped column), or the same column is accepted twice (the first entry is the one in force). A rejected entry accepts nothing, so the JNT8004 it was meant to cover is still reported, a half-read entry quietening a warning would make a typo cheaper than getting it right. An entry that is well-formed but no longer needed is JNT8012, not this. Warning rather than Error: a mistake in the file written to quieten the build must not be louder than the warnings it was written to quieten.</td>
+</tr>
+<tr>
+<td>JNT7001</td>
+<td>Identity Return Unavailable</td>
+<td>Error</td>
+<td><code>-- @identity</code> was used but the table/dialect combination can't return the generated key.</td>
+</tr>
+<tr>
+<td>JNT7002</td>
+<td>Construct Unavailable On Dialect</td>
+<td>Error</td>
+<td>A <code>RETURNING</code> clause or data-modifying CTE was used on <code>sqlserver</code>/<code>mysql</code>, neither of which supports it (MariaDB via the <code>mysql</code> dialect string does support <code>RETURNING</code> 10.5+/13.0+, this intentionally over-flags that case to stay safe on stock MySQL).</td>
+</tr>
+<tr>
+<td>JNT7003</td>
+<td>Unknown Dialect</td>
+<td>Error</td>
+<td><code>schema.Dialect</code> isn't one of <code>sqlserver</code>/<code>postgres</code>/<code>sqlite</code>/<code>mysql</code>, check <code>DialectMapper.IsKnownDialect</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="8xxx-performance">8xxx, Performance</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Title</th>
+<th>Severity</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JNT8001</td>
+<td>Possible Cartesian Product</td>
+<td>Warning</td>
+<td>A join has no <code>ON</code>/equality condition connecting the two tables.</td>
+</tr>
+<tr>
+<td>JNT8002</td>
+<td>Non-Sargable Predicate</td>
+<td>Warning</td>
+<td>A WHERE clause wraps an indexed column in a function/expression, defeating index seeks.</td>
+</tr>
+<tr>
+<td>JNT8003</td>
+<td>Leading-Wildcard LIKE</td>
+<td>Warning</td>
+<td><code>LIKE '%value'</code> can't use a standard B-tree index.</td>
+</tr>
+<tr>
+<td>JNT8004</td>
+<td>Unindexed Filter Column</td>
+<td>Warning</td>
+<td>A filter/join column has no covering index (composite indexes are checked positionally: a non-leading column is &quot;covered&quot; only when every column ahead of it in the same index is also filtered in this query). On a <strong>hand-written</strong> query, accept it deliberately with <code>-- @allow-unindexed &lt;reason&gt;</code>. On an <strong>auto-CRUD</strong> query there is no file to annotate, so the message names the exact <code>.sql</code> path that would override the generated method, and, since spec 016, the <code>jaunty.accept.json</code> entry that accepts the scan <em>without</em> giving up schema tracking. Only the <code>GetBy&lt;Fk&gt;</code> loader family can raise this: <code>GetAll</code> has no filter, and <code>GetById</code>/<code>Update</code>/<code>Delete</code> filter the full primary key.</td>
+</tr>
+<tr>
+<td>JNT8005</td>
+<td>Duplicate Query</td>
+<td>Warning</td>
+<td>Two or more generated methods compile to byte-for-byte identical SQL; consolidate them.</td>
+</tr>
+<tr>
+<td>JNT8006</td>
+<td>Join Not A Foreign Key</td>
+<td>Warning</td>
+<td>A join's column pair matches no declared foreign key between the two tables (exact per-pair match, either direction). Usually a wrong-column join (a bug) or an unmodeled relationship. Skipped when the snapshot carries no <code>foreignKeys</code>, or when either side resolves to a CTE/subquery/table absent from the schema. Composite FKs are stored one row per column pair, so a pair-by-pair join matches and is not flagged.</td>
+</tr>
+<tr>
+<td>JNT8007</td>
+<td>Unindexed Order By</td>
+<td>Warning</td>
+<td>An <code>ORDER BY</code> names a column no index can order (not the leading column of any index, and not a non-leading column whose more-leading index columns are all constrained by a bound parameter in this query, any comparison operator, not only equality, which makes a range on the leading column a known false negative), forcing a runtime sort. Accept it deliberately with <code>-- @allow-sort &lt;reason&gt;</code>. Only plain base-column items are checked; ordinals (<code>ORDER BY 1</code>), expressions (<code>ORDER BY lower(x)</code>), projected aliases, primary keys, and snapshots without index metadata are skipped.</td>
+</tr>
+<tr>
+<td>JNT8008</td>
+<td>Possible N+1 Access Pattern</td>
+<td>Warning</td>
+<td>Cross-query heuristic: a SELECT is a point lookup on a child table by an equality on <strong>every</strong> column of a declared foreign key (<code>WHERE child.parent_id = @parentId</code>), and the corpus also contains a parent-collection query over that FK's parent table (a multi-row SELECT, not a single-row PK lookup). Calling the child lookup once per parent row is 1 + N round-trips, fetch set-based instead: join the child into the parent query, or batch with <code>WHERE parent_id IN (...)</code> (for the <code>COUNT</code>/aggregate-per-parent variant, a grouped aggregate join). Fires at most once per child lookup, naming one representative parent query. Never fires when the child is already set-based (<code>IN</code> on the FK column, or joins/reads the parent), when the parent query is a single-row PK lookup, or when the snapshot has no <code>foreignKeys</code>; composite FKs require all columns filtered (a partial match never fires) and self-referencing FKs are supported. Suppress an intentional per-row lookup the standard way: <code>&lt;NoWarn&gt;$(NoWarn);JNT8008&lt;/NoWarn&gt;</code> or <code>dotnet_diagnostic.JNT8008.severity = none</code> in <code>.editorconfig</code>; or, for one query only and with the decision recorded in the file, <code>-- @allow-n-plus-one &lt;reason&gt;</code> (see JNT8013 and <a href="06-reference-directives.html#-allow-n-plus-one">directives</a>).</td>
+</tr>
+<tr>
+<td>JNT8009</td>
+<td>Unstable Pagination</td>
+<td>Warning</td>
+<td>A query takes a page (<code>LIMIT</code>/<code>OFFSET</code>, including T-SQL's <code>OFFSET … FETCH NEXT</code>) but its <code>ORDER BY</code> covers no primary key and no complete unique index, so rows that sort equally have no defined relative order: the engine may return them differently on each execution, and a row can then appear on two pages or on none. Add a tiebreak on a unique column, usually the primary key. Checked per statement, so a page taken inside a CTE, the idiomatic paginate-then-aggregate shape, is checked against its own base columns, and a page taken by the <strong>final</strong> statement of a <code>WITH</code> is checked too (fixed 2026-08-03; before that the outer model never learned it paged, and both codes stayed silent on that shape). Silent when: the sort already covers a unique key; any <code>ORDER BY</code> item is an expression, ordinal, projected alias or unresolvable name (it may itself be unique, and the IR cannot tell); the statement joins, has more than one table, or has a <code>GROUP BY</code> (per-row uniqueness proves nothing about a fanned-out or collapsed result); this query's equality filters already pin one row; the statement is a predicate subquery; or the table carries <strong>no</strong> captured index metadata, in which case a non-PK unique tiebreak is unprovable rather than absent, DDL/migration-sourced tables have primary keys but no secondary unique indexes (see <code>JauntyQGenerator.Part7.cs</code>), so firing there would be a false positive on every such project. <code>TOP n</code> without <code>OFFSET</code> is not pagination and never fires.</td>
+</tr>
+<tr>
+<td>JNT8010</td>
+<td>Unordered Pagination</td>
+<td>Warning</td>
+<td>A query takes a page with <code>LIMIT</code>/<code>OFFSET</code> and has <strong>no</strong> <code>ORDER BY</code> at all: the rows in a page are an arbitrary subset that can differ between requests. Strictly worse than JNT8009 and reported instead of it, never alongside. Needs no uniqueness proof, so unlike JNT8009 it still fires for a table with no captured index metadata. Silent under the same scope gates (join, multi-table, <code>GROUP BY</code>, predicate subquery) and when this query's equality filters already cover a unique key, which is what keeps the <code>WHERE pk = @id LIMIT 1</code> point-lookup idiom quiet.</td>
+</tr>
+<tr>
+<td>JNT8011</td>
+<td>Predicate Drift</td>
+<td>Warning</td>
+<td>Cross-query check, opt-in: a file declares <code>-- @mirrors &lt;Query&gt;</code> and its WHERE clause does not match that query's. The case it exists for is a paginated list and the count that sizes its pager, when one gains a filter the other lacks, the page contents stay correct while the total is wrong, and nothing else surfaces it. Compared are the WHERE clauses of the statement <strong>and of every CTE body</strong>, unioned (so the idiomatic paginate-inside-a-CTE list is comparable with a flat count), split at top-level <code>AND</code> into atoms and matched as a set with column references resolved against the schema first, so qualification (<code>b.user_id</code> vs <code>user_id</code>), keyword casing and atom order do not matter. <code>ORDER BY</code>, projection and <code>LIMIT</code>/<code>OFFSET</code> are not compared, a count query has none. Deliberately conservative: a top-level <code>OR</code> collapses the whole clause into one atom rather than being split, <code>BETWEEN</code>'s own <code>AND</code> is not a splitter, and the match is textual after resolution, so <code>a &gt;= @x</code> and <code>@x &lt;= a</code> read as drift. Silent when the sets match and whenever no <code>-- @mirrors</code> is present; a pairing that cannot be compared is JNT3010, not silence.</td>
+</tr>
+<tr>
+<td>JNT8012</td>
+<td>Unnecessary Unindexed Acceptance</td>
+<td>Warning</td>
+<td>Also reported for a <code>jaunty.accept.json</code> entry that no generated query used (spec 016), the message names the file, the <code>table.column</code> and the stated reason, and gives both remedies, because they differ: an index now covers the column (delete the entry), or a hand-written <code>.sql</code> has claimed that loader (move the acceptance into that file as <code>-- @allow-unindexed</code>). Not reported at all when auto-CRUD is off, since no entry could have been used. For the directive itself: a query declares <code>-- @allow-unindexed &lt;reason&gt;</code> but no filter column on it is unindexed, or <code>-- @allow-sort &lt;reason&gt;</code> but no <code>ORDER BY</code> column on it is unindexed, so the directive suppresses nothing. The message names the directive it is about, so a query carrying both says which one to remove. Almost always means the index it was waiting for now exists: remove the directive. Reported rather than tolerated because an exemption that outlives the condition justifying it is how an escape hatch becomes the default, left in place it stops hiding an accepted scan and starts hiding a future regression. Warning, not Error: a stale suppression is untidy, not wrong.</td>
+</tr>
+<tr>
+<td>JNT8013</td>
+<td>Unnecessary N+1 Acceptance</td>
+<td>Warning</td>
+<td>A query declares <code>-- @allow-n-plus-one &lt;reason&gt;</code> but was never matched as an N+1 child lookup against any parent-collection query in the corpus, so the directive suppresses nothing: remove it. The message repeats the stated reason. Its own code rather than JNT8012 because the two rest on different evidence — JNT8012 (allow-unindexed) reads index metadata, this one reads the FK graph and the query corpus — and severity is configured per code, so silencing JNT8012 should not also silence this check. Usually means the parent-collection query it was written against is gone, or the child lookup has since become set-based. Silent when the snapshot declares no <code>foreignKeys</code> (the pass is inert, so nothing could have been suppressed). Warning, not Error, for the same reason as JNT8012.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="9xxx-migrations">9xxx, Migrations</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Title</th>
+<th>Severity</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JNT9001</td>
+<td>Migration Statement Not Simulated</td>
+<td>Warning</td>
+<td>A migration statement <code>MigrationParser</code> has no explicit handling for at all (e.g. <code>CREATE VIEW</code>, <code>CREATE PROCEDURE</code>, an unmodeled <code>RENAME</code>, or an unrecognized constraint clause); the effective schema may be incomplete for it. Index DDL and permission statements (<code>CREATE</code>/<code>DROP INDEX</code>, <code>GRANT</code>/<code>REVOKE</code>) are explicitly recognized and silently ignored instead, they do not raise this diagnostic.</td>
+</tr>
+<tr>
+<td>JNT9002</td>
+<td>Migration Invalid Against Schema</td>
+<td>Error</td>
+<td>A migration/DDL statement targets a table/column that doesn't exist (or already exists) in the schema being simulated.</td>
+</tr>
+<tr>
+<td>JNT9003</td>
+<td>Missing or Unknown Dialect for DDL Schema Source</td>
+<td>Error</td>
+<td><code>db/ddl/*.sql</code> files are present with no JSON snapshot, but <code>&lt;JauntyQDialect&gt;</code> isn't set to a recognized value (<code>sqlserver</code>/<code>postgres</code>/<code>mysql</code>/<code>sqlite</code>).</td>
+</tr>
+<tr>
+<td>JNT9004</td>
+<td>Migration Risky Impact</td>
+<td>Warning</td>
+<td>A pending migration changed a column a query references (type, nullability, length, precision) without invalidating the query. Non-fatal; see <code>jauntyq migrate impact</code> for the full SAFE/RISKY/BREAKING report.</td>
+</tr>
+</tbody>
+</table>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="06-reference-cross-dialect-compatibility.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Cross-dialect compatibility</span>
+</a><a class="pn-next" href="06-reference-dialects.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Dialect differences</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

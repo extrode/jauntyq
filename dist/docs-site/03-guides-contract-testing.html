@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Database contract testing — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Guides &#8250; Database contract testing</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html" class="active" aria-current="page">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#installing-the-package">Installing the package</a><a class="toc-l2" href="#writing-a-contract-test">Writing a contract test</a><a class="toc-l2" href="#the-severity-model">The severity model</a><a class="toc-l2" href="#ignoring-objects">Ignoring objects</a><a class="toc-l2" href="#per-service-contracts-scoping-to-your-slice">Per-service contracts: scoping to your slice</a><a class="toc-l2" href="#usage-aware-severity-downgrading-drift-you-cannot-hit">Usage-aware severity: downgrading drift you cannot hit</a><a class="toc-l3" href="#1-export-the-usage-manifest-from-your-corpus">1. Export the usage manifest from your corpus</a><a class="toc-l3" href="#2-opt-in-at-verification-time">2. Opt in at verification time</a><a class="toc-l3" href="#the-safety-invariant-downgrade-only-never-in-doubt">The safety invariant: downgrade-only, never in doubt</a><a class="toc-l2" href="#inspecting-the-report">Inspecting the report</a><a class="toc-l2" href="#where-to-point-the-test">Where to point the test</a><a class="toc-l2" href="#failures-are-never-silent">Failures are never silent</a><a class="toc-l2" href="#see-also">See also</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Guides &#8250; Database contract testing</nav>
+        <article>
+<h1 id="database-contract-testing">Database contract testing</h1>
+<p>JauntyQ compiles your queries against <code>jaunty.schema.json</code>, a committed snapshot
+of the database structure. Every generated reader is a promise about the live
+database (for example, a column read with <code>GetInt16</code> because the snapshot says it
+is <code>smallint</code>). That promise holds only while the live database still matches the
+snapshot. When a migration renames a column, tightens nullability, or drops a
+table and the snapshot is not re-pulled, the generated code keeps compiling but
+starts failing at runtime.</p>
+<p><strong>Contract testing</strong> closes that gap: it reflects a live database, compares it to
+the committed snapshot, and classifies every difference as <strong>breaking</strong> or
+<strong>compatible</strong>, so drift fails CI before it reaches production.</p>
+<p>There are two entry points, both driven by the same classifier:</p>
+<ul>
+<li>The <strong><code>Extrode.JauntyQ.Schema.Contract</code></strong> package, a test-embeddable assertion API you
+drop into your own xUnit / NUnit / MSTest suite.</li>
+<li>The <strong><code>jauntyq schema verify</code></strong> CLI command, for pipelines without a test host
+(see the <a href="06-reference-cli.html">CLI reference</a>).</li>
+</ul>
+<h2 id="installing-the-package">Installing the package</h2>
+<p><code>Extrode.JauntyQ.Schema.Contract</code> ships on the private feed. Add it to your <strong>test</strong>
+project (it carries the ADO.NET provider dependencies, so it is a test-time /
+tooling package, not part of the zero-dependency core):</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">PackageReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;Extrode.JauntyQ.Schema.Contract&quot;</span> <span class="tok-attr">Version</span>=<span class="tok-str">&quot;x.y.z&quot;</span> <span class="tok-punc">/&gt;</span>
+</code></pre>
+</div>
+<h2 id="writing-a-contract-test">Writing a contract test</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">using</span> <span class="tok-type">Extrode</span>.<span class="tok-var">JauntyQ</span>.<span class="tok-var">Schema</span>.<span class="tok-var">Contract</span>;
+<span class="tok-kw">using</span> <span class="tok-type">Xunit</span>;
+
+<span class="tok-kw">public</span> <span class="tok-kw">class</span> <span class="tok-type">SchemaContractTests</span>
+{
+    <span class="tok-attr">[Fact]</span>
+    <span class="tok-kw">public</span> <span class="tok-kw">async</span> <span class="tok-type">Task</span> <span class="tok-fn">Database_matches_the_compiled_contract</span>()
+    {
+        <span class="tok-kw">var</span> connectionString = <span class="tok-type">Environment</span>.<span class="tok-fn">GetEnvironmentVariable</span>(<span class="tok-str">&quot;CONTRACT_DB&quot;</span>)!;
+
+        <span class="tok-kw">var</span> result = <span class="tok-ctl">await</span> <span class="tok-type">SchemaContract</span>
+            .<span class="tok-fn">Against</span>(connectionString, <span class="tok-type">ContractDialect</span>.<span class="tok-var">SqlServer</span>)
+            .<span class="tok-fn">LoadSnapshotFromFile</span>(<span class="tok-str">&quot;db/schema/jaunty.schema.json&quot;</span>)
+            .<span class="tok-fn">VerifyAsync</span>();
+
+        result.<span class="tok-fn">AssertNoBreakingDrift</span>();
+    }
+}
+</code></pre>
+</div>
+<p><code>AssertNoBreakingDrift()</code> throws a <code>SchemaContractException</code>, failing the test, when any breaking difference is present, and lists each offending object. A
+compatible difference (an added table, a widened column, a loosened nullability)
+does <strong>not</strong> fail the assertion; use <code>AssertNoDrift()</code> if you want the strict
+&quot;exact match&quot; gate instead.</p>
+<p>The dialect is one of <code>ContractDialect.SqlServer</code>, <code>Postgres</code>, <code>MySql</code>, <code>Sqlite</code>.</p>
+<h2 id="the-severity-model">The severity model</h2>
+<p>Severity is decided by a fixed structural rule set. It depends only on the shape
+change, never on which queries reference the object (unless you opt into
+<a href="#usage-aware-severity-downgrading-drift-you-cannot-hit">usage-aware severity</a>,
+which may <em>downgrade</em>, never raise, severity for unreferenced objects):</p>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Table or column missing from the live database</td>
+<td><strong>Breaking</strong></td>
+</tr>
+<tr>
+<td>Column reorder / rename at a position (readers bind by ordinal)</td>
+<td><strong>Breaking</strong></td>
+</tr>
+<tr>
+<td>Type change, length narrowing, precision/scale change</td>
+<td><strong>Breaking</strong></td>
+</tr>
+<tr>
+<td><code>null</code> → <code>not null</code>, primary-key / identity / row-version / unicode change</td>
+<td><strong>Breaking</strong></td>
+</tr>
+<tr>
+<td>Column added, length widening, <code>not null</code> → <code>null</code></td>
+<td>Compatible</td>
+</tr>
+<tr>
+<td>Table present live but absent from the snapshot</td>
+<td>Compatible</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ignoring-objects">Ignoring objects</h2>
+<p>Exclude tables or columns you do not want to gate on, a framework
+migration-history table, an ops-managed audit column, with case-insensitive
+ignore rules:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> result = <span class="tok-ctl">await</span> <span class="tok-type">SchemaContract</span>
+    .<span class="tok-fn">Against</span>(connectionString, <span class="tok-type">ContractDialect</span>.<span class="tok-var">Postgres</span>)
+    .<span class="tok-fn">LoadSnapshotFromFile</span>(<span class="tok-str">&quot;db/schema/jaunty.schema.json&quot;</span>)
+    .<span class="tok-fn">IgnoreTables</span>(<span class="tok-str">&quot;__EFMigrationsHistory&quot;</span>, <span class="tok-str">&quot;audit_log&quot;</span>)
+    .<span class="tok-fn">IgnoreColumns</span>(<span class="tok-str">&quot;orders.internal_notes&quot;</span>)
+    .<span class="tok-fn">VerifyAsync</span>();
+
+result.<span class="tok-fn">AssertNoBreakingDrift</span>();
+</code></pre>
+</div>
+<h2 id="per-service-contracts-scoping-to-your-slice">Per-service contracts: scoping to your slice</h2>
+<p>A whole-snapshot contract is exactly right when one service owns its database.
+When several services share one database, it over-asserts: service B adding a
+column to <em>its</em> table would show up as drift in service A's contract even though
+A never touches that table. <strong>Per-service scoping</strong> narrows the contract to the
+slice a service actually depends on, its owned/consumed tables, so:</p>
+<ul>
+<li>drift <strong>inside</strong> the slice fails, with the exact same severity rules as an
+unscoped contract (the scope is a filter over the same classifier, never a
+second rule set);</li>
+<li>changes <strong>outside</strong> the slice produce <strong>no drift of any severity</strong>, another
+team's migration cannot fail your gate.</li>
+</ul>
+<p>Supply the scope explicitly:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> result = <span class="tok-ctl">await</span> <span class="tok-type">SchemaContract</span>
+    .<span class="tok-fn">Against</span>(connectionString, <span class="tok-type">ContractDialect</span>.<span class="tok-var">Postgres</span>)
+    .<span class="tok-fn">LoadSnapshotFromFile</span>(<span class="tok-str">&quot;db/schema/jaunty.schema.json&quot;</span>)
+    .<span class="tok-fn">ForTables</span>(<span class="tok-str">&quot;orders&quot;</span>, <span class="tok-str">&quot;order_items&quot;</span>)     <span class="tok-com">// only this slice is compared</span>
+    .<span class="tok-fn">VerifyAsync</span>();
+
+result.<span class="tok-fn">AssertNoBreakingDrift</span>();
+</code></pre>
+</div>
+<p>or derive it from the <a href="03-guides-schema-registry.html">schema-dependency registry</a>
+(feature 009), so the dependence is declared once, in
+<code>jaunty.registry.json</code>, and reused everywhere:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> result = <span class="tok-ctl">await</span> <span class="tok-type">SchemaContract</span>
+    .<span class="tok-fn">Against</span>(connectionString, <span class="tok-type">ContractDialect</span>.<span class="tok-var">Postgres</span>)
+    .<span class="tok-fn">LoadSnapshotFromFile</span>(<span class="tok-str">&quot;db/schema/jaunty.schema.json&quot;</span>)
+    .<span class="tok-fn">ForService</span>(<span class="tok-str">&quot;billing&quot;</span>, <span class="tok-str">&quot;jaunty.registry.json&quot;</span>) <span class="tok-com">// scope = billing's `consumes` tables</span>
+    .<span class="tok-fn">VerifyAsync</span>();
+</code></pre>
+</div>
+<p><code>ForColumns(&quot;orders.total&quot;)</code> narrows further, to specific columns of a table, other columns of that table stop being your concern. Both compose with
+<code>IgnoreTables</code>/<code>IgnoreColumns</code>, which still exclude <em>within</em> the slice.</p>
+<p>Semantics worth knowing:</p>
+<ul>
+<li>An in-scope table or column <strong>missing or narrowed</strong> in the live database is
+breaking, a depended-on object vanished. An added column in a consumed
+in-scope table stays compatible.</li>
+<li>The report is never silent about scope: <code>result.Report.Scope</code> names the
+service and lists exactly which tables were compared, each tagged
+<code>owned</code>/<code>consumed</code> (annotation only, both are compared with the same rules).</li>
+<li>A scope naming a table the <strong>snapshot</strong> does not declare fails with a
+<code>ServiceScopeException</code>, a scope/registry error, distinct from drift.</li>
+<li>A service that declares <strong>no</strong> <code>consumes</code> yields an empty scope: the result is
+vacuously green and the report says &quot;no scope&quot; explicitly, never a
+pass-as-if-verified.</li>
+<li>Two services may both depend on <code>orders</code>; each verifies it independently.</li>
+</ul>
+<p>The CLI equivalent is <code>jauntyq schema verify --service &lt;id&gt; [--registry &lt;path&gt;]</code>
+(see the <a href="06-reference-cli.html">CLI reference</a>).</p>
+<h2 id="usage-aware-severity-downgrading-drift-you-cannot-hit">Usage-aware severity: downgrading drift you cannot hit</h2>
+<p>The structural rules are deliberately conservative: a dropped column is breaking
+whether or not any query reads it. For a service that touches a narrow slice of
+a wide table, that fails the contract on changes the service is genuinely immune
+to. <strong>Usage-aware severity</strong> (opt-in) layers what JauntyQ already knows offline, exactly which <code>(table, column)</code> pairs the generated queries reference, on top of
+the structural classifier:</p>
+<ul>
+<li>a structurally-<strong>breaking</strong> change to an object <strong>no generated query
+references</strong> is downgraded to <strong>informational</strong> (it cannot break this app);</li>
+<li>a change to a <strong>referenced</strong> object keeps its structural severity;</li>
+<li>with no manifest, nothing changes, the structural rules stay the default.</li>
+</ul>
+<h3 id="1-export-the-usage-manifest-from-your-corpus">1. Export the usage manifest from your corpus</h3>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">jauntyq</span> usage <span class="tok-kw">export</span> <span class="tok-attr">--queries</span> db/queries <span class="tok-attr">--snapshot</span> db/schema/jaunty.schema.json \
+                    <span class="tok-attr">--output</span> jaunty.usage.json
+</code></pre>
+</div>
+<p>The manifest is the union of every referenced table and <code>table.column</code> across
+your hand-written <code>.sql</code> files <strong>and</strong> the auto-CRUD synthetics the generator
+emits (pass <code>--no-auto-crud</code> only if your project sets
+<code>&lt;JauntyQAutoCrud&gt;false&lt;/JauntyQAutoCrud&gt;</code>), plus the snapshot hash it was built
+against. Commit it, and <strong>regenerate it in CI</strong> whenever queries or the snapshot
+change so it never drifts from the code.</p>
+<h3 id="2-opt-in-at-verification-time">2. Opt in at verification time</h3>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> result = <span class="tok-ctl">await</span> <span class="tok-type">SchemaContract</span>
+    .<span class="tok-fn">Against</span>(connectionString, <span class="tok-type">ContractDialect</span>.<span class="tok-var">Postgres</span>)
+    .<span class="tok-fn">LoadSnapshotFromFile</span>(<span class="tok-str">&quot;db/schema/jaunty.schema.json&quot;</span>)
+    .<span class="tok-fn">WithUsage</span>(<span class="tok-str">&quot;jaunty.usage.json&quot;</span>)        <span class="tok-com">// opt-in: downgrade-only</span>
+    .<span class="tok-fn">VerifyAsync</span>();
+
+result.<span class="tok-fn">AssertNoBreakingDrift</span>();            <span class="tok-com">// downgraded drift no longer throws</span>
+</code></pre>
+</div>
+<p>CLI equivalent: <code>jauntyq schema verify ... --usage jaunty.usage.json</code>.</p>
+<h3 id="the-safety-invariant-downgrade-only-never-in-doubt">The safety invariant: downgrade-only, never in doubt</h3>
+<p>Usage-aware mode can only ever <strong>soften</strong> a report, and only when the object is
+<strong>provably unreferenced</strong>. It never upgrades a severity, and under any
+uncertainty it keeps the structural verdict:</p>
+<ul>
+<li>an <strong>unqualified column</strong> in a multi-table query marks every in-scope table's
+columns potentially referenced (the same safe over-approximation the
+migration-impact classifier uses);</li>
+<li>a query that <strong>doesn't parse</strong> (or can't be attributed to a table) disables
+<em>all</em> downgrades, nothing is provable while it exists;</li>
+<li>a query <strong>invalid against the snapshot</strong> marks all its tables potentially
+referenced;</li>
+<li>a <strong>table drop</strong> is downgraded only when <em>no</em> column of that table is
+referenced anywhere;</li>
+<li>a <strong>column reorder</strong> is downgraded only when the <em>whole table</em> is
+unreferenced, a reorder can shift referenced columns.</li>
+</ul>
+<p>So a stale or over-broad manifest can make the mode over-conservative, never
+unsafe: a real breaking change on something you use always stays breaking.</p>
+<p>Downgrades are never silent: each downgraded entry stays in the report with
+<code>Downgraded = true</code>, its original <code>StructuralSeverity</code>, and the reason; the
+report's <code>Usage</code> block records the manifest hash and the downgrade count. If the
+manifest was built against a <strong>different snapshot</strong> than the one being verified,
+the report is flagged stale (and the CLI warns), re-run <code>jauntyq usage export</code>.</p>
+<p>Usage-aware severity <strong>composes with per-service scoping</strong>: the scope filters
+<em>which objects are compared</em>, usage adjusts <em>the severity of what remains</em>
+(scope-then-usage). Both only ever narrow failures.</p>
+<h2 id="inspecting-the-report">Inspecting the report</h2>
+<p>For custom assertions or CI annotations, read the structured report instead of (or
+in addition to) asserting:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> result = <span class="tok-ctl">await</span> <span class="tok-type">SchemaContract</span>.<span class="tok-fn">Against</span>(conn, <span class="tok-type">ContractDialect</span>.<span class="tok-var">MySql</span>)
+    .<span class="tok-fn">LoadSnapshotFromFile</span>(<span class="tok-str">&quot;db/schema/jaunty.schema.json&quot;</span>)
+    .<span class="tok-fn">VerifyAsync</span>();
+
+<span class="tok-ctl">foreach</span> (<span class="tok-kw">var</span> drift <span class="tok-kw">in</span> result.<span class="tok-var">Report</span>.<span class="tok-var">Drifts</span>)
+    <span class="tok-type">Console</span>.<span class="tok-fn">WriteLine</span>(<span class="tok-str">$&quot;<span class="tok-punc">{</span>drift.<span class="tok-var">Severity</span><span class="tok-punc">}</span>: <span class="tok-punc">{</span>drift.<span class="tok-var">Message</span><span class="tok-punc">}</span>&quot;</span>);
+
+<span class="tok-kw">string</span> json = result.<span class="tok-var">Report</span>.<span class="tok-fn">ToJson</span>();
+</code></pre>
+</div>
+<h2 id="where-to-point-the-test">Where to point the test</h2>
+<p>Contract testing is only meaningful against a database that reflects what the app
+will run on. Good targets:</p>
+<ul>
+<li>A <strong>Testcontainers</strong> instance seeded with your migrations (per-run, hermetic).</li>
+<li>A <strong>CI service database</strong> the pipeline provisions.</li>
+<li>A <strong>staging</strong> database, as a pre-deploy smoke test.</li>
+</ul>
+<p>The verification reflects the live database over the network, so it belongs in an
+integration / end-to-end test stage, not a fast unit-test stage.</p>
+<h2 id="failures-are-never-silent">Failures are never silent</h2>
+<p>If the database cannot be reached, <code>VerifyAsync()</code> throws a
+<code>SchemaContractConnectionException</code>; if the snapshot file is missing or unreadable
+it throws too. A verification that could not actually run is never reported as a
+passing contract. If you want the test to be skipped when no database is
+available (e.g. Docker absent locally), guard it in your own test, the library
+itself does not soft-skip.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="03-guides-startup-verification.html">Runtime startup schema verification</a>, the same
+classifier at boot time: fail fast (or warn) when the database a deployment
+actually connects to has drifted.</li>
+<li><a href="06-reference-cli.html">CLI reference, <code>schema verify</code></a>, the same classifier
+for pipelines without a test host.</li>
+<li><a href="06-reference-schema-snapshot-format.html">Schema snapshot format</a>, the file
+the contract is checked against.</li>
+<li><a href="06-reference-cli.html">Migration impact analysis</a>, the offline <code>migrate impact</code> command for pending migration sets.</li>
+</ul>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="03-guides-bulk-insert.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Bulk insert</span>
+</a><a class="pn-next" href="03-guides-ddl-as-schema-source.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">DDL as schema source</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

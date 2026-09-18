@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Directives reference — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Reference &#8250; Directives reference</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html" class="active" aria-current="page">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#syntax-rules">Syntax rules</a><a class="toc-l2" href="#directive-summary">Directive summary</a><a class="toc-l3" href="#---first">-- @first</a><a class="toc-l3" href="#---stream">-- @stream</a><a class="toc-l3" href="#---identity">-- @identity</a><a class="toc-l3" href="#---result">-- @result</a><a class="toc-l3" href="#---params">-- @params</a><a class="toc-l3" href="#---each">-- @each</a><a class="toc-l3" href="#---type">-- @type</a><a class="toc-l3" href="#---proc">-- @proc</a><a class="toc-l3" href="#---call">-- @call</a><a class="toc-l3" href="#---mirrors">-- @mirrors</a><a class="toc-l3" href="#---allow-unindexed">-- @allow-unindexed</a><a class="toc-l3" href="#---allow-sort">-- @allow-sort</a><a class="toc-l3" href="#---allow-n-plus-one">-- @allow-n-plus-one</a><a class="toc-l2" href="#related-diagnostics">Related diagnostics</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Directives reference</nav>
+        <article>
+<h1 id="directives-reference">Directives reference</h1>
+<p>Directives are <code>--</code> comment lines placed at the top of a <code>.sql</code> file that
+control the shape of the code generated for that query. They are parsed out and
+stripped from the emitted <code>CommandText</code>; the SQL that runs never contains them.</p>
+<h2 id="syntax-rules">Syntax rules</h2>
+<ul>
+<li>A directive is a line comment beginning <code>-- @</code> followed by the keyword.</li>
+<li>Keywords are <strong>case-insensitive</strong> (<code>-- @First</code> == <code>-- @first</code>); type names
+and parameter names inside a directive are <strong>case-sensitive</strong> (they are C#).</li>
+<li><code>-- @type</code> and <code>-- @each</code> may appear multiple times; the others appear at
+most once per file. Writing one of the others twice is reported as
+<strong><code>JNT3011</code></strong> and is not an error: the later line wins, as it always has, and
+the warning names the value that was overwritten. Before JNT3011 this was
+silent, so a file could carry two <code>-- @result</code> lines, or two <code>-- @allow-sort</code>
+reasons, with nothing to show which one the build acted on.</li>
+<li>Plain <code>--</code> comments without <code>@</code> are left untouched.</li>
+</ul>
+<h2 id="directive-summary">Directive summary</h2>
+<table>
+<thead>
+<tr>
+<th>Directive</th>
+<th>Applies to</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#-first"><code>-- @first</code></a></td>
+<td>SELECT</td>
+<td>Return <code>Row?</code> instead of <code>List&lt;Row&gt;</code>.</td>
+</tr>
+<tr>
+<td><a href="#-stream"><code>-- @stream</code></a></td>
+<td>SELECT</td>
+<td>Return <code>IEnumerable&lt;Row&gt;</code> / <code>IAsyncEnumerable&lt;Row&gt;</code>, yielding lazily.</td>
+</tr>
+<tr>
+<td><a href="#-identity"><code>-- @identity</code></a></td>
+<td>INSERT</td>
+<td>Return the database-assigned id, typed.</td>
+</tr>
+<tr>
+<td><a href="#-result"><code>-- @result</code></a></td>
+<td>any</td>
+<td>Declare the result type (void / named type / inline columns).</td>
+</tr>
+<tr>
+<td><a href="#-params"><code>-- @params</code></a></td>
+<td>any</td>
+<td>Declare parameter types the parser cannot infer.</td>
+</tr>
+<tr>
+<td><a href="#-each"><code>-- @each</code></a></td>
+<td>any</td>
+<td>Expand a parameter into a runtime IN-list.</td>
+</tr>
+<tr>
+<td><a href="#-type"><code>-- @type</code></a></td>
+<td>SELECT</td>
+<td>Declare the DB type of a projected expression.</td>
+</tr>
+<tr>
+<td><a href="#-proc"><code>-- @proc</code></a></td>
+<td>SQL Server only</td>
+<td>Emit a stored-procedure definition and call it.</td>
+</tr>
+<tr>
+<td><a href="#-call"><code>-- @call</code></a></td>
+<td>any</td>
+<td>Bind to a procedure that already exists in the database.</td>
+</tr>
+<tr>
+<td><a href="#-mirrors"><code>-- @mirrors</code></a></td>
+<td>any with a WHERE</td>
+<td>Declare that this query filters identically to another, and have the build check it.</td>
+</tr>
+<tr>
+<td><a href="#-allow-unindexed"><code>-- @allow-unindexed</code></a></td>
+<td>any with a WHERE</td>
+<td>Accept this query's unindexed filter columns deliberately. Reason mandatory.</td>
+</tr>
+<tr>
+<td><a href="#-allow-sort"><code>-- @allow-sort</code></a></td>
+<td>any with an ORDER BY</td>
+<td>Accept this query's runtime sort deliberately. Reason mandatory.</td>
+</tr>
+<tr>
+<td><a href="#-allow-n-plus-one"><code>-- @allow-n-plus-one</code></a></td>
+<td>any child point lookup by a foreign key</td>
+<td>Accept this query's N+1 shape deliberately. Reason mandatory.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="---first"><code>-- @first</code></h3>
+<p>Marks a SELECT as returning a single row. The return type becomes <code>Row?</code>
+(async <code>Task&lt;Row?&gt;</code>) instead of <code>List&lt;Row&gt;</code>. Cannot combine with <code>-- @stream</code>
+(<code>JNT3003</code>).</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @first</span>
+<span class="tok-kw">SELECT</span> id, username, email <span class="tok-kw">FROM</span> users <span class="tok-kw">WHERE</span> username = <span class="tok-var">@Username</span>
+</code></pre>
+</div>
+<h3 id="---stream"><code>-- @stream</code></h3>
+<p>Yields rows lazily straight off the reader: <code>IEnumerable&lt;Row&gt;</code> (sync) or
+<code>IAsyncEnumerable&lt;Row&gt;</code> (async), never buffering into a list. Keeps memory
+constant over large result sets. SELECT-only; cannot combine with <code>-- @first</code>
+or <code>-- @proc</code> (<code>JNT3003</code>).</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @stream</span>
+<span class="tok-kw">SELECT</span> ProductId, ProductName <span class="tok-kw">FROM</span> Products <span class="tok-kw">ORDER</span> <span class="tok-kw">BY</span> ProductId
+</code></pre>
+</div>
+<h3 id="---identity"><code>-- @identity</code></h3>
+<p>On an INSERT, returns the database-assigned identity value (typed to the
+column) instead of the affected-row count. The emitted SQL is dialect-native:
+<code>OUTPUT INSERTED.&lt;col&gt;</code> (SQL Server), <code>RETURNING &lt;col&gt;</code> (PostgreSQL / SQLite),
+or <code>SELECT LAST_INSERT_ID()</code> narrowed to the column's type (MySQL).</p>
+<p>Requires an INSERT statement, exactly one identity column on the target table,
+and a dialect in the snapshot; violations are <code>JNT7001</code>. Cannot combine with a
+hand-written <code>RETURNING</code> clause or <code>-- @proc</code>. Auto-CRUD <code>Insert</code> applies this
+automatically on tables with a single identity column.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @identity</span>
+<span class="tok-kw">INSERT</span> <span class="tok-kw">INTO</span> articles (slug, title, body, author_id)
+<span class="tok-kw">VALUES</span> (<span class="tok-var">@Slug</span>, <span class="tok-var">@Title</span>, <span class="tok-var">@Body</span>, <span class="tok-var">@AuthorId</span>)
+</code></pre>
+</div>
+<h3 id="---result"><code>-- @result</code></h3>
+<p>Declares the result shape explicitly. Three forms:</p>
+<ul>
+<li><code>-- @result void</code>, no result set; the method returns <code>int</code> (row count). Use
+for INSERT/UPDATE/DELETE.</li>
+<li><code>-- @result TypeName</code>, materialize rows into an existing type instead of a
+generated POCO. May be fully qualified.</li>
+<li><code>-- @result (int Id, string Name)</code>, inline column list; generates a
+query-specific DTO. Names must match the SELECT aliases.</li>
+</ul>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @result void</span>
+<span class="tok-kw">DELETE</span> <span class="tok-kw">FROM</span> products <span class="tok-kw">WHERE</span> product_id = <span class="tok-var">@ProductId</span>
+</code></pre>
+</div>
+<h3 id="---params"><code>-- @params</code></h3>
+<p>Declares parameter types the parser cannot infer from context (for example a
+parameter used only inside a subquery or expression). Comma-separated
+<code>Name:Type</code> pairs; types may be nullable.</p>
+<p>An uninferrable parameter is a build error (<code>JNT4003</code>), not a silent <code>object</code>
+fallback, the message tells you exactly which <code>-- @params</code> line to add.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @params CategoryId:int, MinPrice:decimal, Name:string?</span>
+<span class="tok-kw">SELECT</span> p.product_id, p.product_name <span class="tok-kw">FROM</span> products p
+<span class="tok-kw">WHERE</span> p.category_id = <span class="tok-var">@CategoryId</span> <span class="tok-kw">AND</span> p.unit_price &gt;= <span class="tok-var">@MinPrice</span>
+</code></pre>
+</div>
+<h3 id="---each"><code>-- @each</code></h3>
+<p>Marks a parameter for runtime IN-list expansion. The C# parameter becomes
+<code>IReadOnlyList&lt;T&gt;</code>, and each <code>@Name</code> occurrence in the SQL is expanded to
+<code>@Name0, @Name1, ...</code> at call time. Repeatable. SELECT-only, and cannot
+combine with <code>-- @proc</code> (<code>JNT3003</code> otherwise).</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @each Ids</span>
+<span class="tok-kw">SELECT</span> ProductId, ProductName <span class="tok-kw">FROM</span> Products <span class="tok-kw">WHERE</span> ProductId <span class="tok-kw">IN</span> (<span class="tok-var">@Ids</span>)
+</code></pre>
+</div>
+<p>An empty list short-circuits to an empty result before any connection is
+opened (<code>IN ()</code> is invalid SQL everywhere). An oversize list fails fast with
+<code>ArgumentException</code> at the dialect's per-command parameter budget, 2,000
+elements on SQL Server (server limit ~2,100 parameters per request), 32,000
+on SQLite, 65,000 on PostgreSQL/MySQL, instead of an obscure provider error;
+batch larger workloads into chunks. Note that on SQL Server every distinct
+list length compiles a distinct query plan, so very high-cardinality IN-lists
+also pollute the plan cache, a table-valued parameter or staging table is
+the better tool at that scale.</p>
+<h3 id="---type"><code>-- @type</code></h3>
+<p>Declares the database type of a projected expression the generator cannot infer
+from the schema (aggregates, function results, computed columns). Syntax is
+<code>-- @type &lt;alias&gt; &lt;dbtype&gt;</code>, where <code>&lt;alias&gt;</code> matches the SELECT alias and
+<code>&lt;dbtype&gt;</code> (which may contain spaces) is resolved per dialect. Repeatable.</p>
+<p><strong><code>-- @type</code> is an assertion, not a coercion.</strong> It only tells the generator
+what C# type to bind the reader call to, it does not cast or convert the
+value the database actually returns. If the declared type doesn't match what
+the expression evaluates to at runtime (e.g. asserting <code>double precision</code> on
+an integer division that the database evaluates as an integer), you get an
+<code>InvalidCastException</code> at read time, not a build error. Where the mismatch is
+avoidable, fix the SQL itself (an explicit <code>CAST</code>) rather than relying on
+<code>-- @type</code> to paper over it.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @type payment_count int</span>
+<span class="tok-com">-- @type total_amount numeric</span>
+<span class="tok-kw">SELECT</span> st.staff_id,
+       <span class="tok-fn">COUNT</span>(p.payment_id) <span class="tok-kw">AS</span> payment_count,
+       <span class="tok-fn">SUM</span>(p.amount)       <span class="tok-kw">AS</span> total_amount
+<span class="tok-kw">FROM</span> staff st <span class="tok-kw">JOIN</span> payment p <span class="tok-kw">ON</span> p.staff_id = st.staff_id
+<span class="tok-kw">GROUP</span> <span class="tok-kw">BY</span> st.staff_id
+</code></pre>
+</div>
+<h3 id="---proc"><code>-- @proc</code></h3>
+<p>Emits a stored-procedure definition (a <code>CREATE OR ALTER PROCEDURE</code> constant on a
+nested <code>Proc</code> class) and generates the call with <code>CommandType.StoredProcedure</code>.
+With no argument the procedure name is inferred from entity + method; an
+argument overrides it and must be a valid C# identifier (<code>JNT2004</code> otherwise).
+Cannot combine with <code>-- @stream</code> or <code>-- @identity</code>. Restricted to the
+<code>sqlserver</code> dialect (<code>JNT7002</code> on any other dialect): <code>CREATE OR ALTER PROCEDURE</code> and T-SQL parameter types have no equivalent on Postgres/MySQL,
+and SQLite has no stored procedures at all.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @proc usp_GetProducts</span>
+<span class="tok-kw">SELECT</span> product_id, product_name <span class="tok-kw">FROM</span> products
+</code></pre>
+</div>
+<h3 id="---call"><code>-- @call</code></h3>
+<p>Binds the file to a stored procedure that <strong>already exists</strong> in the database.
+The file carries no SQL body; parameters and result columns come from the
+<code>procedures</code> section of the snapshot (captured by <code>jauntyq schema pull</code>). Emits a
+<code>CommandType.StoredProcedure</code> call with typed IN parameters (OUT/INOUT become
+C# <code>out</code>/<code>ref</code>), returning <code>List&lt;Result&gt;</code> for row-returning procedures or <code>int</code>
+otherwise. An unknown procedure name is <code>JNT2005</code>.</p>
+<p><strong>PostgreSQL:</strong> the <code>int</code> returned for a non-row-returning procedure is
+always <code>-1</code>, unconditionally. Postgres's <code>CALL</code> protocol reports only a
+bare completion tag for a procedure invocation, never an affected-row
+count, regardless of how the procedure is authored, a structural
+PostgreSQL/Npgsql limitation with no ADO.NET-level workaround. Do not
+rely on this value to detect whether a Postgres procedure's side effects
+occurred; the generated method's own doc comment repeats this caveat at
+the call site. (MySQL reports a real count for the identical call shape.
+SQL Server usually does too, but not unconditionally, a bound procedure
+using <code>SET NOCOUNT ON</code>, a common T-SQL pattern, also reports <code>-1</code>; this
+is pre-existing general ADO.NET/T-SQL behavior, not something JauntyQ
+can control for a procedure it doesn't author, so it isn't called out
+per-call the way Postgres's unconditional case is.)</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @call GetProductsByCategory</span>
+</code></pre>
+</div>
+<h3 id="---mirrors"><code>-- @mirrors</code></h3>
+<p>Declares that this query's WHERE clause must match another query's, and makes
+the build check it (<code>JNT8011</code>). The case it exists for is a paginated list and
+the count that sizes its pager: when one gains a filter the other lacks, the
+page contents stay correct while the total is wrong, and nothing surfaces it.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @mirrors ListPage</span>
+<span class="tok-kw">SELECT</span> <span class="tok-fn">count</span>(*) <span class="tok-kw">AS</span> total
+<span class="tok-kw">FROM</span> bookmarks
+<span class="tok-kw">WHERE</span> bookmarks.user_id = <span class="tok-var">@userId</span> <span class="tok-kw">AND</span> bookmarks.deleted_at <span class="tok-kw">IS</span> <span class="tok-kw">NULL</span>
+</code></pre>
+</div>
+<p>The value is a method name resolved across the whole query corpus, or a
+qualified <code>Entity.Method</code> when two entities have a method of the same name.
+Put it on either side of the pair; only the file that carries it is checked, so
+one directive per pair is enough.</p>
+<p><strong>What is compared.</strong> The WHERE clause of the statement <strong>and of every CTE
+body</strong>, unioned, split at top-level <code>AND</code> into atoms and compared as a set.
+Column references are resolved against the schema first, so <code>b.user_id</code> and a
+bare <code>user_id</code> match; keyword casing and atom order do not matter. The CTE union
+is what makes the idiomatic paginate-inside-a-CTE list comparable with a flat
+count. <code>ORDER BY</code>, projection and <code>LIMIT</code>/<code>OFFSET</code> are <strong>not</strong> compared, a
+count query has none of them.</p>
+<p><strong>Deliberate conservatisms.</strong> A top-level <code>OR</code> makes the whole clause one atom
+rather than being split into conjuncts; <code>BETWEEN</code>'s own <code>AND</code> is not a splitter;
+and the comparison is textual after resolution, so two predicates that mean the
+same thing written differently (<code>a &gt;= @x</code> vs <code>@x &lt;= a</code>) read as drift. Write the
+mirrored clause the same way on both sides, or drop the directive.</p>
+<p><strong>It reports rather than guesses.</strong> A pairing it cannot compare, an unknown or
+ambiguous target, a target that failed to compile, or a WHERE column that does
+not resolve to a schema column (a CTE virtual column, say), is <code>JNT3010</code>, not
+silence. Falling back to raw text would invent drift out of a spelling
+difference, and one false positive kills an opt-in check.</p>
+<h3 id="---allow-unindexed"><code>-- @allow-unindexed</code></h3>
+<p>Accepts this query's unindexed filter columns deliberately, suppressing
+<code>JNT8004</code> for this query and nothing else. A reason is required.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @allow-unindexed status index ships in migration 0042</span>
+<span class="tok-kw">SELECT</span> messages.id, messages.subject
+<span class="tok-kw">FROM</span> messages
+<span class="tok-kw">WHERE</span> messages.status = <span class="tok-var">@status</span>
+</code></pre>
+</div>
+<p><strong>Why it exists.</strong> <code>JNT8004</code> reads the schema snapshot, and the snapshot is
+advanced by running a migration against a live database and re-pulling. Without
+this directive the only way past the rule is to change the world: an ordinary
+<code>WHERE status = @status</code> stops the build until someone applies a migration, and
+a fresh clone cannot build a branch whose migration has not been applied
+anywhere. The rule is right; needing a database to satisfy it is not.</p>
+<p><strong>The reason is mandatory.</strong> A bare <code>-- @allow-unindexed</code> suppresses nothing and
+is reported as <code>JNT3008</code>, like every other value-taking directive written bare.
+The reason is the whole point: it puts the decision in the query file, where it
+shows up in the diff and can be argued with at review time. A suppression whose
+justification is not written down is a <code>NoWarn</code> entry with extra steps.</p>
+<p><strong>It suppresses only <code>JNT8004</code>.</strong> Every other diagnostic the query would raise
+still fires. This is an accepted-scan marker, not a silencer.</p>
+<p><strong>A suppression that suppresses nothing is reported</strong> (<code>JNT8012</code>). Once the
+index lands, the directive stops hiding an accepted scan and starts hiding a
+future regression, so the build asks for it to be removed. Any single suppressed
+column keeps the directive live: a query filtering on one indexed and one
+unindexed column is correct use and stays quiet.</p>
+<p><strong>Accepting a scan in an auto-CRUD query.</strong> Auto-CRUD synthesizes a
+<code>GetBy&lt;Fk&gt;</code> loader for every foreign-key column, and on engines that do not
+index foreign keys automatically (SQLite, unlike InnoDB) those loaders scan. The
+directive needs a file, and a synthesized query has none, so <code>JNT8004</code> on a
+generated method names the file that would claim its slot:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">warning JNT8004: No index covers address.city_id used as a filter/join key: this
+query scans. Add an index or filter on an indexed column. 'Address.GetByCityId'
+is generated by auto-CRUD, so there is no file carrying it to annotate. To accept
+this scan deliberately, create '&lt;your query root&gt;/Address/GetByCityId.sql'
+containing '-- @allow-unindexed &lt;reason&gt;' followed by: SELECT address_id, ...
+FROM address WHERE address.city_id = @city_id -- a hand-written file always
+overrides the generated method of the same name. That file is then yours: it no
+longer tracks schema changes, ...
+</code></pre>
+</div>
+<p>(The real message never elides the SQL, the full column list is what makes it
+paste-able. It is condensed here only for the page.)</p>
+<p>Creating that file overrides the generated method: a hand-written <code>.sql</code> always
+wins the <code>entity.method</code> slot, and the directive then applies normally, <code>JNT3008</code>
+and <code>JNT8012</code> included.</p>
+<p><strong>The copy stops tracking the snapshot.</strong> Once the file exists it is yours: a
+column added upstream will not appear in its <code>SELECT</code>, and no diagnostic says
+so, <code>JNT8012</code> wakes when the <em>scan</em> stops being real (someone indexes the
+column), not when the projection drifts. For the audience this route is aimed
+at, an upstream-owned schema nobody in the building controls, drift is the
+normal condition rather than the edge case, so this is the cost of the
+acceptance and not a footnote to it.
+<code>&lt;JauntyQAutoCrud&gt;false&lt;/JauntyQAutoCrud&gt;</code> is the blunt alternative and removes
+auto-CRUD for every table.</p>
+<p><strong>Or accept it without taking ownership of the SQL.</strong> The override file is the
+right answer when you wanted to hand-write that query anyway; when you only
+wanted the warning to stop, paying for it with a copy that no longer tracks the
+snapshot is a poor trade. A <code>*.accept.json</code> sidecar accepts a generated scan per
+column and keeps the generated loader, <a href="06-reference-configuration.html#the-acceptance-sidecar-acceptjson">the acceptance sidecar</a> has
+the shape and the rules. The message above names it too. It covers <strong>generated
+queries only</strong>: a hand-written query filtering an accepted column still raises
+<code>JNT8004</code>, because that query has a file and the file can carry the directive.</p>
+<h3 id="---allow-sort"><code>-- @allow-sort</code></h3>
+<p>Accepts this query's runtime sort deliberately, suppressing <code>JNT8007</code> for this
+query and nothing else. A reason is required.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @allow-sort 20 rows a page, the sort never sees more than a screenful</span>
+<span class="tok-kw">SELECT</span> articles.id, articles.title
+<span class="tok-kw">FROM</span> articles
+<span class="tok-kw">ORDER</span> <span class="tok-kw">BY</span> articles.created_at <span class="tok-kw">DESC</span>, articles.id
+</code></pre>
+</div>
+<p><strong>Why it is a separate directive.</strong> <code>JNT8007</code> is the sort half of the same
+question <code>-- @allow-unindexed</code> answers for filters, and the obvious move is to
+let one directive cover both. It is the wrong move, and the reason is the
+<code>JNT8012</code> remedy: <em>remove the directive</em>. Under a single shared directive that
+advice goes wrong the moment a query has both an unindexed filter and an
+unindexed sort and only one of them gets an index, the directive still
+suppresses the other, so <code>JNT8012</code> never fires and the stale half lives on
+forever. Two directives each expire on their own evidence.</p>
+<p>Everything else matches its sibling exactly. A bare <code>-- @allow-sort</code> suppresses
+nothing and is reported as <code>JNT3008</code>. Every other diagnostic the query raises
+still fires, <code>JNT8009</code> and <code>JNT8010</code> included, accepting a sort is not
+accepting an unstable one. Once an index can serve the sort, the directive is
+reported as unnecessary (<code>JNT8012</code>), naming itself so a query carrying both
+directives says which one to remove.</p>
+<p><strong>What &quot;an index can serve the sort&quot; means</strong> is the same predicate <code>JNT8004</code>
+uses (<code>IsColumnIndexSupported</code>): the column is the primary key, or leads some
+index, or sits in a composite index every more-leading column of which this
+query constrains with a bound parameter. Note <em>constrains</em>, not <em>filters by
+equality</em>, the set that predicate consults is every bound filter/join column
+regardless of comparison operator, so <code>WHERE author_id &gt; @since ORDER BY created_at</code> against an index on <code>(author_id, created_at)</code> is treated as served.
+A range on the leading column does not in fact deliver the trailing column in
+order, so that case is a known false negative rather than a guarantee.</p>
+<p><strong>Each <code>ORDER BY</code> item is tested on its own.</strong> There is no multi-column
+prefix logic: <code>ORDER BY a, b</code> against an index on <code>(a, b)</code> clears <code>a</code>, and
+clears <code>b</code> only if <code>a</code> is also constrained by a parameter, or <code>b</code> is the
+primary key. A two-column sort whose tiebreak is the primary key, the common
+<code>ORDER BY created_at DESC, id</code> shape, therefore passes on the tiebreak's own
+merit, not because the index covers the pair.</p>
+<p><strong>Sort direction is invisible to this check.</strong> <code>IndexSchema.Columns</code> is a list
+of names with no ASC/DESC, and the parser discards the direction of each
+<code>ORDER BY</code> item, so <code>JNT8007</code> cannot tell <code>(a, b)</code> from <code>(a DESC, b)</code>. The
+engine can: PostgreSQL serves <code>ORDER BY a DESC, b</code> from <code>(a, b)</code> with a
+backward scan plus an incremental sort for the tiebreak, and from <code>(a DESC, b)</code>
+with no sort at all. When ties on <code>a</code> are common that difference is real and no
+JauntyQ diagnostic will point at it.</p>
+<h3 id="---allow-n-plus-one"><code>-- @allow-n-plus-one</code></h3>
+<p>Accepts this query's N+1 access pattern deliberately, suppressing <code>JNT8008</code> for
+this query and nothing else. A reason is required.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @allow-n-plus-one one customer at a time on the service desk screen, never called per row of a list</span>
+<span class="tok-kw">SELECT</span> rental.rental_id, rental.rental_date
+<span class="tok-kw">FROM</span> rental
+<span class="tok-kw">WHERE</span> rental.customer_id = <span class="tok-var">@CustomerId</span>
+</code></pre>
+</div>
+<p><strong>Why it exists.</strong> Unlike its siblings, <code>JNT8008</code> already has a suppression
+route: it is an ordinary Roslyn diagnostic, so <code>&lt;NoWarn&gt;$(NoWarn);JNT8008&lt;/NoWarn&gt;</code>
+or <code>dotnet_diagnostic.JNT8008.severity = none</code> turns it off. That route is
+project- or file-wide and carries no reason in the diff, which is the wrong
+shape for this rule: JNT8008 is a corpus-level heuristic, so the query it
+misjudges is usually one query among many the rule gets right, and switching the
+whole code off to accept that one takes the rest of the corpus down with it.
+This directive is the per-query alternative, with the justification recorded
+where the decision was made.</p>
+<p><strong>The reason is mandatory.</strong> A bare <code>-- @allow-n-plus-one</code> suppresses nothing and
+is reported as <code>JNT3008</code>, like every other value-taking directive written bare.
+The reason is the whole point: it puts the decision in the query file, where it
+shows up in the diff and can be argued with at review time. A suppression whose
+justification is not written down is a <code>NoWarn</code> entry with extra steps.</p>
+<p><strong>It suppresses only <code>JNT8008</code>.</strong> Every other diagnostic the query would raise
+still fires, <code>JNT8004</code> included, accepting a per-row lookup is not accepting a
+scan on top of it.</p>
+<p><strong>A suppression that suppresses nothing is reported</strong> (<code>JNT8013</code>, not <code>JNT8012</code>,
+which is its siblings' code). Once the pairing that justified the directive is
+gone, because the parent-collection query was deleted or the child lookup was
+made set-based, the directive stops hiding an accepted pattern and starts hiding
+a future one, so the build asks for it to be removed. The message repeats the
+stated reason.</p>
+<h2 id="related-diagnostics">Related diagnostics</h2>
+<p><code>JNT3003</code> (invalid directive combination), <code>JNT7001</code> (identity unavailable),
+<code>JNT7002</code> (construct unavailable on dialect, <code>-- @proc</code> outside <code>sqlserver</code>),
+<code>JNT4003</code> (parameter type unresolved), <code>JNT2004</code> (illegal identifier),
+<code>JNT2005</code> (procedure not found), <code>JNT3006</code> (unknown <code>@type</code> alias),
+<code>JNT8004</code> (unindexed filter column), <code>JNT8012</code> (unnecessary unindexed
+acceptance), <code>JNT8013</code> (unnecessary N+1 acceptance). Full list in
+<a href="06-reference-diagnostics.html">diagnostics</a>.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="06-reference-dialects.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Dialect differences</span>
+</a><a class="pn-next" href="06-reference-schema-snapshot-format.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Schema snapshot format (.schema.json)</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

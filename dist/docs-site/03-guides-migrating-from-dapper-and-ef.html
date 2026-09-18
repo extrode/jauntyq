@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Migrating from Dapper or EF Core — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Guides &#8250; Migrating from Dapper or EF Core</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html" class="active" aria-current="page">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#mental-model-shift">Mental model shift</a><a class="toc-l2" href="#from-dapper">From Dapper</a><a class="toc-l2" href="#from-ef-core">From EF Core</a><a class="toc-l2" href="#suggested-order-of-migration">Suggested order of migration</a><a class="toc-l2" href="#what-does-not-come-along">What does not come along</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Guides &#8250; Migrating from Dapper or EF Core</nav>
+        <article>
+<h1 id="migrating-from-dapper-or-ef-core">Migrating from Dapper or EF Core</h1>
+<p>JauntyQ occupies the space between Dapper (hand-written SQL, hand-written
+mapping) and EF Core (LINQ, change tracking, runtime SQL generation). It keeps
+the SQL-first control of Dapper but generates the mapping, and validates the
+SQL, at compile time. This guide covers what changes when you move an existing
+data layer over.</p>
+<h2 id="mental-model-shift">Mental model shift</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Dapper</th>
+<th>EF Core</th>
+<th>JauntyQ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where SQL lives</td>
+<td>inline strings</td>
+<td>generated from LINQ</td>
+<td><code>.sql</code> files</td>
+</tr>
+<tr>
+<td>Mapping</td>
+<td>reflection at runtime</td>
+<td>reflection/expression trees</td>
+<td>generated at build time</td>
+</tr>
+<tr>
+<td>Schema errors surface</td>
+<td>at runtime</td>
+<td>at runtime (mostly)</td>
+<td><strong>at build time</strong></td>
+</tr>
+<tr>
+<td>Change tracking</td>
+<td>none</td>
+<td>yes</td>
+<td>none</td>
+</tr>
+<tr>
+<td>Runtime cost</td>
+<td>reflection per query</td>
+<td>high (tracking, translation)</td>
+<td>none (typed ordinal reads)</td>
+</tr>
+</tbody>
+</table>
+<p>The core move is the same in both cases: SQL (or LINQ) that lived in C# moves
+into <code>.sql</code> files that the generator turns into typed methods.</p>
+<h2 id="from-dapper">From Dapper</h2>
+<p>Dapper is the closer fit, you already write SQL and think in terms of
+parameters and result shapes.</p>
+<p><strong>Before (Dapper):</strong></p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> product = conn.<span class="tok-fn">QuerySingleOrDefault</span>&lt;<span class="tok-type">Product</span>&gt;(
+    <span class="tok-str">&quot;SELECT ProductId, ProductName, UnitPrice FROM Products WHERE ProductId = @id&quot;</span>,
+    <span class="tok-kw">new</span> { id = <span class="tok-num">42</span> });
+</code></pre>
+</div>
+<p><strong>After (JauntyQ)</strong>, move the SQL into <code>db/tables/Products/GetById.sql</code>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @first</span>
+<span class="tok-kw">SELECT</span> ProductId, ProductName, UnitPrice <span class="tok-kw">FROM</span> Products <span class="tok-kw">WHERE</span> ProductId = <span class="tok-var">@ProductId</span>
+</code></pre>
+</div>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> db = <span class="tok-kw">new</span> <span class="tok-type">JauntyDb</span>(conn);
+<span class="tok-type">Product</span>? product = db.<span class="tok-var">Products</span>.<span class="tok-fn">GetById</span>(<span class="tok-num">42</span>);
+</code></pre>
+</div>
+<p>Mapping to <code>Product</code>, parameter typing, and the null-when-missing shape all come
+from the generator. The SQL is validated against the snapshot at build time, so
+a typo in a column name breaks the build instead of throwing at runtime.</p>
+<p>Translation notes:</p>
+<ul>
+<li><code>QuerySingleOrDefault</code> / <code>QueryFirstOrDefault</code> → <a href="06-reference-directives.html#-first"><code>-- @first</code></a>
+(returns <code>Row?</code>).</li>
+<li><code>Query</code> (many rows) → default (returns <code>List&lt;Row&gt;</code>); use
+<a href="06-reference-directives.html#-stream"><code>-- @stream</code></a> for large sets.</li>
+<li><code>Execute</code> (no result) → <a href="06-reference-directives.html#-result"><code>-- @result void</code></a>
+(returns row count).</li>
+<li><code>IN (@ids)</code> list expansion → <a href="06-reference-directives.html#-each"><code>-- @each</code></a>.</li>
+<li>Anonymous-parameter objects → named parameters (<code>@ProductId</code>) become typed
+method arguments; declare any the parser cannot infer with
+<a href="06-reference-directives.html#-params"><code>-- @params</code></a>.</li>
+<li>Custom projections (joins, partial selects) → a
+<a href="06-reference-directives.html#-result"><code>-- @result (...)</code></a> inline shape or a
+named DTO.</li>
+<li>Simple CRUD you were writing by hand → delete it; auto-CRUD synthesises
+<code>GetAll</code>/<code>GetById</code>/<code>Insert</code>/<code>Update</code>/<code>Delete</code>/<code>Upsert</code>/<code>BulkInsert</code>.</li>
+</ul>
+<h2 id="from-ef-core">From EF Core</h2>
+<p>The move is larger because you give up LINQ-to-SQL translation and change
+tracking, and gain compile-time validation and zero runtime overhead.</p>
+<ul>
+<li><strong>LINQ queries → <code>.sql</code> files.</strong> Each <code>context.Products.Where(...)</code> becomes a
+<code>.sql</code> file. This is the bulk of the work, but it is mechanical, and the
+result is SQL you can read and tune.</li>
+<li><strong><code>DbContext</code> → <code>JauntyDb</code>.</strong> <code>JauntyDb</code> is a stateless facade over a
+<code>DbConnection</code>, no <code>OnModelCreating</code>, no migrations engine, no tracking. <code>new</code>
+one per request.</li>
+<li><strong>Change tracking → explicit writes.</strong> There is no <code>SaveChanges()</code>.
+<code>Update(poco)</code> is a full-row update (last-writer-wins); for concurrency use a
+SQL Server <code>rowversion</code> column, which auto-CRUD turns into an optimistic
+token. See the <a href="06-reference-api-overview.html">API overview</a>.</li>
+<li><strong>EF migrations → snapshot + <code>db/migrations/</code>.</strong> JauntyQ does not run
+migrations against the database; it <em>simulates</em> pending DDL in
+<code>db/migrations/</code> on top of the snapshot so the build validates against the
+post-migration schema. Applying migrations to the database stays in your
+deploy pipeline.</li>
+<li><strong>Navigation properties / lazy loading → explicit FK loaders.</strong> A foreign key
+in the snapshot generates <code>db.Orders.GetByCustomerId(...)</code>; you load related
+data with an explicit call, not a traversal.</li>
+<li><strong>Entity graphs / includes → joins in SQL.</strong> Write the join yourself and shape
+the result with <code>-- @result</code>.</li>
+</ul>
+<h2 id="suggested-order-of-migration">Suggested order of migration</h2>
+<ol>
+<li>Pull a snapshot with <code>jauntyq schema pull</code> and commit it.</li>
+<li>Wire the generator into the project (see <a href="01-getting-started-README.html">getting started</a>).</li>
+<li>Delete hand-written CRUD you can get from auto-CRUD; keep only custom queries.</li>
+<li>Port custom queries into <code>.sql</code> files one entity folder at a time; let the
+build tell you (via <code>JNTxxxx</code>) where SQL and schema disagree.</li>
+<li>Replace <code>DbContext</code>/Dapper call sites with <code>JauntyDb</code> calls.</li>
+<li>Add <code>jauntyq schema verify</code> to CI to catch future drift.</li>
+</ol>
+<h2 id="what-does-not-come-along">What does not come along</h2>
+<p>JauntyQ deliberately omits change tracking, lazy loading, a LINQ provider, and
+runtime model configuration. If you depend heavily on those, read
+<a href="00-overview-why-jauntyq.html">Why JauntyQ (and why not)</a> before committing to
+the move.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="03-guides-licensing-and-activation.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Licensing and activation</span>
+</a><a class="pn-next" href="03-guides-schema-registry.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Central schema-dependency registry</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

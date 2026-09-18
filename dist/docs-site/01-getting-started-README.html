@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Getting started — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Getting started &#8250; Getting started</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-README.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-README.html" class="active" aria-current="page">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-README.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-README.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-README.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#requirements">Requirements</a><a class="toc-l2" href="#install-the-packages">Install the packages</a><a class="toc-l3" href="#consuming-from-source-in-repo">Consuming from source (in-repo)</a><a class="toc-l2" href="#point-the-generator-at-your-files">Point the generator at your files</a><a class="toc-l2" href="#the-db-folder-layout">The db/ folder layout</a><a class="toc-l2" href="#first-build">First build</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Getting started &#8250; Getting started</nav>
+        <article>
+<h1 id="getting-started">Getting started</h1>
+<p>This section covers installing JauntyQ, the requirements it has on your
+project, and the minimum wiring to get generated code out of a build. Once you
+are set up, work through the <a href="02-learn-README.html">first-hour tutorial</a> and
+the <a href="03-guides-README.html">feature guides</a>.</p>
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li><strong>.NET SDK 8.0 or later.</strong> The generator is a Roslyn incremental source
+generator and runs inside the compiler; your project targets any framework
+Roslyn supports (net8.0+ recommended).</li>
+<li><strong>A database provider package</strong> appropriate to your dialect, referenced by
+the consuming project, JauntyQ emits ADO.NET calls but does not bundle a
+driver:
+<ul>
+<li>SQL Server / Azure SQL: <code>Microsoft.Data.SqlClient</code></li>
+<li>PostgreSQL: <code>Npgsql</code></li>
+<li>MySQL / MariaDB: <code>MySqlConnector</code></li>
+<li>SQLite: <code>Microsoft.Data.Sqlite</code></li>
+</ul>
+</li>
+<li><strong>A schema source</strong>, either a committed <code>.schema.json</code> snapshot pulled with
+the <code>jauntyq</code> CLI, or checked-in DDL (see
+<a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>).</li>
+</ul>
+<p>The <code>Extrode.JauntyQ.Runtime</code> package is <code>IsAotCompatible</code>; the generated code uses no
+reflection and no runtime SQL parsing, so it is Native AOT and trim compatible
+provided your database provider is too.</p>
+<h2 id="install-the-packages">Install the packages</h2>
+<p>The core packages are on NuGet.org. Reference both:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">PackageReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;Extrode.JauntyQ.Generator&quot;</span> <span class="tok-attr">Version</span>=<span class="tok-str">&quot;0.5.0&quot;</span> <span class="tok-attr">PrivateAssets</span>=<span class="tok-str">&quot;all&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">PackageReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;Extrode.JauntyQ.Runtime&quot;</span> <span class="tok-attr">Version</span>=<span class="tok-str">&quot;0.5.0&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p><code>Extrode.JauntyQ.Generator</code> installs as a Roslyn analyzer automatically; the package
+ships the MSBuild props that register <code>JauntyQDialect</code> and <code>JauntyQAutoCrud</code>,
+so no <code>OutputItemType=&quot;Analyzer&quot;</code> or <code>&lt;CompilerVisibleProperty&gt;</code> entries are
+needed when consuming the package. <code>Extrode.JauntyQ.Runtime</code> carries the handful of
+types the generated code depends on and must be a normal (non-private)
+reference.</p>
+<h3 id="consuming-from-source-in-repo">Consuming from source (in-repo)</h3>
+<p>If you build against the repository directly rather than the package, reference
+the projects instead, the generator as an analyzer, the runtime as a normal
+reference:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">ProjectReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;..\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj&quot;</span>
+                    <span class="tok-attr">OutputItemType</span>=<span class="tok-str">&quot;Analyzer&quot;</span>
+                    <span class="tok-attr">ReferenceOutputAssembly</span>=<span class="tok-str">&quot;false&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">ProjectReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;..\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<h2 id="point-the-generator-at-your-files">Point the generator at your files</h2>
+<p>The generator reads your SQL and schema through MSBuild <code>AdditionalFiles</code>. The
+standard glob picks up every <code>.sql</code> file under <code>db/</code> (queries, migrations, and
+DDL alike, they are classified by folder) plus the snapshot:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\**\*.sql&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\schema\*.schema.json&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p>The full set of properties, globs, and folder conventions is in the
+<a href="06-reference-configuration.html">configuration reference</a>.</p>
+<h2 id="the-db-folder-layout">The <code>db/</code> folder layout</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">db/
+  schema/
+    jaunty.schema.json      committed snapshot (authoritative schema source)
+  tables/
+    Products/
+      GetById.sql           one file per query; file name = method name
+      GetByCategory.sql
+  migrations/
+    0001_add_column.sql     pending DDL, applied on top of the snapshot
+</code></pre>
+</div>
+<p>Folder name under <code>tables/</code> = entity name = generated accessor class
+(<code>db.Products</code>). File name (without <code>.sql</code>) = method name. Auto-CRUD methods
+(<code>GetAll</code>, <code>GetById</code>, <code>Insert</code>, <code>Update</code>, <code>Delete</code>, <code>Upsert</code>, <code>BulkInsert</code>) are
+synthesised for every table unless a same-named <code>.sql</code> file overrides them.</p>
+<h2 id="first-build">First build</h2>
+<ol>
+<li><p>Pull a snapshot (see the <a href="06-reference-cli.html">CLI reference</a>). The CLI ships as a
+.NET global tool, <code>dotnet tool install --global Extrode.JauntyQ.Cli</code> installs it as <code>jauntyq</code> (the premium verbs come with <code>Extrode.JauntyQ.Cli.Premium</code>, same command).
+Working inside a clone of this repository, the equivalent without installing is:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> run <span class="tok-attr">--project</span> src/Extrode.JauntyQ.Cli -- schema pull <span class="tok-attr">--provider</span> sqlserver \
+  <span class="tok-attr">--connection-env</span> MYDB_CONN \
+  <span class="tok-attr">--output</span> db/schema/jaunty.schema.json
+</code></pre>
+</div>
+</li>
+<li><p>Add a query file, e.g. <code>db/tables/Products/GetById.sql</code>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @first</span>
+<span class="tok-kw">SELECT</span> ProductId, ProductName, UnitPrice
+<span class="tok-kw">FROM</span> Products
+<span class="tok-kw">WHERE</span> ProductId = <span class="tok-var">@ProductId</span>
+</code></pre>
+</div>
+</li>
+<li><p>Build. Then use the generated surface:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">using</span> <span class="tok-kw">var</span> conn = <span class="tok-kw">new</span> <span class="tok-type">SqlConnection</span>(connectionString);
+<span class="tok-kw">var</span> db = <span class="tok-kw">new</span> <span class="tok-type">JauntyDb</span>(conn);
+<span class="tok-type">Product</span>? p = db.<span class="tok-var">Products</span>.<span class="tok-fn">GetById</span>(<span class="tok-num">42</span>);
+</code></pre>
+</div>
+</li>
+</ol>
+<p>If a query does not match the schema, the build fails with a <code>JNTxxxx</code>
+diagnostic rather than compiling. If something does not generate as expected,
+see <a href="06-reference-troubleshooting.html">troubleshooting</a>.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="00-overview-why-jauntyq.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Why JauntyQ (and Why Not)</span>
+</a><a class="pn-next" href="02-learn-README.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Your first hour with JauntyQ</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

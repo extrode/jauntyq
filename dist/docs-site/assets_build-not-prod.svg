@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="330" viewBox="0 0 780 330" font-family="'JetBrains Mono', Consolas, monospace">
+  <style>
+    .lane   { fill: #1e2227; stroke: #3a4048; stroke-width: 1.5; }
+    .node   { fill: #2b3138; stroke: #4a5158; stroke-width: 1; }
+    .node-red   { fill: #3d1418; stroke: #f85149; stroke-width: 1.5; }
+    .node-green { fill: #10321f; stroke: #2ea043; stroke-width: 1.5; }
+    .title  { fill: #e8eaed; font-size: 15px; font-weight: 600; }
+    .lanetx { fill: #9aa3ad; font-size: 12px; font-weight: 600; }
+    .tx     { fill: #d5d9de; font-size: 11.5px; }
+    .tx-red   { fill: #ff7b72; font-size: 11.5px; font-weight: 600; }
+    .tx-green { fill: #56d364; font-size: 11.5px; font-weight: 600; }
+    .sub    { fill: #6e7781; font-size: 10.5px; }
+    .flow   { stroke: #4a5158; stroke-width: 1.5; fill: none; }
+    .flow-red { stroke: #f85149; stroke-width: 1.5; fill: none; stroke-dasharray: 4 3; }
+    .flow-green { stroke: #2ea043; stroke-width: 1.5; fill: none; }
+  </style>
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#4a5158"/>
+    </marker>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#f85149"/>
+    </marker>
+    <marker id="ag" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#2ea043"/>
+    </marker>
+  </defs>
+
+  <text x="20" y="28" class="title">The same column rename, two outcomes</text>
+
+  <!-- lane 1: runtime-mapped ORM -->
+  <rect class="lane" x="20" y="48" width="740" height="116" rx="10"/>
+  <text x="36" y="72" class="lanetx">RUNTIME-MAPPED ORM</text>
+
+  <rect class="node" x="36" y="86" width="150" height="52" rx="6"/>
+  <text x="48" y="107" class="tx">DBA renames</text>
+  <text x="48" y="122" class="sub">unit_price -&gt; price</text>
+
+  <path class="flow" d="M 186 112 H 216" marker-end="url(#a)"/>
+
+  <rect class="node" x="218" y="86" width="150" height="52" rx="6"/>
+  <text x="230" y="107" class="tx">Code compiles</text>
+  <text x="230" y="122" class="sub">strings don't get checked</text>
+
+  <path class="flow" d="M 368 112 H 398" marker-end="url(#a)"/>
+
+  <rect class="node" x="400" y="86" width="150" height="52" rx="6"/>
+  <text x="412" y="107" class="tx">Tests pass</text>
+  <text x="412" y="122" class="sub">mocks, stale fixtures</text>
+
+  <path class="flow-red" d="M 550 112 H 580" marker-end="url(#ar)"/>
+
+  <rect class="node-red" x="582" y="86" width="162" height="52" rx="6"/>
+  <text x="594" y="107" class="tx-red">2 a.m. incident</text>
+  <text x="594" y="122" class="sub">or silently wrong data</text>
+
+  <!-- lane 2: JauntyQ -->
+  <rect class="lane" x="20" y="184" width="740" height="116" rx="10"/>
+  <text x="36" y="208" class="lanetx" fill="#56d364">JAUNTYQ</text>
+
+  <rect class="node" x="36" y="222" width="150" height="52" rx="6"/>
+  <text x="48" y="243" class="tx">DBA renames</text>
+  <text x="48" y="258" class="sub">unit_price -&gt; price</text>
+
+  <path class="flow" d="M 186 248 H 216" marker-end="url(#a)"/>
+
+  <rect class="node" x="218" y="222" width="150" height="52" rx="6"/>
+  <text x="230" y="243" class="tx">Snapshot re-pulled</text>
+  <text x="230" y="258" class="sub">jaunty schema pull</text>
+
+  <path class="flow" d="M 368 248 H 398" marker-end="url(#a)"/>
+
+  <rect class="node-green" x="400" y="222" width="150" height="52" rx="6"/>
+  <text x="412" y="243" class="tx-green">Build FAILS</text>
+  <text x="412" y="258" class="sub">JNT2002: unknown column</text>
+
+  <path class="flow-green" d="M 550 248 H 580" marker-end="url(#ag)"/>
+
+  <rect class="node" x="582" y="222" width="162" height="52" rx="6"/>
+  <text x="594" y="243" class="tx">Fixed at your desk</text>
+  <text x="594" y="258" class="sub">error names file + line</text>
+
+  <text x="20" y="322" class="sub">The snapshot is committed source. Every query is parsed against it on every build - production never sees the drift.</text>
+</svg>
