@@ -1,6 +1,8 @@
 # JauntyQ
 
-![JauntyQ](https://raw.githubusercontent.com/extrode/jauntyq/main/docs/_assets/logo/jauntyq-mark.svg)
+<p align="center">
+  <img src="docs/_assets/logo/jauntyq-mark.svg" alt="JauntyQ" width="160">
+</p>
 
 A compile-time SQL-to-C# generator. You write real `.sql` files; JauntyQ validates them at
 build time against a committed schema snapshot and emits typed, ordinal-read C# with no
