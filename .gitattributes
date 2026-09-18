@@ -12,6 +12,24 @@
 *.cmd text eol=crlf
 *.bat text eol=crlf
 
+# scripts/build-docs.sh regenerates this directory and always writes LF.
+# text=auto alone left these flagged dirty by `git status` on every checkout
+# without ever showing real content in `git diff` -- the blobs were already
+# LF, but the index's normalization state didn't agree with the rule that
+# produced them. Pinning eol=lf removes the ambiguity these files kept
+# tripping on. Scoped to the text formats the site actually emits, not a
+# directory-wide glob: a blanket dist/docs-site/** text rule corrupted the
+# bundled woff2 font by running it through EOL normalization.
+dist/docs-site/**/*.html text eol=lf
+dist/docs-site/*.html text eol=lf
+dist/docs-site/**/*.js text eol=lf
+dist/docs-site/*.js text eol=lf
+dist/docs-site/**/*.css text eol=lf
+dist/docs-site/*.svg text eol=lf
+dist/docs-site/**/*.svg text eol=lf
+dist/docs-site/**/*.woff2 binary
+dist/docs-site/**/*.woff binary
+
 # Binary, so git must not touch them.
 *.png binary
 *.ico binary
