@@ -5,7 +5,7 @@ using Extrode.JauntyQ.Analysis.Migrations;
 using Extrode.JauntyQ.Schema;
 using Xunit;
 
-namespace Extrode.JauntyQ.Generator.Tests;
+namespace Extrode.JauntyQ.Analysis.Tests;
 
 [Trait("Category", "AuditRegression")]
 public class MigrationParserTests
