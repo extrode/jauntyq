@@ -45,6 +45,7 @@ create table gadgets (
 
         var notes = stmt.Columns[3];
         Assert.Equal(-1, notes.MaxLength);
+        Assert.True(notes.IsNullable);
     }
 
     [Theory]
@@ -194,6 +195,7 @@ create table order_items (
 
         Assert.Equal(2, statements.Count);
         Assert.Equal(MigrationStatementKind.CreateTable, statements[0].Kind);
+        Assert.Equal(2, statements[0].Columns.Count);
         Assert.False(statements[0].Columns.Single(c => c.Name == "order_id").IsPrimaryKey);
         Assert.Equal(MigrationStatementKind.Unsupported, statements[1].Kind);
         Assert.Contains("primary", statements[1].RawText, StringComparison.OrdinalIgnoreCase);
