@@ -73,30 +73,80 @@ Both repos share: nightly-only cadence, `fail-fast: false`, non-gating score,
 fresh `dotnet-stryker` install per run, JSON+progress reporters, artifact
 upload regardless of outcome.
 
+## Update 2026-09-19: Analysis's gap closed
+
+Item 1 below is resolved. JauntyQ's own session picked this up same-day,
+branch `test/analysis-mutation-coverage`, merged `--no-ff` into `dev`
+(unpushed). Chose "write real tests" over jaunty's mutate-glob narrowing
+(see item 3) — the score below is honest, whole-project, no scope games.
+
+**Extrode.JauntyQ.Analysis: 32.52% -> 81.51%**, now clearing its own
+configured thresholds (80 high / 65 low) for the first time. Three moves,
+verified after each with a local Stryker rerun (~3-4 min each, single-project
+scope — full CI-scale runs were NOT repeated locally, see the "no long local
+runs" constraint):
+
+1. **Exhaustive reserved-word coverage for `DialectReservedWords.cs`**
+   (32.52% -> 55.97%): the existing test suite spot-checked ~40 words per
+   dialect; added `[Theory]`/`[InlineData]` asserting every word in each of
+   the four dialects' shipped lists (99/253/180/58 words) through the public
+   `IsReservedInDialect` API, generated programmatically from the source
+   HashSets so every string-literal mutation has an independent assertion
+   that would catch it. Plus direct tests for `RequiresQuotingForCase`,
+   which had zero tests of its own (only exercised incidentally through
+   `AutoCrud`). 556/558 survived mutants killed.
+2. **Moved `MigrationParserTests.cs` from `Extrode.JauntyQ.Generator.Tests`
+   to `Extrode.JauntyQ.Analysis.Tests`** (55.97% -> 70.88%): this was the
+   real finding. 71 test methods (1439 lines) thoroughly covering
+   `MigrationParser` existed all along, just in the wrong project — they had
+   no dependency on `Extrode.JauntyQ.Generator` at all. Since the nightly
+   mutation job only measures `Extrode.JauntyQ.Analysis.Tests` against
+   `Extrode.JauntyQ.Analysis`, this entire suite was invisible to Stryker.
+   Verified both projects still build and pass after the move.
+3. **Same pattern for `DialectMapperTests.cs`** (70.88% -> 81.51%): 27 test
+   methods, same misplacement, one truly-unused `using
+   Extrode.JauntyQ.Generator;` removed in the move. Checked every other
+   Generator.Tests file that references Analysis types
+   (`AutoCrudTests.cs`, `UnmappedColumnTypeTests.cs`, etc.) — those
+   genuinely use `CodeEmitter`/`JauntyQGenerator` and are correctly placed;
+   no further misplaced-test blind spots found.
+
+Verified via a full `dotnet build -c Release` + `dotnet test` solution-wide
+run before merging: one unrelated failure (`Extrode.JauntyQ.Sakila.MySql.Tests`
+net8.0 run, Testcontainers "Failed to start mysqld daemon" under concurrent
+Docker load) confirmed transient by rerunning that project alone in isolation
+(22/22 passed) — not caused by this change, nothing else touched MySQL/Docker.
+
+**Remaining in `Extrode.JauntyQ.Analysis` (not attempted — genuine parser
+logic, not mechanical enumeration):** `MigrationParser.cs` (163 survived + 8
+NoCoverage), `AutoCrud.cs` (80 + 29), `Impact/ImpactClassifier.cs` (16 + 23),
+`Migrations/SchemaSimulator.cs` (27 + 5), `DialectMapper.cs` (21 + 11),
+`Impact/ReferencedObjects.cs` (16 + 7), `UpsertKeyResolver.cs` (11 + 7). Each
+fix here needs a crafted DDL/schema fixture per surviving mutant, not a
+generated enumeration — comparable effort to item 1 above, done carefully,
+per file. Worth checking first whether any of these have a similarly
+misplaced test suite elsewhere in `tests/` before writing anything new.
+
 ## Open items for JauntyQ's own session to pick up
 
-Not started, not scoped in detail — for the next session working in this repo
-to decide and size:
+Not started, not scoped in detail:
 
-1. **Analysis project's 32.52% score is the priority.** 578 NoCoverage + 1,028
-   Survived out of 2,757 total mutants is a large real gap, not a scope
-   artifact like jaunty's numbers were. Worth a NoCoverage/Survived breakdown
-   pass (same shape as the jaunty session just did) before writing any tests,
-   to separate "genuinely untested code" from "mutants that don't matter."
 2. **6 of 8 src projects have no mutation testing at all**, including
    Generator (13,107 LOC — the single largest project in the repo) and
    Schema.Extraction (2,699 LOC). Adding configs for these is straightforward
    (mirror the existing two configs) but scope/cost of a first run is unknown
    — Generator in particular could be a long run given its size.
 3. **Decide whether to adopt jaunty's `mutate`-glob narrowing pattern here**,
-   or keep whole-project scope. Narrowing makes runs faster and scores higher
-   but only reports on the narrowed subfolder — jaunty's own recent work
-   found "covered elsewhere" mutants that were falsely reported as
-   uncovered purely because of scope, not because tests were missing.
+   or keep whole-project scope.** Not adopted this pass (see above) — whole-
+   project scope was kept deliberately, since narrowing only reports on the
+   narrowed subfolder and jaunty's own recent work found "covered elsewhere"
+   mutants that were falsely reported as uncovered purely because of scope,
+   not because tests were missing.
 4. **No mutation-score tracking over time** — if this becomes an ongoing
    quality signal, worth a place to record scores per run (a doc, or reading
    them back from CI artifacts) rather than only ever seeing the latest number
    live in a workflow log.
-
-No fixes attempted, no branch created, no files touched in this repo as part
-of this handoff.
+5. **`Extrode.JauntyQ.SqlParser` still sits at 71.00%**, below its own 80/65
+   thresholds, untouched this pass (scope was Analysis only) — same kind of
+   triage (survived/nocoverage breakdown, check for misplaced tests
+   elsewhere in `tests/` first) likely applies.
