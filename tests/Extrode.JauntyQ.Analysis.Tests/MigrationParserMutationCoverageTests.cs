@@ -184,6 +184,34 @@ public class MigrationParserMutationCoverageTests
         Assert.True(col.IsNullable);
     }
 
+    // ── SplitTopLevel / ReadParenNameList: unterminated paren, no crash ──
+
+    [Fact]
+    public void CreateTable_UnterminatedColumnList_StopsAtEndOfTokens_NoIndexOutOfRange()
+    {
+        // No closing ")" anywhere -- SplitTopLevel's own loop bound must
+        // stop at tokens.Count, not run one iteration past the end trying
+        // to index a token that doesn't exist.
+        var statements = MigrationParser.Parse("create table t (id int");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.CreateTable, stmt.Kind);
+        Assert.Equal("id", Assert.Single(stmt.Columns).Name);
+    }
+
+    [Fact]
+    public void AddPrimaryKey_UnterminatedColumnList_StopsAtEndOfTokens_NoIndexOutOfRange()
+    {
+        // Same bound, in ReadParenNameList's own for-loop: an ADD
+        // CONSTRAINT ... PRIMARY KEY (a, b with no closing paren must not
+        // walk past the end of the token list.
+        var statements = MigrationParser.Parse("alter table products add constraint pk_products primary key (product_id");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.AddPrimaryKey, stmt.Kind);
+        Assert.Equal("product_id", Assert.Single(stmt.ColumnNames));
+    }
+
     // ── GroupAlterActions: malformed first clause ──
 
     [Fact]
