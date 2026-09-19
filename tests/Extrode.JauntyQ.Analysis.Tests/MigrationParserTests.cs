@@ -45,6 +45,7 @@ create table gadgets (
 
         var notes = stmt.Columns[3];
         Assert.Equal(-1, notes.MaxLength);
+        Assert.True(notes.IsNullable);
     }
 
     [Theory]
@@ -132,6 +133,15 @@ create table products (
         Assert.Contains("unique", statements[1].RawText, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("foreign", statements[2].RawText, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("check", statements[3].RawText, StringComparison.OrdinalIgnoreCase);
+
+        // Exact-equality check on the appended "-- table-level constraint
+        // dropped: <clause>" suffix -- the loose Contains checks above still
+        // pass even if the token-joining space is dropped (each word stays
+        // a substring regardless of its neighbors' spacing) or if the
+        // clause-word collection loop silently collects nothing.
+        Assert.EndsWith(
+            "-- table-level constraint dropped: constraint uq_products_name unique ( product_name )",
+            statements[1].RawText);
     }
 
     [Theory]
@@ -185,9 +195,13 @@ create table order_items (
 
         Assert.Equal(2, statements.Count);
         Assert.Equal(MigrationStatementKind.CreateTable, statements[0].Kind);
+        Assert.Equal(2, statements[0].Columns.Count);
         Assert.False(statements[0].Columns.Single(c => c.Name == "order_id").IsPrimaryKey);
         Assert.Equal(MigrationStatementKind.Unsupported, statements[1].Kind);
         Assert.Contains("primary", statements[1].RawText, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(
+            "-- table-level constraint dropped: constraint pk_order_items primary key nocheck",
+            statements[1].RawText);
     }
 
     [Theory]
@@ -259,6 +273,20 @@ create table widgets (
     }
 
     [Fact]
+    public void DropTable_IfWithoutExists_NotMisreadAsIfExists()
+    {
+        // The IF EXISTS detection requires both tokens -- a widened (OR'd)
+        // check would set IfExists=true and skip both "if" and the next
+        // token on "IF" alone, silently consuming part of the table name.
+        var statements = MigrationParser.Parse("drop table if gadgets");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.DropTable, stmt.Kind);
+        Assert.Equal("if", stmt.TableName);
+        Assert.False(stmt.IfExists);
+    }
+
+    [Fact]
     public void AlterAdd_MultipleColumns()
     {
         var statements = MigrationParser.Parse("alter table products add discontinued_at datetime null, reorder_note nvarchar(100)");
@@ -288,6 +316,18 @@ create table widgets (
         var stmt = Assert.Single(statements);
         Assert.Equal(MigrationStatementKind.DropColumn, stmt.Kind);
         Assert.Equal(new[] { "reorder_level", "discontinued" }, stmt.ColumnNames);
+    }
+
+    [Fact]
+    public void AlterDropColumn_NoColumnNamesGiven_Unsupported()
+    {
+        // "DROP COLUMN" with nothing after it collects zero names -- must
+        // fall back to Unsupported (a narrowed >= 0 guard would wrongly
+        // accept the empty ColumnNames list as a valid DropColumn).
+        var statements = MigrationParser.Parse("alter table products drop column");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
     }
 
     [Fact]
@@ -694,6 +734,7 @@ drop table if exists c
 
         var total = stmt.Columns[3];
         Assert.Equal("total", total.Name);
+        Assert.Equal(string.Empty, total.DbType);
         Assert.True(total.IsComputed);
         Assert.False(total.IsNullable);
     }
@@ -747,6 +788,209 @@ drop table if exists c
         var id = stmt.Columns[0];
         Assert.True(id.IsIdentity);
         Assert.False(id.IsComputed);
+    }
+
+    [Fact]
+    public void GoAsColumnName_InsideParens_DoesNotSplitStatement()
+    {
+        // Parse()'s GO-splitting only applies at paren depth 0 -- inside a
+        // column list "go" is a legitimate identifier, not the batch
+        // separator. A depth-blind check would wrongly split this single
+        // CREATE TABLE into two truncated, unparseable fragments.
+        var statements = MigrationParser.Parse("create table t (go int not null primary key, name varchar(10) not null)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.CreateTable, stmt.Kind);
+        Assert.True(stmt.Columns.Single(c => c.Name == "go").IsPrimaryKey);
+    }
+
+    [Fact]
+    public void IgnoredStatement_RawText_PreservesTokenSpacing()
+    {
+        // RawText is reconstructed by joining tokens with a single space --
+        // asserted here with exact equality (not a substring Contains
+        // check) so a join-separator regression that concatenates tokens
+        // together is actually caught.
+        var statements = MigrationParser.Parse("begin transaction");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Ignored, stmt.Kind);
+        Assert.Equal("begin transaction", stmt.RawText);
+    }
+
+    [Fact]
+    public void CreateTable_RawText_ExactlyReconstructsTokens()
+    {
+        var statements = MigrationParser.Parse("create table widgets ( id int not null primary key )");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.CreateTable, stmt.Kind);
+        Assert.Equal("create table widgets ( id int NOT NULL primary key )", stmt.RawText);
+    }
+
+    [Fact]
+    public void AlterTypo_TableSpelledPlural_NotMisreadAsAlterTable()
+    {
+        // "ALTER TABLE" dispatch requires token 1 to be exactly "TABLE".
+        // A widened (OR'd) check would let "ALTER TABLES ..." fall into
+        // ParseAlterTable, which -- for this exact input -- successfully
+        // reads "products" as the table name and "add colx int" as a real
+        // ADD action, silently producing an AddColumn statement instead of
+        // the loud Unsupported/JNT9001 this malformed statement deserves.
+        var statements = MigrationParser.Parse("alter tables products add colx int");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
+
+    [Fact]
+    public void DropSequence_NotMisreadAsDropIndex_FallsToUnsupported()
+    {
+        // The top-level ignored-statement list's DROP INDEX membership
+        // check requires token 1 to be exactly "INDEX". A widened (OR'd)
+        // check would classify any DROP statement as Ignored purely
+        // because token 0 is DROP, silently swallowing e.g. DROP SEQUENCE
+        // instead of surfacing it as Unsupported/JNT9001.
+        var statements = MigrationParser.Parse("drop sequence products_seq");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
+
+    [Fact]
+    public void CreateTable_MissingTableName_Unsupported()
+    {
+        // No identifier between CREATE TABLE and "(": ReadObjectName
+        // returns empty. A narrowed (AND'd) guard would only reject this
+        // when BOTH the name is empty AND "(" is missing, so a bare
+        // "create table (" -- name empty, "(" present -- would wrongly
+        // continue parsing with an empty table name instead of bailing out
+        // to Unsupported.
+        var statements = MigrationParser.Parse("create table (id int not null primary key)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
+
+    [Fact]
+    public void CreateTable_TableLevelPrimaryKey_ForcesNotNull_EvenIfDeclaredNullable()
+    {
+        var statements = MigrationParser.Parse(@"
+create table order_items (
+    order_id int null,
+    item_no int not null,
+    primary key (order_id, item_no)
+)");
+
+        var stmt = Assert.Single(statements);
+        var orderId = stmt.Columns.Single(c => c.Name == "order_id");
+        Assert.True(orderId.IsPrimaryKey);
+        Assert.False(orderId.IsNullable);
+    }
+
+    [Theory]
+    [InlineData("amount double not null", "double")]
+    [InlineData("amount double precision not null", "double precision")]
+    public void DoublePrecision_OnlyExtendsWhenBothTokensPresent(string columnDef, string expectedDbType)
+    {
+        // "double" alone (no trailing PRECISION token) must NOT be widened
+        // to "double precision" -- a widened (OR'd) check would consume the
+        // next token ("not") as if it were PRECISION, corrupting both the
+        // DbType and the position of every flag that follows.
+        var statements = MigrationParser.Parse($"alter table t add {columnDef}");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal(expectedDbType, col.DbType);
+        Assert.False(col.IsNullable);
+    }
+
+    [Theory]
+    [InlineData("data bytea not null", "bytea", null)]
+    [InlineData("data bytea(10) not null", "bytea", 10)]
+    [InlineData("data blob(20) not null", "blob", 20)]
+    [InlineData("data image(30) not null", "image", 30)]
+    [InlineData("data varbinary(40) not null", "varbinary", 40)]
+    public void BinaryTypeSynonyms_AllCaptureMaxLengthFacet(string columnDef, string expectedDbType, int? expectedMaxLength)
+    {
+        // ApplyFacets' isBinary detection is a 4-way OR across
+        // Contains("binary")/=="bytea"/Contains("blob")/=="image" -- each
+        // synonym must independently route into the MaxLength-capturing
+        // branch, not just the first one any existing test happened to
+        // cover.
+        var statements = MigrationParser.Parse($"alter table t add {columnDef}");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal(expectedDbType, col.DbType);
+        Assert.Equal(expectedMaxLength, col.MaxLength);
+    }
+
+    [Fact]
+    public void NonBinaryNonTextType_FacetIgnored_MaxLengthStaysNull()
+    {
+        var statements = MigrationParser.Parse("alter table t add flag int(5) not null");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Null(col.MaxLength);
+    }
+
+    [Theory]
+    [InlineData("start_time time with foo not null", "time")]
+    [InlineData("start_time time without foo not null", "time")]
+    public void TimeZoneSuffix_RequiresAllThreeTokens_NotJustWith(string columnDef, string expectedDbType)
+    {
+        // WITH/WITHOUT TIME ZONE must match all three tokens -- a widened
+        // (OR'd) chain would extend DbType (and advance pos) on WITH/WITHOUT
+        // alone, corrupting the type and misaligning every flag that follows
+        // when TIME/ZONE aren't actually there.
+        var statements = MigrationParser.Parse($"alter table t add {columnDef}");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal(expectedDbType, col.DbType);
+        Assert.False(col.IsNullable);
+    }
+
+    [Fact]
+    public void ColumnLevelPrimaryKey_RequiresBothTokens_NotKeyAlone()
+    {
+        // "PRIMARY KEY" flag detection requires both tokens -- a widened
+        // (OR'd) check would set IsPrimaryKey on "primary" alone even
+        // without a following "key", or on a bare "key" that isn't part of
+        // a primary-key clause at all.
+        var statements = MigrationParser.Parse("create table t (id int not null, name varchar(10) not null)");
+
+        var stmt = Assert.Single(statements);
+        Assert.False(stmt.Columns.Single(c => c.Name == "id").IsPrimaryKey);
+        Assert.False(stmt.Columns.Single(c => c.Name == "name").IsPrimaryKey);
+    }
+
+    [Fact]
+    public void ThreePartDottedName_ResolvesToLastSegment()
+    {
+        // ReadObjectName's dotted-name continuation loop only runs for
+        // MULTI-segment names ("db.dbo.Gadgets" -> 2 iterations); a single
+        // bracket-quoted "[dbo].[Gadgets]" resolves through a different
+        // tokenizer path and doesn't exercise the loop body at all, so it
+        // was invisible to mutation testing without this.
+        var statements = MigrationParser.Parse("create table a.b.c (id int not null primary key)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal("c", stmt.TableName);
+    }
+
+    [Fact]
+    public void BareName_SingleDotAtIndexZero_StillStripsSchemaPrefix()
+    {
+        // BareName's LastIndexOf('.') >= 0 check must treat a dot at index
+        // 0 as found (a narrowed > 0 check would treat it as "no dot" and
+        // return the name unchanged, including the leading dot).
+        var statements = MigrationParser.Parse("create table [.Gadgets] (id int not null primary key)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal("Gadgets", stmt.TableName);
     }
 }
 
