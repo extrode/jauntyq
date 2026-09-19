@@ -233,4 +233,144 @@ public class MigrationParserMutationCoverageTests
         var stmt = Assert.Single(statements);
         Assert.Equal("gadgets", stmt.TableName);
     }
+
+    // ── ParseCreateTable: an empty def between two commas is skipped, not counted ──
+
+    [Fact]
+    public void CreateTable_DoubleCommaBetweenColumns_ProducesEmptyDef_SilentlySkipped()
+    {
+        var statements = MigrationParser.Parse("create table t (id int primary key,, name varchar(20))");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(2, stmt.Columns.Count);
+        Assert.Equal("id", stmt.Columns[0].Name);
+        Assert.Equal("name", stmt.Columns[1].Name);
+    }
+
+    // ── ParseCreateTable: zero parsed columns falls back to Unsupported ──
+
+    [Fact]
+    public void CreateTable_EmptyColumnList_IsUnsupported_NotAZeroColumnTable()
+    {
+        var statements = MigrationParser.Parse("create table t ()");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
+
+    // ── ALTER COLUMN ... SET GENERATED/IDENTITY: unmodeled, same as ADD/DROP ──
+
+    [Fact]
+    public void AlterColumn_SetGenerated_IsUnsupported_SameAsAddOrDropGenerated()
+    {
+        var statements = MigrationParser.Parse("alter table t alter column c set generated always as identity");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
+
+    // ── SkipParenGroup: guard must not consume tokens when not positioned on "(" ──
+
+    [Fact]
+    public void GeneratedAlwaysAsIdentity_WithNoSeedParen_DoesNotConsumeTheFollowingNotNull()
+    {
+        // If SkipParenGroup's own "am I even at a '('?" guard were bypassed,
+        // its scan loop would run from "not" onward with nothing to match,
+        // silently swallowing "not null" one token at a time and leaving
+        // IsNullable at its default (true) instead of being set false.
+        var statements = MigrationParser.Parse("alter table t add id int generated always as identity not null");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.True(col.IsIdentity);
+        Assert.False(col.IsNullable);
+    }
+
+    // ── SkipParenGroup / DEFAULT-expression paren skip: nested-paren depth must be tracked ──
+
+    [Fact]
+    public void ComputedColumn_GeneratedAsExpressionWithNestedFunctionCall_StoredThenNotNullStillParsed()
+    {
+        // round(price, 2) nests a second "(" / ")" pair inside the outer
+        // GENERATED ... AS (...) group. If SkipParenGroup's depth counter
+        // isn't correctly incremented/decremented/compared per paren, the
+        // scan either stops at the wrong (inner) ")" or never terminates --
+        // either way "stored" and the trailing "not null" would land in the
+        // wrong place, or get swallowed, and IsNullable would stay at its
+        // default (true) instead of being set false.
+        var statements = MigrationParser.Parse(
+            "alter table t add total decimal generated always as (round(price, 2)) stored not null");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.True(col.IsComputed);
+        Assert.False(col.IsNullable);
+    }
+
+    [Fact]
+    public void DefaultExpression_WithNestedFunctionCall_DepthTracksCorrectly_NotNullStillParsed()
+    {
+        // Same nested-paren depth-tracking requirement as SkipParenGroup,
+        // but in the inline DEFAULT-expression skip loop: if depth is
+        // mistracked, the trailing "not null" gets absorbed into the
+        // runaway "skip the default expression" scan instead of being seen
+        // by the flags loop, leaving IsNullable at its default (true).
+        var statements = MigrationParser.Parse(
+            "alter table t add col decimal default (round(price, 2)) not null");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
+    // ── Facet paren: unterminated "(" at end of definition doesn't overrun ──
+
+    [Fact]
+    public void FacetParen_UnterminatedWithNoDigits_DoesNotThrow_NoCrash()
+    {
+        var statements = MigrationParser.Parse("alter table t add price decimal(");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal("decimal", col.DbType);
+    }
+
+    [Fact]
+    public void FacetParen_UnterminatedAfterCommaWithNoSecondDigit_DoesNotThrow_NoCrash()
+    {
+        var statements = MigrationParser.Parse("alter table t add price decimal(10,");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal("decimal", col.DbType);
+        Assert.Equal(10, col.Precision);
+    }
+
+    // ── ApplyFacets: isDecimal's other three literals, not just "decimal" ──
+
+    [Theory]
+    [InlineData("numeric")]
+    [InlineData("money")]
+    [InlineData("smallmoney")]
+    public void ApplyFacets_EachDecimalLikeDbType_GetsPrecisionAndScaleFromFacets(string dbType)
+    {
+        var statements = MigrationParser.Parse($"alter table t add amount {dbType}(8,3)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal(8, col.Precision);
+        Assert.Equal(3, col.Scale);
+    }
+
+    // ── ApplyFacets: IsUnicode is false for a non-"n"-prefixed text type ──
+
+    [Fact]
+    public void ApplyFacets_PlainVarchar_IsUnicodeIsFalse_NotJustUnset()
+    {
+        var statements = MigrationParser.Parse("alter table t add name varchar(50)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsUnicode);
+    }
 }

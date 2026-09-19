@@ -216,6 +216,114 @@ which is NOT protected by the generic-flag-skip equivalence pattern above
 (it runs before the flags loop) and so its boundary mutations are more
 likely to be genuinely killable with the right crafted facet input.
 
+## Update 2026-09-19 (third pass): the SkipParenGroup/ApplyFacets follow-up, 92.98% -> 93.78%
+
+Same-day follow-on, branch `test/analysis-mutation-coverage-followup`, merged
+`--no-ff` into `dev` (unpushed). Scope per the prior pass's own "if
+continuing" pointer: `SkipParenGroup`/`ApplyFacets`/the numeric-facet-parsing
+block in `MigrationParser.cs`, plus a few other genuinely-fixable survivors
+found while there. Test-only change, one file:
+`MigrationParserMutationCoverageTests.cs` (+9 tests). No other files touched.
+
+**Whole-project score: 92.98% -> 93.78%** (Killed 2197, Timeout 35, Survived
+135, NoCoverage 13, out of 2380 tested; full unscoped run,
+2026-09-19 21:45-21:50). **Still short of 96%.**
+
+**`MigrationParser.cs` alone: 84.27% -> 86.50%** (scoped run: Killed 626,
+Survived 95, Timeout 34, NoCoverage 8, out of 755 tested) — 17 additional
+mutants killed.
+
+New tests, by what they killed:
+- `CreateTable_DoubleCommaBetweenColumns_ProducesEmptyDef_SilentlySkipped` —
+  `ParseCreateTable`'s `if (def.Count == 0) continue;` (a double comma
+  produces an empty def between two real columns).
+- `CreateTable_EmptyColumnList_IsUnsupported_NotAZeroColumnTable` — the
+  `stmt.Columns.Count > 0 ? stmt : Unsupported(raw)` fallback, via
+  `create table t ()`.
+- `AlterColumn_SetGenerated_IsUnsupported_SameAsAddOrDropGenerated` — the
+  `SET`/`GENERATED` arm of the ALTER COLUMN identity-toggle guard.
+- `GeneratedAlwaysAsIdentity_WithNoSeedParen_DoesNotConsumeTheFollowingNotNull`
+  — the outer `IsSymbol(def, pos, "(")` guard before the identity-seed
+  `SkipParenGroup` call (line 718).
+- `ComputedColumn_GeneratedAsExpressionWithNestedFunctionCall_StoredThenNotNullStillParsed`
+  and `DefaultExpression_WithNestedFunctionCall_DepthTracksCorrectly_NotNullStillParsed`
+  — nested-paren depth tracking in `SkipParenGroup` and the inline
+  DEFAULT-expression paren skip, using `round(price, 2)` as the nested call
+  so a mistracked depth counter visibly swallows the trailing `NOT NULL`.
+- `FacetParen_UnterminatedWithNoDigits_DoesNotThrow_NoCrash` and
+  `FacetParen_UnterminatedAfterCommaWithNoSecondDigit_DoesNotThrow_NoCrash` —
+  the facet-paren loop's own bounds checks on `decimal(` / `decimal(10,`
+  with no closing paren.
+- `ApplyFacets_EachDecimalLikeDbType_GetsPrecisionAndScaleFromFacets`
+  (Theory: numeric/money/smallmoney) — `isDecimal`'s three literals besides
+  `"decimal"`, which was the only one with an existing exact-value test.
+- `ApplyFacets_PlainVarchar_IsUnicodeIsFalse_NotJustUnset` — the `false`
+  side of `IsUnicode = t.StartsWith("n", ...)`, previously only asserted
+  `true` for n-prefixed types.
+
+**Newly confirmed equivalent mutants** (traced by hand, not force-killed):
+- `SkipParenGroup`'s own entry guard (`if (!IsSymbol(def, pos, "(")) return;`,
+  lines 745/746): **always unreachable in its false branch.** Both call
+  sites (`if (IsSymbol(def, pos, "(")) SkipParenGroup(...)` at line 718, and
+  the equivalent `else if (IsSymbol(...))` at line 721-724) only ever call
+  `SkipParenGroup` after already confirming `pos` is at `"("`. The guard
+  can never see `pos` NOT at `"("` in any real invocation, so negating it or
+  blanking its string comparison changes nothing observable.
+- The `pos < def.Count` / `while` bound checks inside `SkipParenGroup` and
+  the sibling DEFAULT-expression paren-skip loop (lines 748, 751, 682, 685,
+  689, and the analogous ones in the flags loop at 618/647/649/682/689):
+  **equivalent given `Is`/`IsSymbol`'s own bounds safety.** Both helpers
+  already guard `index >= 0 && index < tokens.Count` before touching
+  `tokens[index]`, so mutating a loop's own `<`/`<=` bound (or negating a
+  break condition) produces at most one extra iteration that calls
+  `Is`/`IsSymbol` with an out-of-range index — which safely returns `false`
+  — before the loop exits on its next check. No crash, no state change: the
+  same mechanism as the already-documented "unterminated paren, no crash"
+  cases, just reached through the equality/negate mutators instead of by
+  directly deleting a bound.
+- `GroupAlterActions`' `"MODIFY"` string literal, the ternary's **return
+  value** (not the `Is(segment, 0, "MODIFY")` comparison, which is already
+  killed by `AlterColumn_AllDialectForms`'s MySQL case): `action` is only
+  ever compared via `action == "ALTER"` in `ParseAlterOrModifyAction`, so
+  whether the literal action value is `"MODIFY"` or the mutated `""`, both
+  fail that comparison identically and both take the (correct) non-ALTER
+  branch. The variable's actual string value is never otherwise inspected.
+- `ReadObjectName`/`BareName`'s `Conditional (true)` mutation on
+  `dot >= 0 ? name.Substring(dot + 1) : name` (line 805): **equivalent by
+  substring arithmetic**, not by unreachability. When `dot == -1` (no `.`
+  found), the real code's false branch returns `name` unchanged; the
+  mutated always-true branch instead evaluates `name.Substring(dot + 1)` =
+  `name.Substring(0)`, which is the same string. Confirmed algebraically —
+  holds for every input, not just the ones tried.
+- The `MODIFY` result plus the entry-guard/bounds-check clusters above
+  account for roughly 15-20 of the remaining ~95 `MigrationParser.cs`
+  survivors; the rest (largely `String` mutations on flag keywords already
+  covered by the prior pass's "generic unknown-flag skip absorbs it"
+  mechanism, per the previous update) were not re-traced individually this
+  pass — this is a lower bound on the equivalent count, not an exhaustive
+  count.
+
+Verified via full solution `dotnet build -c Release` (0 errors, pre-existing
+warnings only) + `dotnet test` (all 34 test assemblies passed, 0 failures) —
+log at `tmp/full-test-run.log` (gitignored).
+
+**Where the remaining gap to 96% actually is:** with two of the biggest
+equivalence classes now traced and documented (the generic-flag-skip
+absorption from the prior pass, and the bounds-safety/unreachable-guard
+classes from this pass), `MigrationParser.cs`'s residual ~95 survivors are
+now mostly either confirmed equivalent or small individual `String`/
+`Statement` mutations on facet/flag literals not yet traced one-by-one. Real
+further gains likely need per-mutant tracing at this point rather than
+another broad sweep — diminishing returns for the effort, consistent with
+the prior pass's own assessment. **96% was not reached and is not expected
+to be reachable purely through more `MigrationParser.cs` test-writing**;
+the remaining gap is dominated by equivalent mutants in this file plus the
+small pre-existing out-of-scope residue (~16-17 mutants across
+`MigrationImpactReport.cs`, `ImpactReason.cs`, `DialectReservedWords.cs`,
+`Diff/SchemaDelta.cs`, `Impact/ImpactEntry.cs`,
+`Migrations/MigrationStatement.cs`, `Impact/Classification.cs`), not by
+untested behavior.
+
 ## Open items for JauntyQ's own session to pick up
 
 Not started, not scoped in detail:
