@@ -165,11 +165,68 @@ core codegen is never gated, and a lapse only warns, never hard-fails. What rema
 is commercial rather than technical. See
 <code>docs/03-guides/licensing-and-activation.md</code>.</li>
 </ul>
-<p>Dropped:</p>
+<p>Dropped (for SQL Server):</p>
 <ul>
-<li><strong>Bespoke IDE extension.</strong> Visual Studio already provides <code>.sql</code> editing and
-live database validation (SQL Server by default; third-party tools cover
-other engines with varying licensing). Not worth building.</li>
+<li><strong>Bespoke Visual Studio extension for SQL Server.</strong> Visual Studio ships
+native SQL Server support (SQL Server Object Explorer, T-SQL IntelliSense,
+live database validation) out of the box. Building a JauntyQ-specific
+extension would duplicate that for the one dialect VS already covers well.
+Not worth building.</li>
+</ul>
+<p>Under consideration (future, not now — no commitment):</p>
+<ul>
+<li><p><strong>Bespoke Visual Studio extension for PostgreSQL, MySQL/MariaDB, and
+SQLite.</strong> Unlike SQL Server, Visual Studio has no built-in editing or live
+validation for these three dialects; support today comes only from
+third-party extensions of uneven quality, maintenance, and pricing. A
+JauntyQ-authored extension giving these dialects the same <code>.sql</code> editing +
+live-validation experience SQL Server users get natively is a real gap and
+may be worth building later. No commitment, no timeline.</p>
+<p><strong>Scoping (2026-09-19, training-knowledge based, not a live web search —
+verify before spec'ing):</strong></p>
+<ul>
+<li><em>Reusable infra</em>: <code>Extrode.JauntyQ.SqlParser</code> + <code>Extrode.JauntyQ.Analysis</code>
+are already offline, Roslyn-free, dialect-aware SQL tokenizer/parser/
+validator libraries used today for build-time diagnostics. They lower the
+floor for autocomplete/inline-validation logic; the missing pieces are
+editor integration and live schema introspection, not SQL understanding.</li>
+<li><em>Landscape (VS-native, not VS Code — different extensibility model)</em>: no
+maintained free/OSS VS extension reaches SQL Server-level parity for any
+of the three dialects. Postgres and MySQL/MariaDB have only aging or
+commercial options (e.g. Oracle's &quot;MySQL for Visual Studio&quot;, dbForge);
+SQLite has more actively maintained community tooling (e.g. SQLite/SQL
+Server Compact Toolbox) but scoped to data browsing, not schema-aware
+IntelliSense. Full IDEs (DBeaver, DataGrip, Azure Data Studio) cover all
+three well but are separate products, not VS extensions.</li>
+<li><em>Architecture</em>: VS's newer LSP client support
+(<code>Microsoft.VisualStudio.LanguageServer.Client</code>) is the leverage point —
+one shared LSP host + a pluggable per-dialect backend (reusing
+<code>SqlParser</code>'s existing dialect modes), rather than three independent
+heavyweight VSPackage/MEF extensions. Live schema introspection still
+needs each dialect's own ADO provider (Npgsql, MySqlConnector,
+Microsoft.Data.Sqlite) wired in separately — that part doesn't share.</li>
+<li><em>Effort</em>: one dialect to IntelliSense + inline-validation parity (not
+full Server Explorer/execution-plan parity) is roughly 2-4 months for one
+experienced developer. All three, built LSP-first with a shared host, is
+closer to 1.6-2x a single dialect's effort rather than 3x — still a
+multi-quarter effort, not a side project. Full parity with SQL Server's
+native depth (Server Explorer-grade connection browsing, execution plan
+visualization, project-wide rename refactoring) is a dedicated-team,
+multi-quarter undertaking on top of that.</li>
+<li><em>Hardest parity gaps</em>: (1) live graphical execution-plan visualization —
+no VS-native equivalent to render Postgres/MySQL <code>EXPLAIN</code> output against,
+though the existing <code>jauntyq explain</code> CLI's cached EXPLAIN output could
+seed this; (2) Server Explorer-grade live connection/object-tree browsing;
+(3) rename-across-references refactoring, which needs project-wide
+reference tracking beyond editor-level IntelliSense.</li>
+<li><em>Recommendation</em>: <strong>not yet — needs more research.</strong> The reusable parser
+lowers the floor but this still competes with existing commercial tooling
+and unvalidated demand (how many JauntyQ prospects use non-SQL-Server
+dialects in Visual Studio specifically, vs. VS Code or Rider). Before
+spec'ing: a live web search to confirm/refresh the landscape survey above,
+and a demand check with prospects/customers.</li>
+</ul>
+</li>
 </ul>
 <h2 id="shipped">Shipped</h2>
 <ul>
@@ -266,18 +323,39 @@ and input-size caps (JNT1003, <code>SqlTokenizer.MaxInputLength</code>).</li>
 </ul>
 <h2 id="deferred-future-not-now">Deferred (future, not now)</h2>
 <ul>
-<li><strong>Broader schema-object generation.</strong> Functions, enums, and UDTs (jOOQ-level
+<li><p><strong>Broader schema-object generation.</strong> Functions, enums, and UDTs (jOOQ-level
 completeness). Sequences already shipped (see above); this covers the
-remaining object types. Lower priority.</li>
-<li><strong>Package signing.</strong> The core packages ship from NuGet.org over HTTPS with
+remaining object types. Lower priority.</p>
+</li>
+<li><p><strong>Package signing.</strong> The core packages ship from NuGet.org over HTTPS with
 repository signing by the feed. Authenticode or NuGet author signing is a
 value-add warranted when an enterprise customer's policy demands it or when a
 native-AOT CLI binary ships; it would go through a cloud signer, never a stored
-<code>.pfx</code>.</li>
-<li><strong>XML-doc-driven API reference site (DocFX or similar).</strong> A generated site
-built from the generator's XML doc comments. A separate, larger infra task
-(pipeline, hosting, CI wiring); the hand-written <code>docs/06-reference/</code> pages
-cover the reference need for now.</li>
+<code>.pfx</code>.</p>
+</li>
+<li><p><strong>XML-doc-driven API reference site (DocFX or similar).</strong> A generated site
+built from the generator's XML doc comments; the hand-written
+<code>docs/06-reference/</code> pages cover the reference need for now.</p>
+<p><strong>Scoped (2026-09-19):</strong> JauntyQ's docs already run on a shared engine — the
+sibling repo <code>../docs</code> (<code>github.com/extrode/docs</code>, née <code>Beparey.DocsGen</code>),
+which <code>scripts/build-docs.sh</code> invokes directly (<code>../docs/src/Docs</code>). That
+engine is a pure markdown-in/HTML-out static-site pipeline (Markdig +
+System.CommandLine only — no Roslyn, no reflection): it walks a numbered
+markdown tree and renders theming, sidebar nav, per-page TOC, search index,
+and Mermaid-to-SVG at build time. It has <strong>no</strong> XML-doc-comment or
+reflection-based API reference capability today — confirmed by grepping its
+entire source tree for <code>XmlDoc</code>/<code>DocFX</code>/<code>Reflection</code>/<code>Roslyn</code> with zero hits.
+So adopting a site generator is already done; generating reference pages
+from XML doc comments is not, and is a genuinely new component, not a config
+flag on the existing engine. Smallest-lift design: a converter that reads
+the generator's <code>.xml</code> doc-comment file + reflects over its public members
+(resolving <code>&lt;see cref&gt;</code>/<code>&lt;paramref&gt;</code> etc.) and emits pages into the same
+numbered-markdown-tree shape <code>../docs</code> already consumes — reuses theming,
+nav, search, and versioning for free, and confines the new work to member
+enumeration + doc-comment parsing + a markdown template per member kind.
+Roughly comparable in scope to a small DocFX subset. Still deferred; no
+timeline.</p>
+</li>
 </ul>
 <h2 id="non-goals-owned-elsewhere-or-out-of-scope">Non-goals (owned elsewhere or out of scope)</h2>
 <ul>
