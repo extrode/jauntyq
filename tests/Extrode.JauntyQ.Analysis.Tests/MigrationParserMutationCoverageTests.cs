@@ -363,6 +363,23 @@ public class MigrationParserMutationCoverageTests
         Assert.Equal(3, col.Scale);
     }
 
+    // ── Facet paren: the scale is the SECOND number, distinct from precision ──
+
+    [Fact]
+    public void FacetParen_PrecisionAndScale_ScaleReadsTheSecondDigitGroupNotTheFirst()
+    {
+        // With precision and scale set to different values, a mutant that
+        // re-reads the first number's own token for the second facet
+        // instead of advancing past the comma would report Scale equal to
+        // Precision instead of the actual second number.
+        var statements = MigrationParser.Parse("create table t (a decimal(10,2))");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal(10, col.Precision);
+        Assert.Equal(2, col.Scale);
+    }
+
     // ── ApplyFacets: IsUnicode is false for a non-"n"-prefixed text type ──
 
     [Fact]
@@ -451,6 +468,24 @@ public class MigrationParserMutationCoverageTests
         Assert.False(col.IsNullable);
     }
 
+    // ── Computed-column inline flags loop: a trailing bare NULL must still flip nullability back ──
+
+    [Fact]
+    public void ComputedColumn_NotNullFollowedByBareNull_FlipsBackToNullable()
+    {
+        // The bare-NULL branch's own recognition of "NULL" is what lets a
+        // trailing bare NULL override an earlier "NOT NULL" -- if that
+        // check were disabled (or its handler statement dropped), the
+        // second token would fall through to the generic single-token skip
+        // instead, leaving IsNullable at whatever the "NOT NULL" pair set it
+        // to (false), even though the column's last stated flag was NULL.
+        var statements = MigrationParser.Parse("create table t (total as (x) not null null)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.True(col.IsNullable);
+    }
+
     // ── GENERATED ... AS (expr) computed column: expr must be skipped as an opaque paren group ──
 
     [Fact]
@@ -490,6 +525,25 @@ public class MigrationParserMutationCoverageTests
         var stmt = Assert.Single(statements);
         var col = stmt.Columns.Single(c => c.Name == "id");
         Assert.False(col.IsPrimaryKey);
+    }
+
+    // ── Table-level PRIMARY KEY (...) column list: must stop at its own closing paren ──
+
+    [Fact]
+    public void TableLevelPrimaryKeyParenList_StopsAtClosingParen_DoesNotConsumeTrailingIdentifier()
+    {
+        // If the closing-")" check inside ReadParenNameList's scan loop
+        // never matched (e.g. requiring the token NOT be a Symbol, which a
+        // real ")" token never satisfies), the loop would run past the
+        // paren list's own closing paren and pick up any identifier tokens
+        // that happen to follow within the same clause -- wrongly treating
+        // them as additional primary-key column names.
+        var statements = MigrationParser.Parse(
+            "create table t (a int, extra_ident int, primary key (a) extra_ident)");
+
+        var stmt = Assert.Single(statements);
+        var extra = stmt.Columns.Single(c => c.Name == "extra_ident");
+        Assert.False(extra.IsPrimaryKey);
     }
 
     // ── Computed-column-shorthand (AS shorthand): SkipParenGroup must skip the expression atomically ──
