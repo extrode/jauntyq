@@ -215,6 +215,27 @@ public class AutoCrudSynthesizeTests
     }
 
     [Fact]
+    public void Update_WhereCols_CapacityHint_SurvivesMoreRowVersionColumnsThanPkColumns()
+    {
+        // whereCols' capacity hint is pkCols.Count + versionCols.Count. A
+        // table with a single-column PK but two RowVersion-flagged columns
+        // makes versionCols.Count > pkCols.Count -- if that hint were ever
+        // computed as a subtraction instead of a sum, the resulting negative
+        // capacity would throw ArgumentOutOfRangeException from the List<T>
+        // constructor before a single row could be synthesized.
+        var table = Table("widgets", Col("id", pk: true), Col("name"));
+        table.Columns["ver1"] = Col("ver1", rowVersion: true);
+        table.Columns["ver2"] = Col("ver2", rowVersion: true);
+        var schema = Schema("sqlserver", table);
+
+        var update = AutoCrud.Synthesize(schema).Single(q => q.MethodName == "Update");
+
+        Assert.Equal(
+            "UPDATE widgets\nSET name = @name\nWHERE id = @id AND ver1 = @ver1 AND ver2 = @ver2",
+            update.Sql);
+    }
+
+    [Fact]
     public void Update_MultipleSetColumns_JoinedWithCommaSpace()
     {
         var schema = Schema("sqlserver", Table("widgets", Col("id", pk: true), Col("name"), Col("price")));
