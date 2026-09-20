@@ -430,3 +430,155 @@ equivalents — both already traced in detail above. No further known
 low-hanging fruit remains; the next gain, if pursued, would be per-mutant
 tracing in `MigrationParser.cs`'s flag-parsing area, which the prior update
 already flagged as diminishing-returns territory.
+
+## Update 2026-09-20 (later same day): round 4, the 4 files still below 96%, 94.33% -> 94.50%
+
+Follow-on to the user's request "let's work on the first 4 that are below
+96%" — the 4 remaining files under 96% at the time: `MigrationParser.cs`
+(86.50%), `ReferencedObjects.cs` (86.54%), `MigrationImpactReport.cs`
+(90.00%), `SchemaSimulator.cs` (94.17%). Branch
+`test/analysis-mutation-coverage-round4`, merged `--no-ff` into `dev`
+(unpushed). Test-only change: 4 new tests added to
+`MigrationParserMutationCoverageTests.cs`. No production source touched, no
+new file for the other 3.
+
+**Whole-project score: 94.33% -> 94.50%** (Killed 2213, Timeout 36, Survived
+120, NoCoverage 11, out of 2369 tested; full unscoped run, 2026-09-20
+12:24-12:29).
+
+**Per-file results:**
+
+| File | Before | After |
+|---|---|---|
+| `Migrations/MigrationParser.cs` | 86.50% (660/763) | 87.02% (664/763) |
+| `Impact/ReferencedObjects.cs` | 86.54% (45/52) | 86.54% (unchanged) |
+| `Impact/MigrationImpactReport.cs` | 90.00% (9/10) | 90.00% (unchanged) |
+| `Migrations/SchemaSimulator.cs` | 94.17% (194/206) | 94.17% (unchanged) |
+
+**`SchemaSimulator.cs`: all 12 remaining survivors confirmed equivalent,
+none force-killed.** Every one is a variant of the same pattern: every
+`ApplyXxx` method guards a `TryFindTable`/`TryFindColumnKey`/`TryFindColumn`
+call with `!found || outParam == null`, and all three `TryFind*` helpers
+(read directly, lines 333-397) are written so the out-parameter is null iff
+the method returns false — confirmed by inspection, not assumed, since
+every code path that returns `false` explicitly sets the out-param to
+`null` first, and every path that returns `true` assigns it a genuinely
+non-null value. Under that contract, `!found || outParam==null` and the
+mutated `!found && outParam==null` are logically identical (each reduces to
+exactly `!found`), and `TryFindColumnKey(...) && key != null`'s `&&`->`||`
+mutation (used inside `TryFindColumn` itself) reduces the same way. Two
+non-obvious members of the same family:
+- The `continue;` removed by a Block-removal mutation in `ApplyDropColumn`'s
+  per-name loop (guarding a not-found column): when the guarded lookup
+  fails, `actualKey` is `null`; without the `continue`, the loop falls
+  through into a dictionary-rebuild step keyed on `actualKey`, but
+  `string.Equals(kvp.Key, null)` is false for every real (non-null)
+  dictionary key, so the rebuild silently copies every column unchanged —
+  a genuine no-op, not a behavior change.
+- `TryFindColumn`'s own final `return false;`, mutated to `return true;`
+  (Boolean mutation): every actual call site pairs the call with `||
+  existing == null`, so a caller sees the *same* "not found" outcome either
+  way — the wrong boolean gets masked by the paired null-check at every
+  call site, with no caller relying on the boolean alone.
+
+**`ReferencedObjects.cs` and `MigrationImpactReport.cs`: no new survivors
+found beyond what's already documented above** (the comparer's hash-
+randomization/never-null-by-construction equivalents, and `Highest`'s
+`>`/`>=` same-value-reassignment equivalent) — re-verified against a fresh
+scoped run rather than assumed stale.
+
+**`MigrationParser.cs`: 4 new tests, 4 mutants killed** (of the 8 targeted;
+2 were an accidental duplicate of an existing test, 2 more were on a
+mutation confirmed equivalent by direct manual-mutation verification, not
+by tests):
+- `AlterTable_MalformedFirstClauseFollowedByWellFormedClause_IsUnsupported_NotPartiallyParsed`
+  killed the `GroupAlterActions` Block-removal mutation at the "first clause
+  has no recognizable action verb" `return null;` (previously survived
+  because the ONE existing test for this path used a single malformed
+  clause with nothing after it, which converges on the same Unsupported
+  result whether or not the early return fires — only a malformed clause
+  followed by a well-formed one distinguishes them, since the mutated code
+  silently drops the malformed clause and parses the rest instead of
+  voiding the whole statement).
+- `ComputedColumn_JunkTokenImmediatelyBeforeNull_DoesNotFalselyMarkNonNullable`
+  and `ComputedColumn_JunkTokenAfterAnExplicitNotNull_DoesNotFlipNullabilityBack`
+  killed the computed-column shorthand's inline NOT+NULL logical mutation
+  (`&&`->`||`) and bare-NULL negate mutation respectively, both in the
+  `total AS (expr) [PERSISTED] [NOT NULL|NULL]` flags loop — needed a junk
+  token positioned so the mutated condition fires where the correct one
+  wouldn't (or vice versa), since a clean "NOT NULL"/"NULL"-only input can't
+  distinguish the mutated boolean logic from the original.
+- `ColumnLevelPrimary_WithoutAFollowingKeyToken_DoesNotSetIsPrimaryKey`
+  killed the main flags-loop's `Is(pos,"PRIMARY") && Is(pos+1,"KEY")`
+  `&&`->`||` mutation (the existing
+  `ColumnLevelPrimaryKey_RequiresBothTokens_NotKeyAlone` test contained
+  neither "primary" nor "key" at all, so both forms evaluated to false
+  identically and never exercised the mutation).
+- A fifth authored test,
+  `AlterColumnIdentityToggle_DropForm_Unsupported_NotMisparsedAsAColumnNamedDrop`,
+  turned out to be a byte-for-byte duplicate of an existing
+  `[InlineData]` case in `AlterColumnIdentityToggle_Postgres_Unsupported_NotMisparsed`
+  and was removed rather than kept as redundant coverage.
+
+**One mutation investigated and confirmed equivalent by direct manual
+mutation** (not just reasoning — the source was actually edited, the
+existing test suite run against the mutated build, observed to still pass,
+then reverted and confirmed clean via `git diff`): the ALTER COLUMN
+identity-toggle guard's `Is(body, p + 1, "SET")` term (`p+1`->`p-1`
+arithmetic and `"SET"`->`""` string mutations, both at line 447). The
+existing `AlterColumnIdentityToggle_Postgres_Unsupported_NotMisparsed`
+theory's `"...set generated always"` case DOES exercise the real (correct)
+code path, and *should* differ once mutated by this reasoning: the SET
+term's OR-clause would flip false, the whole identity-toggle guard would
+fail to match, and the code would fall through toward
+`ParseColumnDef`. But `"SET"` is a genuine tokenizer keyword (unlike
+`ADD`/`DROP`/`COLUMN`, which the tokenizer treats as plain identifiers, per
+`GroupAlterActions`' own doc comment) — so `def[1].Type != Identifier`
+catches it and returns `null` regardless, and `ParseColumnDef` returning
+`null` produces the exact same `Unsupported` result. Confirmed by actually
+applying the `p+1`->`p-1` mutation to the source, running the full theory
+test class, observing all 5 cases still pass, then reverting (verified
+clean via `git diff --stat`). This is a stronger equivalence proof than the
+"trace by hand" reasoning used elsewhere in this document — worth reaching
+for when a survivor looks like it *should* be killable but a targeted test
+doesn't move it.
+
+The other ~4 targeted survivors (facet-parsing `pos` arithmetic on
+`decimal(10,2)`'s second-number branch, `varchar(max)`'s MAX-branch
+`pos++`, `double precision`'s continuation-word `pos++`) were traced by
+hand and found to fall under the SAME "generic unknown-flag skip absorbs
+it" equivalence class documented in the second update above, just not
+individually named there: every one of those positions is followed only by
+tokens that don't match any of the flags loop's specific keyword checks
+(digits, commas, parens, or a keyword like "PRECISION"/"MAX" that isn't
+itself a recognized flag), so regardless of exactly where a mis-tracked
+`pos` lands within that stretch, the generic `pos++ // unknown flag — skip
+token` fallback absorbs every intervening token one at a time and the loop
+still reaches the real trailing `NOT NULL`/`NULL` flag with the exact same
+end state. This mechanism is powerful enough that most remaining
+positional (non-decision) mutations in the facet-parsing region are likely
+equivalent by the same reasoning, not just these four — worth remembering
+before spending more effort on `pos`-arithmetic survivors specifically
+there.
+
+Verified via full solution `dotnet build -c Release` (0 errors, pre-existing
+warnings only) + `dotnet test` (all test assemblies passed, 0 failures) —
+log at `tmp/full-test-run.log` (gitignored).
+
+**Where things stand:** 94.50%, still short of 96%. Of the 4 target files,
+`SchemaSimulator.cs`, `ReferencedObjects.cs`, and `MigrationImpactReport.cs`
+are now fully accounted for — every remaining survivor in all three is a
+confirmed equivalent mutant, not a coverage gap, so their scores are at
+their true ceiling barring a change to the production code itself (e.g.
+removing the redundant `outParam == null` half of `SchemaSimulator.cs`'s
+guards, which would be a source change, not a test change, and is out of
+this pass's scope). `MigrationParser.cs` remains the only file with
+real headroom, but its remaining ~99 survivors are now believed to be
+mostly equivalent by the same two absorption mechanisms documented across
+this and the prior update (generic-unknown-flag-skip, and
+keyword-vs-identifier-tokenization safety nets) — further gains there would
+need the same one-by-one manual-mutation-verification rigor as the `SET`
+case above, which is slow per mutant. Not recommended to keep chasing 96%
+by volume; a small number of individually-traced mutants at a time, with
+manual-mutation verification when reasoning alone is inconclusive, is the
+only remaining honest path forward.
