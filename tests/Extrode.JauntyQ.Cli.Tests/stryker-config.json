@@ -1,0 +1,9 @@
+{
+  "_comment": "break: 0 is deliberate: the nightly mutation job treats a score as a report to look at, never a gate. Added 2026-09-20 to close the 'only 2 of 8 src projects have mutation coverage' gap (docs/handoffs/2026-09-20-coverage-mutation-gaps-from-jaunty-probe.md). Extrode.JauntyQ.Cli itself (Program.cs, 6 lines) is left out of scope -- too small to be worth its own config; Cli.Core is where the real logic (CliHost, verb dispatch, path safety) lives.",
+  "stryker-config": {
+    "project": "Extrode.JauntyQ.Cli.Core.csproj",
+    "reporters": ["progress", "json"],
+    "verbosity": "info",
+    "thresholds": { "high": 80, "low": 65, "break": 0 }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "_comment": "break: 0 is deliberate: the nightly mutation job treats a score as a report to look at, never a gate. Added 2026-09-20 to close the 'only 2 of 8 src projects have mutation coverage' gap (docs/handoffs/2026-09-20-coverage-mutation-gaps-from-jaunty-probe.md). No `mutate` glob: 2,551 LOC is comparable to Analysis's already-unnarrowed 4,124, so whole-project mutation should run in a reasonable time. This test project also covers Extrode.JauntyQ.Schema (see the sibling stryker-config.schema.json in this same directory) and Extrode.JauntyQ.SqlParser/Runtime, which is why `project` is set explicitly below rather than relying on single-reference inference.",
+  "stryker-config": {
+    "project": "Extrode.JauntyQ.Schema.Extraction.csproj",
+    "reporters": ["progress", "json"],
+    "verbosity": "info",
+    "thresholds": { "high": 80, "low": 65, "break": 0 }
+  }
+}

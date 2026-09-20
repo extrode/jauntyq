@@ -1,4 +1,5 @@
 {
+  "_comment": "break: 0 is deliberate, not an oversight: the nightly mutation job (.github/workflows/nightly.yml) treats a score as a report to look at, never a gate that fails the run. If you're reading this because the config moved somewhere that comment doesn't apply, re-check whether break:0 is still what you want. No `mutate` glob here on purpose (2026-09-20): at 3,800 LOC, whole-project mutation of SqlParser already runs in a reasonable time, and the last several mutation-survivor-fixing passes (SqlParser.cs, Part4/6/7) relied on its full-project results, not a narrowed subset. Narrow this only if the run time becomes a real problem, not preemptively -- Generator's config narrows because 13K LOC actually is expensive by default.",
   "stryker-config": {
     "project": "Extrode.JauntyQ.SqlParser.csproj",
     "reporters": ["progress", "json"],

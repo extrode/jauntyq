@@ -149,10 +149,44 @@ jobs:
     timeout-minutes: 240
     strategy:
       fail-fast: false
+      # `include`, not a flat `project` list, because two entries (Extrode.JauntyQ.Schema and
+      # its own Schema.Extraction) share one test-project directory and need different config
+      # files and extra flags to disambiguate -- a flat list can't carry that. Widened
+      # 2026-09-20 from 2 to 6 of 8 src projects (docs/handoffs/2026-09-20-coverage-mutation-
+      # gaps-from-jaunty-probe.md); Extrode.JauntyQ.Runtime is source-free (README only) and
+      # Extrode.JauntyQ.Cli is a 6-line Program.cs, neither is worth its own mutation run.
       matrix:
-        project:
-          - Extrode.JauntyQ.SqlParser.Tests
-          - Extrode.JauntyQ.Analysis.Tests
+        include:
+          - label: Extrode.JauntyQ.SqlParser.Tests
+            directory: Extrode.JauntyQ.SqlParser.Tests
+            configFile: ""
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Analysis.Tests
+            directory: Extrode.JauntyQ.Analysis.Tests
+            configFile: ""
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Generator
+            directory: Extrode.JauntyQ.Generator.Tests
+            configFile: ""
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Cli.Core
+            directory: Extrode.JauntyQ.Cli.Tests
+            configFile: ""
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Schema.Extraction
+            directory: Extrode.JauntyQ.Schema.Extraction.Tests
+            configFile: ""
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Schema
+            # Extrode.JauntyQ.Schema has no dedicated test project -- it's exercised from both
+            # this directory and Extrode.JauntyQ.Generator.Tests. Run from here (its stryker
+            # config lives alongside Schema.Extraction's, named to not collide) with an extra
+            # --test-project so mutants only Generator.Tests kills don't misreport as
+            # NoCoverage -- mirrors jaunty's own --test-project fix for its UnitTests/Tests
+            # split (see that repo's nightly.yml).
+            directory: Extrode.JauntyQ.Schema.Extraction.Tests
+            configFile: stryker-config.schema.json
+            extraArgs: --test-project ../Extrode.JauntyQ.Generator.Tests/Extrode.JauntyQ.Generator.Tests.csproj
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -166,16 +200,19 @@ jobs:
       - name: Install Stryker.NET
         run: dotnet tool install --global dotnet-stryker
 
-      - name: Mutate ${{ matrix.project }}
-        working-directory: tests/${{ matrix.project }}
-        run: dotnet-stryker
+      - name: Mutate ${{ matrix.label }}
+        working-directory: tests/${{ matrix.directory }}
+        run: >-
+          dotnet-stryker
+          ${{ matrix.configFile != '' && format('--config-file {0}', matrix.configFile) || '' }}
+          ${{ matrix.extraArgs }}
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: stryker-${{ matrix.project }}
-          path: tests/${{ matrix.project }}/StrykerOutput/
+          name: stryker-${{ matrix.label }}
+          path: tests/${{ matrix.directory }}/StrykerOutput/
           if-no-files-found: ignore
 
   benchmarks:
