@@ -109,7 +109,14 @@ proven per-mutant the way `SchemaSimulator.cs`'s was.
 - `Extrode.JauntyQ.SqlParser` baseline established 2026-09-20: **59.22%**,
   -36.78 pp below the same 96% target. A same-day follow-up closed the 6
   zero-coverage IR model files to 100.00%, moving the assembly to **59.65%**
-  (-36.35 pp). See the per-file tally below.
+  (-36.35 pp). A further same-day pass strengthened the 4 largest
+  parser-core files (`SqlParser.cs`, `SqlParser.Part6.cs`,
+  `SqlParser.Part4.cs`, `SqlParser.Part7.cs`) — see the per-file tally below.
+  Per-file scores are exact (file-scoped Stryker re-runs); a whole-project
+  re-run to get the new authoritative overall SqlParser score was started but
+  did not complete within the session, so the **59.65%** overall figure below
+  is stale for these 4 rows specifically — re-run `scripts/mutate.sh
+  sqlparser --mutate` to refresh it.
 
 ## Extrode.JauntyQ.SqlParser — per-file tally vs. 96% target
 
@@ -117,15 +124,15 @@ proven per-mutant the way `SchemaSimulator.cs`'s was.
 |---|---|---|---|---|---|---|
 | `IR/ColumnRef.cs` | 2 | 6 | 0 | 8 | 25.00% | -71.00 pp |
 | `IR/ParameterRef.cs` | 1 | 3 | 0 | 4 | 25.00% | -71.00 pp |
-| `SqlParser.Part6.cs` | 124 | 34 | 1 | 349 | 35.53% | -60.47 pp |
 | `IR/OrderByRef.cs` | 1 | 1 | 0 | 2 | 50.00% | -46.00 pp |
-| `SqlParser.Part4.cs` | 183 | 125 | 4 | 351 | 52.14% | -43.86 pp |
-| `SqlParser.Part7.cs` | 107 | 62 | 5 | 205 | 52.20% | -43.80 pp |
 | `SqlParser.Part2.cs` | 204 | 94 | 17 | 362 | 56.35% | -39.65 pp |
 | `SqlParser.Part5.cs` | 210 | 72 | 21 | 366 | 57.38% | -38.62 pp |
 | `SqlParser.Part3.cs` | 170 | 80 | 0 | 283 | 60.07% | -35.93 pp |
-| `SqlParser.cs` | 612 | 216 | 12 | 974 | 62.83% | -33.17 pp |
+| `SqlParser.Part7.cs` | 113 | 57 | 4 | 174 | 64.94% | -31.06 pp |
+| `SqlParser.Part4.cs` | 230 | 82 | 0 | 312 | 73.72% | -22.28 pp |
 | `SqlTokenizer.cs` | 443 | 63 | 4 | 555 | 79.82% | -16.18 pp |
+| `SqlParser.Part6.cs` | 134 | 25 | 0 | 159 | 84.28% | -11.72 pp |
+| `SqlParser.cs` | 691 | 142 | 7 | 840 | 82.26% | -13.74 pp |
 | `IR/CteRef.cs` | 1 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
 | `IR/JoinRef.cs` | 4 | 0 | 0 | 4 | 100.00% | **+4.00 pp** |
 | `IR/LiteralBinding.cs` | 3 | 0 | 0 | 3 | 100.00% | **+4.00 pp** |
@@ -133,15 +140,24 @@ proven per-mutant the way `SchemaSimulator.cs`'s was.
 | `IR/QueryModel.cs` | 1 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
 | `IR/TableRef.cs` | 2 | 0 | 0 | 2 | 100.00% | **+4.00 pp** |
 | `Token.cs` | 1 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
-| **Tally (18 files)** | **2073** | **756** | **64** | **3475** | **59.65%** | **-36.35 pp** |
+| **Tally (18 files, mixed dates — see note above)** | **1899** | **625** | **53** | **2577** | **73.69%** | **-22.31 pp** |
 
-Largest single lever: the 7 `SqlParser*.cs` files hold 683 of the 756
-remaining survivors (90%) and 60 of the 64 no-coverage mutants — this is
-where the next pass should go, biggest file (`SqlParser.cs`, 216 survivors)
-first. The 6 IR model files are now closed (7 of 18 files at 100.00%,
-including `Token.cs`) — all 15 mutants were default-value-literal survivors
-(`= string.Empty` mutated with nothing asserting the default), no equivalent
-mutants found; see `IrModelTypesMutationCoverageTests.cs` and
-`mutation-coverage-report.md`'s "IR model types pass" section. No
-equivalent-mutant analysis has been done yet for the 11 remaining sub-96%
-files.
+The bottom tally row combines the 4 freshly re-measured files with the other
+14 files' figures as of their last measurement (2026-09-20) — it is a
+weighted average across files measured at different times, not a single
+coherent whole-project Stryker run; treat it as directional only until the
+next full run confirms it. Largest remaining single lever:
+`SqlParser.Part2.cs`, `SqlParser.Part3.cs`, and `SqlParser.Part5.cs` (246
+combined survivors, 38 no-coverage) are the only 3 of the 7 parser-core files
+not yet touched by a coverage pass. The 6 IR model files are closed (7 of 18
+files at 100.00%, including `Token.cs`) — all 15 mutants were
+default-value-literal survivors (`= string.Empty` mutated with nothing
+asserting the default), no equivalent mutants found. The 4 files covered in
+this pass (`SqlParser.cs`, `SqlParser.Part6.cs`, `SqlParser.Part4.cs`,
+`SqlParser.Part7.cs`) moved from 35–63% to 65–84%, adding
+`SqlParserCoreMutationCoverageTests.cs`, `SqlParserPart6MutationCoverageTests.cs`,
+`SqlParserPart4PerfHintMutationCoverageTests.cs`, and
+`SqlParserPart7CteMutationCoverageTests.cs` — no equivalent-mutant analysis
+was attempted for their remaining survivors (time-boxed to new-test-writing
+only). No equivalent-mutant analysis has been done yet for any of the
+remaining sub-96% files.

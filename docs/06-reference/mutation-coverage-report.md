@@ -151,6 +151,46 @@ which will need the same file-by-file assertion-strengthening approach used
 on `MigrationParser.cs`. No equivalent-mutant analysis has been done yet —
 this is an unfiltered baseline.
 
+## Extrode.JauntyQ.SqlParser — parser-core pass (SqlParser.cs, Part4/6/7)
+
+Same-day follow-up to the baseline above, targeting the 4 largest-gap
+parser-body files by file-scoped Stryker runs (`--mutate "**/<File>.cs"`).
+Added `SqlParserCoreMutationCoverageTests.cs` (41 tests, `SqlParser.cs`),
+`SqlParserPart6MutationCoverageTests.cs` (12 tests), 
+`SqlParserPart4PerfHintMutationCoverageTests.cs` (13 tests), and
+`SqlParserPart7CteMutationCoverageTests.cs` (10 tests). Full
+`Extrode.JauntyQ.SqlParser.Tests` suite passed 479/479 on both net8.0 and
+net10.0 after all four files. No equivalent mutants were found or claimed in
+this pass — every survivor closed was a real, previously-untested gap
+(aggregate exact-shape capture, redundant-paren stripping depth, SELECT INTO
+target-skipping, TOP N PERCENT WITH TIES token arithmetic, DELETE's optional
+FROM, RETURNING's nested-paren/trailing-`;` handling, EXISTS-subquery
+lookback guards, WHERE-region boundary and column/column comparisons in
+`ExtractPerfHints`, and `ParseWith`'s parameter-merge/WITH RECURSIVE
+position-exactness rules).
+
+| File | Before | After |
+|---|---|---|
+| `SqlParser.cs` | 62.83% (whole-project baseline attribution) | **82.26%** (691/142/7/840, scoped) |
+| `SqlParser.Part6.cs` | 35.53% | **84.28%** (134/25/0/159, scoped) |
+| `SqlParser.Part4.cs` | 52.14% | **73.72%** (230/82/0/312, scoped) |
+| `SqlParser.Part7.cs` | 52.20% | **64.94%** (113/57/4/174, scoped) |
+
+A whole-project re-run to obtain a new authoritative overall SqlParser score
+was attempted twice and crashed both times with VsTest socket errors
+(`SocketException (10054)`, no `reports/` output produced) rather than
+completing — the file-scoped scores above are exact, but there is currently
+no valid whole-project number superseding the 59.65%/59.22% baseline figures
+elsewhere in this doc for these 4 files specifically. Re-run
+`scripts/mutate.sh sqlparser --mutate` (ideally offloaded to a machine that
+can sustain a multi-minute VsTest session, per this repo's "no long local
+runs" convention) to get a clean number.
+
+Not covered in this pass (left for a future round): `SqlParser.Part2.cs`,
+`SqlParser.Part3.cs`, `SqlParser.Part5.cs`, `SqlTokenizer.cs`, and the two
+still-low IR files (`IR/ColumnRef.cs`, `IR/ParameterRef.cs`,
+`IR/OrderByRef.cs`).
+
 ## Extrode.JauntyQ.SqlParser — IR model types pass (easiest win, done)
 
 All 15 survivors in the 6 zero-score `IR/*.cs` files turned out to be a single
