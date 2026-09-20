@@ -30,6 +30,7 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 2026-09-20 | MigrationParser.cs — `ReadObjectName` bracket-quoted-dot merge correction + boundary test | **95.84%** | `c9fa8c1` |
 | 2026-09-20 | Adversarial fable-verify pass over `pos <= def.Count`/`SkipParenGroup` equivalence claims + MigrationParser.cs DEFAULT-value Negate mutant fix (line 689, flagged by the pass) | **95.97%** | `ac22f74` |
 | 2026-09-20 | MigrationParser.cs GENERATED-column Negate mutant fix (line 704, found by manual re-check after the fable-verify pass) | **96.01% — target reached** | (merge into `dev` after `34c070b`) |
+| 2026-09-20 | Post-96% survivor pass: 1 real gap in `ReferencedColumnComparer.Equals` + 6 real gaps in `MigrationParser.cs` (91→84 survived) | **96.30%** | `703192c`, `f8e2c18` |
 
 ## Current per-file breakdown (as of 95.84%, whole-project re-run 2026-09-20 19:05-19:09, confirming the `ReadObjectName` fix)
 
@@ -464,6 +465,92 @@ negative-case tests fail against the `||` mutant, pass against real code.
   is a true no-op with no observable side effect.
 
 Full suite: 1436/1436 passing on both net8.0 and net10.0 after the fix.
+
+## Post-96% survivor pass, 2026-09-20 — MigrationParser.cs full sweep
+
+Following the small-files pass above, all 66 remaining `Survived` mutants in
+`MigrationParser.cs` were individually re-traced (not template-matched
+against prior "equivalent" classes without checking the specific mechanism
+applies).
+
+**6 more genuine gaps found and fixed** (5 new tests, one of which also
+corrects a wrong equivalence claim written earlier this session):
+
+- `ColumnFlag_ParenthesizedDefaultExpression_TrailingNotNullStillRecognized`
+  (line 685) — the DEFAULT branch's paren-depth scan (`--depth == 0`
+  mutated to `!= 0`) never finds the matching close-paren of a single
+  balanced pair like `(5)` (depth goes 1→0, which doesn't satisfy `!= 0`),
+  so the scan runs past the closing paren with nothing to stop it, silently
+  swallowing a trailing `not null` as part of the "skipped default
+  expression."
+- `GeneratedComputedColumn_ExpressionContainsNotNull_DoesNotFlipNullability`
+  (line 724) — dropping the `SkipParenGroup` call in the GENERATED-AS
+  computed-expression branch leaves `pos` on the expression's own opening
+  `(`, so the outer flags loop re-scans tokens *inside* the expression one
+  at a time — an embedded `is not null` inside the expression's own text
+  gets misread as a real trailing flag on the column itself.
+- `ComputedColumn_RedundantNotNullRepeatedTwice_StaysNonNullable` and
+  `ColumnFlag_RedundantNotNullRepeatedTwice_StaysNonNullable` (lines 506,
+  624) — dropping the NOT+NULL branch's own `continue` lets a second
+  `NOT NULL` pair's trailing `NULL` fall through to the bare-NULL check on
+  the *next* iteration, wrongly flipping `IsNullable` back to `true`.
+- `ColumnFlag_BareNullFollowedByNotNull_NotNullTakesEffect` (line 630) —
+  mirror image: dropping the bare-NULL branch's `continue` lets the
+  following `NOT` get consumed by the generic unknown-flag skip instead of
+  being recognized as the start of a `NOT NULL` pair (which sits earlier in
+  the if-chain and is never revisited), so the trailing `NULL` is
+  wrongly caught as a fresh bare-NULL on the next iteration.
+- `CreateTable_DottedNameSegmentFollowedByNonIdentifierToken_DoesNotMergeAndIsUnsupported`
+  (line 815) — **corrects a wrong equivalence claim** written earlier this
+  session, which argued `ReadObjectName`'s `tokens[pos + 1].Type ==
+  Identifier` check was equivalent to `tokens[pos - 1]...` because
+  `tokens[pos - 1]` (the segment just consumed) is always an Identifier at
+  that point. True but insufficient — the real check's purpose is to
+  reject the case where `tokens[pos + 1]` is *not* an Identifier, which
+  `tokens[pos - 1]` can never see. `SqlTokenizer.MergeQualifiedIdentifiers`
+  only fuses `Identifier '.' Identifier`, so `[dbo].5` leaves `.` and the
+  Number `5` unmerged; real code correctly refuses to merge and falls back
+  to `Unsupported`, while the mutant wrongly merges anyway and accepts the
+  statement with `TableName == "5"`.
+
+**All other survivors confirmed equivalent**, each via a specific traced
+mechanism (not a blanket "looks like the others"):
+- **Generic-skip absorption**: the main flags loop's trailing unknown-flag
+  `pos++` catchall silently reabsorbs leftover tokens from a dropped
+  branch, at lines 558, 579, 585, 606, 611, 649 (×4), 671/672, 725/726
+  (×6), 751 (×2, verified across all 3 call sites).
+- **Cross-recognition between independent branches**: a failed branch's
+  leftover tokens get caught by a separate, more generic branch elsewhere
+  in the same loop recognizing the same concept, at lines 709 (×3), 714,
+  717 (×2), 718 (×2), 719.
+- **Off-by-one loop-guard absorbed by bounds-checked helpers** (the
+  previously-confirmed `pos <= def.Count` class, individually re-checked
+  rather than assumed): lines 618, 647, 682, 689, 748.
+- **Dead output** (mutated `ref pos` value never read again by the
+  caller): line 845 (×2).
+- **Invariant/identity proofs**: line 576 (`def[pos+1]`→`def[pos-1]`,
+  invariant on token type at that position — distinct from the wrong claim
+  at line 815 above, which involved a *different* invariant that doesn't
+  hold), line 805 (`Substring(dot+1)` when `dot==-1` degenerates to
+  `Substring(0)`, identical to the unconditional branch), line 798
+  (`index >= 0`→`index > 0` in `IsSymbol`, exhaustively confirmed `index`
+  is never 0 at any of ~17 call sites).
+- **Never-fires / vacuous-condition absorption** (`ReadParenNameList`'s
+  closing-paren check, lines 898-899): the mutated condition
+  (`Type != Symbol && Value == ")"`) is a logical contradiction — a `)`
+  token is always `Type == Symbol` — so it can never be true and the loop
+  runs to natural completion instead of breaking early; any trailing
+  tokens after the true close-paren are either non-Identifier (skipped by
+  a later guard) or a stray Identifier resolving to no real column
+  (absorbed by the caller's `col != null` guard).
+- `SplitTopLevel`/`SplitRemaining`'s spurious-empty-entry survivors (lines
+  862, 886) — absorbed by the respective callers' `Count == 0` guards one
+  layer up.
+
+**Result: `MigrationParser.cs` 70→64 survived (6 killed), whole-project
+Killed+Timeout 2285→2292 (+7, including the small-files fix above),
+Survived 91→84.** Full suite: 1442/1442 on both net8.0 and net10.0.
+**Whole-project score: 96.01% → 96.30%.**
 
 ## Extrode.JauntyQ.SqlParser — baseline
 
