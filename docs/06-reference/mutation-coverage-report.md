@@ -380,6 +380,30 @@ confident beforehand — treat any future "this is definitely the practical
 ceiling" claim in this file with the same skepticism, and adversarially
 verify before relying on it.
 
+**Coverage gap (NoCoverage mutants) adversarially closed, 2026-09-20.** At
+96.01% the whole project still carries exactly 4 `NoCoverage` mutants (never
+executed by any test, as opposed to the 91 `Survived` mutants that ran but
+weren't killed): `AutoCrud.cs`'s `JoinColumns` empty-list guard (line 69,
+`return ""`), `ReferencedObjects.cs`'s `ReferencedColumnComparer.GetHashCode`
+`?? ""` fallbacks (lines 185-186), and `MigrationParser.cs`'s
+`SkipParenGroup` not-`"("` early return (line 746, already discussed above
+as one of the 7-mutant class's siblings). An adversarial fork, instructed to
+find a real call path refuting each claim rather than confirm it, traced
+every call site fresh: `JoinColumns`'s 8 call sites in `AutoCrud.cs` are each
+upstream-guarded (`pkCols`/`whereCols` via `pkCols.Count == 0 continue`,
+`insertCols`/`setCols` via their own `Count > 0` blocks, `columns` via an
+`allColumnsUsable || columns.Count == 0` gate); `ReferencedColumn`'s `Table`
+and `Column` are only ever constructed inside `ResolveInto`'s `AddColumn`
+closure from strings already checked non-empty (column at line 80, table via
+`aliasToTable`/`alias`/`inScope`, all populated only from non-empty
+strings); and `SkipParenGroup`'s 3 call sites (lines 502, 719, 724) all
+pre-check `IsSymbol(def, pos, "(")` immediately before calling, with no
+intervening mutation of `pos`. No counter-examples were found — all 4
+`NoCoverage` mutants are confirmed genuinely unreachable dead/defensive
+code, not real coverage gaps. **The `NoCoverage` portion of the gap to 96%
+is closed**; all remaining headroom is in the 91 `Survived` mutants, not
+addressed by this pass.
+
 ## Extrode.JauntyQ.SqlParser — baseline
 
 First-ever Stryker run for this assembly, 2026-09-20, whole-project
