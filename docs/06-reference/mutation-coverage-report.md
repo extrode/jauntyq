@@ -22,11 +22,12 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 2026-09-20 | Round 4 (4 remaining sub-96% files) | 94.50% | `3535b13` |
 | 2026-09-20 | Near-target cleanup (UpsertKeyResolver/AutoCrud/DialectMapper/DialectReservedWords) | 94.54% | `1dd7886` |
 | 2026-09-20 | SqlParser baseline run (first ever) | 59.22% | `209db2d` |
-| 2026-09-20 | SqlParser — 6 zero-coverage IR model files closed | 59.65% | *(pending merge)* |
+| 2026-09-20 | SqlParser — 6 zero-coverage IR model files closed | 59.65% | `6763087` |
+| 2026-09-20 | fable-verify pass: fixed 3 mislabeled-equivalent survivors (DialectMapper/DialectReservedWords) | **94.66%** | *(pending merge)* |
 
-## Current per-file breakdown (as of 94.54%, commit `1dd7886`)
+## Current per-file breakdown (as of 94.66%, whole-project re-run 2026-09-20 16:46-16:52, confirming the fable-verify fixes)
 
-19 source files, 2380 mutants tested (2250 killed+timeout, 119 survived, 11 no-coverage).
+19 source files, 2380 mutants tested (2253 killed+timeout, 116 survived, 11 no-coverage).
 
 | Score | Killed | Timeout | Survived | NoCov | Total | File |
 |---|---|---|---|---|---|---|
@@ -36,8 +37,8 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 94.17% | 194 | 0 | 12 | 0 | 206 | `Migrations/SchemaSimulator.cs` |
 | 96.25% | 77 | 0 | 3 | 0 | 80 | `UpsertKeyResolver.cs` |
 | 98.60% | 141 | 0 | 1 | 1 | 143 | `AutoCrud.cs` |
-| 98.72% | 308 | 0 | 4 | 0 | 312 | `DialectMapper.cs` |
-| 99.68% | 630 | 0 | 2 | 0 | 632 | `DialectReservedWords.cs` |
+| 99.36% | 307 | 3 | 2 | 0 | 312 | `DialectMapper.cs` |
+| 99.84% | 627 | 4 | 1 | 0 | 632 | `DialectReservedWords.cs` |
 | 100.00% | 1 | 0 | 0 | 1 | `AnalysisDiagnostic.cs` |
 | 100.00% | 27 | 0 | 0 | 27 | `CrudColumnRules.cs` |
 | 100.00% | 15 | 0 | 0 | 15 | `Diff/SchemaDelta.cs` |

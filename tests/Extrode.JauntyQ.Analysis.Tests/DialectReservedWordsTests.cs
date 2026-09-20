@@ -954,6 +954,17 @@ public class DialectReservedWordsTests
     }
 
     [Fact]
+    public void RequiresQuotingForCase_NullNameWithPostgresDialect_ReturnsFalse_DoesNotThrow()
+    {
+        // Guards the leading guard's "||" against a mutation to "&&": with a
+        // null name and a non-null postgres dialect, only the name half of an
+        // "&&"-joined guard is true, so it would fall through into the
+        // foreach and throw NullReferenceException instead of short-circuiting
+        // to false.
+        Assert.False(DialectReservedWords.RequiresQuotingForCase(null!, "postgres"));
+    }
+
+    [Fact]
     public void RequiresQuotingForCase_NonPostgresDialect_ReturnsFalseEvenWithUppercase()
     {
         Assert.False(DialectReservedWords.RequiresQuotingForCase("OrderNumber", "mysql"));
