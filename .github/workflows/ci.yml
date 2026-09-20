@@ -41,7 +41,36 @@ jobs:
         # rethrow on container bring-up failure (see test-infra/FixtureGate.cs),
         # so a broken Docker runner fails the job loudly instead of silently
         # skipping the Docker-gated matrix.
-        run: dotnet test JauntyQ.slnx -c Release --no-build --verbosity normal
+        #
+        # --logger trx is required for the skip-audit step below: without it, a
+        # `NotExecuted` test is invisible and `dotnet test` exits 0 anyway (see
+        # scripts/skip-audit.js's header for the 2026-08-17 incident this
+        # guards against). This was previously only enforced by
+        # scripts/test-all.sh locally, not by this CI job itself.
+        id: test
+        continue-on-error: true
+        run: |
+          dotnet test JauntyQ.slnx -c Release --no-build --verbosity normal \
+            --logger trx --results-directory artifacts/test-results
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+
+      - name: Skip audit
+        # Docker is reachable on GitHub-hosted Linux runners (see the Test step
+        # above), so a "Docker unavailable" skip here would mean a real
+        # bring-up failure, not a legitimate soft-skip -- same reasoning
+        # scripts/test-all.sh uses locally.
+        run: |
+          deno run -A scripts/skip-audit.js \
+            --results artifacts/test-results --docker-reachable true
+
+      - name: Fail if tests failed
+        # A genuine test failure outranks an unexplained skip in what it tells
+        # you, so report it after the skip audit's diagnosis, but either one
+        # fails the job.
+        if: steps.test.outcome == 'failure'
+        run: exit 1
 
       - name: Vulnerable package scan
         # Fails the job if any dependency has a known vulnerability.
