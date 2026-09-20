@@ -2,8 +2,15 @@
 
 Per-assembly, per-file mutation score, tallied against the 96% target set for
 `Extrode.JauntyQ.Analysis` (parity with sibling repo `jaunty`'s ~96% baseline).
-Last confirmed whole-project `Extrode.JauntyQ.Analysis` run: **96.47%**
-(2026-09-20 22:48-22:52) — target exceeded. Path: 96.01% (target first
+Last confirmed whole-project `Extrode.JauntyQ.Analysis` run: **97.23%**
+(2026-09-21 02:14-02:19, commit `0eee118`) — target exceeded. This followed
+96.47%: a genuine fable-model verify pass fixed 5 more real gaps in
+`MigrationParser.cs` (`5deae22`), and the previously-undecided
+"malformed-SQL-only" survivor category (20 mutants total, lines 447-719) was
+fully resolved — 17 killed with real tests across earlier rounds plus this
+round's 6, and 3 confirmed genuinely equivalent (`a9603e4`). See the new
+"2026-09-21 pass" section in mutation-coverage-report.md for the full
+per-mutant detail. Prior path (still valid history): 96.01% (target first
 reached, two genuine Negate mutants in `MigrationParser.cs`'s DEFAULT-value
 and GENERATED-column handling, lines 689/704, found via an adversarial
 fable-verify pass) → 96.30% (a full post-96% survivor pass over the
@@ -36,7 +43,7 @@ run this effort.
 
 | Assembly | Stryker config | Ever run this effort | Target | Actual | Δ to target |
 |---|---|---|---|---|---|
-| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **96.47%** | **+0.47 pp (target exceeded)** |
+| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **97.23%** | **+1.23 pp (target exceeded)** |
 | `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | Yes | 96.00% | **59.65%** | **-36.35 pp** |
 | `Extrode.JauntyQ.Cli.Core` | none | No | — | — | out of scope |
 | `Extrode.JauntyQ.Cli` | none | No | — | — | out of scope |
@@ -74,14 +81,18 @@ threshold — `dotnet stryker` will not fail the build below 96%, only below 0%
 | `Impact/ImpactReason.cs` | 4 | 0 | 0 | 0 | 4 | 100.00% | **+4.00 pp** |
 | `Impact/QueryImpactInput.cs` | 1 | 0 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
 | `Migrations/MigrationStatement.cs` | 2 | 0 | 0 | 0 | 2 | 100.00% | **+4.00 pp** |
-| **Tally (19 files)** | **2296*** | — | **80** | **4** | **2380** | **96.47%** | **+0.47 pp (target exceeded)** |
+| **Tally (19 files)** | **2314*** | — | **62** | **4** | **2380** | **97.23%** | **+1.23 pp (target exceeded)** |
+
+**2026-09-21 update:** whole-project re-run (`0eee118`) after the fable-verify 5-gap fix and the malformed-SQL survivor category resolution: Killed 2277, Timeout 37, Survived 62, NoCoverage 4, total 2380 — **97.23%**, up from 96.47%. See mutation-coverage-report.md's "2026-09-21 pass" section for the per-mutant detail.
 
 \* "Killed" column includes Timeout mutants (Stryker treats Timeout as a kill
-for scoring purposes); the 2296/80/4/2380 total row is the last confirmed
-whole-project run, 2026-09-20 22:48-22:52 (2256 killed, 40 timeout, 80
+for scoring purposes); the 2314/62/4/2380 total row is the last confirmed
+whole-project run, 2026-09-21 02:14-02:19 (2277 killed, 37 timeout, 62
 survived, 4 no-coverage) — this is a real, coherent whole-project number, not
-a per-file sum. 96% needed `Survived + NoCoverage ≤ 95`; the final count is
-84, 11 better than the line. In total this session found and fixed 12
+a per-file sum. The prior run (2026-09-20 22:48-22:52: 2256 killed, 40
+timeout, 80 survived, 4 no-coverage, 96.47%) is superseded. 96% needed
+`Survived + NoCoverage ≤ 95`; the final count is 66, 29 better than the
+line. In total this session found and fixed 12
 genuine (non-equivalent) mutants across 2 files: 2 Negate mutants in
 `MigrationParser.cs` (lines 689, 704, via an adversarial fable-verify pass)
 that closed the last gap to 96%, a further post-96% pass that individually
@@ -92,10 +103,21 @@ all 84 remaining survivors (mirroring the treatment already given the 4
 no-coverage mutants) found 3 more genuine gaps in `MigrationParser.cs` — 2
 of which corrected wrong equivalence claims written earlier the same
 session — see mutation-coverage-report.md for the full per-mutant
-reasoning. Every mutant in both the `Survived` and `NoCoverage` categories,
-across every sub-100% file, has now individually been through an
-adversarial refutation attempt; the remaining 80 survivors + 4 no-coverage
-are considered a confirmed equivalent-mutant floor.
+reasoning.
+
+**2026-09-21 update:** a genuine fable-model verify pass (distinct from the
+prior adversarial batch pass — dispatched fresh over the same 84-survivor
+state) found 5 more real gaps in `MigrationParser.cs` (`5deae22`), and the
+previously-undecided "malformed-SQL-only" category (20 mutants across lines
+447-719) was fully resolved: 6 more killed with a nested-paren test
+exploiting a naive-vs-depth-tracking paren-skip discrepancy, and 3 (lines
+709, the `BY`+`DEFAULT` prefix check) confirmed genuinely equivalent via
+exhaustive hand-mutation — no input, valid or malformed, distinguishes them,
+because the outer flags-loop's own catchall unconditionally re-scans a
+later bare `IDENTITY` keyword regardless of how the `GENERATED` prefix was
+parsed. Net this round: Survived 80→62, Timeout 40→37, Killed 2256→2277.
+The remaining 62 survivors + 4 no-coverage are considered a confirmed
+equivalent-mutant floor pending any future re-check.
 
 † This row is stale — it reflects the file-scoped 89.78% pass from earlier
 in the session, before the two fixes above and before the whole-project
@@ -137,8 +159,11 @@ the correction.
 
 ## Bottom line
 
-- **Overall: 96.47% vs. 96% target — target exceeded, confirmed by a fresh
-  whole-project run (2026-09-20 22:48-22:52).** The path there: 94.66% →
+- **Overall: 97.23% vs. 96% target — target exceeded, confirmed by a fresh
+  whole-project run (2026-09-21 02:14-02:19, commit `0eee118`), up from
+  96.47% after a genuine fable-model verify pass fixed 5 more real gaps and
+  the malformed-SQL survivor category was fully resolved (6 more killed, 3
+  confirmed equivalent).** The path there: 94.66% →
   95.55% (folding in `MigrationParser.cs`'s per-mutant pass) → 95.84%
   (`ReadObjectName` bracket-quoted-dot fix) → 95.97% (DEFAULT-value Negate
   mutant fix, line 689) → 96.01% (GENERATED-column Negate mutant fix, line
