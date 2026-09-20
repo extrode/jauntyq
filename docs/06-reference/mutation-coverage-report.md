@@ -528,21 +528,10 @@ mechanism (not a blanket "looks like the others"):
   rather than assumed): lines 618, 647, 682, 689, 748.
 - **Dead output** (mutated `ref pos` value never read again by the
   caller): line 845 (×2).
-- **Invariant/identity proofs**: line 576 (`def[pos+1]`→`def[pos-1]`,
-  invariant on token type at that position — distinct from the wrong claim
-  at line 815 above, which involved a *different* invariant that doesn't
-  hold), line 805 (`Substring(dot+1)` when `dot==-1` degenerates to
-  `Substring(0)`, identical to the unconditional branch), line 798
-  (`index >= 0`→`index > 0` in `IsSymbol`, exhaustively confirmed `index`
-  is never 0 at any of ~17 call sites).
-- **Never-fires / vacuous-condition absorption** (`ReadParenNameList`'s
-  closing-paren check, lines 898-899): the mutated condition
-  (`Type != Symbol && Value == ")"`) is a logical contradiction — a `)`
-  token is always `Type == Symbol` — so it can never be true and the loop
-  runs to natural completion instead of breaking early; any trailing
-  tokens after the true close-paren are either non-Identifier (skipped by
-  a later guard) or a stray Identifier resolving to no real column
-  (absorbed by the caller's `col != null` guard).
+- **Invariant/identity proofs**: line 805 (`Substring(dot+1)` when
+  `dot==-1` degenerates to `Substring(0)`, identical to the unconditional
+  branch), line 798 (`index >= 0`→`index > 0` in `IsSymbol`, exhaustively
+  confirmed `index` is never 0 at any of ~17 call sites).
 - `SplitTopLevel`/`SplitRemaining`'s spurious-empty-entry survivors (lines
   862, 886) — absorbed by the respective callers' `Count == 0` guards one
   layer up.
@@ -551,6 +540,57 @@ mechanism (not a blanket "looks like the others"):
 Killed+Timeout 2285→2292 (+7, including the small-files fix above),
 Survived 91→84.** Full suite: 1442/1442 on both net8.0 and net10.0.
 **Whole-project score: 96.01% → 96.30%.**
+
+## Adversarial fable-verify pass over the post-96% survivor claims, 2026-09-20
+
+Following the two passes above, dispatched two independent adversarial
+forks (instructed to try to REFUTE the equivalence claims just written, not
+confirm them) over all 78 `Survived` mutants those passes had labeled
+equivalent: 60 in `MigrationParser.cs`, and 18 across `SchemaSimulator.cs`
+(12), `ReferencedObjects.cs` (4), `AutoCrud.cs` (1), and
+`MigrationImpactReport.cs` (1). (The other 6 sub-100% files —
+`UpsertKeyResolver.cs`, `DialectMapper.cs`, `DialectReservedWords.cs` — had
+already been through an equivalent adversarial pass earlier this session,
+see the "Correction, 2026-09-20 (fable-verify pass)" note above.)
+
+**Small files: 0/18 refuted.** Independent re-derivation confirmed every
+claim, including re-checking the `SchemaSimulator.cs` null-iff-false
+invariant at all 9 call sites directly rather than assuming it holds
+everywhere, and confirming `GetHashCode`'s only contract (equal objects ⇒
+equal hashes) is preserved by all 4 `ReferencedObjects.cs` mutations
+regardless of the specific hash transform.
+
+**MigrationParser.cs: 3/60 refuted (6 mutants), 2 of which correct
+claims made two paragraphs above** — the "invariant/identity proof" at
+line 576 and the "never-fires / vacuous-condition absorption" at lines
+898-899 were both wrong:
+
+- **Line 576** (`def[pos+1]`→`def[pos-1]`) — the prior claim ("invariant on
+  token type at that position") was insufficient: with different
+  precision/scale values in a `decimal(10,2)` facet, the mutant reads
+  `Scale` from the wrong token and silently duplicates `Precision` (`Scale`
+  comes out `10` instead of `2`). No existing test used differing
+  precision/scale, so the duplication went unnoticed. New test:
+  `FacetParen_PrecisionAndScale_ScaleReadsTheSecondDigitGroupNotTheFirst`.
+- **Lines 898-899** (`ReadParenNameList`'s closing-paren check) — the prior
+  claim's contradiction analysis was correct as far as it went, but missed
+  that a broken check means the scan never stops at all, running past the
+  paren list's own close paren into the surrounding clause and picking up
+  a trailing identifier as a bogus extra PK column name. New test:
+  `TableLevelPrimaryKeyParenList_StopsAtClosingParen_DoesNotConsumeTrailingIdentifier`.
+- **Line 507** (computed-column shorthand's inline flags loop) — a
+  trailing bare `NULL` after an explicit `NOT NULL` (e.g.
+  `total as (x) not null null`) didn't flip `IsNullable` back to `true`;
+  this specific override case was untested. New test:
+  `ComputedColumn_NotNullFollowedByBareNull_FlipsBackToNullable`.
+
+The other 54 `MigrationParser.cs` mutants (57 individual mutations) were
+independently re-derived as genuinely equivalent, matching the mechanisms
+documented above.
+
+**Result: `MigrationParser.cs` 64→61 survived (3 killed).** Full suite:
+1445/1445 on net8.0. Whole-project re-run pending (see score-history table
+above this section for the confirmed figure once run).
 
 ## Extrode.JauntyQ.SqlParser — baseline
 
