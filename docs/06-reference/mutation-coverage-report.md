@@ -23,7 +23,9 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 2026-09-20 | Near-target cleanup (UpsertKeyResolver/AutoCrud/DialectMapper/DialectReservedWords) | 94.54% | `1dd7886` |
 | 2026-09-20 | SqlParser baseline run (first ever) | 59.22% | `209db2d` |
 | 2026-09-20 | SqlParser — 6 zero-coverage IR model files closed | 59.65% | `6763087` |
-| 2026-09-20 | fable-verify pass: fixed 3 mislabeled-equivalent survivors (DialectMapper/DialectReservedWords) | **94.66%** | *(pending merge)* |
+| 2026-09-20 | fable-verify pass: fixed 3 mislabeled-equivalent survivors (DialectMapper/DialectReservedWords) | **94.66%** | `6059d24` |
+| 2026-09-20 | SqlParser — SqlParser.cs/Part4/6/7.cs parser-core pass (76 new tests) | *(SqlParser whole-project re-run pending — see note below)* | `91e4c04` |
+| 2026-09-20 | MigrationParser.cs — per-mutant pass (12 new tests, 7 real gaps) | 89.78% (scoped; whole-project re-run pending) | *(pending merge, branch `test/migrationparser-per-mutant-pass`)* |
 
 ## Current per-file breakdown (as of 94.66%, whole-project re-run 2026-09-20 16:46-16:52, confirming the fable-verify fixes)
 
@@ -32,7 +34,7 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | Score | Killed | Timeout | Survived | NoCov | Total | File |
 |---|---|---|---|---|---|---|
 | 86.54% | 45 | 0 | 5 | 2 | 52 | `Impact/ReferencedObjects.cs` |
-| 87.02% | 632 | 32 | 91 | 8 | 763 | `Migrations/MigrationParser.cs` |
+| 87.02% (→89.78% per per-mutant pass below) | 632 (→652) | 32 (→33) | 91 (→70) | 8 | 763 (→755 tested) | `Migrations/MigrationParser.cs` |
 | 90.00% | 9 | 0 | 1 | 0 | 10 | `Impact/MigrationImpactReport.cs` |
 | 94.17% | 194 | 0 | 12 | 0 | 206 | `Migrations/SchemaSimulator.cs` |
 | 96.25% | 77 | 0 | 3 | 0 | 80 | `UpsertKeyResolver.cs` |
@@ -62,6 +64,7 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | `ReferencedObjectsMutationCoverageTests.cs` | `Impact/ReferencedObjects.cs` | 86.54% | `e6a75c3` |
 | `UpsertKeyResolverMutationCoverageTests.cs` | `UpsertKeyResolver.cs` | 96.25% | `bf40c03` |
 | `MigrationParserMutationCoverageTests.cs` (created) | `Migrations/MigrationParser.cs` | 84.0% → 87.02% | `23e129c`, `04f7b1f`, `75dfcf9`, `091f6a9` |
+| `MigrationParserMutationCoverageTests.cs` (12 more tests) | `Migrations/MigrationParser.cs` | 87.02% → 89.78% | *(pending merge, branch `test/migrationparser-per-mutant-pass`)* |
 | `SmallModelTypesMutationCoverageTests.cs` | `MigrationStatement.cs`, `ImpactReason.cs`, `ImpactEntry.cs`, `MigrationImpactReport.cs`, `Classification.cs`, `SchemaDelta.cs` | 90–100% | `951a120` |
 | `DialectReservedWordsTests.cs` (earlier session, strengthened) | `DialectReservedWords.cs` | 99.68% | `7a08a4b` |
 
@@ -114,6 +117,98 @@ Net: the 96% target is likely not fully reachable through more test-writing
 alone; the remaining gap is dominated by a confirmed equivalent-mutant floor
 in 6 of the 7 files below 100% (all but `MigrationParser.cs`), which remains
 the sole file where further (slow) work could still move the needle.
+
+### MigrationParser.cs — per-mutant pass, 2026-09-20 (87.02% → 89.78%)
+
+Went through the ~91 survivors from the prior baseline one by one (or in
+small related batches): read the exact mutated line, tried to construct a
+concrete distinguishing SQL input, wrote and verified a test against both
+the real source and a hand-mutated copy where a test's result was ever in
+doubt. 12 new tests added to `MigrationParserMutationCoverageTests.cs`, all
+44 tests in that file still pass. Result: Killed 632→652 (+20, since several
+tests each kill 2-3 related mutants sharing one root cause), Survived 91→70,
+NoCoverage unchanged at 8, scoped score 87.02%→**89.78%**.
+
+**7 real, killable gaps found and fixed** (mutated line, mechanism, killed via):
+
+1. **Line 502/745** — `SkipParenGroup` call removed/no-op in the AS-shorthand
+   computed-column path (`Total AS (Qty * Price)`). Without the call, the
+   parenthesized expression's tokens leak into the flags loop one at a time.
+   Killed with a computed column whose expression contains a token that
+   textually matches a flag keyword.
+2. **Line 675** (`DEFAULT` keyword-literal blanking) — breaks the atomic
+   default-expression skip; the DEFAULT keyword becomes an unrecognized
+   token and its expression's tokens leak into the flags loop instead of
+   being atomically skipped.
+3. **Line 447** (`ADD`/`DROP` GENERATED|IDENTITY arms of an OR-chain) — only
+   the `SET` arm had a test previously; added two tests covering `ADD` and
+   `DROP`.
+4. **Line 626** (bare `NULL` flag-check blanking) — specifically the
+   "flip PK-forced nullability back to `true`" case, not just the ordinary
+   nullable-flag case already covered.
+5. **Line 640** (bare `AUTOINCREMENT`/`SERIAL` keyword flags) — distinct
+   from the `SERIAL` DbType-sugar path; two new tests, one per keyword.
+6. **Line 647** (identity-seed-paren closing-`)` detection) — specifically
+   the case where a real closing paren IS present and is followed by more
+   flags, distinguished from the already-tested genuinely-unterminated case
+   (which produces the same observable result either way).
+7. **Line 815-818** (`ReadObjectName`'s multi-level dotted-name while-loop,
+   previously `NoCoverage`) — required bracket-quoted syntax
+   (`[dbo].[Gadgets]`) to trigger the tokenizer-split path at all; unbracketed
+   dotted names tokenize as one compound identifier handled entirely by
+   `BareName`, never reaching this loop.
+8. **Line 851** (`SplitTopLevel`'s comma-detection, `&&`→`||` mutation) —
+   at paren-depth 0, the mutated condition treats *any* Symbol token (not
+   just `,`) as a column-def separator. A first attempt using
+   `create table t (a int default -1, b int)` did NOT distinguish the
+   mutant: the spurious split at `-` produces an orphaned `[1]` fragment
+   whose leading token is a `Number`, which `ParseColumnDef`'s
+   `def[0].Type != Identifier` guard silently filters — column count/names
+   came out identical either way. The mutant-killing input needed a flag
+   *after* the negative default (`a int default -1 not null, b int`): under
+   the mutation, `NOT NULL` ends up inside that same orphaned/filtered
+   fragment and is lost, so column `a` wrongly reports `IsNullable == true`.
+   This is a concrete instance of the "always empirically verify a survived
+   test actually distinguishes the mutant — don't stop at 'looks plausible'"
+   lesson from this campaign; see the coverage-misattribution caveat below
+   for the matching Stryker-side version of the same lesson.
+
+**No new equivalent-mutant classes were confirmed this round beyond what was
+already documented** in the handoff doc — the ~70 remaining survivors were
+individually re-traced (not just template-matched against existing
+categories) and fall entirely under the previously-established mechanisms:
+unknown-flag/positional-arithmetic absorption in the flags loop (lines
+558-751 region, including the numeric-facet block and the GENERATED
+ALWAYS/BY DEFAULT/AS IDENTITY vs. AS (expr) STORED/VIRTUAL block),
+bounds-safety via `Is`/`IsSymbol` (lines 618-748 loop-bound comparisons),
+dead/unreachable branches (`SkipParenGroup`'s unreachable guard, line 798's
+`index > 0` in a helper only ever called with `index >= 0` from a caller
+that already special-cases the zero case upstream), discarded return values
+(`SplitTopLevel`/`SplitRemaining`'s exact final `pos`, lines 845/862/886/
+898-899 — never re-read by the sole caller in either method), and algebraic
+equivalence (line 805's `dot >= 0 ? Substring(dot+1) : name`). Time did not
+allow writing out a fresh per-line justification for every one of the ~70 in
+this doc; the categories above are the same ones already itemized with
+specific line numbers in the handoff doc's MigrationParser section, and this
+pass's spot checks did not surface any case where the category assignment
+was wrong.
+
+**Open methodological caveat — Stryker coverage misattribution.** During
+this pass, Stryker's own scoped report listed the line-506 String mutations
+(`"NOT"`→`""` and `"NULL"`→`""`) as "Survived" in two separate runs, but
+direct hand-mutation + `dotnet test --filter` against the real test suite
+proved both are already killed by the pre-existing test
+`ComputedColumn_JunkTokenAfterAnExplicitNotNull_DoesNotFlipNullabilityBack`.
+Attempts to fix this via `--coverage-analysis all` (unrecognized CLI option,
+silently no-ops) and via `"coverage-analysis": "all"` in `stryker-config.json`
+(accepted without error, but the run log still showed
+`'SkipUncoveredMutants'`/`'CoverageBasedTest'` mode and produced identical
+counts) did not resolve it. This means Stryker's own survivor counts for
+this file may already include false positives beyond the two confirmed
+here — a caveat for whoever picks up the remaining ~70, not something
+resolved in this pass. Ground truth for any individual mutant should be
+re-verified by hand-mutation + targeted `dotnet test --filter`, not taken on
+Stryker's report alone.
 
 ## Extrode.JauntyQ.SqlParser — baseline
 
