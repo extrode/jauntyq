@@ -2,14 +2,22 @@
 
 Per-assembly, per-file mutation score, tallied against the 96% target set for
 `Extrode.JauntyQ.Analysis` (parity with sibling repo `jaunty`'s ~96% baseline).
-Last confirmed whole-project `Extrode.JauntyQ.Analysis` run: **96.01%
-(2026-09-20 20:12-20:16) — target reached.** Two genuine (non-equivalent)
-Negate mutants were found and fixed in `MigrationParser.cs`'s DEFAULT-value
-and GENERATED-column handling (lines 689 and 704) via an adversarial
-fable-verify pass over the previously-claimed equivalence classes — see
-mutation-coverage-report.md for the full per-mutant reasoning and the
-lesson that category-matching a survivor to a known-equivalent neighbor is
-not sufficient; each needs its own trace. `Extrode.JauntyQ.SqlParser`
+Last confirmed whole-project `Extrode.JauntyQ.Analysis` run: **96.30%**
+(2026-09-20 21:54-21:59) — target exceeded. Path: 96.01% (target first
+reached, two genuine Negate mutants in `MigrationParser.cs`'s DEFAULT-value
+and GENERATED-column handling, lines 689/704, found via an adversarial
+fable-verify pass) → **96.30%** (a full post-96% survivor pass over the
+remaining 91 `Survived` mutants found 1 more genuine gap in
+`ReferencedObjects.cs`'s `ReferencedColumnComparer.Equals` and 6 more in
+`MigrationParser.cs`, individually re-traced rather than template-matched —
+one of which corrected a previously-wrong equivalence claim). 84 `Survived`
++ 4 `NoCoverage` mutants remain, all now believed genuinely equivalent with
+individually-traced mechanisms (the 4 `NoCoverage` ones were adversarially
+confirmed; the 84 `Survived` ones were self-traced but not yet adversarially
+re-checked as a full batch). See mutation-coverage-report.md for the full
+per-mutant reasoning and the standing lesson that category-matching a
+survivor to a known-equivalent neighbor is not sufficient — each needs its
+own trace. `Extrode.JauntyQ.SqlParser`
 has a first-ever baseline (59.22%), a 6-file IR-model cleanup (59.65%), and a
 parser-core pass on 4 more files (no new whole-project number yet — two
 attempts crashed with VsTest socket errors). For score-history-over-time and
@@ -23,7 +31,7 @@ run this effort.
 
 | Assembly | Stryker config | Ever run this effort | Target | Actual | Δ to target |
 |---|---|---|---|---|---|
-| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **96.01%** | **+0.01 pp (target met)** |
+| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **96.30%** | **+0.30 pp (target exceeded)** |
 | `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | Yes | 96.00% | **59.65%** | **-36.35 pp** |
 | `Extrode.JauntyQ.Cli.Core` | none | No | — | — | out of scope |
 | `Extrode.JauntyQ.Cli` | none | No | — | — | out of scope |
@@ -61,21 +69,24 @@ threshold — `dotnet stryker` will not fail the build below 96%, only below 0%
 | `Impact/ImpactReason.cs` | 4 | 0 | 0 | 0 | 4 | 100.00% | **+4.00 pp** |
 | `Impact/QueryImpactInput.cs` | 1 | 0 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
 | `Migrations/MigrationStatement.cs` | 2 | 0 | 0 | 0 | 2 | 100.00% | **+4.00 pp** |
-| **Tally (19 files)** | **2285*** | — | **91** | **4** | **2380** | **96.01%** | **+0.01 pp (target met)** |
+| **Tally (19 files)** | **2292*** | — | **84** | **4** | **2380** | **96.30%** | **+0.30 pp (target exceeded)** |
 
 \* "Killed" column includes Timeout mutants (Stryker treats Timeout as a kill
-for scoring purposes); the 2285/91/4/2380 total row is the last confirmed
-whole-project run, 2026-09-20 20:12-20:16 (2250 killed, 35 timeout, 91
+for scoring purposes); the 2292/84/4/2380 total row is the last confirmed
+whole-project run, 2026-09-20 21:54-21:59 (2256 killed, 36 timeout, 84
 survived, 4 no-coverage) — this is a real, coherent whole-project number, not
 a per-file sum. 96% needed `Survived + NoCoverage ≤ 95`; the final count is
-95, exactly at the line. Two genuine (non-equivalent) mutants were found and
-fixed in `MigrationParser.cs` this session (a DEFAULT-value Negate mutant at
-line 689, and a GENERATED-column Negate mutant at line 704) via an
-adversarial fable-verify pass — see mutation-coverage-report.md for the full
-per-mutant reasoning. The remaining ~91 survivors are believed equivalent
-under the previously-documented absorption mechanisms, individually traced
-rather than template-matched, though no further exhaustive fable-verify pass
-has been run over every one of them.
+88, 7 better than the line. In total this session found and fixed 8 genuine
+(non-equivalent) mutants across 2 files: 2 Negate mutants in
+`MigrationParser.cs` (lines 689, 704, via an adversarial fable-verify pass)
+that closed the last gap to 96%, then a further post-96% pass individually
+re-traced all 91 remaining survivors and found 1 more genuine gap in
+`ReferencedObjects.cs`'s `ReferencedColumnComparer.Equals` and 6 more in
+`MigrationParser.cs` — see mutation-coverage-report.md for the full
+per-mutant reasoning. The remaining 84 survivors + 4 no-coverage are believed
+equivalent under individually-traced mechanisms (the 4 no-coverage ones
+adversarially confirmed; the 84 survived ones self-traced but not yet
+adversarially re-checked as a full batch).
 
 † This row is stale — it reflects the file-scoped 89.78% pass from earlier
 in the session, before the two fixes above and before the whole-project
@@ -117,18 +128,23 @@ the correction.
 
 ## Bottom line
 
-- **Overall: 96.01% vs. 96% target — target met, confirmed by a fresh
-  whole-project run (2026-09-20 20:12-20:16).** The path there: 94.66% →
+- **Overall: 96.30% vs. 96% target — target exceeded, confirmed by a fresh
+  whole-project run (2026-09-20 21:54-21:59).** The path there: 94.66% →
   95.55% (folding in `MigrationParser.cs`'s per-mutant pass) → 95.84%
   (`ReadObjectName` bracket-quoted-dot fix) → 95.97% (DEFAULT-value Negate
-  mutant fix, line 689) → **96.01%** (GENERATED-column Negate mutant fix,
-  line 704). The last two fixes were found by explicitly re-tracing
-  individual survivors rather than trusting their resemblance to an
-  already-confirmed equivalence class — an adversarial fable-verify pass
-  had confirmed the `pos <= def.Count` class and a `SkipParenGroup`
-  dead-code claim, but flagged the line-689 mutant as a real gap; the
-  line-704 mutant was found the same way on a manual re-check afterward.
-  See mutation-coverage-report.md for the full per-mutant trace.
+  mutant fix, line 689) → 96.01% (GENERATED-column Negate mutant fix, line
+  704, target first reached) → **96.30%** (post-96% full survivor pass: 1
+  gap fixed in `ReferencedObjects.cs`, 6 more in `MigrationParser.cs`). Every
+  fix from 95.97% onward was found by explicitly re-tracing individual
+  survivors rather than trusting their resemblance to an already-confirmed
+  equivalence class — an adversarial fable-verify pass had confirmed the
+  `pos <= def.Count` class and a `SkipParenGroup` dead-code claim but
+  flagged the line-689 mutant as a real gap; the line-704 mutant was found
+  the same way on a manual re-check afterward; and the full post-96% pass
+  over all 91 remaining survivors found 7 more, including one that
+  corrected a previously-wrong equivalence claim about `ReadObjectName`'s
+  dotted-name check. See mutation-coverage-report.md for the full
+  per-mutant trace.
 - 15 of 19 files already meet or exceed 96%; 11 of those are at a clean 100%.
 - A near-target cleanup pass (commit `1dd7886`) pushed the 4 files already
   ≥96% toward their own ceilings: only `AutoCrud.cs` had a real fixable
