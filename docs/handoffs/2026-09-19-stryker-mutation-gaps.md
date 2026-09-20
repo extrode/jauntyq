@@ -347,3 +347,86 @@ Not started, not scoped in detail:
    thresholds, untouched this pass (scope was Analysis only) — same kind of
    triage (survived/nocoverage breakdown, check for misplaced tests
    elsewhere in `tests/` first) likely applies.
+
+## Update 2026-09-20: the 6 previously out-of-scope small files, 93.78% -> 94.33%
+
+Follow-on to the request "some of the classes aren't tested at all or at
+least below 90%, let's raise these numbers up" — targeting the 6 small
+files that had been out of scope for the original 7-file plan and were
+flagged as "pre-existing residue" in every prior update. Branch
+`test/analysis-mutation-coverage-small-files`, merged `--no-ff` into `dev`
+(unpushed). New file
+`tests/Extrode.JauntyQ.Analysis.Tests/SmallModelTypesMutationCoverageTests.cs`
+(14 tests). No production source touched.
+
+**Whole-project score: 93.78% -> 94.33%** (Killed 2211, Timeout 34, Survived
+124, NoCoverage 11, out of 2369 tested; full unscoped run, 2026-09-20
+11:21-11:26).
+
+Per-file, before -> after (scoped run against just these 6 files: 37/38
+mutants killed, 97.37%):
+
+| File | Before | After |
+|---|---|---|
+| `Migrations/MigrationStatement.cs` | 0.00% (0/2) | 100% |
+| `Impact/ImpactReason.cs` | 25.00% (1/4) | 100% |
+| `Impact/ImpactEntry.cs` | 33.33% (1/3) | 100% |
+| `Impact/MigrationImpactReport.cs` | 60.00% (6/10) | 90% (9/10, 1 equivalent) |
+| `Impact/Classification.cs` | 75.00% (3/4) | 100% |
+| `Diff/SchemaDelta.cs` | 86.67% (13/15) | 100% |
+
+What was killed (13 survivors + 2 NoCoverage, 13 fixed / 2 remaining):
+- **Default field values never asserted**: `MigrationStatement.TableName`/
+  `.RawText`, `ImpactReason.SchemaObject`/`.ChangeKind`/`.Effect`,
+  `ImpactEntry.QueryFile`/`.EntityMethod`, `MigrationImpactReport.BaselineId`
+  all default to `string.Empty` but no test ever constructed a default
+  instance and checked it — these are DTOs whose only real "logic" is the
+  default value itself, so this was the intended fix, not enumeration
+  padding.
+- `MigrationImpactReport.Highest`: added `Highest_NoEntries_IsSafe` and a
+  multi-entry ordering test (kills nothing new for the `>`/`>=` mutant, see
+  below, but exercises the method properly for the first time).
+- `MigrationImpactReport.Count`: added a direct 3-classification test (was
+  previously exercised only incidentally).
+- `MigrationImpactReport.ToJson`'s `WriteIndented = true` (Boolean mutation
+  to `false`, previously survived): killed via an explicit "output contains
+  a newline" assertion — no prior test checked the JSON was actually
+  pretty-printed vs. compact.
+- `MigrationImpactReport.FromJson`'s `"Migration impact report deserialized
+  to null."` exception message (NoCoverage): killed via
+  `FromJson("null")` throwing with the exact message asserted.
+- `Classification`'s `"Unknown classification '{token}'."` exception message
+  in the JSON converter's `Read` (NoCoverage): killed via deserializing an
+  unrecognized wire token and asserting the exact message. (The `"BREAKING"`
+  case itself was already covered by `ReportSerializationTests`'s existing
+  round-trip test.)
+- `SchemaDelta.IsEmpty`'s three-term `&&` guard (2 Logical-mutation
+  survivors, `&&`->`||` at two different positions): killed via one test per
+  collection (added-only, removed-only, modified-only all non-empty ->
+  `IsEmpty` false; all-empty -> true), which distinguishes every `&&`/`||`
+  combination.
+
+**One newly confirmed equivalent mutant** (not force-killed):
+`MigrationImpactReport.Highest`'s `e.Classification > highest` -> `>=`
+(line 50). `highest` is only ever reassigned to `e.Classification` inside
+that branch. When `e.Classification == highest`, the mutated `>=` fires the
+reassignment while the original `>` skips it — but the reassignment sets
+`highest` to the exact value it already holds. No sequence of entries can
+produce an observable difference between "skip" and "reassign to the same
+value," so this mutation is equivalent regardless of entry order or count.
+Confirmed by exhaustive case analysis (`>` and `<`, `==`, and both
+directions of ordering all checked), not by trying inputs and giving up.
+
+Verified via full solution `dotnet build -c Release` (0 errors, pre-existing
+warnings only) + `dotnet test` (all 34 test assemblies passed, 0 failures) —
+log at `tmp/full-test-run.log` (gitignored).
+
+**These 6 files are no longer out-of-scope/untouched residue.** The
+project-wide remaining gap to 96% (94.33% -> 96% needs ~38 more of the
+current ~135 Survived+NoCoverage killed) is now almost entirely
+`MigrationParser.cs`'s confirmed-equivalent-mutant-dominated residue (see
+the two prior updates) plus `ReferencedObjects.cs`'s hash-randomization
+equivalents — both already traced in detail above. No further known
+low-hanging fruit remains; the next gain, if pursued, would be per-mutant
+tracing in `MigrationParser.cs`'s flag-parsing area, which the prior update
+already flagged as diminishing-returns territory.
