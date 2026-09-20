@@ -293,12 +293,31 @@ mutation lets the loop run exactly one extra (no-op) iteration, incrementing
 loop exits — same observable result either way. This matches (and
 generalizes) the line-798 equivalence reasoning already documented above. Line
 746's lone remaining `NoCoverage` (`SkipParenGroup`'s `if (!IsSymbol(...))
-return;` guard) is dead code in practice: both call sites (lines 719, 724)
-only ever invoke `SkipParenGroup` after already confirming `IsSymbol(def, pos,
-"(")` is true, so the guard's false branch is unreachable through the public
-API — not a real gap, just an unreachable defensive check.
+return;` guard) is dead code in practice: all 3 call sites in the file (lines
+502, 719, 724) only ever invoke `SkipParenGroup` after already confirming
+`IsSymbol(def, pos, "(")` is true, so the guard's false branch is unreachable
+through the public API — not a real gap, just an unreachable defensive check.
 
-Given this, closing the remaining 4-mutant gap to 96% would require either a
+**Adversarially re-verified, 2026-09-20 (fable-verify pass).** A second pass
+instructed to try to refute the above, not confirm it, hand-traced each of
+the 7 `pos <= def.Count` line numbers individually (not just template-matched)
+and confirmed all 7 equivalent, and grepped the whole project (not just this
+file) for `SkipParenGroup` call sites, confirming exactly 3 (the doc
+originally undercounted at "2") and that all 3 pre-check `IsSymbol(...,
+"(")`. No refutations survived. The pass did, however, surface one mutant
+outside the scope of what it was asked to check: a **Negate** mutation on
+line 689 (`else if (pos < def.Count)` → `else if (!(pos < def.Count))`, the
+single-token non-parenthesized `DEFAULT` value branch) that traces as a real,
+killable gap, not equivalent — `NOT NULL DEFAULT NULL`'s trailing `NULL`
+value token is left unconsumed under the mutation and leaks back into the
+flags loop's own `Is(def, pos, "NULL")` check, wrongly flipping
+`IsNullable` back to `true` even though `NOT NULL` already set it `false`.
+Fixed with a new test,
+`DefaultExpression_SingleTokenNullValueAfterExplicitNotNull_DoesNotFlipNullabilityBack`,
+mirroring the existing parenthesized-expression sibling test just above it in
+`MigrationParserMutationCoverageTests.cs`.
+
+Given this, closing the remaining gap to 96% would require either a
 source change (removing genuinely-defensive-but-unreachable code, which is
 not warranted for its own sake) or contrived tests, not real coverage gaps.
 Recommend treating **95.84%** as the practical ceiling for this file/pass
