@@ -404,6 +404,67 @@ code, not real coverage gaps. **The `NoCoverage` portion of the gap to 96%
 is closed**; all remaining headroom is in the 91 `Survived` mutants, not
 addressed by this pass.
 
+## Post-96% survivor pass, 2026-09-20 — small files
+
+With the target met, work moved to individually re-verifying (not
+template-matching) the 91 remaining `Survived` mutants, starting with the
+19 in `SchemaSimulator.cs`, `ReferencedObjects.cs`, `AutoCrud.cs`, and
+`MigrationImpactReport.cs` whose equivalence had only been self-certified in
+the earlier round-4 pass, never adversarially checked.
+
+**One genuine gap found and fixed.** `ReferencedObjects.cs`'s
+`ReferencedColumnComparer.Equals` (the `&&` combining the table-name and
+column-name comparisons) had a surviving `&&`→`||` Logical mutation. The two
+existing tests that should have caught it
+(`Resolve_SameColumnNameOnDifferentTables_KeptAsDistinctEntries`,
+`Resolve_DifferentColumnNamesOnSameTable_KeptAsDistinctEntries`) only
+observe `Equals` at all when two entries land in the same `HashSet<T>`
+bucket — pure luck of the hash layout, since `GetHashCode` combines both
+fields, so two entries differing in only one field usually (but not
+always) hash to different buckets and never reach `Equals`. Fixed by
+calling the private `ReferencedColumnComparer.Instance` directly via
+reflection, bypassing bucket placement: 3 new tests in
+`ReferencedObjectsMutationCoverageTests.cs`
+(`Comparer_SameColumnDifferentTable_IsNotEqual`,
+`Comparer_SameTableDifferentColumn_IsNotEqual`,
+`Comparer_SameTableAndColumn_IsEqual`). Verified by hand-mutation: the two
+negative-case tests fail against the `||` mutant, pass against real code.
+
+**18 mutants confirmed equivalent, re-derived from scratch:**
+
+- `ReferencedObjects.cs`'s `GetHashCode` (4 mutants: 2 null-coalescing
+  fallbacks, 1 bitwise-complement, 1 arithmetic-divide) are all equivalent
+  for the same reason: `GetHashCode`'s only contract obligation is "equal
+  objects → equal hash codes," not distinctness or specific values. Each
+  mutation is a deterministic pure transform applied uniformly, so it can
+  only ever increase hash collisions — which `HashSet<T>` already handles
+  correctly via `Equals` (now itself covered, see above). No input through
+  the public API can distinguish a worse-but-still-contract-preserving hash
+  function. This corrects the prior claim, which had conflated this with
+  the separate (and also equivalent, but for a different reason) NoCoverage
+  null-fallback finding above.
+- `SchemaSimulator.cs`'s all 12 survivors, re-derived (not re-stated) via
+  the `TryFindTable`/`TryFindColumnKey`/`TryFindColumn` "out-param null iff
+  returns false" invariant, checked against every real call site: 9
+  caller-side `!TryFind...() || x == null` Logical mutations
+  (`A||A`→`A&&A`, both reduce to `A` under the invariant), 1 internal
+  `&&`→`||` at the same identity, 1 inert `continue;` removal (the loop's
+  last statement before implicit loop-back — the fallthrough produces a
+  logically identical, if reallocated, result), and 1 `return false`→
+  `return true` bug inside `TryFindColumn` that is fully masked by both
+  call sites' own redundant `|| existing == null` guard.
+- `AutoCrud.cs`'s `break;`-removal survivor: equivalent because the loop's
+  only externally-visible effect is the `allColumnsUsable` flag, which the
+  surrounding `if (!allColumnsUsable || columns.Count == 0) continue;`
+  gates on — removing `break` just lets the loop finish populating a
+  `columns` list that's discarded either way.
+- `MigrationImpactReport.cs`'s `>`→`>=` survivor in `Highest`'s max-finding
+  loop: equivalent because `Classification` is a value-type enum, so
+  reassigning `highest = e.Classification` when the two are already equal
+  is a true no-op with no observable side effect.
+
+Full suite: 1436/1436 passing on both net8.0 and net10.0 after the fix.
+
 ## Extrode.JauntyQ.SqlParser — baseline
 
 First-ever Stryker run for this assembly, 2026-09-20, whole-project
