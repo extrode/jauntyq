@@ -549,6 +549,18 @@ public class MigrationParserMutationCoverageTests
         // seed/increment skip loop's own closing-paren detection actually
         // stops there when a real ")" is present, instead of always running
         // to end of input regardless.
+        //
+        // Traced by hand (not just re-read): with a real ")" present, this
+        // only kills the loop's `&&`->`||` mutation (an infinite loop /
+        // Timeout). The `<`->`>` and `!IsSymbol`->`IsSymbol` mutants on the
+        // same line are already killed by the unterminated-paren test above,
+        // not by this one, and `<`->`<=` is genuinely equivalent in both
+        // cases: IsSymbol self-bounds-checks its index, so the one extra
+        // iteration `<=` allows never observably changes where `pos` ends up
+        // relative to `def.Count` once the outer flags loop re-checks its own
+        // `pos < def.Count` condition. This test's real, distinct job is the
+        // Timeout mutant plus the "does it stop at a real )" regression it's
+        // named for -- not a `<=` boundary kill.
         var statements = MigrationParser.Parse("alter table t add col int identity(1,1) not null");
 
         var stmt = Assert.Single(statements);

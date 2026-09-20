@@ -38,6 +38,42 @@ public class SqlParserPart4PerfHintMutationCoverageTests
         Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
     }
 
+    // The combined test above has both GROUP and HAVING present, so mutating
+    // either literal alone is shadowed by the other keyword still closing the
+    // region -- these three isolate each boundary keyword on its own, with a
+    // real comparison after the call so a mutant that lets the boundary miss
+    // would actually surface a hint.
+
+    [Fact]
+    public void FunctionOnColumn_AfterGroupBoundary_Alone_IsNotScanned()
+    {
+        var model = ParseSql(
+            "SELECT category_id FROM products WHERE active = 1 " +
+            "GROUP BY UPPER(category_id) = 'X'");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+    }
+
+    [Fact]
+    public void FunctionOnColumn_AfterOrderBoundary_Alone_IsNotScanned()
+    {
+        var model = ParseSql(
+            "SELECT category_id FROM products WHERE active = 1 " +
+            "ORDER BY UPPER(category_id) = 'X'");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+    }
+
+    [Fact]
+    public void FunctionOnColumn_AfterHavingBoundary_Alone_IsNotScanned()
+    {
+        var model = ParseSql(
+            "SELECT category_id FROM products WHERE active = 1 " +
+            "HAVING UPPER(category_id) = 'X'");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+    }
+
     // ── FunctionOnColumn: compared after vs. before vs. not at all ──────
 
     [Fact]
@@ -65,13 +101,14 @@ public class SqlParserPart4PerfHintMutationCoverageTests
     [Fact]
     public void FunctionWrappingColumn_NotComparedEitherSide_IsNotDetected()
     {
-        // The function call appears in WHERE but is not itself compared --
-        // e.g. it's an argument to another call. Neither the "compared after"
-        // nor "compared before" branch should fire.
-        var model = ParseSql("SELECT id FROM users WHERE COALESCE(UPPER(email), 'x') = 'X'");
+        // COALESCE(UPPER(email), 'x') = 'X' is the wrong shape for this: COALESCE
+        // itself is the function head and IS compared after, so it still records
+        // a hint (just named COALESCE, not UPPER) -- asserting only "no UPPER
+        // hint" let that pass unnoticed. Use a head with no comparison on either
+        // side so neither branch can fire and no hint of any kind is recorded.
+        var model = ParseSql("SELECT id FROM users WHERE active = 1 AND LOWER(name) IN ('a', 'b')");
 
-        Assert.DoesNotContain(model.PerfHints, h =>
-            h.Kind == PerfHintKind.FunctionOnColumn && h.FunctionName == "UPPER");
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
     }
 
     [Fact]
@@ -119,6 +156,15 @@ public class SqlParserPart4PerfHintMutationCoverageTests
         var model = ParseSql("SELECT id FROM users WHERE email LIKE 'example%'");
 
         Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.LeadingWildcardLike);
+    }
+
+    [Fact]
+    public void LikeWithLeadingWildcard_RecordsPatternInDetail()
+    {
+        var model = ParseSql("SELECT id FROM users WHERE email LIKE '%example.com'");
+
+        var hint = Assert.Single(model.PerfHints, h => h.Kind == PerfHintKind.LeadingWildcardLike);
+        Assert.Equal("%example.com", hint.Detail);
     }
 
     [Fact]
