@@ -74,7 +74,11 @@ public class SqlParserPart6MutationCoverageTests
     {
         // The ';' scan tracks innerDepth so a ')' inside the expression's own
         // parens does not end the RETURNING list early, and the trailing ';'
-        // after it must still be excluded from the captured tokens.
+        // after it must still be excluded from the captured tokens. The
+        // innerDepth increment/decrement/comparison mutants themselves appear
+        // equivalent for any tokenizable SQL reachable through this parser: a
+        // ';' Symbol inside real parens here would require a nested raw
+        // statement terminator, which is not a shape this grammar produces.
         var model = ParseSql(
             "INSERT INTO products (name) VALUES (@n) RETURNING round(price, 2) AS rounded_price;");
 
@@ -94,21 +98,22 @@ public class SqlParserPart6MutationCoverageTests
 
     // ── IsExistsSubquery: exact two-token lookback + near-start guard ────
 
-    [Fact]
-    public void SelectAsVeryFirstToken_IsNotMistakenForAnExistsSubquery()
-    {
-        // selectIndex == 0: the < 2 guard must short-circuit before indexing
-        // tokens[-1]/tokens[-2], which would otherwise throw.
-        var ex = Record.Exception(() => ParseSql("SELECT id FROM products"));
-
-        Assert.Null(ex);
-    }
+    // SelectAsVeryFirstToken_IsNotMistakenForAnExistsSubquery removed:
+    // IsExistsSubquery's only call site already requires `i > 0` before
+    // calling it, so selectIndex == 0 can never reach the `< 2` guard through
+    // the real Parse entry point -- "SELECT id FROM products" never engages
+    // this function at all, so the assertion passed for a reason unrelated to
+    // the guard it named.
 
     [Fact]
     public void SelectAsSecondToken_IsNotMistakenForAnExistsSubquery()
     {
-        // selectIndex == 1: still short-circuited by the < 2 guard (there is
-        // no tokens[-1]); must not throw and must not record SUBQUERY.
+        // selectIndex == 1 IS reachable (e.g. a leading-paren statement like
+        // "(SELECT 1) UNION (SELECT 2)"): without the < 2 guard,
+        // tokens[selectIndex - 2] would be tokens[-1], an out-of-range index.
+        // Guarded, selectIndex == 1 returns false (not an EXISTS subquery),
+        // so the caller records SUBQUERY -- the guard prevents a crash, it
+        // does not prevent the SUBQUERY classification.
         var tokens = new List<Token>
         {
             new(TokenType.Symbol, "("),
@@ -117,9 +122,9 @@ public class SqlParserPart6MutationCoverageTests
             new(TokenType.End, string.Empty),
         };
 
-        var ex = Record.Exception(() => SqlParser.Parse(tokens, "q"));
+        var model = SqlParser.Parse(tokens, "q");
 
-        Assert.Null(ex);
+        Assert.Contains("SUBQUERY", model.UnsupportedConstructs);
     }
 
     [Fact]
@@ -143,10 +148,45 @@ public class SqlParserPart6MutationCoverageTests
     [Fact]
     public void ParenPrecededSelect_WhereTokenTwoBackIsNotExists_IsStillASubquery()
     {
-        // Two tokens back from SELECT is "AS", not EXISTS -- the exact-keyword
-        // match on tokens[selectIndex - 2].Value == "EXISTS" must require the
-        // real keyword, not just any keyword two back.
+        // Two tokens back from SELECT is "," here, same as "SELECT" in the
+        // test above -- neither is a Keyword-typed "EXISTS", so this adds no
+        // independent kill power over ParenPrecededSelect_NotExists_IsRecordedAsSubquery.
+        // Kept as a plain regression check.
         var model = ParseSql("SELECT x, (SELECT MAX(id) FROM orders) AS last_id FROM users");
+
+        Assert.Contains("SUBQUERY", model.UnsupportedConstructs);
+    }
+
+    [Fact]
+    public void ParenPrecededSelect_TwoBackHasExistsTextButWrongTokenType_IsStillASubquery()
+    {
+        // The tokenizer always classifies the word EXISTS as a Keyword, so no
+        // SQL string can produce a non-Keyword "EXISTS" token -- constructing
+        // tokens directly is the only way to isolate the Type == Keyword half
+        // of the check from the Value == "EXISTS" half. Here tokens[selectIndex
+        // - 2] has Value "EXISTS" but Type Identifier: only the Type check
+        // (not just text-matching) tells this apart from a real EXISTS(...).
+        var tokens = new List<Token>
+        {
+            new(TokenType.Keyword, "SELECT"),
+            new(TokenType.Identifier, "EXISTS"),
+            new(TokenType.Symbol, "("),
+            new(TokenType.Keyword, "SELECT"),
+            new(TokenType.Keyword, "MAX"),
+            new(TokenType.Symbol, "("),
+            new(TokenType.Identifier, "id"),
+            new(TokenType.Symbol, ")"),
+            new(TokenType.Keyword, "FROM"),
+            new(TokenType.Identifier, "orders"),
+            new(TokenType.Symbol, ")"),
+            new(TokenType.Keyword, "AS"),
+            new(TokenType.Identifier, "last_id"),
+            new(TokenType.Keyword, "FROM"),
+            new(TokenType.Identifier, "users"),
+            new(TokenType.End, string.Empty),
+        };
+
+        var model = SqlParser.Parse(tokens, "q");
 
         Assert.Contains("SUBQUERY", model.UnsupportedConstructs);
     }
