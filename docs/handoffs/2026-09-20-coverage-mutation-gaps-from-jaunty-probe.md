@@ -73,12 +73,19 @@ invoked from CI, not that the tool is wrong.
 
 ## 4. Other lessons from the jaunty session worth carrying over
 
-- **A flag combination can silently zero a test run without a nonzero exit code your
-  own retry/CI logic would catch.** Jaunty's `--nologo` bug and this repo's own
-  documented 2026-08-17 incident (101 tests silently skipped, exit 0) are the same
-  failure shape from different causes. Any time a test/coverage script's flags change,
-  worth a smoke check that the reported pass/fail count actually matches expectations,
-  not just that the exit code is 0.
+- **Correction to section 1 above, found during independent verification 2026-09-20:**
+  jaunty's `--nologo` bug fails loudly (exit 5, "Zero tests ran") — it is not the same
+  failure shape as this repo's 2026-08-17 incident (101 tests silently skipped, exit
+  0). The shared lesson isn't "same bug", it's narrower: **a test/coverage tool's
+  reported pass/fail count can diverge from what actually ran, regardless of whether
+  the exit code is zero or nonzero.** A nonzero exit at least gets noticed; a passing
+  exit code with a wrong count does not, which is why this repo's incident was the
+  more dangerous of the two. Worth a smoke check on the reported count itself, not
+  just the exit code, whenever a test/coverage script's flags change.
+  Also softening section 1's phrasing: confirmed `--nologo` breaks this one
+  combination (`--coverage` + `--nologo` on Microsoft.Testing.Platform); "only breaks
+  ... when combined with `--coverage`" overstated confidence no one had tested other
+  flag combinations for the same failure.
 - **Batch review/delegation work by file count, not method/mutant count**, if this repo
   ever farms out mutation-gap triage the way jaunty did for its coverage report — a
   review-style pass costs roughly one tool call per file regardless of how much is

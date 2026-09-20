@@ -37,7 +37,7 @@ threshold — `dotnet stryker` will not fail the build below 96%, only below 0%
 | File | Killed | Timeout | Survived | NoCov | Total | Score | vs. 96% |
 |---|---|---|---|---|---|---|---|
 | `Impact/ReferencedObjects.cs` | 45 | incl. above | 5 | 2 | 52 | 86.54% | -9.46 pp |
-| `Migrations/MigrationParser.cs` | 664 | incl. above | 91 | 8 | 763 | 87.02% | -8.98 pp |
+| `Migrations/MigrationParser.cs` | 685 | incl. above | 70 | 8 | 763 | 89.78% (scoped, pending merge) | -6.22 pp |
 | `Impact/MigrationImpactReport.cs` | 9 | incl. above | 1 | 0 | 10 | 90.00% | -6.00 pp |
 | `Migrations/SchemaSimulator.cs` | 194 | incl. above | 12 | 0 | 206 | 94.17% | -1.83 pp |
 | `UpsertKeyResolver.cs` | 77 | incl. above | 3 | 0 | 80 | 96.25% | **+0.25 pp** |
@@ -79,7 +79,7 @@ is an equivalent `break;`-removal), `DialectMapper.cs`,
 | File | Score | Mutants still needing attention (Survived + NoCov) | Round-4 verdict |
 |---|---|---|---|
 | `Impact/ReferencedObjects.cs` | 86.54% | 7 | Re-verified, no new findings — at documented-equivalent floor |
-| `Migrations/MigrationParser.cs` | 87.02% | 99 | 4 fixed this round; ~91 remain, mostly equivalent under 2 generalized absorption mechanisms — only file with real remaining headroom |
+| `Migrations/MigrationParser.cs` | 89.78% (scoped, pending merge) | 78 | Per-mutant pass, 2026-09-20: 7 real gaps fixed (12 new tests, 91→70 survivors); remaining ~70 individually re-traced (not template-matched) and confirmed under the previously-established absorption mechanisms — see mutation-coverage-report.md for the per-mutant breakdown |
 | `Impact/MigrationImpactReport.cs` | 90.00% | 1 | Re-verified, no new findings — at documented-equivalent floor |
 | `Migrations/SchemaSimulator.cs` | 94.17% | 12 | **Fully closed** — all 12 proven equivalent via the `TryFindTable`/`TryFindColumnKey`/`TryFindColumn` "null-iff-false" contract |
 
@@ -111,10 +111,18 @@ proven per-mutant the way `SchemaSimulator.cs`'s was.
   7 sub-100% files (all but `MigrationParser.cs`) are now confirmed closed
   with adversarially-checked reasoning — no further test-writing can move
   any of them.
-- `MigrationParser.cs` (87.02%) is the only file with any real remaining
-  headroom, but closing it needs slow per-mutant manual-mutation verification,
-  not another broad sweep — 96% overall is likely not reachable through more
-  test-writing alone.
+- `MigrationParser.cs` moved 87.02% → **89.78%** (scoped) via a full per-mutant
+  pass over the ~91 survivors (12 new tests, 7 real gaps fixed, 91→70
+  survivors); the remaining ~70 were individually re-traced and confirmed
+  equivalent under the previously-documented absorption mechanisms, not
+  template-matched. It remains the only file with any confirmed real
+  remaining headroom, but the per-mutant pass found no further easy wins —
+  96% overall is likely not reachable through more test-writing alone. A
+  Stryker coverage-misattribution issue was also found during this pass (see
+  mutation-coverage-report.md) — the tool's own survivor counts for this file
+  may include false positives beyond what's been individually verified here.
+  A whole-project re-run to fold this file's new score into the overall
+  94.66% figure above is still pending.
 - `Extrode.JauntyQ.SqlParser` baseline established 2026-09-20: **59.22%**,
   -36.78 pp below the same 96% target. A same-day follow-up closed the 6
   zero-coverage IR model files to 100.00%, moving the assembly to **59.65%**

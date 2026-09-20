@@ -799,3 +799,124 @@ survived vs. the prior snapshot). 2 files' scores moved: `DialectMapper.cs`
 100% now have per-mutant-traced, adversarially-checked equivalence reasoning
 except `MigrationParser.cs` (87.02%), which remains the sole file with real
 remaining headroom.
+
+## 2026-09-20 update: MigrationParser.cs per-mutant pass (87.02% -> 89.78%)
+
+Went through the baseline's 91 survivors individually (small related
+batches where the same code path was involved): got the current survivor
+list from a scoped Stryker run, read the exact mutated line/operator for
+each, tried to construct a concrete SQL input that distinguishes mutated
+from correct behavior, wrote a test where one existed, and where none did,
+traced the actual code path for *that specific mutant* rather than
+assuming a documented absorption mechanism applied without checking.
+
+Added 12 tests to `MigrationParserMutationCoverageTests.cs` (44 total in
+that file, all passing). Scoped run: Killed 632->652, Survived 91->70,
+Timeout 32->33, NoCoverage unchanged at 8, score 87.02%->**89.78%**.
+
+**7 real gaps found and fixed:**
+
+1. **Lines 502 & 745** — `SkipParenGroup` call removed/no-op in the
+   AS-shorthand computed-column path (`Total AS (Qty * Price)`). Without the
+   call, the parenthesized expression's tokens leak token-by-token into the
+   flags loop instead of being atomically skipped. One test (a computed
+   column whose expression contains a token that textually resembles a flag
+   keyword) kills both the call-site removal and the negate-only mutation of
+   `SkipParenGroup`'s own guard.
+2. **Line 675** (`DEFAULT` keyword-literal blanked to `""`) — same
+   mechanism as above: breaks the atomic default-expression skip, so a
+   `DEFAULT`'d expression's tokens leak into the flags loop and can
+   spuriously fire a flag they happen to resemble.
+3. **Line 447** — the ALTER COLUMN identity-toggle OR-chain's `ADD`/`DROP`
+   GENERATED|IDENTITY arms had no dedicated test; only `SET` was covered
+   previously. Two new tests (`ADD GENERATED ALWAYS AS IDENTITY`, `DROP
+   IDENTITY`) close both arms.
+4. **Line 626** (bare `NULL` flag-check, string blanked to `""`) —
+   specifically the case where a `PRIMARY KEY`-forced `IsNullable = false`
+   gets explicitly flipped back to `true` by a later bare `NULL` flag; the
+   already-existing tests only covered the ordinary (non-PK) nullable-flag
+   case, which didn't exercise this specific flip.
+5. **Line 640** (bare `AUTOINCREMENT`/`SERIAL` keyword flags, string
+   blanked) — distinct code path from the `SERIAL` DbType-sugar handling
+   elsewhere; two new tests, one per keyword, since either string could be
+   independently blanked.
+6. **Line 647** (identity-seed-paren closing-`)` detection, `<=`/`>`
+   boundary) — the existing test only covered the genuinely-unterminated
+   paren case, where the mutant and correct code produce the same result
+   (loop runs to `def.Count` either way). Needed a case where a real `)` IS
+   present and is followed by more flag tokens, so the boundary condition's
+   value is actually observable in whether those trailing flags get parsed.
+7. **Lines 815-818** (`ReadObjectName`'s dotted-name while-loop, previously
+   `NoCoverage`, not `Survived`) — this loop is only reachable when a
+   dotted object name tokenizes as *separate* Identifier/Symbol('.')/
+   Identifier tokens, which only happens with bracket-quoted segments
+   (`[dbo].[Gadgets]`). An unbracketed `db.dbo.gadgets` tokenizes as one
+   compound Identifier and is handled entirely by `BareName`'s own
+   `LastIndexOf('.')`, never reaching this loop — which is exactly why no
+   existing test had covered it despite `MigrationParserTests.cs` having
+   plenty of dotted-name cases.
+
+**Line 851 — the one mutant this pass got wrong on the first attempt, worth
+recording as a methodology note.** `SplitTopLevel`'s comma-detection
+`t.Type == TokenType.Symbol && t.Value == "," && depth == 0` mutates to
+`(t.Type == TokenType.Symbol || t.Value == ",") && depth == 0` — at
+paren-depth 0, any Symbol token (not just `,`) now triggers a column-def
+split. The first candidate input, `create table t (a int default -1, b
+int)`, relies on `-` (a standalone Symbol per the tokenizer) triggering a
+spurious split before the real comma. This is algebraically correct — the
+split does happen — but it turned out **not to be observable** through
+`stmt.Columns` names/count: the orphaned post-split fragment (`["1"]`)
+starts with a `Number` token, and `ParseColumnDef`'s
+`def.Count < 2 || def[0].Type != TokenType.Identifier` guard silently
+drops it, and the "a" column's missing (never-tracked) default value isn't
+asserted anywhere either — so both mutated and correct parses produced
+identical `Columns` output for that input. Confirmed empirically (not just
+by re-reading the code) by hand-mutating the line and rerunning the test —
+it passed against the mutant, proving the input didn't distinguish it.
+The working input needed a flag *after* the negative default:
+`a int default -1 not null, b int` — under the mutation, `NOT NULL` ends up
+inside that same orphaned/filtered fragment and is lost entirely, so column
+`a` wrongly reports `IsNullable == true` instead of `false`. Verified this
+one the same way: hand-mutated the line, confirmed the test fails against
+the mutant (`Assert.False` got `True`), then restored the source and
+confirmed the test passes cleanly. This is the sharpest example from this
+round of why "the mutation clearly changes some intermediate state" is not
+sufficient for a killing test — the *final observable output* has to
+actually differ, and independent verification against a real
+hand-mutated build is the only reliable way to confirm that.
+
+**Remaining ~70 survivors:** individually re-traced against the actual code
+(not just matched against category names) and confirmed to fall entirely
+under the four absorption mechanisms already documented earlier in this
+file — unknown-flag/positional-arithmetic absorption in the flags loop
+(covers the numeric-facet block at lines 558-611 and the GENERATED
+ALWAYS/BY DEFAULT/AS IDENTITY vs. AS (expr) STORED/VIRTUAL block at lines
+704-726, in addition to the flag-keyword literals already covered),
+bounds-safety via `Is`/`IsSymbol` (the `pos <=`/`pos >`/`depth != 0`
+loop-boundary mutations throughout the 618-751 range), dead/unreachable
+branches, and discarded return values (`SplitTopLevel`/`SplitRemaining`'s
+exact final `pos`, lines 845/862/886/898-899 — neither method's sole caller
+re-reads `pos` afterward). No new equivalent-mutant class was discovered
+this round; this is a confirmation pass over the existing four, not a fifth
+mechanism. Given the fork-boilerplate's explicit allowance for partial
+completion over rushing, this pass stopped after fixing the 7 concrete gaps
+above rather than writing out a fresh per-line paragraph for each of the
+~70 remaining confirmed-equivalent mutants — the four mechanism categories
+above, cross-referenced against the specific line numbers already itemized
+earlier in this file, is the reasoning trail for all of them.
+
+**Open caveat: Stryker coverage misattribution.** Two mutants at line 506
+(`"NOT"`->`""` and `"NULL"`->`""` String mutations) were reported
+"Survived" by Stryker's own scoped run — in two separate runs — but direct
+hand-mutation + `dotnet test --filter` against the real test suite proved
+both are already killed by the pre-existing test
+`ComputedColumn_JunkTokenAfterAnExplicitNotNull_DoesNotFlipNullabilityBack`.
+Neither `--coverage-analysis all` (CLI: unrecognized option, silent no-op)
+nor `"coverage-analysis": "all"` in `stryker-config.json` (accepted, but the
+run log still reported `'SkipUncoveredMutants'`/`'CoverageBasedTest'` mode
+and produced identical counts) fixed this. Root cause not identified —
+flagging as an open tooling limitation. Anyone continuing this file's
+survivor list should treat Stryker's "Survived" status as a starting point
+to verify by hand-mutation, not as ground truth on its own; this pass did
+that for every one of its 12 new tests, which is how the line-851 miss
+above was caught before being reported as a false "fix."

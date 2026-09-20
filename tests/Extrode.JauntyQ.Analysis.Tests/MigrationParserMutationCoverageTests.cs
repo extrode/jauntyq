@@ -444,4 +444,158 @@ public class MigrationParserMutationCoverageTests
         var col = stmt.Columns.Single(c => c.Name == "id");
         Assert.False(col.IsPrimaryKey);
     }
+
+    // ── Computed-column-shorthand (AS shorthand): SkipParenGroup must skip the expression atomically ──
+
+    [Fact]
+    public void ComputedColumnShorthand_ExpressionContainsNotNullTokensInternally_DoesNotLeakIntoNullabilityFlag()
+    {
+        // If SkipParenGroup's own call were removed (or SkipParenGroup itself
+        // became a no-op), the "AS (...)" expression would be consumed one
+        // token at a time by this loop's own PERSISTED/NOT+NULL/NULL checks
+        // instead of atomically -- and a "not null" appearing INSIDE the
+        // expression (not as a trailing flag) would wrongly flip IsNullable
+        // to false, even though no trailing flag was given at all.
+        var statements = MigrationParser.Parse(
+            "create table t (total as (case when x is not null then 1 else 0 end))");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.True(col.IsComputed);
+        Assert.True(col.IsNullable);
+    }
+
+    // ── Flags loop DEFAULT branch: the parenthesized expression must be skipped atomically ──
+
+    [Fact]
+    public void DefaultExpression_ParenthesizedExpressionContainsNotNullTokensInternally_DoesNotLeakIntoNullabilityFlag()
+    {
+        // If the "DEFAULT" keyword check were disabled, the default's own
+        // parenthesized expression would no longer be recognized and skipped
+        // as one atomic unit -- it would instead be walked token-by-token by
+        // this same loop's own flag checks, and a "not null" appearing
+        // INSIDE the expression would wrongly flip IsNullable to false with
+        // no trailing flag actually present.
+        var statements = MigrationParser.Parse(
+            "create table t (x int default (case when y is not null then 1 else 0 end))");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.True(col.IsNullable);
+    }
+
+    // ── ALTER COLUMN ... ADD/DROP GENERATED|IDENTITY: unmodeled, same as SET ──
+
+    [Fact]
+    public void AlterColumn_AddGenerated_IsUnsupported_SameAsSetOrDropGenerated()
+    {
+        var statements = MigrationParser.Parse("alter table t alter column c add generated always as identity");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
+
+    [Fact]
+    public void AlterColumn_DropIdentity_IsUnsupported_SameAsAddOrSetGenerated()
+    {
+        var statements = MigrationParser.Parse("alter table t alter column c drop identity");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
+
+    // ── Flags loop: bare NULL after PRIMARY KEY must flip nullability back to true ──
+
+    [Fact]
+    public void ColumnLevelPrimaryKey_FollowedByExplicitNull_FlipsNullabilityBackToTrue()
+    {
+        var statements = MigrationParser.Parse("create table t (id int primary key null)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.True(col.IsPrimaryKey);
+        Assert.True(col.IsNullable);
+    }
+
+    // ── Flags loop: bare AUTOINCREMENT/SERIAL keyword flags (not the SERIAL sugar DbType) ──
+
+    [Fact]
+    public void ColumnFlag_BareAutoincrementKeyword_SetsIsIdentity()
+    {
+        var statements = MigrationParser.Parse("create table t (id integer autoincrement)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.True(col.IsIdentity);
+    }
+
+    [Fact]
+    public void ColumnFlag_BareSerialKeyword_OnNonSerialDbType_SetsIsIdentity()
+    {
+        var statements = MigrationParser.Parse("create table t (id int serial)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.True(col.IsIdentity);
+    }
+
+    // ── IDENTITY(seed,increment): a properly terminated paren must not swallow what follows ──
+
+    [Fact]
+    public void IdentityParen_ProperlyTerminated_DoesNotSwallowTrailingNotNull()
+    {
+        // Complements IdentityParen_MissingClosingParen_GreedilyConsumesRestOfDefinition_IncludingNotNull:
+        // that test documents the unterminated case; this one proves the
+        // seed/increment skip loop's own closing-paren detection actually
+        // stops there when a real ")" is present, instead of always running
+        // to end of input regardless.
+        var statements = MigrationParser.Parse("alter table t add col int identity(1,1) not null");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.True(col.IsIdentity);
+        Assert.False(col.IsNullable);
+    }
+
+    // ── ReadObjectName: tokenizer-split bracket-quoted dotted name ──
+
+    [Fact]
+    public void CreateTable_BracketQuotedSchemaAndTableName_TokenizerSplitDotJoinsToFinalSegment()
+    {
+        // "db.dbo.gadgets" (no brackets) tokenizes as a single compound
+        // identifier, so BareName's own LastIndexOf('.') handles it alone --
+        // ReadObjectName's while-loop is never reached. Bracket-quoted
+        // segments tokenize as separate Identifier/Symbol('.')/Identifier
+        // pieces (per the tokenizer-split comment on ReadObjectName), which
+        // is what actually drives that loop.
+        var statements = MigrationParser.Parse("create table [dbo].[Gadgets] (id int primary key)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal("Gadgets", stmt.TableName);
+    }
+
+    // ── SplitTopLevel: comma-detection must not fire on every top-level symbol ──
+
+    [Fact]
+    public void CreateTable_NegativeNumericDefaultFollowedByNotNull_DoesNotSpuriouslySplitOnTheMinusSign()
+    {
+        // The unary "-" before a negative DEFAULT literal tokenizes as its
+        // own standalone Symbol token at depth 0 (same depth as the real
+        // comma between column defs). SplitTopLevel's comma check must key
+        // off Value == "," specifically -- if it instead treated any
+        // top-level Symbol as a separator, "a int default -1 not null"
+        // would fracture at "-": column "a" loses everything from "-1"
+        // onward (including the trailing NOT NULL), and the orphaned
+        // "1 not null" fragment starts with a Number token, so
+        // ParseColumnDef's def[0].Type != Identifier guard silently drops
+        // it instead of surfacing the lost NOT NULL anywhere.
+        var statements = MigrationParser.Parse("create table t (a int default -1 not null, b int)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.CreateTable, stmt.Kind);
+        Assert.Equal(2, stmt.Columns.Count);
+        Assert.Equal("a", stmt.Columns[0].Name);
+        Assert.False(stmt.Columns[0].IsNullable);
+        Assert.Equal("b", stmt.Columns[1].Name);
+    }
 }
