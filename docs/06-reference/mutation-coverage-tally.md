@@ -2,18 +2,22 @@
 
 Per-assembly, per-file mutation score, tallied against the 96% target set for
 `Extrode.JauntyQ.Analysis` (parity with sibling repo `jaunty`'s ~96% baseline).
-Snapshot after the round-4 pass on the 4 sub-96% files, a follow-up
-near-target cleanup pass on the four `Extrode.JauntyQ.Analysis` files that
-were already ≥96% (`1dd7886`, 94.54% overall), and the first-ever
-`Extrode.JauntyQ.SqlParser` baseline plus its 6-file IR-model cleanup
-(59.65% overall). For score-history-over-time and
+Last confirmed whole-project `Extrode.JauntyQ.Analysis` run: **94.66%**
+(`6059d24`, fable-verify fixes to `DialectMapper.cs`/`DialectReservedWords.cs`).
+A later `MigrationParser.cs` per-mutant pass raised that file's *scoped* score
+to 89.78%, not yet folded into a fresh whole-project run — see the per-file
+table below, which mixes the confirmed 94.66% run with that one file's newer
+scoped figure (called out explicitly where it matters). `Extrode.JauntyQ.SqlParser`
+has a first-ever baseline (59.22%), a 6-file IR-model cleanup (59.65%), and a
+parser-core pass on 4 more files (no new whole-project number yet — two
+attempts crashed with VsTest socket errors). For score-history-over-time and
 equivalent-mutant reasoning, see [`mutation-coverage-report.md`](mutation-coverage-report.md)
 and [`../handoffs/2026-09-19-stryker-mutation-gaps.md`](../handoffs/2026-09-19-stryker-mutation-gaps.md).
 
 ## Assemblies covered by Stryker
 
-Only 2 of 8 `src/` assemblies have a Stryker config at all; only 1 has ever
-been run.
+Only 2 of 8 `src/` assemblies have a Stryker config at all; both have been
+run this effort.
 
 | Assembly | Stryker config | Ever run this effort | Target | Actual | Δ to target |
 |---|---|---|---|---|---|
@@ -37,13 +41,13 @@ threshold — `dotnet stryker` will not fail the build below 96%, only below 0%
 | File | Killed | Timeout | Survived | NoCov | Total | Score | vs. 96% |
 |---|---|---|---|---|---|---|---|
 | `Impact/ReferencedObjects.cs` | 45 | incl. above | 5 | 2 | 52 | 86.54% | -9.46 pp |
-| `Migrations/MigrationParser.cs` | 685 | incl. above | 70 | 8 | 763 | 89.78% (scoped, pending merge) | -6.22 pp |
+| `Migrations/MigrationParser.cs` | 685 | incl. above | 70 | 8 | 763 | 89.78% (scoped; whole-project fold-in pending) | -6.22 pp |
 | `Impact/MigrationImpactReport.cs` | 9 | incl. above | 1 | 0 | 10 | 90.00% | -6.00 pp |
 | `Migrations/SchemaSimulator.cs` | 194 | incl. above | 12 | 0 | 206 | 94.17% | -1.83 pp |
 | `UpsertKeyResolver.cs` | 77 | incl. above | 3 | 0 | 80 | 96.25% | **+0.25 pp** |
 | `AutoCrud.cs` | 141 | incl. above | 1 | 1 | 143 | 98.60% | **+2.60 pp** |
-| `DialectMapper.cs` | 307 | incl. above | 2 | 0 | 312 | 99.36% | **+3.36 pp** |
-| `DialectReservedWords.cs` | 627 | incl. above | 1 | 0 | 632 | 99.84% | **+3.84 pp** |
+| `DialectMapper.cs` | 310 | incl. above | 2 | 0 | 312 | 99.36% | **+3.36 pp** |
+| `DialectReservedWords.cs` | 631 | incl. above | 1 | 0 | 632 | 99.84% | **+3.84 pp** |
 | `AnalysisDiagnostic.cs` | 1 | 0 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
 | `CrudColumnRules.cs` | 27 | 0 | 0 | 0 | 27 | 100.00% | **+4.00 pp** |
 | `Diff/SchemaDelta.cs` | 15 | 0 | 0 | 0 | 15 | 100.00% | **+4.00 pp** |
@@ -58,16 +62,23 @@ threshold — `dotnet stryker` will not fail the build below 96%, only below 0%
 | **Tally (19 files)** | **2253*** | — | **116** | **11** | **2380** | **94.66%** | **-1.34 pp** |
 
 \* "Killed" column includes Timeout mutants (Stryker treats Timeout as a kill
-for scoring purposes); confirmed by a fresh whole-project run 2026-09-20
-16:46-16:52 (2217 killed, 36 timeout, 116 survived, 11 no-coverage, 2380
-tested) — the fable-verify fixes moved +3 killed/timeout, -3 survived vs.
-the prior 94.54% snapshot.
+for scoring purposes); the 2253/116/11/2380 total row is the last confirmed
+whole-project run, 2026-09-20 16:46-16:52 (2217 killed, 36 timeout, 116
+survived, 11 no-coverage) — the fable-verify fixes moved +3 killed/timeout,
+-3 survived vs. the prior 94.54% snapshot. That run predates the
+`MigrationParser.cs` per-mutant pass below, so the total row does **not**
+match if you sum the per-file rows as currently listed (the `MigrationParser.cs`
+row already shows its newer 685/70/8/763 scoped figures). Summing every
+row at its current (latest) score gives a **current best estimate of
+2274 killed+timeout / 95 survived / 11 no-coverage / 2380 total = 95.55%**
+— not yet confirmed by an actual whole-project Stryker run, which is still
+pending.
 
-## Files at or above target (10 of 19)
+## Files at or above target (15 of 19)
 
 `UpsertKeyResolver.cs`, `AutoCrud.cs` (98.60%, ceiling — 1 remaining survivor
 is an equivalent `break;`-removal), `DialectMapper.cs`,
-`DialectReservedWords.cs`, and 9 files at exactly 100.00%
+`DialectReservedWords.cs`, and 11 files at exactly 100.00%
 (`AnalysisDiagnostic.cs`, `CrudColumnRules.cs`, `Diff/SchemaDelta.cs`,
 `Diff/StructuralSchemaDiff.cs`, `EntityNameResolver.cs`,
 `Impact/Classification.cs`, `Impact/ImpactClassifier.cs`,
@@ -79,23 +90,30 @@ is an equivalent `break;`-removal), `DialectMapper.cs`,
 | File | Score | Mutants still needing attention (Survived + NoCov) | Round-4 verdict |
 |---|---|---|---|
 | `Impact/ReferencedObjects.cs` | 86.54% | 7 | Re-verified, no new findings — at documented-equivalent floor |
-| `Migrations/MigrationParser.cs` | 89.78% (scoped, pending merge) | 78 | Per-mutant pass, 2026-09-20: 7 real gaps fixed (12 new tests, 91→70 survivors); remaining ~70 individually re-traced (not template-matched) and confirmed under the previously-established absorption mechanisms — see mutation-coverage-report.md for the per-mutant breakdown |
+| `Migrations/MigrationParser.cs` | 89.78% (scoped; whole-project fold-in pending) | 78 | Per-mutant pass, 2026-09-20: 7 real gaps fixed (12 new tests, 91→70 survivors); remaining ~70 individually re-traced (not template-matched) and confirmed under the previously-established absorption mechanisms — see mutation-coverage-report.md for the per-mutant breakdown |
 | `Impact/MigrationImpactReport.cs` | 90.00% | 1 | Re-verified, no new findings — at documented-equivalent floor |
 | `Migrations/SchemaSimulator.cs` | 94.17% | 12 | **Fully closed** — all 12 proven equivalent via the `TryFindTable`/`TryFindColumnKey`/`TryFindColumn` "null-iff-false" contract |
 
-Combined: 119 of the whole project's 131 remaining non-killed mutants sit in
-these 4 files, of which `SchemaSimulator.cs`'s 12,
+Combined: 98 of the whole project's 106 remaining non-killed mutants (per the
+current per-file scores, `MigrationParser.cs`'s post-per-mutant-pass 78
+included) sit in these 4 files, of which `SchemaSimulator.cs`'s 12,
 `ReferencedObjects.cs`'s 7, and `MigrationImpactReport.cs`'s 1 (20 total) are
 now confirmed-equivalent floors — closed, not gaps. The genuinely open
-question is only in `MigrationParser.cs`'s remaining ~91: most look
-equivalent under the same two absorption mechanisms, but that has not been
-proven per-mutant the way `SchemaSimulator.cs`'s was.
+question is only in `MigrationParser.cs`'s remaining ~70: individually
+re-traced and believed equivalent under the previously-established
+absorption mechanisms (see mutation-coverage-report.md's per-mutant pass
+section), though a fable-verify pass on that section found one of its new
+tests (line 647) doesn't actually kill what it claims to — see that doc for
+the correction.
 
 ## Bottom line
 
-- **Overall: 94.66% vs. 96% target → -1.34 percentage points (~44 mutants),
-  confirmed by a fresh whole-project run.**
-- 10 of 19 files already meet or exceed 96%; 9 of those are at a clean 100%.
+- **Overall: 94.66% vs. 96% target → -1.34 percentage points (32 more
+  mutants would need to be killed), confirmed by a fresh whole-project run.**
+  Folding in `MigrationParser.cs`'s newer scoped score (not yet
+  whole-project-confirmed) gives a current best estimate of 95.55%, -0.45 pp
+  (11 more mutants) — see the footnote above the per-file table.
+- 15 of 19 files already meet or exceed 96%; 11 of those are at a clean 100%.
 - A near-target cleanup pass (commit `1dd7886`) pushed the 4 files already
   ≥96% toward their own ceilings: only `AutoCrud.cs` had a real fixable
   survivor (97.90% → 98.60%, a `List<T>` negative-capacity arithmetic

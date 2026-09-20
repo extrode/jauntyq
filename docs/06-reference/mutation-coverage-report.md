@@ -25,7 +25,7 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 2026-09-20 | SqlParser — 6 zero-coverage IR model files closed | 59.65% | `6763087` |
 | 2026-09-20 | fable-verify pass: fixed 3 mislabeled-equivalent survivors (DialectMapper/DialectReservedWords) | **94.66%** | `6059d24` |
 | 2026-09-20 | SqlParser — SqlParser.cs/Part4/6/7.cs parser-core pass (76 new tests) | *(SqlParser whole-project re-run pending — see note below)* | `91e4c04` |
-| 2026-09-20 | MigrationParser.cs — per-mutant pass (12 new tests, 7 real gaps) | 89.78% (scoped; whole-project re-run pending) | *(pending merge, branch `test/migrationparser-per-mutant-pass`)* |
+| 2026-09-20 | MigrationParser.cs — per-mutant pass (12 new tests, 7 real gaps) | 89.78% (scoped; whole-project re-run pending) | `3938a48` |
 
 ## Current per-file breakdown (as of 94.66%, whole-project re-run 2026-09-20 16:46-16:52, confirming the fable-verify fixes)
 
@@ -34,24 +34,24 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | Score | Killed | Timeout | Survived | NoCov | Total | File |
 |---|---|---|---|---|---|---|
 | 86.54% | 45 | 0 | 5 | 2 | 52 | `Impact/ReferencedObjects.cs` |
-| 87.02% (→89.78% per per-mutant pass below) | 632 (→652) | 32 (→33) | 91 (→70) | 8 | 763 (→755 tested) | `Migrations/MigrationParser.cs` |
+| 87.02% (→89.78% per per-mutant pass below) | 632 (→652) | 32 (→33) | 91 (→70) | 8 | 763 | `Migrations/MigrationParser.cs` |
 | 90.00% | 9 | 0 | 1 | 0 | 10 | `Impact/MigrationImpactReport.cs` |
 | 94.17% | 194 | 0 | 12 | 0 | 206 | `Migrations/SchemaSimulator.cs` |
 | 96.25% | 77 | 0 | 3 | 0 | 80 | `UpsertKeyResolver.cs` |
 | 98.60% | 141 | 0 | 1 | 1 | 143 | `AutoCrud.cs` |
 | 99.36% | 307 | 3 | 2 | 0 | 312 | `DialectMapper.cs` |
 | 99.84% | 627 | 4 | 1 | 0 | 632 | `DialectReservedWords.cs` |
-| 100.00% | 1 | 0 | 0 | 1 | `AnalysisDiagnostic.cs` |
-| 100.00% | 27 | 0 | 0 | 27 | `CrudColumnRules.cs` |
-| 100.00% | 15 | 0 | 0 | 15 | `Diff/SchemaDelta.cs` |
-| 100.00% | 44 | 0 | 0 | 44 | `Diff/StructuralSchemaDiff.cs` |
-| 100.00% | 15 | 0 | 0 | 15 | `EntityNameResolver.cs` |
-| 100.00% | 4 | 0 | 0 | 4 | `Impact/Classification.cs` |
-| 100.00% | 66 | 0 | 0 | 66 | `Impact/ImpactClassifier.cs` |
-| 100.00% | 3 | 0 | 0 | 3 | `Impact/ImpactEntry.cs` |
-| 100.00% | 4 | 0 | 0 | 4 | `Impact/ImpactReason.cs` |
-| 100.00% | 1 | 0 | 0 | 1 | `Impact/QueryImpactInput.cs` |
-| 100.00% | 2 | 0 | 0 | 2 | `Migrations/MigrationStatement.cs` |
+| 100.00% | 1 | 0 | 0 | 0 | 1 | `AnalysisDiagnostic.cs` |
+| 100.00% | 27 | 0 | 0 | 0 | 27 | `CrudColumnRules.cs` |
+| 100.00% | 15 | 0 | 0 | 0 | 15 | `Diff/SchemaDelta.cs` |
+| 100.00% | 44 | 0 | 0 | 0 | 44 | `Diff/StructuralSchemaDiff.cs` |
+| 100.00% | 15 | 0 | 0 | 0 | 15 | `EntityNameResolver.cs` |
+| 100.00% | 4 | 0 | 0 | 0 | 4 | `Impact/Classification.cs` |
+| 100.00% | 66 | 0 | 0 | 0 | 66 | `Impact/ImpactClassifier.cs` |
+| 100.00% | 3 | 0 | 0 | 0 | 3 | `Impact/ImpactEntry.cs` |
+| 100.00% | 4 | 0 | 0 | 0 | 4 | `Impact/ImpactReason.cs` |
+| 100.00% | 1 | 0 | 0 | 0 | 1 | `Impact/QueryImpactInput.cs` |
+| 100.00% | 2 | 0 | 0 | 0 | 2 | `Migrations/MigrationStatement.cs` |
 
 ## Mutation-coverage test files added this effort
 
@@ -60,13 +60,13 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | `AutoCrudSynthesizeTests.cs` (strengthened) | `AutoCrud.cs` | 97.90% → 98.60% | `7c554e0`, `6e4c5d9` |
 | `ImpactClassifierTests.cs` (strengthened) | `Impact/ImpactClassifier.cs` | 100.00% | `875ac78` |
 | `SchemaSimulatorMutationCoverageTests.cs` | `Migrations/SchemaSimulator.cs` | 94.17% | `bd11450` |
-| `DialectMapperMutationCoverageTests.cs` | `DialectMapper.cs` | 98.72% | `147e904` |
+| `DialectMapperMutationCoverageTests.cs` | `DialectMapper.cs` | 98.72% → 99.36% | `147e904`, `6059d24` |
 | `ReferencedObjectsMutationCoverageTests.cs` | `Impact/ReferencedObjects.cs` | 86.54% | `e6a75c3` |
 | `UpsertKeyResolverMutationCoverageTests.cs` | `UpsertKeyResolver.cs` | 96.25% | `bf40c03` |
 | `MigrationParserMutationCoverageTests.cs` (created) | `Migrations/MigrationParser.cs` | 84.0% → 87.02% | `23e129c`, `04f7b1f`, `75dfcf9`, `091f6a9` |
-| `MigrationParserMutationCoverageTests.cs` (12 more tests) | `Migrations/MigrationParser.cs` | 87.02% → 89.78% | *(pending merge, branch `test/migrationparser-per-mutant-pass`)* |
+| `MigrationParserMutationCoverageTests.cs` (12 more tests) | `Migrations/MigrationParser.cs` | 87.02% → 89.78% | `3938a48` |
 | `SmallModelTypesMutationCoverageTests.cs` | `MigrationStatement.cs`, `ImpactReason.cs`, `ImpactEntry.cs`, `MigrationImpactReport.cs`, `Classification.cs`, `SchemaDelta.cs` | 90–100% | `951a120` |
-| `DialectReservedWordsTests.cs` (earlier session, strengthened) | `DialectReservedWords.cs` | 99.68% | `7a08a4b` |
+| `DialectReservedWordsTests.cs` (earlier session, strengthened) | `DialectReservedWords.cs` | 99.68% → 99.84% | `7a08a4b`, `6059d24` |
 
 Also relocated from `Generator.Tests` to `Analysis.Tests` (earlier session): `DialectMapperTests.cs`
 (`ae9b086`), `MigrationParserTests.cs` (`afb9fad`, `9f34577`).
@@ -117,6 +117,22 @@ Net: the 96% target is likely not fully reachable through more test-writing
 alone; the remaining gap is dominated by a confirmed equivalent-mutant floor
 in 6 of the 7 files below 100% (all but `MigrationParser.cs`), which remains
 the sole file where further (slow) work could still move the needle.
+
+**Correction, 2026-09-20 (fable-verify pass).** The "did **not** move" /
+"closed at their current scores" claim two paragraphs up turned out to be
+wrong for 2 of the 3 files it names. An adversarial (fable) verify pass,
+instructed to try to break each equivalence claim rather than confirm it,
+found real, killable gaps in `DialectMapper.cs` (2 mutants) and
+`DialectReservedWords.cs` (1 mutant) — both boundary/guard conditions whose
+equivalence reasoning missed a code path (see
+[the handoff doc's fable-verify update](../handoffs/2026-09-19-stryker-mutation-gaps.md)
+for the full per-mutant trace). Fixed in branch `test/fix-mislabeled-equivalents`
+(`6059d24`): `DialectMapper.cs` 98.72% → **99.36%**, `DialectReservedWords.cs`
+99.68% → **99.84%**. `UpsertKeyResolver.cs`'s equivalence claim held under
+the same adversarial pass. The "6 of 7 files" count in the Net paragraph
+above is accordingly one file too many as originally stated — the corrected,
+per-mutant-traced state for all 7 sub-100% files is in the current per-file
+breakdown table above this section, not this historical paragraph.
 
 ### MigrationParser.cs — per-mutant pass, 2026-09-20 (87.02% → 89.78%)
 
