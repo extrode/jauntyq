@@ -468,7 +468,112 @@ public class MigrationParserMutationCoverageTests
         Assert.False(col.IsNullable);
     }
 
+    // ── WITH/WITHOUT TIME ZONE: pos must advance past all 3 words, not wrap negative ──
+
+    [Fact]
+    public void WithoutTimeZone_IdentityNamedColumn_DoesNotReScanColumnNameAsAFlag()
+    {
+        // If the WITHOUT-branch's pos += 3 ever became pos -= 3, pos would go
+        // negative (no facet paren consumed it back up first). Is()/IsSymbol()
+        // both bounds-check index >= 0, so every check in the flags loop then
+        // fails until the generic catch-all walks pos back up from negative
+        // through 0 -- re-scanning the column's own name and type tokens as
+        // if they were flags. A column literally named "identity" would then
+        // get falsely flagged as an identity column.
+        var statements = MigrationParser.Parse("create table t (identity timestamp without time zone)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsIdentity);
+    }
+
+    [Fact]
+    public void WithTimeZone_IdentityNamedColumn_DoesNotReScanColumnNameAsAFlag()
+    {
+        // Mirror of the WITHOUT case above, for the WITH-branch's own
+        // pos += 3.
+        var statements = MigrationParser.Parse("create table t (identity timestamp with time zone)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsIdentity);
+    }
+
+    // ── DEFAULT (...) expression: closing paren must land pos past it, not back inside it ──
+
+    [Fact]
+    public void DefaultParenthesizedExpression_ClosingParenAdvancesPastIt_ContentsNeverReadAsFlags()
+    {
+        // The DEFAULT branch's own inline paren-depth scan ends with
+        // "pos++; break;" on the matching close paren. If that were pos--
+        // instead, pos would land back on the last token INSIDE the default
+        // expression rather than past it -- here, the literal "NULL" inside
+        // "DEFAULT (NULL)" -- and the outer flags loop would then read it as
+        // a genuine trailing bare-NULL flag, wrongly flipping nullability
+        // back to true after "NOT NULL" already set it false.
+        var statements = MigrationParser.Parse("create table t (c int not null default (null))");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
+    // ── GENERATED ... AS (expr) with STORED/VIRTUAL omitted (MySQL allows this) ──
+
+    [Fact]
+    public void GeneratedComputedColumn_NoStoredOrVirtualKeyword_TrailingNotNullStillRecognized()
+    {
+        // The optional-STORED/VIRTUAL check ("if (Is(STORED) || Is(VIRTUAL))
+        // pos++;") only needs to advance when one of those keywords is
+        // actually present. If the condition were negated, pos would
+        // incorrectly advance when NEITHER keyword is present (MySQL allows
+        // omitting both), skipping the very next token -- the "NOT" of a
+        // trailing "NOT NULL" -- so the pair is never recognized and
+        // nullability is wrongly left at its default (true).
+        var statements = MigrationParser.Parse(
+            "create table t (a int, b int, total int generated always as (a+b) not null)");
+
+        var stmt = Assert.Single(statements);
+        var col = stmt.Columns.Single(c => c.Name == "total");
+        Assert.False(col.IsNullable);
+    }
+
+    // ── SkipParenGroup: closing paren must land pos past it, not back inside it ──
+
+    [Fact]
+    public void SkipParenGroup_ClosingParenAdvancesPastIt_ExpressionTokensNeverReadAsFlags()
+    {
+        // Mirror of the DEFAULT-expression case above, but for the shared
+        // SkipParenGroup helper as used by GENERATED ... AS (expr): if its
+        // "pos++; break;" on the matching close paren were pos-- instead,
+        // pos would land back on the expression's own last token -- here,
+        // a column reference that happens to be named "identity" -- and the
+        // outer flags loop would misread it as a genuine IDENTITY flag.
+        var statements = MigrationParser.Parse(
+            "create table t (identity int, b int generated always as (b + identity) stored)");
+
+        var stmt = Assert.Single(statements);
+        var col = stmt.Columns.Single(c => c.Name == "b");
+        Assert.False(col.IsIdentity);
+    }
+
     // ── Computed-column inline flags loop: a trailing bare NULL must still flip nullability back ──
+
+    [Fact]
+    public void ComputedColumn_BareNullFollowedByNotNull_TokenAfterFlagIsStillProcessed()
+    {
+        // The bare-NULL branch's own `continue;` is what makes it skip
+        // exactly one token (the "NULL" just consumed). If that `continue`
+        // were dropped, execution falls through to the loop's unconditional
+        // catch-all `cp++` as well, advancing an extra token and silently
+        // swallowing whatever comes right after -- here, the "NOT" of a
+        // trailing "NOT NULL", which never gets recognized as a pair.
+        var statements = MigrationParser.Parse("create table t (total as (x) null not null)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
 
     [Fact]
     public void ComputedColumn_NotNullFollowedByBareNull_FlipsBackToNullable()
