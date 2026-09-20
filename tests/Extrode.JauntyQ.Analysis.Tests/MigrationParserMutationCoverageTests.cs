@@ -501,6 +501,30 @@ public class MigrationParserMutationCoverageTests
         Assert.False(col.IsNullable);
     }
 
+    [Fact]
+    public void GeneratedAsComputedColumn_WithoutAlwaysKeyword_StillMarkedComputed()
+    {
+        // If the leading "GENERATED" check were negated, the block would
+        // never fire on the real "GENERATED" token -- but the generic
+        // unknown-flag fallback then advances pos by exactly one, so the
+        // very next loop iteration re-enters the same (now inverted, so
+        // true-when-not-"GENERATED") block one token later than intended.
+        // With the optional "ALWAYS"/"BY DEFAULT" prefix present, that
+        // one-token misalignment happens to self-correct (the block's own
+        // forward search for "AS" still lands in the right place one
+        // iteration later) -- which is why every other GENERATED test in
+        // this suite doesn't distinguish this mutant. Omitting "ALWAYS"
+        // breaks that accidental resynchronization: the misaligned block
+        // consumes the real "AS" token itself as if it were the flag
+        // keyword, so its own "AS" search then looks one token too late
+        // (at "(") and never finds it -- IsComputed silently stays false.
+        var statements = MigrationParser.Parse("create table t (total int generated as (x))");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.True(col.IsComputed);
+    }
+
     // ── ALTER COLUMN ... ADD/DROP GENERATED|IDENTITY: unmodeled, same as SET ──
 
     [Fact]
