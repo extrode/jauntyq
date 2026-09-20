@@ -572,18 +572,71 @@ public class MigrationParserMutationCoverageTests
     // ── ReadObjectName: tokenizer-split bracket-quoted dotted name ──
 
     [Fact]
-    public void CreateTable_BracketQuotedSchemaAndTableName_TokenizerSplitDotJoinsToFinalSegment()
+    public void CreateTable_BracketQuotedSchemaAndTableName_TokenizerMergesToOneIdentifier()
     {
-        // "db.dbo.gadgets" (no brackets) tokenizes as a single compound
-        // identifier, so BareName's own LastIndexOf('.') handles it alone --
-        // ReadObjectName's while-loop is never reached. Bracket-quoted
-        // segments tokenize as separate Identifier/Symbol('.')/Identifier
-        // pieces (per the tokenizer-split comment on ReadObjectName), which
-        // is what actually drives that loop.
+        // Correction, 2026-09-20 (whole-project re-run follow-up): this was
+        // previously believed to exercise ReadObjectName's while-loop
+        // (lines 815-818), but SqlTokenizer.MergeQualifiedIdentifiers (see
+        // SqlTokenizer.cs) unconditionally fuses adjacent
+        // Identifier '.' Identifier tokens -- including bracket-quoted ones
+        // like [dbo].[Gadgets] -- into a single Identifier token BEFORE
+        // ReadObjectName ever runs. So this input reaches ReadObjectName's
+        // single-token branch (BareName's own LastIndexOf('.')), not the
+        // while-loop; it is kept as a regression test for that merge
+        // behavior, not as coverage for the while-loop.
         var statements = MigrationParser.Parse("create table [dbo].[Gadgets] (id int primary key)");
 
         var stmt = Assert.Single(statements);
         Assert.Equal("Gadgets", stmt.TableName);
+    }
+
+    [Fact]
+    public void CreateTable_BracketQuotedNameContainingLiteralDot_TokenizerLeavesUnmergedForReadObjectNamesLoop()
+    {
+        // MergeQualifiedIdentifiers deliberately leaves a Identifier '.'
+        // Identifier sequence unmerged when the left identifier's own value
+        // already contains a literal dot and this isn't a chain
+        // continuation -- exactly the case a bracket-quoted segment with a
+        // period inside it produces (e.g. a schema pathologically named
+        // "db.with.dots"). That is the one input shape that actually
+        // reaches ReadObjectName's while-loop (lines 815-818): pos advances
+        // past the un-merged "." and second Identifier, and the final
+        // segment wins.
+        var statements = MigrationParser.Parse("create table [db.with.dots].[Gadgets] (id int primary key)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal("Gadgets", stmt.TableName);
+
+        // Note: this same input leaves one line-815 mutant equivalent --
+        // mutating the loop's `tokens[pos + 1].Type == TokenType.Identifier`
+        // check to `tokens[pos - 1]...` can't be distinguished by any input
+        // reachable through ReadObjectName's call pattern: pos is only ever
+        // checked here immediately after consuming an Identifier token one
+        // step back (either the name just read, or the previous loop
+        // iteration's segment), so tokens[pos - 1] is *always* of type
+        // Identifier at this check -- same as the correct tokens[pos + 1]
+        // check always is, whenever the loop condition's other clauses hold.
+        // The two checks' boolean results never differ, even though they
+        // read different tokens.
+    }
+
+    [Fact]
+    public void CreateTable_TrailingDotWithNoFollowingIdentifier_DoesNotOverrunTheTokenArray()
+    {
+        // Guards the while-loop's `pos + 1 < tokens.Count` bound: if that
+        // check were loosened (e.g. an off-by-one to `pos - 1 < tokens.Count`,
+        // which is true almost everywhere), the unmutated inner check
+        // `tokens[pos + 1].Type == TokenType.Identifier` would index one
+        // past the end of the token list once the unmerged "." is the very
+        // last token -- an IndexOutOfRangeException instead of the correct
+        // "no more segments, stop" fallthrough. Needs a literal-dot name
+        // (see the sibling test above) so the tokenizer's merge pass leaves
+        // the trailing "." unconsumed, and no "(" or anything else after it
+        // so the token list truly ends there.
+        var statements = MigrationParser.Parse("create table [db.with.dots].");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
     }
 
     // ── SplitTopLevel: comma-detection must not fire on every top-level symbol ──
