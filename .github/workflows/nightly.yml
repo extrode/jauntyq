@@ -137,7 +137,16 @@ jobs:
   mutation:
     # Scores are the artifact, not a gate: no threshold fails the job, because a
     # score drop is a prompt to look rather than a defect on its own.
+    #
+    # Gated on CI_MUTATION_ENABLED (repo variable; unset or anything but
+    # "false" runs it) and hard-capped at 4 hours -- mirrors jaunty's
+    # mutation job. A GitHub Actions runner has no maximum job duration on its
+    # own, so a stuck Stryker run (a hung mutant, a runaway retry loop) burns
+    # the account's Actions minutes silently until someone notices, rather
+    # than failing loudly at a bound someone chose on purpose.
+    if: vars.CI_MUTATION_ENABLED != 'false'
     runs-on: ubuntu-latest
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
