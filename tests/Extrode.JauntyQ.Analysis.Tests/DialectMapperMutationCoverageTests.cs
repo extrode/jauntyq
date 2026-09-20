@@ -186,4 +186,30 @@ public class DialectMapperMutationCoverageTests
         Assert.Equal("object?", DialectMapper.MapDbTypeToCSharp("some_enum_type", true));
         Assert.True(DialectMapper.IsUnmappedDbType("some_enum_type", true));
     }
+
+    // ── NormalizeDbType: the "(" boundary must be ">= 0", not "> 0" ─────
+
+    [Fact]
+    public void NormalizeDbType_ParenAtIndexZero_IsStillStripped()
+    {
+        // Guards parenIndex >= 0 vs. > 0: a leading "(" (parenIndex == 0)
+        // must still trigger the strip, leaving "" as the base type, which
+        // then degrades through the array branch to a plain "object" rather
+        // than incorrectly retaining the literal text and matching the "[]"
+        // suffix as if it were an array of the (nonexistent) base type.
+        Assert.Equal("object", DialectMapper.MapDbTypeToCSharp("(x)[]", isNullable: false));
+    }
+
+    // ── StripMySqlUnsignedModifier: the "unsigned" boundary must be ">= 0", not "> 0" ──
+
+    [Fact]
+    public void StripMySqlUnsignedModifier_UnsignedAtIndexZero_IsStillStripped()
+    {
+        // Guards unsignedIndex >= 0 vs. > 0: "unsigned[]" has the modifier
+        // at index 0, so the strip must still fire, leaving "" as the base
+        // type -- which then degrades to "object" through the array branch,
+        // not "object[]" from the un-stripped literal falsely matching the
+        // "[]" suffix check on its own account.
+        Assert.Equal("object", DialectMapper.MapDbTypeToCSharp("unsigned[]", isNullable: false, dialect: "mysql"));
+    }
 }

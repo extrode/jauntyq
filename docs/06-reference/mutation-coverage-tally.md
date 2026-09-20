@@ -17,7 +17,7 @@ been run.
 
 | Assembly | Stryker config | Ever run this effort | Target | Actual | Δ to target |
 |---|---|---|---|---|---|
-| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **94.54%** | **-1.46 pp** |
+| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **94.66%** | **-1.34 pp** |
 | `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | Yes | 96.00% | **59.65%** | **-36.35 pp** |
 | `Extrode.JauntyQ.Cli.Core` | none | No | — | — | out of scope |
 | `Extrode.JauntyQ.Cli` | none | No | — | — | out of scope |
@@ -42,8 +42,8 @@ threshold — `dotnet stryker` will not fail the build below 96%, only below 0%
 | `Migrations/SchemaSimulator.cs` | 194 | incl. above | 12 | 0 | 206 | 94.17% | -1.83 pp |
 | `UpsertKeyResolver.cs` | 77 | incl. above | 3 | 0 | 80 | 96.25% | **+0.25 pp** |
 | `AutoCrud.cs` | 141 | incl. above | 1 | 1 | 143 | 98.60% | **+2.60 pp** |
-| `DialectMapper.cs` | 308 | incl. above | 4 | 0 | 312 | 98.72% | **+2.72 pp** |
-| `DialectReservedWords.cs` | 630 | incl. above | 2 | 0 | 632 | 99.68% | **+3.68 pp** |
+| `DialectMapper.cs` | 307 | incl. above | 2 | 0 | 312 | 99.36% | **+3.36 pp** |
+| `DialectReservedWords.cs` | 627 | incl. above | 1 | 0 | 632 | 99.84% | **+3.84 pp** |
 | `AnalysisDiagnostic.cs` | 1 | 0 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
 | `CrudColumnRules.cs` | 27 | 0 | 0 | 0 | 27 | 100.00% | **+4.00 pp** |
 | `Diff/SchemaDelta.cs` | 15 | 0 | 0 | 0 | 15 | 100.00% | **+4.00 pp** |
@@ -55,11 +55,13 @@ threshold — `dotnet stryker` will not fail the build below 96%, only below 0%
 | `Impact/ImpactReason.cs` | 4 | 0 | 0 | 0 | 4 | 100.00% | **+4.00 pp** |
 | `Impact/QueryImpactInput.cs` | 1 | 0 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
 | `Migrations/MigrationStatement.cs` | 2 | 0 | 0 | 0 | 2 | 100.00% | **+4.00 pp** |
-| **Tally (19 files)** | **2250*** | — | **119** | **11** | **2380** | **94.54%** | **-1.46 pp** |
+| **Tally (19 files)** | **2253*** | — | **116** | **11** | **2380** | **94.66%** | **-1.34 pp** |
 
 \* "Killed" column includes Timeout mutants (Stryker treats Timeout as a kill
-for scoring purposes); the whole-project total of 2245 killed + timeouts
-matches the `mutation-coverage-report.md` whole-project figure.
+for scoring purposes); confirmed by a fresh whole-project run 2026-09-20
+16:46-16:52 (2217 killed, 36 timeout, 116 survived, 11 no-coverage, 2380
+tested) — the fable-verify fixes moved +3 killed/timeout, -3 survived vs.
+the prior 94.54% snapshot.
 
 ## Files at or above target (10 of 19)
 
@@ -91,17 +93,24 @@ proven per-mutant the way `SchemaSimulator.cs`'s was.
 
 ## Bottom line
 
-- **Overall: 94.54% vs. 96% target → -1.46 percentage points (~51 mutants).**
+- **Overall: 94.66% vs. 96% target → -1.34 percentage points (~44 mutants),
+  confirmed by a fresh whole-project run.**
 - 10 of 19 files already meet or exceed 96%; 9 of those are at a clean 100%.
 - A near-target cleanup pass (commit `1dd7886`) pushed the 4 files already
   ≥96% toward their own ceilings: only `AutoCrud.cs` had a real fixable
   survivor (97.90% → 98.60%, a `List<T>` negative-capacity arithmetic
   mutant). `UpsertKeyResolver.cs`, `DialectMapper.cs`, and
-  `DialectReservedWords.cs` were unchanged — all their remaining survivors
-  are proven equivalent by direct code-flow analysis. Combined with the 3
-  sub-96% files closed in round 4, that's 6 of the 7 sub-100% files (all but
-  `MigrationParser.cs`) now confirmed closed — no further test-writing can
-  move any of them.
+  `DialectReservedWords.cs` were initially reported unchanged, but a
+  follow-on adversarial (fable) verify pass found 3 of those "equivalent"
+  survivors were actually real, killable gaps — 2 in `DialectMapper.cs`
+  (98.72% → **99.36%**) and 1 in `DialectReservedWords.cs` (99.68% →
+  **99.84%**), fixed in branch `test/fix-mislabeled-equivalents`. See the
+  handoff doc's "fable-verify pass" update for the full per-mutant trace,
+  including the corrected reasoning for the survivors that *are* genuinely
+  equivalent. Combined with the 3 sub-96% files closed in round 4, 6 of the
+  7 sub-100% files (all but `MigrationParser.cs`) are now confirmed closed
+  with adversarially-checked reasoning — no further test-writing can move
+  any of them.
 - `MigrationParser.cs` (87.02%) is the only file with any real remaining
   headroom, but closing it needs slow per-mutant manual-mutation verification,
   not another broad sweep — 96% overall is likely not reachable through more

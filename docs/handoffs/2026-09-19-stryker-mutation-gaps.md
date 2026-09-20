@@ -639,54 +639,163 @@ line 95 above:
   `continue` just lets execution fall through to a second `continue` on the
   very next line with the same guard — no observable difference.
 
-**`DialectMapper.cs` — all 4 survivors equivalent, 98.72% is the ceiling.**
+**`DialectMapper.cs` — 3 of 4 survivors equivalent; 1 category was a real
+gap, corrected below (see 2026-09-20 fable-verify update).**
 - Line 381 (Boolean mutation, the recursive `IsUnmappedDbType(...,
   isNullable: false, ...)` call's `false` argument flipped to `true` for the
   Postgres-array-type branch): `IsUnmappedDbType`'s own return value is
   `mapped == "object" || mapped == "object?"` — both of `MapDbTypeToCSharp`'s
   possible "unmapped" outputs are covered by the OR, so whichever `isNullable`
   value reaches the recursive call, the boolean result is identical.
-- Line 424 (`NormalizeDbType`'s `parenIndex >= 0` → `parenIndex > 0`) and
+  **Confirmed still sound.**
+- ~~Line 424 (`NormalizeDbType`'s `parenIndex >= 0` → `parenIndex > 0`) and
   line 447 (`StripMySqlUnsignedModifier`'s `unsignedIndex >= 0` →
-  `unsignedIndex > 0`, plus the paired "Conditional (true) mutation" that
-  replaces the whole ternary with its true branch): both differ from the
-  original only when the index is exactly `0` — i.e. the search character
-  (`(` or the literal `"unsigned"`) sits at position 0 of the string. In that
-  case the original strips to `""` (nothing before the delimiter) while the
-  mutant either keeps the whole original string unstripped (equality mutant)
-  or — for the "Conditional (true)" mutant, which is only reachable given
-  `unsignedIndex >= -1`; since `StripMySqlUnsignedModifier`'s only call site
-  (`DialectMapper.cs:211`) is itself gated on `dbType.Contains("unsigned",
-  ...)`, `unsignedIndex` can never be `-1` there, so the ternary's false
-  branch (`: dbType`) is dead code and always-true is behaviorally identical.
-  For the boundary case itself (index `0`), neither the empty string nor the
-  literal, un-stripped original (which still contains the paren character or
-  the word "unsigned") can ever equal one of `DialectMapper`'s known
-  dictionary keys (`"int"`, `"bigint"`, `"hierarchyid"`, etc., none of which
-  are `""` or contain those characters) — so no test, however contrived,
-  can observe a difference through any public entry point (`MapDbTypeToCSharp`,
-  `IsUnmappedDbType`, `IsSqlServerClrType`).
+  `unsignedIndex > 0`) ... no test, however contrived, can observe a
+  difference through any public entry point.~~ **WRONG — see 2026-09-20
+  fable-verify update below.** The original reasoning only checked whether
+  the un-stripped, literal string could match a *dictionary key* directly; it
+  missed that `MapDbTypeToCSharp` recurses through the `EndsWith("[]")` array
+  branch first, which re-derives a *different* base type depending on whether
+  the boundary character was stripped. The "Conditional (true) mutation" on
+  the `StripMySqlUnsignedModifier` ternary (only reachable given
+  `unsignedIndex >= -1`, which `IndexOf` can never return, so that half of
+  the original claim about dead-ternary-branch equivalence still holds) is
+  unaffected by this correction — only the `>= 0` vs `> 0` boundary mutants
+  on both lines were actually real gaps.
 
-**`DialectReservedWords.cs` — both survivors equivalent, 99.68% is the
-ceiling.** Lines 212 and 257 both mutate an `if (string.IsNullOrEmpty(name)
-|| string.IsNullOrEmpty(dialect)) return false;` early-exit guard's `||` to
-`&&`. Under the mutant, the guard only fires when *both* are empty/null; a
-call with just one of them empty falls through into the dialect-name
-`string.Equals` checks (`IsReservedInDialect`) or the postgres-only check
-(`RequiresQuotingForCase`). But `string.Equals(null-or-empty-dialect,
-"postgres"/"mysql"/"sqlserver"/"sqlite", OrdinalIgnoreCase)` is `false` for
-every known dialect string when dialect is `""` or `null`, and no reserved-word
-set contains `""` as a member — so every downstream branch that the mutant
-newly reaches for a single-empty input still ends up returning `false`,
-matching the original's early return. Traced for all four
-name-empty/dialect-non-empty and name-non-empty/dialect-empty-or-null
-combinations; none distinguishes the two.
+**`DialectReservedWords.cs` — 1 of 2 survivors equivalent; the other was a
+real gap, corrected below.**
+- Line 212 (`IsReservedInDialect`, same `||`→`&&` guard mutation):
+  `HashSet<string>.Contains(null)` returns `false` without throwing, and no
+  reserved-word set contains `""`, so every downstream branch the mutant
+  newly reaches for a single-empty/null input still ends up returning
+  `false` — this half of the original claim is **confirmed still sound.**
+- ~~Line 257 (`RequiresQuotingForCase`, same guard) ... traced for all four
+  name-empty/dialect-non-empty and name-non-empty/dialect-empty-or-null
+  combinations; none distinguishes the two.~~ **WRONG — see 2026-09-20
+  fable-verify update below.** The original trace never considered `name ==
+  null` specifically (as opposed to `name == ""`): `RequiresQuotingForCase`,
+  unlike `IsReservedInDialect`, doesn't stop at a `HashSet.Contains` — it
+  falls through to `foreach (char c in name)`, which throws
+  `NullReferenceException` on a null `name` once the mutated `&&` guard lets
+  it through with a non-empty/non-null `dialect`. A real, killable gap.
 
-**Where things stand:** 94.54%, still short of 96%. With this pass, 6 of the
-7 files below 100% (`UpsertKeyResolver.cs`, `AutoCrud.cs`, `DialectMapper.cs`,
-`DialectReservedWords.cs`, `SchemaSimulator.cs`, `ReferencedObjects.cs`, and
-`MigrationImpactReport.cs` — all but `MigrationParser.cs`) are now confirmed
-at their equivalent-mutant ceilings; no further test-writing can move any of
-them without a source change. `MigrationParser.cs` (87.02%) remains the sole
-file with real remaining headroom, and remains slow to close for the reasons
-documented in the prior update.
+**`ReferencedObjects.cs` — all 7 remaining mutants equivalent, but the
+reasoning below was never actually written out until the 2026-09-20
+fable-verify update; the "hash-randomization equivalents" one-liner in the
+94.33%/94.50% updates above was an unverifiable assertion, not a trace. See
+that update for the full per-mutant reasoning.**
+
+**Where things stand:** 94.54%, still short of 96%. Of the 7 files below
+100%, `MigrationParser.cs` (87.02%) is the only one with real remaining
+headroom (slow to close, for the reasons documented in the prior update);
+the other 6 were believed to be at equivalent-mutant ceilings as of this
+pass, but a subsequent adversarial (fable) verify pass found 3 mislabeled
+survivors — see the 2026-09-20 fable-verify update immediately below for the
+corrected, fixed state.
+
+## Update 2026-09-20 (later still): fable-verify pass finds 3 mislabeled equivalents
+
+An adversarial verify pass (fable-tier, instructed to try to *break* each
+equivalence claim rather than confirm it) was run against the 6 files this
+handoff had called "confirmed at their equivalent-mutant ceiling":
+`SchemaSimulator.cs`, `ReferencedObjects.cs`, `MigrationImpactReport.cs`,
+`UpsertKeyResolver.cs`, `DialectMapper.cs`, `DialectReservedWords.cs`. It
+picked 4 of the 6 to examine in depth and found:
+
+- **`SchemaSimulator.cs`, `UpsertKeyResolver.cs`: SOUND**, reasoning
+  confirmed as written above (with the caveat that it verified the reasoning
+  *pattern*, not literally every one of `SchemaSimulator.cs`'s 12 mutants
+  individually).
+- **`DialectMapper.cs`: 2 of 4 UNSOUND.** `MapDbTypeToCSharp("(x)[]", isNullable:
+  false)`: original returns `"object"` (the whole `"(x)[]"` string strips to
+  `""` at the `(` boundary, `""` doesn't end in `"[]"`, falls through to the
+  unmapped-type default); the `parenIndex > 0` mutant leaves `"(x)[]"`
+  un-stripped, which *does* end in `"[]"`, so it recurses on `"(x)"` and
+  returns `"object[]"` instead — an observable difference through the public
+  API. Same shape for `MapDbTypeToCSharp("unsigned[]", isNullable: false,
+  dialect: "mysql")` and the `unsignedIndex > 0` mutant on line 447 (original
+  `"object"`, mutant `"object[]"`).
+- **`DialectReservedWords.cs`: 1 of 2 UNSOUND.** `RequiresQuotingForCase(null!,
+  "postgres")`: original returns `false` (the `||` guard's `IsNullOrEmpty(name)`
+  half is true regardless of dialect); the `&&` mutant requires *both* to be
+  empty/null, so with a non-null/non-empty dialect it falls through into
+  `foreach (char c in name)` and throws `NullReferenceException` on the null
+  `name` — a real, killable gap (the parameter is non-nullable in the
+  signature, but nullable annotations are compile-time-only, and Stryker
+  scores the observable crash as a kill regardless).
+- **`ReferencedObjects.cs`: flagged as untraceable as written** — the
+  "hash-randomization/never-null-by-construction equivalents" phrase in the
+  94.33%/94.50% updates above pointed at "documented above" reasoning that
+  did not actually exist anywhere in this file or the two coverage-report
+  docs.
+
+**Fixes applied** (branch `test/fix-mislabeled-equivalents`):
+- `DialectMapperMutationCoverageTests.cs`: added
+  `NormalizeDbType_ParenAtIndexZero_IsStillStripped` and
+  `StripMySqlUnsignedModifier_UnsignedAtIndexZero_IsStillStripped`, asserting
+  `MapDbTypeToCSharp("(x)[]", false)` and
+  `MapDbTypeToCSharp("unsigned[]", false, dialect: "mysql")` both still
+  return `"object"`. Re-run: `DialectMapper.cs` 98.72% → **99.36%** (2
+  survivors remain: line 381, confirmed sound above, and the
+  `StripMySqlUnsignedModifier` ternary's dead-false-branch mutant, also
+  confirmed sound above).
+- `DialectReservedWordsTests.cs`: added
+  `RequiresQuotingForCase_NullNameWithPostgresDialect_ReturnsFalse_DoesNotThrow`.
+  Re-run: `DialectReservedWords.cs` 99.68% → **99.84%** (1 survivor remains:
+  line 212, confirmed sound above).
+
+**`ReferencedObjects.cs` — the actual trace, now written out.** Current
+state re-verified via a fresh scoped run: 86.54% (45 killed / 5 survived / 2
+no-coverage / 52 total), unchanged — all 7 confirmed equivalent, for real
+reasons this time:
+- **Line 178, `ReferencedColumnComparer.Equals`'s `&&` → `||`** (`survived`):
+  under the mutant, two `ReferencedColumn`s sharing *either* Table or Column
+  (not both) would compare equal — e.g. `("orders","id")` vs.
+  `("orders","name")`. This would be a real, observable bug **if `Equals`
+  were ever actually invoked for such a pair** — but `Columns` is a
+  `HashSet<ReferencedColumn>` keyed by `ReferencedColumnComparer`, and a
+  `HashSet`/`Dictionary` only calls a custom `Equals` for two entries whose
+  `GetHashCode()` already collide (bucket lookup happens first). Since
+  `GetHashCode` is not mutated here, two columns sharing only one field
+  normally hash to *different* buckets (different `Table` or `Column`
+  content feeds `StringComparer.OrdinalIgnoreCase.GetHashCode`), so `Equals`
+  is never invoked for them at all — the mutation is unreachable except
+  through a genuine hash collision. .NET's string hashing is randomized
+  per-process (a documented DoS-hardening measure, not an implementation
+  detail this codebase controls), so no test can deterministically force
+  two specific strings to collide. Practically, not mathematically,
+  equivalent — but equivalent under any test this codebase could write.
+- **Lines 185 and 186, `?? ""` null-coalescing-remove-left on `obj.Table`
+  and `obj.Column`** (`survived` ×2) **and the paired string-literal
+  mutants on the same two fallbacks** (`NoCoverage` ×2, Stryker's own
+  "Stryker was here!" substitution): equivalent because `Table`/`Column` are
+  never null by construction — traced through every call site:
+  `ReferencedColumn` is only ever constructed in `AddColumn` (line 85/90)
+  from `alias`/`aliasToTable`-resolved strings and `columnName`, all of
+  which trace back to non-null `string` properties on `ColumnRef`/`TableRef`
+  IR nodes, never a nullable field. Since the `?? ""` fallback's right side
+  is provably dead code, mutating it (removing it, or replacing its string
+  literal) can never execute — independently confirmed by Stryker itself
+  classifying the string-literal variant as `NoCoverage`, not `Survived`.
+- **Line 186, bitwise (`~(...)`) and arithmetic (`h * 397` → `h / 397`)
+  mutations on `GetHashCode`**: any mutation to a hash function's internal
+  computation preserves `HashSet`/`Dictionary` correctness as long as it
+  stays deterministic (same input → same output), because the *only*
+  contract a hash function must satisfy is "equal-per-`Equals` objects
+  produce equal hashes" — which holds trivially here since the same
+  (mutated) formula is applied uniformly regardless of operator. Collisions
+  among *unequal* objects are always permitted by the hash contract (handled
+  correctly via `Equals` when they occur) and never observable through
+  `HashSet.Count`/`Contains`/enumeration — only through timing/bucket-layout
+  side channels no unit test exercises.
+
+**Where things stand:** whole-project score confirmed via a fresh full run,
+2026-09-20 16:46-16:52: **94.66%** (up from 94.54%; 2217 killed, 36 timeout,
+116 survived, 11 no-coverage, 2380 tested — exactly matching the hand
+recomputation from the two files' scoped re-runs, +3 killed/timeout / -3
+survived vs. the prior snapshot). 2 files' scores moved: `DialectMapper.cs`
+98.72%→99.36%, `DialectReservedWords.cs` 99.68%→99.84%. All 7 files below
+100% now have per-mutant-traced, adversarially-checked equivalence reasoning
+except `MigrationParser.cs` (87.02%), which remains the sole file with real
+remaining headroom.
