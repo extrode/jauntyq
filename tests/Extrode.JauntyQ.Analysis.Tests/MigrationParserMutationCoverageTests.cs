@@ -429,6 +429,53 @@ public class MigrationParserMutationCoverageTests
         Assert.False(col.IsNullable);
     }
 
+    // ── Computed-column inline flags loop: NOT+NULL branch must "continue", not fall through ──
+
+    [Fact]
+    public void ComputedColumn_RedundantNotNullRepeatedTwice_StaysNonNullable()
+    {
+        // If the NOT+NULL branch's own "continue" were dropped, matching the
+        // first "NOT NULL" pair would still set IsNullable=false and advance
+        // cp by 2, but then fall straight into this same iteration's
+        // trailing bare-NULL check instead of restarting the loop. That
+        // check only tests a single token, so it can't recognize the second
+        // "NOT" as the start of another NOT+NULL pair -- it falls through to
+        // the generic skip instead, leaving cp on the second pair's trailing
+        // "NULL" token, which the bare-NULL check on the *next* iteration
+        // then matches on its own, wrongly flipping IsNullable back to true
+        // even though "NOT NULL" was stated twice.
+        var statements = MigrationParser.Parse("create table t (total as (x) not null not null)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
+    // ── GENERATED ... AS (expr) computed column: expr must be skipped as an opaque paren group ──
+
+    [Fact]
+    public void GeneratedComputedColumn_ExpressionContainsNotNull_DoesNotFlipNullability()
+    {
+        // The GENERATED ALWAYS AS (expr) STORED/VIRTUAL branch relies on
+        // SkipParenGroup to jump straight past the parenthesized expression
+        // as one opaque unit. If that call were dropped, pos would be left
+        // sitting on the expression's own opening "(" and the outer flags
+        // loop would re-examine every token *inside* the expression one at a
+        // time from the top of the if-chain -- so a "not null" appearing
+        // inside the expression's own text (e.g. an IS NOT NULL check) gets
+        // misread as a real trailing NOT NULL flag on the column itself,
+        // incorrectly flipping IsNullable to false even though no flag was
+        // ever stated outside the parens.
+        var statements = MigrationParser.Parse(
+            "create table t (b bool, a bool generated always as (b is not null) stored)");
+
+        var stmt = Assert.Single(statements);
+        var col = stmt.Columns.Find(x => x.Name == "a");
+        Assert.NotNull(col);
+        Assert.True(col!.IsComputed);
+        Assert.True(col.IsNullable);
+    }
+
     // ── Column-level PRIMARY KEY flag: both tokens required, not "PRIMARY" alone ──
 
     [Fact]
@@ -545,6 +592,76 @@ public class MigrationParserMutationCoverageTests
         Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
     }
 
+    // ── Flags loop: NOT+NULL branch must "continue", not fall through ──
+
+    [Fact]
+    public void ColumnFlag_RedundantNotNullRepeatedTwice_StaysNonNullable()
+    {
+        // Same fall-through hazard as the computed-column shorthand's own
+        // NOT+NULL branch (see ComputedColumn_RedundantNotNullRepeatedTwice_
+        // StaysNonNullable above): if this branch's "continue" were dropped,
+        // matching the first "NOT NULL" pair would still advance pos by 2
+        // and set IsNullable=false, but then fall straight into this same
+        // iteration's bare-NULL check instead of restarting the loop. That
+        // check only tests a single token, so it can't recognize the second
+        // "NOT" as the start of another NOT+NULL pair -- it falls through to
+        // PRIMARY KEY/IDENTITY/etc. (all false), then the generic unknown-
+        // flag skip, leaving pos on the second pair's trailing "NULL" token,
+        // which the bare-NULL check on the *next* iteration then matches on
+        // its own, wrongly flipping IsNullable back to true even though
+        // "NOT NULL" was stated twice.
+        var statements = MigrationParser.Parse("create table t (a int not null not null)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
+    // ── Flags loop: bare NULL branch must "continue", not fall through ──
+
+    [Fact]
+    public void ColumnFlag_BareNullFollowedByNotNull_NotNullTakesEffect()
+    {
+        // Same fall-through hazard, mirrored: if the bare-NULL branch's own
+        // "continue" were dropped, matching "NULL" would still advance pos
+        // by 1 and set IsNullable=true, but then fall straight into this
+        // same iteration's PRIMARY KEY/IDENTITY/UNSIGNED/DEFAULT/GENERATED
+        // checks (all false here) and the generic unknown-flag skip -- which
+        // consumes the following "NOT" as an unrecognized token instead of
+        // recognizing it as the start of a NOT+NULL pair (that compound
+        // check sits *earlier* in the if-chain, before the bare-NULL branch,
+        // so the fall-through never revisits it). The trailing "NULL" is
+        // then caught by the bare-NULL check on the *next* iteration,
+        // leaving IsNullable=true even though "NOT NULL" was stated right
+        // after "NULL" and should win.
+        var statements = MigrationParser.Parse("create table t (a int null not null)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
+    // ── Flags loop: DEFAULT branch's parenthesized-expression skip must stop at the matching close paren ──
+
+    [Fact]
+    public void ColumnFlag_ParenthesizedDefaultExpression_TrailingNotNullStillRecognized()
+    {
+        // The DEFAULT branch's paren-depth scan only breaks out of its
+        // token-skipping loop when the running depth returns to zero on a
+        // ")" -- i.e. the ")" that matches the expression's own opening "(".
+        // If that check were flipped to fire on any *nonzero* depth instead,
+        // it would never break at the single balanced pair in "(5)" (depth
+        // goes 1 -> 0, which no longer satisfies "!= 0"), so the scan runs
+        // past the closing paren with nothing to stop it, silently
+        // swallowing the trailing "not null" flag as part of the "skipped
+        // default expression" instead of parsing it.
+        var statements = MigrationParser.Parse("create table t (a int default (5) not null)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
     // ── Flags loop: bare NULL after PRIMARY KEY must flip nullability back to true ──
 
     [Fact]
@@ -647,18 +764,36 @@ public class MigrationParserMutationCoverageTests
 
         var stmt = Assert.Single(statements);
         Assert.Equal("Gadgets", stmt.TableName);
+    }
 
-        // Note: this same input leaves one line-815 mutant equivalent --
-        // mutating the loop's `tokens[pos + 1].Type == TokenType.Identifier`
-        // check to `tokens[pos - 1]...` can't be distinguished by any input
-        // reachable through ReadObjectName's call pattern: pos is only ever
-        // checked here immediately after consuming an Identifier token one
-        // step back (either the name just read, or the previous loop
-        // iteration's segment), so tokens[pos - 1] is *always* of type
-        // Identifier at this check -- same as the correct tokens[pos + 1]
-        // check always is, whenever the loop condition's other clauses hold.
-        // The two checks' boolean results never differ, even though they
-        // read different tokens.
+    // ── ReadObjectName: the segment after "." must itself be an Identifier ──
+
+    [Fact]
+    public void CreateTable_DottedNameSegmentFollowedByNonIdentifierToken_DoesNotMergeAndIsUnsupported()
+    {
+        // Correction, 2026-09-20 (re-audit): a prior pass here claimed the
+        // while-loop's `tokens[pos + 1].Type == TokenType.Identifier` check
+        // was equivalent to `tokens[pos - 1]...` on the theory that
+        // tokens[pos - 1] (the segment just consumed) is always an
+        // Identifier at this point, so the check is "always true either
+        // way." That's true only when tokens[pos + 1] *also* happens to be
+        // an Identifier -- but the whole point of the real check is to
+        // reject the case where it ISN'T, and tokens[pos - 1] can't see
+        // that at all. SqlTokenizer.MergeQualifiedIdentifiers only fuses
+        // Identifier '.' Identifier; "[dbo].5" leaves the '.' and the
+        // Number '5' as separate tokens. With the correct check the loop
+        // refuses to merge (tokens[pos + 1] is a Number, not an
+        // Identifier), ReadObjectName returns just "dbo", pos is left
+        // sitting on the unconsumed '.', and the caller's `!IsSymbol(pos,
+        // "(")` guard correctly falls back to Unsupported. With the
+        // mutated `tokens[pos - 1]` check (always true), the loop wrongly
+        // merges anyway, name becomes the Number's own text ("5"), pos
+        // skips past it to the real "(", and the statement is wrongly
+        // accepted as CreateTable with TableName "5".
+        var statements = MigrationParser.Parse("create table [dbo].5 (a int)");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
     }
 
     [Fact]
