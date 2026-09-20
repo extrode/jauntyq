@@ -582,3 +582,111 @@ case above, which is slow per mutant. Not recommended to keep chasing 96%
 by volume; a small number of individually-traced mutants at a time, with
 manual-mutation verification when reasoning alone is inconclusive, is the
 only remaining honest path forward.
+
+## Update: near-target cleanup pass (2026-09-20, commit `1dd7886`)
+
+Follow-up pass on the four files that were already ≥96% — `UpsertKeyResolver.cs`
+(96.25%), `AutoCrud.cs` (97.90%), `DialectMapper.cs` (98.72%), and
+`DialectReservedWords.cs` (99.68%) — to see if any could be pushed toward
+99–100%. One real fix; the other 9 survivors across the three untouched files
+are all confirmed equivalent.
+
+**`AutoCrud.cs` 97.90% → 98.60% (real fix).** An Arithmetic mutation at line
+198 (`new List<ColumnSchema>(pkCols.Count + versionCols.Count)` → `- versionCols.Count`)
+survived because every existing test had `pkCols.Count >= versionCols.Count`,
+so the capacity-hint value never went negative under the mutant. Killed with
+`Update_WhereCols_CapacityHint_SurvivesMoreRowVersionColumnsThanPkColumns`: a
+table with a single-column PK but two RowVersion-flagged columns makes the
+mutant's capacity negative, which throws `ArgumentOutOfRangeException` from
+the `List<T>` constructor before any SQL can be synthesized — the original
+sum never goes negative for any valid input. `AutoCrud.cs`'s other survivor
+(line 95, `allColumnsUsable = false; break;` inside the per-column usability
+loop) is equivalent: the `columns` list built by that loop is discarded
+outright by the `if (!allColumnsUsable || columns.Count == 0) continue;`
+check immediately after, whether the loop breaks early or runs to completion
+adding a few more (also-discarded) entries — same pattern as the
+`UpsertKeyResolver.cs` findings below. `AutoCrud.cs`'s pre-existing NoCoverage
+survivor (line 69, `JoinColumns`'s `if (cols.Count == 0) return "";` branch)
+is dead code from the public API's perspective: every one of `JoinColumns`'
+8 call sites either already gates on a non-empty column list (`insertCols.Count > 0`,
+`setCols.Count > 0`) or is only reached after an earlier `pkCols.Count == 0`
+early-return guarantees non-emptiness — there is no path through
+`AutoCrud.Synthesize` that calls it with an empty list, so this branch is
+unreachable through any legitimate test short of reflection into a private
+method, which was not done.
+
+**`UpsertKeyResolver.cs` — all 3 survivors equivalent, 96.25% is the ceiling.**
+All three are `break;`-removal (Statement mutation) survivors, and all three
+follow the identical "discarded on the failure path" pattern as `AutoCrud.cs`
+line 95 above:
+- Line 141 (`allResolved = false; break;` in the composite-index column
+  loop): `keyCols` built by that loop is discarded by the `if (!allResolved)
+  continue;` check right after, whether the inner loop breaks or keeps
+  iterating.
+- Line 346 (`found = true; break;` in `ContainsAllKeyColumns`'s inner
+  column-match loop): `found` is never reset to `false` after being set, so
+  scanning the remaining columns after finding a match has no observable
+  effect — the outer loop's `if (!found) return false;` check sees the same
+  `found` value either way.
+- Line 280 (`continue;` in `HasCompetingUniqueConstraint`'s "index IS the key
+  itself" branch, `if (!index.HasPrefixKeyPart && CoversKey(index.Columns,
+  keyNames)) continue;`): `CoversKey` is defined as `constraintCols.Count ==
+  keyNames.Count && ContainsAllKeyColumns(...)`, i.e. exact-set-equality —
+  which is strictly stronger than the very next check's `ContainsAllKeyColumns`
+  (superset) condition guarded by the same `!index.HasPrefixKeyPart` term.
+  Whenever `CoversKey` is true, `ContainsAllKeyColumns` is trivially also
+  true (an equal set is always a superset of itself), so removing this
+  `continue` just lets execution fall through to a second `continue` on the
+  very next line with the same guard — no observable difference.
+
+**`DialectMapper.cs` — all 4 survivors equivalent, 98.72% is the ceiling.**
+- Line 381 (Boolean mutation, the recursive `IsUnmappedDbType(...,
+  isNullable: false, ...)` call's `false` argument flipped to `true` for the
+  Postgres-array-type branch): `IsUnmappedDbType`'s own return value is
+  `mapped == "object" || mapped == "object?"` — both of `MapDbTypeToCSharp`'s
+  possible "unmapped" outputs are covered by the OR, so whichever `isNullable`
+  value reaches the recursive call, the boolean result is identical.
+- Line 424 (`NormalizeDbType`'s `parenIndex >= 0` → `parenIndex > 0`) and
+  line 447 (`StripMySqlUnsignedModifier`'s `unsignedIndex >= 0` →
+  `unsignedIndex > 0`, plus the paired "Conditional (true) mutation" that
+  replaces the whole ternary with its true branch): both differ from the
+  original only when the index is exactly `0` — i.e. the search character
+  (`(` or the literal `"unsigned"`) sits at position 0 of the string. In that
+  case the original strips to `""` (nothing before the delimiter) while the
+  mutant either keeps the whole original string unstripped (equality mutant)
+  or — for the "Conditional (true)" mutant, which is only reachable given
+  `unsignedIndex >= -1`; since `StripMySqlUnsignedModifier`'s only call site
+  (`DialectMapper.cs:211`) is itself gated on `dbType.Contains("unsigned",
+  ...)`, `unsignedIndex` can never be `-1` there, so the ternary's false
+  branch (`: dbType`) is dead code and always-true is behaviorally identical.
+  For the boundary case itself (index `0`), neither the empty string nor the
+  literal, un-stripped original (which still contains the paren character or
+  the word "unsigned") can ever equal one of `DialectMapper`'s known
+  dictionary keys (`"int"`, `"bigint"`, `"hierarchyid"`, etc., none of which
+  are `""` or contain those characters) — so no test, however contrived,
+  can observe a difference through any public entry point (`MapDbTypeToCSharp`,
+  `IsUnmappedDbType`, `IsSqlServerClrType`).
+
+**`DialectReservedWords.cs` — both survivors equivalent, 99.68% is the
+ceiling.** Lines 212 and 257 both mutate an `if (string.IsNullOrEmpty(name)
+|| string.IsNullOrEmpty(dialect)) return false;` early-exit guard's `||` to
+`&&`. Under the mutant, the guard only fires when *both* are empty/null; a
+call with just one of them empty falls through into the dialect-name
+`string.Equals` checks (`IsReservedInDialect`) or the postgres-only check
+(`RequiresQuotingForCase`). But `string.Equals(null-or-empty-dialect,
+"postgres"/"mysql"/"sqlserver"/"sqlite", OrdinalIgnoreCase)` is `false` for
+every known dialect string when dialect is `""` or `null`, and no reserved-word
+set contains `""` as a member — so every downstream branch that the mutant
+newly reaches for a single-empty input still ends up returning `false`,
+matching the original's early return. Traced for all four
+name-empty/dialect-non-empty and name-non-empty/dialect-empty-or-null
+combinations; none distinguishes the two.
+
+**Where things stand:** 94.54%, still short of 96%. With this pass, 6 of the
+7 files below 100% (`UpsertKeyResolver.cs`, `AutoCrud.cs`, `DialectMapper.cs`,
+`DialectReservedWords.cs`, `SchemaSimulator.cs`, `ReferencedObjects.cs`, and
+`MigrationImpactReport.cs` — all but `MigrationParser.cs`) are now confirmed
+at their equivalent-mutant ceilings; no further test-writing can move any of
+them without a source change. `MigrationParser.cs` (87.02%) remains the sole
+file with real remaining headroom, and remains slow to close for the reasons
+documented in the prior update.

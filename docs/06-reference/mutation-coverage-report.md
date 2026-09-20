@@ -20,21 +20,22 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 2026-09-19 | MigrationParser.cs — SkipParenGroup/ApplyFacets follow-up | 93.78% | `75dfcf9` |
 | 2026-09-20 | 6 previously out-of-scope small files raised | 94.33% | `951a120` |
 | 2026-09-20 | Round 4 (4 remaining sub-96% files) | 94.50% | `3535b13` |
+| 2026-09-20 | Near-target cleanup (UpsertKeyResolver/AutoCrud/DialectMapper/DialectReservedWords) | 94.54% | `1dd7886` |
 
-## Current per-file breakdown (as of 94.50%, commit `3535b13`)
+## Current per-file breakdown (as of 94.54%, commit `1dd7886`)
 
-19 source files, 2380 mutants tested (2249 killed, 120 survived, 11 no-coverage).
+19 source files, 2380 mutants tested (2250 killed+timeout, 119 survived, 11 no-coverage).
 
-| Score | Killed | Survived | NoCov | Total | File |
-|---|---|---|---|---|---|
-| 86.54% | 45 | 5 | 2 | 52 | `Impact/ReferencedObjects.cs` |
-| 87.02% | 664 | 91 | 8 | 763 | `Migrations/MigrationParser.cs` |
-| 90.00% | 9 | 1 | 0 | 10 | `Impact/MigrationImpactReport.cs` |
-| 94.17% | 194 | 12 | 0 | 206 | `Migrations/SchemaSimulator.cs` |
-| 96.25% | 77 | 3 | 0 | 80 | `UpsertKeyResolver.cs` |
-| 97.90% | 140 | 2 | 1 | 143 | `AutoCrud.cs` |
-| 98.72% | 308 | 4 | 0 | 312 | `DialectMapper.cs` |
-| 99.68% | 630 | 2 | 0 | 632 | `DialectReservedWords.cs` |
+| Score | Killed | Timeout | Survived | NoCov | Total | File |
+|---|---|---|---|---|---|---|
+| 86.54% | 45 | 0 | 5 | 2 | 52 | `Impact/ReferencedObjects.cs` |
+| 87.02% | 632 | 32 | 91 | 8 | 763 | `Migrations/MigrationParser.cs` |
+| 90.00% | 9 | 0 | 1 | 0 | 10 | `Impact/MigrationImpactReport.cs` |
+| 94.17% | 194 | 0 | 12 | 0 | 206 | `Migrations/SchemaSimulator.cs` |
+| 96.25% | 77 | 0 | 3 | 0 | 80 | `UpsertKeyResolver.cs` |
+| 98.60% | 141 | 0 | 1 | 1 | 143 | `AutoCrud.cs` |
+| 98.72% | 308 | 0 | 4 | 0 | 312 | `DialectMapper.cs` |
+| 99.68% | 630 | 0 | 2 | 0 | 632 | `DialectReservedWords.cs` |
 | 100.00% | 1 | 0 | 0 | 1 | `AnalysisDiagnostic.cs` |
 | 100.00% | 27 | 0 | 0 | 27 | `CrudColumnRules.cs` |
 | 100.00% | 15 | 0 | 0 | 15 | `Diff/SchemaDelta.cs` |
@@ -51,7 +52,7 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 
 | Test file | Target file | Score reached | Commit |
 |---|---|---|---|
-| `AutoCrudSynthesizeTests.cs` (strengthened) | `AutoCrud.cs` | 97.90% | `7c554e0` |
+| `AutoCrudSynthesizeTests.cs` (strengthened) | `AutoCrud.cs` | 97.90% → 98.60% | `7c554e0`, `6e4c5d9` |
 | `ImpactClassifierTests.cs` (strengthened) | `Impact/ImpactClassifier.cs` | 100.00% | `875ac78` |
 | `SchemaSimulatorMutationCoverageTests.cs` | `Migrations/SchemaSimulator.cs` | 94.17% | `bd11450` |
 | `DialectMapperMutationCoverageTests.cs` | `DialectMapper.cs` | 98.72% | `147e904` |
@@ -66,7 +67,7 @@ Also relocated from `Generator.Tests` to `Analysis.Tests` (earlier session): `Di
 
 ## Remaining gap to 96%
 
-As of 94.50%, 4 files remain below 96%: `ReferencedObjects.cs` (86.54%),
+As of 94.54%, 4 files remain below 96%: `ReferencedObjects.cs` (86.54%),
 `MigrationParser.cs` (87.02%), `MigrationImpactReport.cs` (90.00%), and
 `SchemaSimulator.cs` (94.17%). The round-4 pass (`091f6a9`, `555dda3`,
 merged `3535b13`) fixed 4 more `MigrationParser.cs` mutants and rigorously
@@ -85,10 +86,31 @@ re-verified the other three files, concluding:
   flag-keyword literals) — further gains need slow per-mutant manual-mutation
   verification, not another broad sweep.
 
+A follow-up "near-target cleanup" pass (`6e4c5d9`, merged `1dd7886`) pushed
+the four files that were already ≥96% toward their own ceilings instead:
+
+- `AutoCrud.cs` 97.90% → **98.60%**: the one real fix was a `List<T>` capacity
+  arithmetic mutant (`pkCols.Count + versionCols.Count` → `- versionCols.Count`)
+  killed with a table carrying more RowVersion columns than PK columns
+  (negative capacity would otherwise throw). Its remaining `break;`-removal
+  survivor is equivalent — the loop's result list is discarded on the failure
+  path regardless of whether the loop breaks early or keeps iterating.
+- `UpsertKeyResolver.cs` (96.25%), `DialectMapper.cs` (98.72%), and
+  `DialectReservedWords.cs` (99.68%) did **not** move — all 9 remaining
+  survivors across the three were proven equivalent by direct code-flow
+  tracing (documented in the handoff doc): mostly `break;`/`continue;`
+  removals whose surrounding loop already discards its accumulated state on
+  the same path, plus two `NormalizeDbType`/`StripMySqlUnsignedModifier`
+  boundary conditions (`index == 0`) that are reachable only by strings that
+  can never match a real dictionary key either way, and a `||`→`&&` guard
+  mutation in `DialectReservedWords` whose "protected" branches already fall
+  through to `false` on their own. These three files are now considered
+  **closed at their current scores** — no further test-writing can move them.
+
 Net: the 96% target is likely not fully reachable through more test-writing
 alone; the remaining gap is dominated by a confirmed equivalent-mutant floor
-in 3 of the 4 sub-96% files, with `MigrationParser.cs` as the sole file where
-further (slow) work could still move the needle.
+in 6 of the 7 files below 100% (all but `MigrationParser.cs`), which remains
+the sole file where further (slow) work could still move the needle.
 
 ## Extrode.JauntyQ.SqlParser — baseline
 
