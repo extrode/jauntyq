@@ -1,3 +1,4 @@
+using System.Linq;
 using Extrode.JauntyQ.Analysis.Migrations;
 using Xunit;
 
@@ -372,5 +373,75 @@ public class MigrationParserMutationCoverageTests
         var stmt = Assert.Single(statements);
         var col = Assert.Single(stmt.Columns);
         Assert.False(col.IsUnicode);
+    }
+
+    // ── GroupAlterActions: a malformed first clause must void the WHOLE
+    // statement, not just get silently dropped while later well-formed
+    // clauses still parse ──
+
+    [Fact]
+    public void AlterTable_MalformedFirstClauseFollowedByWellFormedClause_IsUnsupported_NotPartiallyParsed()
+    {
+        // A single malformed clause with nothing after it already returns
+        // Unsupported via the empty-groups-list fallback regardless of
+        // whether GroupAlterActions' own "return null" fires -- both paths
+        // converge on Count==0. Only a well-formed clause AFTER the
+        // malformed one can distinguish them: if the early return is
+        // skipped, "add c int" would still be recognized as its own group
+        // and the statement would wrongly come back parsed instead of
+        // Unsupported.
+        var statements = MigrationParser.Parse("alter table t rename column a to b, add c int");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
+
+    // ── Computed-column inline flags loop: NOT+NULL pair must both be present ──
+
+    [Fact]
+    public void ComputedColumn_JunkTokenImmediatelyBeforeNull_DoesNotFalselyMarkNonNullable()
+    {
+        // A widened (OR'd) "Is(NOT) || Is(cp+1, NULL)" check would fire on
+        // ANY token immediately preceding a bare "NULL", not just "NOT" --
+        // wrongly flipping IsNullable to false instead of leaving the
+        // generic-skip loop to reach "NULL" on its own next iteration (which
+        // correctly sets IsNullable true).
+        var statements = MigrationParser.Parse("create table t (total as (a + b) collate null)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.True(col.IsNullable);
+    }
+
+    // ── Computed-column inline flags loop: bare NULL check must require an exact match ──
+
+    [Fact]
+    public void ComputedColumn_JunkTokenAfterAnExplicitNotNull_DoesNotFlipNullabilityBack()
+    {
+        // A negated "!(Is(cp, NULL))" bare-NULL check would fire on every
+        // token that ISN'T literally "NULL" -- including a trailing junk
+        // token after an already-correct "NOT NULL", wrongly flipping
+        // IsNullable back to true.
+        var statements = MigrationParser.Parse("create table t (total as (a + b) not null collate)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
+    // ── Column-level PRIMARY KEY flag: both tokens required, not "PRIMARY" alone ──
+
+    [Fact]
+    public void ColumnLevelPrimary_WithoutAFollowingKeyToken_DoesNotSetIsPrimaryKey()
+    {
+        // ColumnLevelPrimaryKey_RequiresBothTokens_NotKeyAlone (existing)
+        // contains neither "primary" nor "key" at all, so it can't
+        // distinguish the real "&&" from a widened "||" -- this needs
+        // "primary" actually present with nothing valid following it.
+        var statements = MigrationParser.Parse("create table t (id int not null primary, name varchar(10))");
+
+        var stmt = Assert.Single(statements);
+        var col = stmt.Columns.Single(c => c.Name == "id");
+        Assert.False(col.IsPrimaryKey);
     }
 }
