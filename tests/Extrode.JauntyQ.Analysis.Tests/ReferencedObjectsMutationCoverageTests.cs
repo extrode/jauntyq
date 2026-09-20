@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Extrode.JauntyQ.Analysis.Impact;
 using Extrode.JauntyQ.SqlParser.IR;
 using Xunit;
@@ -282,5 +284,52 @@ public class ReferencedObjectsMutationCoverageTests
         var refs = ReferencedObjects.Resolve(m);
 
         Assert.Equal(2, refs.Columns.Count);
+    }
+
+    // ── ReferencedColumnComparer.Equals: direct call, both fields required ──
+    //
+    // The two "kept as distinct entries" tests above go through a real
+    // HashSet<ReferencedColumn>, so they only observe a broken Equals (e.g.
+    // "&&" flipped to "||") when the two entries happen to land in the same
+    // hash bucket -- otherwise Equals is never even called, and the mutant
+    // survives by luck of the hash layout. Calling the private comparer's
+    // Equals directly (via reflection, since ReferencedColumnComparer is a
+    // private nested class) removes that luck: it always executes the exact
+    // mutated line regardless of bucket placement.
+    private static IEqualityComparer<ReferencedColumn> GetComparer()
+    {
+        var comparerType = typeof(ReferencedObjects).GetNestedType("ReferencedColumnComparer", BindingFlags.NonPublic)!;
+        var instance = comparerType.GetField("Instance", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!;
+        return (IEqualityComparer<ReferencedColumn>)instance;
+    }
+
+    [Fact]
+    public void Comparer_SameColumnDifferentTable_IsNotEqual()
+    {
+        var comparer = GetComparer();
+        var x = new ReferencedColumn("users", "id");
+        var y = new ReferencedColumn("orders", "id");
+
+        Assert.False(comparer.Equals(x, y));
+    }
+
+    [Fact]
+    public void Comparer_SameTableDifferentColumn_IsNotEqual()
+    {
+        var comparer = GetComparer();
+        var x = new ReferencedColumn("users", "id");
+        var y = new ReferencedColumn("users", "name");
+
+        Assert.False(comparer.Equals(x, y));
+    }
+
+    [Fact]
+    public void Comparer_SameTableAndColumn_IsEqual()
+    {
+        var comparer = GetComparer();
+        var x = new ReferencedColumn("users", "id");
+        var y = new ReferencedColumn("USERS", "ID");
+
+        Assert.True(comparer.Equals(x, y));
     }
 }
