@@ -26,16 +26,18 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 2026-09-20 | fable-verify pass: fixed 3 mislabeled-equivalent survivors (DialectMapper/DialectReservedWords) | **94.66%** | `6059d24` |
 | 2026-09-20 | SqlParser — SqlParser.cs/Part4/6/7.cs parser-core pass (76 new tests) | *(SqlParser whole-project re-run pending — see note below)* | `91e4c04` |
 | 2026-09-20 | MigrationParser.cs — per-mutant pass (12 new tests, 7 real gaps) | 89.78% (scoped; whole-project re-run pending) | `3938a48` |
+| 2026-09-20 | Whole-project re-run confirming the per-mutant pass | 95.55% | (pre-`4b5c154`) |
+| 2026-09-20 | MigrationParser.cs — `ReadObjectName` bracket-quoted-dot merge correction + boundary test | **95.84%** | `c9fa8c1` |
 
-## Current per-file breakdown (as of 94.66%, whole-project re-run 2026-09-20 16:46-16:52, confirming the fable-verify fixes)
+## Current per-file breakdown (as of 95.84%, whole-project re-run 2026-09-20 19:05-19:09, confirming the `ReadObjectName` fix)
 
-19 source files, 2380 mutants tested (2253 killed+timeout, 116 survived, 11 no-coverage).
+19 source files, 2380 mutants tested (2281 killed+timeout, 95 survived, 4 no-coverage).
 
 | Score | Killed | Timeout | Survived | NoCov | Total | File |
 |---|---|---|---|---|---|---|
-| 86.54% | 45 | 0 | 5 | 2 | 52 | `Impact/ReferencedObjects.cs` |
-| 87.02% (→89.78% per per-mutant pass below) | 632 (→652) | 32 (→33) | 91 (→70) | 8 | 763 | `Migrations/MigrationParser.cs` |
 | 90.00% | 9 | 0 | 1 | 0 | 10 | `Impact/MigrationImpactReport.cs` |
+| 90.38% | 45 | 0 | 5 | 2 | 52 | `Impact/ReferencedObjects.cs` |
+| 91.86% (→ was 89.78% scoped) | 659 | 33 | 70 | 1 | 763 | `Migrations/MigrationParser.cs` |
 | 94.17% | 194 | 0 | 12 | 0 | 206 | `Migrations/SchemaSimulator.cs` |
 | 96.25% | 77 | 0 | 3 | 0 | 80 | `UpsertKeyResolver.cs` |
 | 98.60% | 141 | 0 | 1 | 1 | 143 | `AutoCrud.cs` |
@@ -233,6 +235,76 @@ here — a caveat for whoever picks up the remaining ~70, not something
 resolved in this pass. Ground truth for any individual mutant should be
 re-verified by hand-mutation + targeted `dotnet test --filter`, not taken on
 Stryker's report alone.
+
+### MigrationParser.cs — `ReadObjectName` bracket-quoted-dot correction, 2026-09-20 (89.78% scoped → 95.84% whole-project)
+
+Whole-project re-run after the 89.78% scoped pass landed at **95.55%**
+(2241 killed, 33 timeout, 95 survived, 11 no-coverage) — an exact match for
+the pre-computed estimate above, confirming that number. Investigating the
+file's 8 `NoCoverage` mutants found the existing test
+`CreateTable_BracketQuotedSchemaAndTableName_Tokenizer...` was asserting a
+false premise: its comment claimed `[dbo].[Gadgets]` exercises
+`ReadObjectName`'s dotted-name while-loop (lines 815-818), but tracing
+`SqlTokenizer.MergeQualifiedIdentifiers` proved the tokenizer actually
+**merges** `[dbo].[Gadgets]` into one `Identifier` token before the loop ever
+runs (it only leaves an `Identifier '.' Identifier` sequence unmerged when the
+left segment's own value already contains a literal dot and isn't a chain
+continuation) — the test passed, but not for the reason its comment claimed,
+and the loop itself stayed uncovered.
+
+Fixed in `test/migrationparser-readobjectname-boundary` (`4b5c154`, merged
+`c9fa8c1`): renamed the test to
+`CreateTable_BracketQuotedSchemaAndTableName_TokenizerMergesToOneIdentifier`
+with a corrected comment, and added two new tests exploiting the one input
+shape that actually reaches the while-loop — a bracket-quoted segment
+containing a literal internal dot (`[db.with.dots].[Gadgets]`):
+
+- `CreateTable_BracketQuotedNameContainingLiteralDot_TokenizerLeavesUnmergedForReadObjectNamesLoop`
+  — kills the loop's real body mutants and documents the line-815
+  `tokens[pos + 1]` → `tokens[pos - 1]` mutant as equivalent (at that check,
+  `pos` is always one past a just-consumed `Identifier`, so `tokens[pos - 1]`
+  is always of type `Identifier` too — same boolean result as the correct
+  check, whenever the loop's other conditions hold).
+- `CreateTable_TrailingDotWithNoFollowingIdentifier_DoesNotOverrunTheTokenArray`
+  — guards the loop's `pos + 1 < tokens.Count` bound with a truncated input
+  (`create table [db.with.dots].`) so the unmerged trailing `.` is the last
+  token; without the bound, the inner `tokens[pos + 1]` read would index past
+  the end of the array.
+
+Result: whole-project Killed 2241→2248 (+7), NoCoverage 11→4, Survived flat
+at 95 (6 of the file's 8 no-coverage mutants killed outright, the other 2
+converted to 1 killed + 1 confirmed-equivalent, per the file's own
+`Survived 70 / NoCov 1` split above). **Whole-project score: 95.55% →
+95.84%.** Full Analysis suite: 1431/1431 on both net8.0 and net10.0.
+
+**Why 96% is likely not reachable through more test-writing.** 96% needs
+`Survived + NoCoverage ≤ 95` project-wide; the count is currently 99, so 4
+more mutants would need killing with no equivalent-mutant substitutions. A
+focused trace of the file's remaining survivors found a systematic
+equivalence class that likely accounts for most of what's left: nearly every
+`while (pos < def.Count)`-style loop guard in this file has a
+`pos <= def.Count` ("off-by-one loosen") survivor (lines 503, 618, 647, 649,
+682, 689, 748), and every one of them is equivalent for the same reason —
+the loop body's own `Is`/`IsSymbol` calls re-check `index < tokens.Count`
+internally (lines 792-799), so once `pos` reaches `def.Count`, `Is`/`IsSymbol`
+already return `false` regardless of the loop guard's `<` vs `<=`. The
+mutation lets the loop run exactly one extra (no-op) iteration, incrementing
+`pos` to `def.Count + 1`, but that value is never read by anything after the
+loop exits — same observable result either way. This matches (and
+generalizes) the line-798 equivalence reasoning already documented above. Line
+746's lone remaining `NoCoverage` (`SkipParenGroup`'s `if (!IsSymbol(...))
+return;` guard) is dead code in practice: both call sites (lines 719, 724)
+only ever invoke `SkipParenGroup` after already confirming `IsSymbol(def, pos,
+"(")` is true, so the guard's false branch is unreachable through the public
+API — not a real gap, just an unreachable defensive check.
+
+Given this, closing the remaining 4-mutant gap to 96% would require either a
+source change (removing genuinely-defensive-but-unreachable code, which is
+not warranted for its own sake) or contrived tests, not real coverage gaps.
+Recommend treating **95.84%** as the practical ceiling for this file/pass
+without further investment, pending anyone finding a mutant outside this
+equivalence class among the ~70 not individually re-traced this round (the
+"open methodological caveat" below still applies to those).
 
 ## Extrode.JauntyQ.SqlParser — baseline
 
