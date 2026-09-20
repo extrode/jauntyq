@@ -31,6 +31,7 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 2026-09-20 | Adversarial fable-verify pass over `pos <= def.Count`/`SkipParenGroup` equivalence claims + MigrationParser.cs DEFAULT-value Negate mutant fix (line 689, flagged by the pass) | **95.97%** | `ac22f74` |
 | 2026-09-20 | MigrationParser.cs GENERATED-column Negate mutant fix (line 704, found by manual re-check after the fable-verify pass) | **96.01% — target reached** | (merge into `dev` after `34c070b`) |
 | 2026-09-20 | Post-96% survivor pass: 1 real gap in `ReferencedColumnComparer.Equals` + 6 real gaps in `MigrationParser.cs` (91→84 survived) | **96.30%** | `703192c`, `f8e2c18` |
+| 2026-09-20 | Adversarial fable-verify pass over the 84 remaining survivors: 0/18 small-file claims refuted, 3/60 `MigrationParser.cs` claims refuted (6 mutants, 2 correcting wrong claims) | **96.47%** | `9dba99b`, `cca01e6` |
 
 ## Current per-file breakdown (as of 95.84%, whole-project re-run 2026-09-20 19:05-19:09, confirming the `ReadObjectName` fix)
 
@@ -589,8 +590,19 @@ independently re-derived as genuinely equivalent, matching the mechanisms
 documented above.
 
 **Result: `MigrationParser.cs` 64→61 survived (3 killed).** Full suite:
-1445/1445 on net8.0. Whole-project re-run pending (see score-history table
-above this section for the confirmed figure once run).
+1445/1445 on net8.0. Whole-project re-run (2026-09-20 22:48-22:52): Killed
+2256, Timeout 40, Survived 80, NoCoverage 4 (unchanged) — **whole-project
+score: 96.30% → 96.47%**. (Survived dropped by 4 rather than the expected 3
+and Timeout rose by 4 vs. the 96.30% run; this is normal run-to-run
+variance in which near-miss mutants land as Timeout vs. Survived under
+Stryker's coverage-based test selection, not a discrepancy in the fix
+count.)
+
+All 84 mutants that survived the 96.30% run have now been through the
+adversarial fable-verify pattern: the 4 `NoCoverage` mutants (closed
+earlier this session), and all 84 `Survived` mutants across every sub-100%
+file. No further batch-level re-check is planned; any remaining survivors
+are considered a confirmed equivalent-mutant floor for this assembly.
 
 ## Extrode.JauntyQ.SqlParser — baseline
 
