@@ -2,8 +2,9 @@
 
 Per-assembly, per-file mutation score, tallied against the 96% target set for
 `Extrode.JauntyQ.Analysis` (parity with sibling repo `jaunty`'s ~96% baseline).
-Snapshot as of commit `3535b13` (94.50% overall), after the round-4 pass on
-the 4 sub-96% files completed. For score-history-over-time and
+Snapshot as of commit `1dd7886` (94.54% overall), after the round-4 pass on
+the 4 sub-96% files and a follow-up near-target cleanup pass on the four
+files that were already ≥96%. For score-history-over-time and
 equivalent-mutant reasoning, see [`mutation-coverage-report.md`](mutation-coverage-report.md)
 and [`../handoffs/2026-09-19-stryker-mutation-gaps.md`](../handoffs/2026-09-19-stryker-mutation-gaps.md).
 
@@ -14,7 +15,7 @@ been run.
 
 | Assembly | Stryker config | Ever run this effort | Target | Actual | Δ to target |
 |---|---|---|---|---|---|
-| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **94.50%** | **-1.50 pp** |
+| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **94.54%** | **-1.46 pp** |
 | `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | Yes (baseline) | 96.00% | **59.22%** | **-36.78 pp** |
 | `Extrode.JauntyQ.Cli.Core` | none | No | — | — | out of scope |
 | `Extrode.JauntyQ.Cli` | none | No | — | — | out of scope |
@@ -38,7 +39,7 @@ threshold — `dotnet stryker` will not fail the build below 96%, only below 0%
 | `Impact/MigrationImpactReport.cs` | 9 | incl. above | 1 | 0 | 10 | 90.00% | -6.00 pp |
 | `Migrations/SchemaSimulator.cs` | 194 | incl. above | 12 | 0 | 206 | 94.17% | -1.83 pp |
 | `UpsertKeyResolver.cs` | 77 | incl. above | 3 | 0 | 80 | 96.25% | **+0.25 pp** |
-| `AutoCrud.cs` | 140 | incl. above | 2 | 1 | 143 | 97.90% | **+1.90 pp** |
+| `AutoCrud.cs` | 141 | incl. above | 1 | 1 | 143 | 98.60% | **+2.60 pp** |
 | `DialectMapper.cs` | 308 | incl. above | 4 | 0 | 312 | 98.72% | **+2.72 pp** |
 | `DialectReservedWords.cs` | 630 | incl. above | 2 | 0 | 632 | 99.68% | **+3.68 pp** |
 | `AnalysisDiagnostic.cs` | 1 | 0 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
@@ -52,7 +53,7 @@ threshold — `dotnet stryker` will not fail the build below 96%, only below 0%
 | `Impact/ImpactReason.cs` | 4 | 0 | 0 | 0 | 4 | 100.00% | **+4.00 pp** |
 | `Impact/QueryImpactInput.cs` | 1 | 0 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
 | `Migrations/MigrationStatement.cs` | 2 | 0 | 0 | 0 | 2 | 100.00% | **+4.00 pp** |
-| **Tally (19 files)** | **2249*** | — | **120** | **11** | **2380** | **94.50%** | **-1.50 pp** |
+| **Tally (19 files)** | **2250*** | — | **119** | **11** | **2380** | **94.54%** | **-1.46 pp** |
 
 \* "Killed" column includes Timeout mutants (Stryker treats Timeout as a kill
 for scoring purposes); the whole-project total of 2245 killed + timeouts
@@ -60,7 +61,8 @@ matches the `mutation-coverage-report.md` whole-project figure.
 
 ## Files at or above target (10 of 19)
 
-`UpsertKeyResolver.cs`, `AutoCrud.cs`, `DialectMapper.cs`,
+`UpsertKeyResolver.cs`, `AutoCrud.cs` (98.60%, ceiling — 1 remaining survivor
+is an equivalent `break;`-removal), `DialectMapper.cs`,
 `DialectReservedWords.cs`, and 9 files at exactly 100.00%
 (`AnalysisDiagnostic.cs`, `CrudColumnRules.cs`, `Diff/SchemaDelta.cs`,
 `Diff/StructuralSchemaDiff.cs`, `EntityNameResolver.cs`,
@@ -87,11 +89,17 @@ proven per-mutant the way `SchemaSimulator.cs`'s was.
 
 ## Bottom line
 
-- **Overall: 94.50% vs. 96% target → -1.50 percentage points (~52 mutants).**
+- **Overall: 94.54% vs. 96% target → -1.46 percentage points (~51 mutants).**
 - 10 of 19 files already meet or exceed 96%; 9 of those are at a clean 100%.
-- 3 of the 4 sub-96% files (`SchemaSimulator.cs`, `ReferencedObjects.cs`,
-  `MigrationImpactReport.cs`) are now confirmed done at their current scores —
-  no further test-writing can move them.
+- A near-target cleanup pass (commit `1dd7886`) pushed the 4 files already
+  ≥96% toward their own ceilings: only `AutoCrud.cs` had a real fixable
+  survivor (97.90% → 98.60%, a `List<T>` negative-capacity arithmetic
+  mutant). `UpsertKeyResolver.cs`, `DialectMapper.cs`, and
+  `DialectReservedWords.cs` were unchanged — all their remaining survivors
+  are proven equivalent by direct code-flow analysis. Combined with the 3
+  sub-96% files closed in round 4, that's 6 of the 7 sub-100% files (all but
+  `MigrationParser.cs`) now confirmed closed — no further test-writing can
+  move any of them.
 - `MigrationParser.cs` (87.02%) is the only file with any real remaining
   headroom, but closing it needs slow per-mutant manual-mutation verification,
   not another broad sweep — 96% overall is likely not reachable through more
