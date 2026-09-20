@@ -317,6 +317,33 @@ Fixed with a new test,
 mirroring the existing parenthesized-expression sibling test just above it in
 `MigrationParserMutationCoverageTests.cs`.
 
+**Second genuine gap found while re-checking survivors after that fix,
+2026-09-20.** A subsequent whole-project run (95.55% → **95.97%** after the
+above fix) left the project 1 mutant short of 96%. Re-tracing line 704's
+Negate mutant (`if (Is(def, pos, "GENERATED"))` → `if
+(!(Is(def, pos, "GENERATED")))`) — previously assumed part of the
+"unknown-flag absorption" equivalence class without being individually
+verified — found it is also a real, killable gap. Hand-simulating several
+GENERATED-shaped inputs first suggested equivalence (the mutation makes the
+block enter one token late, but its own internal forward search for "AS"
+coincidentally resynchronizes for every input containing the optional
+"ALWAYS"/"BY DEFAULT" prefix, since the misaligned entry token gets
+consumed harmlessly and "AS" is still found one position later than
+expected) — every existing test happens to use that shape, which is exactly
+why this survived undetected. Omitting the optional "ALWAYS" prefix breaks
+the resynchronization: the misaligned block instead consumes the real "AS"
+token itself as the (wrongly) expected flag keyword, then searches for "AS"
+one token too late (landing on "(") and never finds it, so `IsComputed`
+silently stays `false`. Confirmed by hand-mutating the source directly:
+`create table t (total int generated as (x))` gives `IsComputed=True` on
+real code and `IsComputed=False` under the mutant. Fixed with
+`GeneratedAsComputedColumn_WithoutAlwaysKeyword_StillMarkedComputed`. Full
+suite: 1433/1433 on both net8.0 and net10.0. This is a caution against
+trusting a survivor's category assignment without re-verifying each
+specific line — "looks like the same absorption pattern as its neighbors"
+was wrong here despite being right for the 7 `pos <= def.Count` mutants
+right next to it.
+
 Given this, closing the remaining gap to 96% would require either a
 source change (removing genuinely-defensive-but-unreachable code, which is
 not warranted for its own sake) or contrived tests, not real coverage gaps.
