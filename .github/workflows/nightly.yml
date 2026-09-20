@@ -178,15 +178,22 @@ jobs:
             configFile: ""
             extraArgs: ""
           - label: Extrode.JauntyQ.Schema
-            # Extrode.JauntyQ.Schema has no dedicated test project -- it's exercised from both
-            # this directory and Extrode.JauntyQ.Generator.Tests. Run from here (its stryker
-            # config lives alongside Schema.Extraction's, named to not collide) with an extra
-            # --test-project so mutants only Generator.Tests kills don't misreport as
-            # NoCoverage -- mirrors jaunty's own --test-project fix for its UnitTests/Tests
-            # split (see that repo's nightly.yml).
+            # Extrode.JauntyQ.Schema has no dedicated test project of its own. Run from
+            # Schema.Extraction.Tests's directory instead (its stryker config lives alongside
+            # Schema.Extraction's own, named to not collide) -- that project has a direct,
+            # non-aliased ProjectReference to Schema.csproj (263 tests resolve against it,
+            # verified 2026-09-20), so no --test-project/extra-test-project flag is needed here.
+            # Deliberately NOT mirroring jaunty's --test-project fix: that pattern fits when a
+            # sibling test project exercises the SAME real assembly under real coverage.
+            # Extrode.JauntyQ.Generator.Tests doesn't qualify -- Generator (a Roslyn analyzer)
+            # compile-includes Schema's sources into its own assembly (see Generator.csproj),
+            # so its ordinary tests exercise that embedded copy, not the mutated Schema.dll;
+            # only its two extern-alias live-round-trip tests touch the real assembly. Adding
+            # it as an extra test project would mostly add build/container cost for near-zero
+            # extra kills, not fix a NoCoverage gap that doesn't exist here.
             directory: Extrode.JauntyQ.Schema.Extraction.Tests
             configFile: stryker-config.schema.json
-            extraArgs: --test-project ../Extrode.JauntyQ.Generator.Tests/Extrode.JauntyQ.Generator.Tests.csproj
+            extraArgs: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
