@@ -1,0 +1,15 @@
+{
+  "_comment": "break: 0 is deliberate: the nightly mutation job treats a score as a report to look at, never a gate. Added 2026-09-20 to close the 'only 2 of 8 src projects have mutation coverage' gap (docs/handoffs/2026-09-20-coverage-mutation-gaps-from-jaunty-probe.md). `mutate` is narrowed on purpose here, unlike Analysis/SqlParser's configs: Generator is 13,025 LOC, the largest project in the solution, and most of it (CodeEmitter.Part*.cs, JauntyQGenerator.Part*.cs) is source-emission templating -- high LOC, comparatively low branching complexity. Scoped instead to the validation/diagnostic logic (QueryValidator*, the *Analyzer files, JauntyDiagnostics, IdentifierGuard), which is where wrong output would actually be a correctness bug rather than a cosmetic emission difference. Revisit if CodeEmitter/JauntyQGenerator logic turns out to need mutation coverage too -- this is a first cut, not a final answer.",
+  "stryker-config": {
+    "project": "Extrode.JauntyQ.Generator.csproj",
+    "mutate": [
+      "**/QueryValidator*.cs",
+      "**/*Analyzer.cs",
+      "**/JauntyDiagnostics.cs",
+      "**/IdentifierGuard.cs"
+    ],
+    "reporters": ["progress", "json"],
+    "verbosity": "info",
+    "thresholds": { "high": 80, "low": 65, "break": 0 }
+  }
+}

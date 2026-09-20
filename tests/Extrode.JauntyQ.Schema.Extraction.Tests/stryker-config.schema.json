@@ -1,0 +1,9 @@
+{
+  "_comment": "break: 0 is deliberate: the nightly mutation job treats a score as a report to look at, never a gate. Added 2026-09-20 to close the 'only 2 of 8 src projects have mutation coverage' gap (docs/handoffs/2026-09-20-coverage-mutation-gaps-from-jaunty-probe.md). Extrode.JauntyQ.Schema has no dedicated test project -- it's exercised from both Extrode.JauntyQ.Generator.Tests and this project (Schema.Extraction.Tests). Run from here with an extra --test-project pointing at Generator.Tests (see nightly.yml's Extrode.JauntyQ.Schema matrix entry), mirroring jaunty's own --test-project fix for its UnitTests/Tests split (nightly.yml comment there), otherwise mutants only Generator.Tests kills would misreport as NoCoverage. Named stryker-config.schema.json, not the bare stryker-config.json, because that name is already Schema.Extraction's own config in this same directory -- invoked via `dotnet stryker --config-file stryker-config.schema.json`.",
+  "stryker-config": {
+    "project": "Extrode.JauntyQ.Schema.csproj",
+    "reporters": ["progress", "json"],
+    "verbosity": "info",
+    "thresholds": { "high": 80, "low": 65, "break": 0 }
+  }
+}
