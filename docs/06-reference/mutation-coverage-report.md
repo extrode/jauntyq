@@ -164,10 +164,18 @@ NoCoverage unchanged at 8, scoped score 87.02%→**89.78%**.
    nullable-flag case already covered.
 5. **Line 640** (bare `AUTOINCREMENT`/`SERIAL` keyword flags) — distinct
    from the `SERIAL` DbType-sugar path; two new tests, one per keyword.
-6. **Line 647** (identity-seed-paren closing-`)` detection) — specifically
+6. **Line 647** (identity-seed-paren closing-`)` detection) — ~~specifically
    the case where a real closing paren IS present and is followed by more
    flags, distinguished from the already-tested genuinely-unterminated case
-   (which produces the same observable result either way).
+   (which produces the same observable result either way).~~ **Correction,
+   2026-09-20 (fable-verify pass):** this test does not actually kill the
+   `<=` boundary mutant it was written for — per `Is`/`IsSymbol`'s own
+   bounds-checking (lines 792-799), that mutant is genuinely equivalent. The
+   test's real (and only) kill power is against an unrelated `&&`→`||`
+   Timeout mutant on the same line. The test's comment in
+   `MigrationParserMutationCoverageTests.cs` was corrected to state this
+   honestly rather than the original overclaim; this is the one item of the
+   7 below that is not, as originally listed, a "real, killable gap."
 7. **Line 815-818** (`ReadObjectName`'s multi-level dotted-name while-loop,
    previously `NoCoverage`) — required bracket-quoted syntax
    (`[dbo].[Gadgets]`) to trigger the tokenizer-split path at all; unbracketed
@@ -272,14 +280,27 @@ Added `SqlParserCoreMutationCoverageTests.cs` (41 tests, `SqlParser.cs`),
 `SqlParserPart4PerfHintMutationCoverageTests.cs` (13 tests), and
 `SqlParserPart7CteMutationCoverageTests.cs` (10 tests). Full
 `Extrode.JauntyQ.SqlParser.Tests` suite passed 479/479 on both net8.0 and
-net10.0 after all four files. No equivalent mutants were found or claimed in
-this pass — every survivor closed was a real, previously-untested gap
-(aggregate exact-shape capture, redundant-paren stripping depth, SELECT INTO
-target-skipping, TOP N PERCENT WITH TIES token arithmetic, DELETE's optional
-FROM, RETURNING's nested-paren/trailing-`;` handling, EXISTS-subquery
-lookback guards, WHERE-region boundary and column/column comparisons in
-`ExtractPerfHints`, and `ParseWith`'s parameter-merge/WITH RECURSIVE
-position-exactness rules).
+net10.0 after all four files. At the time, no equivalent mutants were found
+or claimed in this pass — every survivor closed was believed to be a real,
+previously-untested gap (aggregate exact-shape capture, redundant-paren
+stripping depth, SELECT INTO target-skipping, TOP N PERCENT WITH TIES token
+arithmetic, DELETE's optional FROM, RETURNING's nested-paren/trailing-`;`
+handling, EXISTS-subquery lookback guards, WHERE-region boundary and
+column/column comparisons in `ExtractPerfHints`, and `ParseWith`'s
+parameter-merge/WITH RECURSIVE position-exactness rules).
+
+**Correction, 2026-09-20 (fable-verify pass, `test/fix-weak-mutation-tests`,
+`c898c59`).** A subsequent adversarial pass over these same test files found
+one genuine exception to "no equivalent mutants": `SqlParser.Part7.cs`'s
+trailing-semicolon-strip mutant. An initial fix attempt to write a
+distinguishing test failed; re-tracing the actual control flow through
+`Parse` confirmed no input reachable through the public API can distinguish
+this mutant — it is equivalent, and is now documented as such in
+`SqlParserPart7CteMutationCoverageTests.cs` rather than force-killed. The
+other three files' fixes in that same pass (Part4, Part6, and the rest of
+Part7) were genuine gap-closing, not equivalence corrections; see the score
+table below, which reflects their pre-fix scores only — a further re-run is
+needed to capture the `c898c59` improvements.
 
 | File | Before | After |
 |---|---|---|
