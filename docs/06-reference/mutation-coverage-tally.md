@@ -2,9 +2,11 @@
 
 Per-assembly, per-file mutation score, tallied against the 96% target set for
 `Extrode.JauntyQ.Analysis` (parity with sibling repo `jaunty`'s ~96% baseline).
-Snapshot as of commit `1dd7886` (94.54% overall), after the round-4 pass on
-the 4 sub-96% files and a follow-up near-target cleanup pass on the four
-files that were already ≥96%. For score-history-over-time and
+Snapshot after the round-4 pass on the 4 sub-96% files, a follow-up
+near-target cleanup pass on the four `Extrode.JauntyQ.Analysis` files that
+were already ≥96% (`1dd7886`, 94.54% overall), and the first-ever
+`Extrode.JauntyQ.SqlParser` baseline plus its 6-file IR-model cleanup
+(59.65% overall). For score-history-over-time and
 equivalent-mutant reasoning, see [`mutation-coverage-report.md`](mutation-coverage-report.md)
 and [`../handoffs/2026-09-19-stryker-mutation-gaps.md`](../handoffs/2026-09-19-stryker-mutation-gaps.md).
 
@@ -16,7 +18,7 @@ been run.
 | Assembly | Stryker config | Ever run this effort | Target | Actual | Δ to target |
 |---|---|---|---|---|---|
 | `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **94.54%** | **-1.46 pp** |
-| `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | Yes (baseline) | 96.00% | **59.22%** | **-36.78 pp** |
+| `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | Yes | 96.00% | **59.65%** | **-36.35 pp** |
 | `Extrode.JauntyQ.Cli.Core` | none | No | — | — | out of scope |
 | `Extrode.JauntyQ.Cli` | none | No | — | — | out of scope |
 | `Extrode.JauntyQ.Generator` | none | No | — | — | out of scope |
@@ -105,19 +107,14 @@ proven per-mutant the way `SchemaSimulator.cs`'s was.
   not another broad sweep — 96% overall is likely not reachable through more
   test-writing alone.
 - `Extrode.JauntyQ.SqlParser` baseline established 2026-09-20: **59.22%**,
-  -36.78 pp below the same 96% target, before any fixes. See the per-file
-  tally below.
+  -36.78 pp below the same 96% target. A same-day follow-up closed the 6
+  zero-coverage IR model files to 100.00%, moving the assembly to **59.65%**
+  (-36.35 pp). See the per-file tally below.
 
-## Extrode.JauntyQ.SqlParser — per-file tally vs. 96% target (baseline, no fixes yet)
+## Extrode.JauntyQ.SqlParser — per-file tally vs. 96% target
 
 | File | Killed | Survived | NoCov | Total | Score | vs. 96% |
 |---|---|---|---|---|---|---|
-| `IR/CteRef.cs` | 0 | 1 | 0 | 1 | 0.00% | -96.00 pp |
-| `IR/JoinRef.cs` | 0 | 4 | 0 | 4 | 0.00% | -96.00 pp |
-| `IR/LiteralBinding.cs` | 0 | 3 | 0 | 3 | 0.00% | -96.00 pp |
-| `IR/PerfHint.cs` | 0 | 4 | 0 | 4 | 0.00% | -96.00 pp |
-| `IR/QueryModel.cs` | 0 | 1 | 0 | 1 | 0.00% | -96.00 pp |
-| `IR/TableRef.cs` | 0 | 2 | 0 | 2 | 0.00% | -96.00 pp |
 | `IR/ColumnRef.cs` | 2 | 6 | 0 | 8 | 25.00% | -71.00 pp |
 | `IR/ParameterRef.cs` | 1 | 3 | 0 | 4 | 25.00% | -71.00 pp |
 | `SqlParser.Part6.cs` | 124 | 34 | 1 | 349 | 35.53% | -60.47 pp |
@@ -129,13 +126,22 @@ proven per-mutant the way `SchemaSimulator.cs`'s was.
 | `SqlParser.Part3.cs` | 170 | 80 | 0 | 283 | 60.07% | -35.93 pp |
 | `SqlParser.cs` | 612 | 216 | 12 | 974 | 62.83% | -33.17 pp |
 | `SqlTokenizer.cs` | 443 | 63 | 4 | 555 | 79.82% | -16.18 pp |
+| `IR/CteRef.cs` | 1 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
+| `IR/JoinRef.cs` | 4 | 0 | 0 | 4 | 100.00% | **+4.00 pp** |
+| `IR/LiteralBinding.cs` | 3 | 0 | 0 | 3 | 100.00% | **+4.00 pp** |
+| `IR/PerfHint.cs` | 4 | 0 | 0 | 4 | 100.00% | **+4.00 pp** |
+| `IR/QueryModel.cs` | 1 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
+| `IR/TableRef.cs` | 2 | 0 | 0 | 2 | 100.00% | **+4.00 pp** |
 | `Token.cs` | 1 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
-| **Tally (18 files)** | **2058** | **771** | **64** | **3475** | **59.22%** | **-36.78 pp** |
+| **Tally (18 files)** | **2073** | **756** | **64** | **3475** | **59.65%** | **-36.35 pp** |
 
-Largest single lever: the 7 `SqlParser*.cs` files hold 683 of the 771
-survivors (89%) and 60 of the 64 no-coverage mutants — this is where a
-raise-the-score pass should start, biggest file (`SqlParser.cs`, 216
-survivors) first. The 6 zero-score `IR/*.cs` files are small model/record
-types with no dedicated tests at all yet, same shape as the Analysis
-small-files pass — cheap to close but only worth ~15 mutants combined.
-No equivalent-mutant analysis has been done for this assembly yet.
+Largest single lever: the 7 `SqlParser*.cs` files hold 683 of the 756
+remaining survivors (90%) and 60 of the 64 no-coverage mutants — this is
+where the next pass should go, biggest file (`SqlParser.cs`, 216 survivors)
+first. The 6 IR model files are now closed (7 of 18 files at 100.00%,
+including `Token.cs`) — all 15 mutants were default-value-literal survivors
+(`= string.Empty` mutated with nothing asserting the default), no equivalent
+mutants found; see `IrModelTypesMutationCoverageTests.cs` and
+`mutation-coverage-report.md`'s "IR model types pass" section. No
+equivalent-mutant analysis has been done yet for the 11 remaining sub-96%
+files.

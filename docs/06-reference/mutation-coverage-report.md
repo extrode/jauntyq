@@ -21,6 +21,8 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 2026-09-20 | 6 previously out-of-scope small files raised | 94.33% | `951a120` |
 | 2026-09-20 | Round 4 (4 remaining sub-96% files) | 94.50% | `3535b13` |
 | 2026-09-20 | Near-target cleanup (UpsertKeyResolver/AutoCrud/DialectMapper/DialectReservedWords) | 94.54% | `1dd7886` |
+| 2026-09-20 | SqlParser baseline run (first ever) | 59.22% | `209db2d` |
+| 2026-09-20 | SqlParser — 6 zero-coverage IR model files closed | 59.65% | *(pending merge)* |
 
 ## Current per-file breakdown (as of 94.54%, commit `1dd7886`)
 
@@ -148,3 +150,30 @@ etc. in Analysis before the small-files pass. The bulk of the gap is in the
 which will need the same file-by-file assertion-strengthening approach used
 on `MigrationParser.cs`. No equivalent-mutant analysis has been done yet —
 this is an unfiltered baseline.
+
+## Extrode.JauntyQ.SqlParser — IR model types pass (easiest win, done)
+
+All 15 survivors in the 6 zero-score `IR/*.cs` files turned out to be a single
+recurring shape: every `string`-typed property defaulting to `string.Empty`
+had its default-value literal mutated (`"" → "Stryker was here!"`) and nothing
+asserted the default, so it survived. Added
+`tests/Extrode.JauntyQ.SqlParser.Tests/IrModelTypesMutationCoverageTests.cs`
+(6 tests, one per type) asserting every string-typed property's default value.
+No equivalent mutants — all 15 were real, if trivial, gaps.
+
+| File | Before | After |
+|---|---|---|
+| `IR/CteRef.cs` | 0.00% (1 survived) | **100.00%** |
+| `IR/JoinRef.cs` | 0.00% (4 survived) | **100.00%** |
+| `IR/LiteralBinding.cs` | 0.00% (3 survived) | **100.00%** |
+| `IR/PerfHint.cs` | 0.00% (4 survived) | **100.00%** |
+| `IR/QueryModel.cs` | 0.00% (1 survived) | **100.00%** |
+| `IR/TableRef.cs` | 0.00% (2 survived) | **100.00%** |
+
+New overall SqlParser score: **59.65%** (2073 killed/timeout, 756 survived, 64
+no-coverage, 3475 total) — up from the 59.22% baseline. `IR/ColumnRef.cs` and
+`IR/ParameterRef.cs` (25.00% each) were left untouched — they carry other,
+non-default-value mutants (e.g. `IsExpression`/comparer logic) outside this
+pass's scope. The 7 `SqlParser.Part*.cs`/`SqlParser.cs` files remain the
+dominant gap (~680 of the remaining 756 survivors) and are unaffected by this
+pass.
