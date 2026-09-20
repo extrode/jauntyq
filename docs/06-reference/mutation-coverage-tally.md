@@ -15,7 +15,7 @@ been run.
 | Assembly | Stryker config | Ever run this effort | Target | Actual | Δ to target |
 |---|---|---|---|---|---|
 | `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **94.50%** | **-1.50 pp** |
-| `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | No | — | — | not measured |
+| `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | Yes (baseline) | 96.00% | **59.22%** | **-36.78 pp** |
 | `Extrode.JauntyQ.Cli.Core` | none | No | — | — | out of scope |
 | `Extrode.JauntyQ.Cli` | none | No | — | — | out of scope |
 | `Extrode.JauntyQ.Generator` | none | No | — | — | out of scope |
@@ -96,5 +96,38 @@ proven per-mutant the way `SchemaSimulator.cs`'s was.
   headroom, but closing it needs slow per-mutant manual-mutation verification,
   not another broad sweep — 96% overall is likely not reachable through more
   test-writing alone.
-- `Extrode.JauntyQ.SqlParser` has a Stryker config but has never been run this
-  effort — no score exists to compare against any target for that assembly.
+- `Extrode.JauntyQ.SqlParser` baseline established 2026-09-20: **59.22%**,
+  -36.78 pp below the same 96% target, before any fixes. See the per-file
+  tally below.
+
+## Extrode.JauntyQ.SqlParser — per-file tally vs. 96% target (baseline, no fixes yet)
+
+| File | Killed | Survived | NoCov | Total | Score | vs. 96% |
+|---|---|---|---|---|---|---|
+| `IR/CteRef.cs` | 0 | 1 | 0 | 1 | 0.00% | -96.00 pp |
+| `IR/JoinRef.cs` | 0 | 4 | 0 | 4 | 0.00% | -96.00 pp |
+| `IR/LiteralBinding.cs` | 0 | 3 | 0 | 3 | 0.00% | -96.00 pp |
+| `IR/PerfHint.cs` | 0 | 4 | 0 | 4 | 0.00% | -96.00 pp |
+| `IR/QueryModel.cs` | 0 | 1 | 0 | 1 | 0.00% | -96.00 pp |
+| `IR/TableRef.cs` | 0 | 2 | 0 | 2 | 0.00% | -96.00 pp |
+| `IR/ColumnRef.cs` | 2 | 6 | 0 | 8 | 25.00% | -71.00 pp |
+| `IR/ParameterRef.cs` | 1 | 3 | 0 | 4 | 25.00% | -71.00 pp |
+| `SqlParser.Part6.cs` | 124 | 34 | 1 | 349 | 35.53% | -60.47 pp |
+| `IR/OrderByRef.cs` | 1 | 1 | 0 | 2 | 50.00% | -46.00 pp |
+| `SqlParser.Part4.cs` | 183 | 125 | 4 | 351 | 52.14% | -43.86 pp |
+| `SqlParser.Part7.cs` | 107 | 62 | 5 | 205 | 52.20% | -43.80 pp |
+| `SqlParser.Part2.cs` | 204 | 94 | 17 | 362 | 56.35% | -39.65 pp |
+| `SqlParser.Part5.cs` | 210 | 72 | 21 | 366 | 57.38% | -38.62 pp |
+| `SqlParser.Part3.cs` | 170 | 80 | 0 | 283 | 60.07% | -35.93 pp |
+| `SqlParser.cs` | 612 | 216 | 12 | 974 | 62.83% | -33.17 pp |
+| `SqlTokenizer.cs` | 443 | 63 | 4 | 555 | 79.82% | -16.18 pp |
+| `Token.cs` | 1 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
+| **Tally (18 files)** | **2058** | **771** | **64** | **3475** | **59.22%** | **-36.78 pp** |
+
+Largest single lever: the 7 `SqlParser*.cs` files hold 683 of the 771
+survivors (89%) and 60 of the 64 no-coverage mutants — this is where a
+raise-the-score pass should start, biggest file (`SqlParser.cs`, 216
+survivors) first. The 6 zero-score `IR/*.cs` files are small model/record
+types with no dedicated tests at all yet, same shape as the Analysis
+small-files pass — cheap to close but only worth ~15 mutants combined.
+No equivalent-mutant analysis has been done for this assembly yet.

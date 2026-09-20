@@ -1,8 +1,10 @@
-# Mutation coverage report — Extrode.JauntyQ.Analysis
+# Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser
 
-Living record of Stryker.NET mutation-testing results for the `Extrode.JauntyQ.Analysis`
-project. Updated after each coverage-raising pass. Equivalent-mutant reasoning and
-per-mutant detail live in [`docs/handoffs/2026-09-19-stryker-mutation-gaps.md`](../handoffs/2026-09-19-stryker-mutation-gaps.md);
+Living record of Stryker.NET mutation-testing results for the two `src/`
+assemblies that carry a Stryker config: `Extrode.JauntyQ.Analysis` and
+`Extrode.JauntyQ.SqlParser`. Updated after each coverage-raising pass.
+Equivalent-mutant reasoning and per-mutant detail live in
+[`docs/handoffs/2026-09-19-stryker-mutation-gaps.md`](../handoffs/2026-09-19-stryker-mutation-gaps.md);
 this file tracks the numbers over time.
 
 Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`.
@@ -87,3 +89,40 @@ Net: the 96% target is likely not fully reachable through more test-writing
 alone; the remaining gap is dominated by a confirmed equivalent-mutant floor
 in 3 of the 4 sub-96% files, with `MigrationParser.cs` as the sole file where
 further (slow) work could still move the needle.
+
+## Extrode.JauntyQ.SqlParser — baseline
+
+First-ever Stryker run for this assembly, 2026-09-20, whole-project
+(`tests/Extrode.JauntyQ.SqlParser.Tests/StrykerOutput/2026-09-20.15-17-57`).
+Baseline only — no fixes attempted yet.
+
+**Overall: 59.22%** (2058 killed/timeout, 771 survived, 64 no-coverage, 3475 total).
+
+| Score | Killed | Survived | NoCov | Total | File |
+|---|---|---|---|---|---|
+| 0.00% | 0 | 1 | 0 | 1 | `IR/CteRef.cs` |
+| 0.00% | 0 | 4 | 0 | 4 | `IR/JoinRef.cs` |
+| 0.00% | 0 | 3 | 0 | 3 | `IR/LiteralBinding.cs` |
+| 0.00% | 0 | 4 | 0 | 4 | `IR/PerfHint.cs` |
+| 0.00% | 0 | 1 | 0 | 1 | `IR/QueryModel.cs` |
+| 0.00% | 0 | 2 | 0 | 2 | `IR/TableRef.cs` |
+| 25.00% | 2 | 6 | 0 | 8 | `IR/ColumnRef.cs` |
+| 25.00% | 1 | 3 | 0 | 4 | `IR/ParameterRef.cs` |
+| 35.53% | 124 | 34 | 1 | 349 | `SqlParser.Part6.cs` |
+| 50.00% | 1 | 1 | 0 | 2 | `IR/OrderByRef.cs` |
+| 52.14% | 183 | 125 | 4 | 351 | `SqlParser.Part4.cs` |
+| 52.20% | 107 | 62 | 5 | 205 | `SqlParser.Part7.cs` |
+| 56.35% | 204 | 94 | 17 | 362 | `SqlParser.Part2.cs` |
+| 57.38% | 210 | 72 | 21 | 366 | `SqlParser.Part5.cs` |
+| 60.07% | 170 | 80 | 0 | 283 | `SqlParser.Part3.cs` |
+| 62.83% | 612 | 216 | 12 | 974 | `SqlParser.cs` |
+| 79.82% | 443 | 63 | 4 | 555 | `SqlTokenizer.cs` |
+| 100.00% | 1 | 0 | 0 | 1 | `Token.cs` |
+
+The 6 zero-score `IR/*.cs` files are small model types (likely record/DTO
+shapes) with no dedicated coverage yet — analogous to `MigrationStatement.cs`
+etc. in Analysis before the small-files pass. The bulk of the gap is in the
+7 `SqlParser*.cs` parser-body files (50–63% each, ~680 combined survivors),
+which will need the same file-by-file assertion-strengthening approach used
+on `MigrationParser.cs`. No equivalent-mutant analysis has been done yet —
+this is an unfiltered baseline.
