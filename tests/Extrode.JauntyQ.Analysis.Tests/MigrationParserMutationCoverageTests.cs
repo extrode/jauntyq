@@ -484,6 +484,23 @@ public class MigrationParserMutationCoverageTests
         Assert.True(col.IsNullable);
     }
 
+    [Fact]
+    public void DefaultExpression_SingleTokenNullValueAfterExplicitNotNull_DoesNotFlipNullabilityBack()
+    {
+        // Mirrors the parenthesized-expression test above, but for the
+        // single-token (non-paren) DEFAULT value branch: if the trailing
+        // "pos < def.Count" guard that skips DEFAULT's value token were
+        // inverted, the guard's body would never run whenever a real value
+        // token follows DEFAULT, leaving "NULL" unconsumed -- it would then
+        // leak back into this same loop's own flag checks and wrongly flip
+        // IsNullable back to true even though "NOT NULL" already appeared.
+        var statements = MigrationParser.Parse("create table t (a int not null default null)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
     // ── ALTER COLUMN ... ADD/DROP GENERATED|IDENTITY: unmodeled, same as SET ──
 
     [Fact]
