@@ -28,10 +28,23 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 2026-09-20 | MigrationParser.cs — per-mutant pass (12 new tests, 7 real gaps) | 89.78% (scoped; whole-project re-run pending) | `3938a48` |
 | 2026-09-20 | Whole-project re-run confirming the per-mutant pass | 95.55% | (pre-`4b5c154`) |
 | 2026-09-20 | MigrationParser.cs — `ReadObjectName` bracket-quoted-dot merge correction + boundary test | **95.84%** | `c9fa8c1` |
+| 2026-09-20 | Adversarial fable-verify pass over `pos <= def.Count`/`SkipParenGroup` equivalence claims + MigrationParser.cs DEFAULT-value Negate mutant fix (line 689, flagged by the pass) | **95.97%** | `ac22f74` |
+| 2026-09-20 | MigrationParser.cs GENERATED-column Negate mutant fix (line 704, found by manual re-check after the fable-verify pass) | **96.01% — target reached** | (merge into `dev` after `34c070b`) |
 
 ## Current per-file breakdown (as of 95.84%, whole-project re-run 2026-09-20 19:05-19:09, confirming the `ReadObjectName` fix)
 
 19 source files, 2380 mutants tested (2281 killed+timeout, 95 survived, 4 no-coverage).
+
+**Superseded by the 96.01% whole-project run, 2026-09-20 20:12-20:16**
+(2285 killed+timeout, 91 survived, 4 no-coverage, 2380 total) — the two
+fixes below (lines 689 and 704) moved 4 mutants from Survived to Killed;
+Stryker's coverage-based test-impact selection also shifted 2 mutants
+between the Killed and Timeout buckets run-to-run (694 killed / 33 timeout
+in the prior run's `MigrationParser.cs` row vs. this run's totals), which is
+normal run-to-run noise in timeout classification, not a regression. No
+fresh file-scoped `MigrationParser.cs` run has been taken at 96.01%, so the
+per-file breakdown below is not re-stated row-by-row; the totals above are
+the authoritative current numbers.
 
 | Score | Killed | Timeout | Survived | NoCov | Total | File |
 |---|---|---|---|---|---|---|
@@ -135,6 +148,15 @@ the same adversarial pass. The "6 of 7 files" count in the Net paragraph
 above is accordingly one file too many as originally stated — the corrected,
 per-mutant-traced state for all 7 sub-100% files is in the current per-file
 breakdown table above this section, not this historical paragraph.
+
+**Final update: the 96% target was reached, 2026-09-20 20:12-20:16 — 96.01%.**
+Two more genuine gaps were found in `MigrationParser.cs` after this section
+was written (line 689 and line 704, both documented further down this file),
+closing the last 1-mutant gap. The "likely not fully reachable through more
+test-writing alone" conclusion above turned out to be wrong — the target was
+reached with real tests, not source changes or contrived tests. See the
+score-history table at the top of this document for the full path from
+94.66% to 96.01%.
 
 ### MigrationParser.cs — per-mutant pass, 2026-09-20 (87.02% → 89.78%)
 
@@ -344,13 +366,19 @@ specific line — "looks like the same absorption pattern as its neighbors"
 was wrong here despite being right for the 7 `pos <= def.Count` mutants
 right next to it.
 
-Given this, closing the remaining gap to 96% would require either a
-source change (removing genuinely-defensive-but-unreachable code, which is
-not warranted for its own sake) or contrived tests, not real coverage gaps.
-Recommend treating **95.84%** as the practical ceiling for this file/pass
-without further investment, pending anyone finding a mutant outside this
-equivalence class among the ~70 not individually re-traced this round (the
-"open methodological caveat" below still applies to those).
+**Update: this line-704 fix, combined with the line-689 fix above, closed
+the last 1-mutant gap.** The whole-project run immediately after (2026-09-20
+20:12-20:16) landed at **96.01%** — target reached. Note that this session's
+own prediction just above ("recommend treating 95.84% as the practical
+ceiling") turned out to be wrong twice in a row: both the line-689 and
+line-704 mutants looked, on first pass, like they belonged to the same
+absorbed/equivalent category as their neighbors, and both were in fact real,
+killable gaps. The remaining ~91 survivors after this fix are still believed
+equivalent under the previously-documented absorption mechanisms, but that
+belief has now been wrong twice for mutants that looked exactly this
+confident beforehand — treat any future "this is definitely the practical
+ceiling" claim in this file with the same skepticism, and adversarially
+verify before relying on it.
 
 ## Extrode.JauntyQ.SqlParser — baseline
 
