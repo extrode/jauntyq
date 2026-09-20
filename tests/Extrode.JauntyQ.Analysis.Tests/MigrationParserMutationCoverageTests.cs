@@ -575,6 +575,86 @@ public class MigrationParserMutationCoverageTests
         Assert.False(col.IsNullable);
     }
 
+    // ── ALTER COLUMN ... SET/ADD/DROP GENERATED|IDENTITY: unsupported guard must still fire on an empty bracket-quoted identifier ──
+
+    [Fact]
+    public void AlterColumn_EmptyBracketIdentifierAfterSet_StillMatchesUnsupportedGuard()
+    {
+        // The tokenizer emits an empty-string Identifier token for `[]`, so
+        // the "SET" keyword check has a real (if obscure) alternative input
+        // that reaches it: an empty bracket-quoted token in the position
+        // where SET/ADD/DROP is expected.
+        var statements = MigrationParser.Parse("alter table t alter column c [] identity");
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.AlterColumn, stmt.Kind);
+    }
+
+    // ── decimal(p,s) facet parsing: the second facet's type check must actually gate on Number, not just position ──
+
+    [Fact]
+    public void DecimalScale_BracketQuotedDigit_NotTreatedAsNumericFacet()
+    {
+        // A bracket-quoted "[2]" tokenizes as an Identifier, not a Number.
+        // If the type check on the second facet were dropped, this would be
+        // misread as the scale anyway (since it sits in the scale position).
+        var statements = MigrationParser.Parse("create table t (a decimal(10,[2]))");
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal(0, col.Scale);
+    }
+
+    // ── time facet parsing must leave `pos` past the closing paren before the WITH/WITHOUT TIME ZONE check runs ──
+
+    [Fact]
+    public void TimeMaxFacet_PositionAdvancesPastClosingParen_BeforeTimeZoneCheck()
+    {
+        var statements = MigrationParser.Parse("create table t (a time(max) with time zone)");
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal("time with time zone", col.DbType);
+    }
+
+    [Fact]
+    public void TimeTwoFacets_PositionAdvancesPastBothAndClosingParen_BeforeTimeZoneCheck()
+    {
+        var statements = MigrationParser.Parse("create table t (a time(6,2) with time zone)");
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.Equal("time with time zone", col.DbType);
+    }
+
+    // ── standalone IDENTITY flag's own seed-paren skip must land past the closing paren, not on the last token inside it ──
+
+    [Fact]
+    public void StandaloneIdentity_SeedParenPositionAdvancesPastClosingParen()
+    {
+        // A literal NULL as the seed value is nonsensical SQL, but it is
+        // syntactically well-formed and lands exactly on the token this
+        // trailing pos++ is responsible for skipping past.
+        var statements = MigrationParser.Parse("create table t (a int not null identity(null))");
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
+    // ── GENERATED ... AS IDENTITY (...) must use the depth-tracking SkipParenGroup, not a naive single-level scan ──
+
+    [Fact]
+    public void GeneratedAsIdentity_SequenceOptionsSkippedAtomically_EvenWithNestedParens()
+    {
+        // Nested parens inside an identity sequence-options clause are not
+        // valid Postgres, but the tokenizer accepts them, and they are
+        // exactly what distinguishes SkipParenGroup's depth tracking from a
+        // naive scan for the first ")": a naive scan stops at the inner
+        // close, leaving "y)null" exposed to the outer flags loop, where the
+        // bare "null" flips IsNullable back to true.
+        var statements = MigrationParser.Parse(
+            "create table t (a int not null generated always as identity (x(y)null))");
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
     [Fact]
     public void ComputedColumn_NotNullFollowedByBareNull_FlipsBackToNullable()
     {
