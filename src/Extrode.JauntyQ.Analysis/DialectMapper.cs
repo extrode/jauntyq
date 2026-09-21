@@ -378,6 +378,7 @@ public static class DialectMapper
     {
         string normalized = NormalizeDbType(dbType.ToLowerInvariant());
         if (normalized.EndsWith("[]"))
+            // Stryker disable once Boolean : the recursive call's own final check accepts both "object" and "object?", so the isNullable value passed here never changes the recursion's outcome
             return IsUnmappedDbType(normalized.Substring(0, normalized.Length - 2), isNullable: false, length, dialect);
 
         // The fallback arm of MapDbTypeToCSharp returns "object?" (not

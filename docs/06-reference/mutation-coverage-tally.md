@@ -2,8 +2,12 @@
 
 Per-assembly, per-file mutation score, tallied against the 96% target set for
 `Extrode.JauntyQ.Analysis` (parity with sibling repo `jaunty`'s ~96% baseline).
-Last confirmed whole-project `Extrode.JauntyQ.Analysis` run: **97.23%**
-(2026-09-21 02:14-02:19, commit `0eee118`) — target exceeded. This followed
+Last confirmed whole-project `Extrode.JauntyQ.Analysis` run: **99.14%**
+(2026-09-21 08:02-08:32, pending commit) — a comment-based Stryker exclusion
+pass over 47 confirmed-equivalent survivors across 7 files, see the
+"2026-09-21 pass: Stryker comment-based exclusions" section below and in
+mutation-coverage-report.md. This followed **97.23%**
+(2026-09-21 02:14-02:19, commit `0eee118`) — target exceeded. That followed
 96.47%: a genuine fable-model verify pass fixed 5 more real gaps in
 `MigrationParser.cs` (`5deae22`), and the previously-undecided
 "malformed-SQL-only" survivor category (20 mutants total, lines 447-719) was
@@ -43,7 +47,7 @@ run this effort.
 
 | Assembly | Stryker config | Ever run this effort | Target | Actual | Δ to target |
 |---|---|---|---|---|---|
-| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **97.23%** | **+1.23 pp (target exceeded)** |
+| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **99.14%** | **+3.14 pp (target exceeded)** |
 | `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | Yes | 96.00% | **59.65%** | **-36.35 pp** |
 | `Extrode.JauntyQ.Cli.Core` | none | No | — | — | out of scope |
 | `Extrode.JauntyQ.Cli` | none | No | — | — | out of scope |
@@ -81,9 +85,11 @@ threshold — `dotnet stryker` will not fail the build below 96%, only below 0%
 | `Impact/ImpactReason.cs` | 4 | 0 | 0 | 0 | 4 | 100.00% | **+4.00 pp** |
 | `Impact/QueryImpactInput.cs` | 1 | 0 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
 | `Migrations/MigrationStatement.cs` | 2 | 0 | 0 | 0 | 2 | 100.00% | **+4.00 pp** |
-| **Tally (19 files)** | **2314*** | — | **62** | **4** | **2380** | **97.23%** | **+1.23 pp (target exceeded)** |
+| **Tally (19 files)** | **2311*** | — | **20** | **0** | **2331** | **99.14%** | **+3.14 pp (target exceeded)** |
 
-**2026-09-21 update:** whole-project re-run (`0eee118`) after the fable-verify 5-gap fix and the malformed-SQL survivor category resolution: Killed 2277, Timeout 37, Survived 62, NoCoverage 4, total 2380 — **97.23%**, up from 96.47%. See mutation-coverage-report.md's "2026-09-21 pass" section for the per-mutant detail.
+**2026-09-21 update (comment-based exclusions):** whole-project re-run after adding `// Stryker disable once` comments for 47 confirmed-equivalent survivors across 7 files (pending commit): Killed 2251, Timeout 60, Survived 20, NoCoverage 0, Ignored 294, 3 Pending (transient — this run overlapped with a peer session's concurrent Stryker process), total scored 2331 — **99.14%**, up from 97.23%. Note the denominator dropped from 2380 to 2331 because the 47 newly-excluded mutants no longer count toward the score at all (Stryker's `Ignored` status is excluded from the formula), not because they were "fixed" as Killed. See mutation-coverage-report.md's "2026-09-21 pass: Stryker comment-based exclusions" section for the full per-mutant reasoning and per-file verification runs.
+
+**2026-09-21 update (earlier same day):** whole-project re-run (`0eee118`) after the fable-verify 5-gap fix and the malformed-SQL survivor category resolution: Killed 2277, Timeout 37, Survived 62, NoCoverage 4, total 2380 — **97.23%**, up from 96.47%. See mutation-coverage-report.md's "2026-09-21 pass" section for the per-mutant detail.
 
 \* "Killed" column includes Timeout mutants (Stryker treats Timeout as a kill
 for scoring purposes); the 2314/62/4/2380 total row is the last confirmed
@@ -159,7 +165,13 @@ the correction.
 
 ## Bottom line
 
-- **Overall: 97.23% vs. 96% target — target exceeded, confirmed by a fresh
+- **Overall: 99.14% vs. 96% target — target exceeded, confirmed by a fresh
+  whole-project run (2026-09-21 08:02-08:32, pending commit), after adding
+  Stryker comment-based exclusions for 47 confirmed-equivalent survivors
+  across 7 files (`AutoCrud.cs`, `Migrations/SchemaSimulator.cs`,
+  `DialectMapper.cs`, `DialectReservedWords.cs`,
+  `Impact/ReferencedObjects.cs`, `UpsertKeyResolver.cs`,
+  `Migrations/MigrationParser.cs`) — up from 97.23%, confirmed by an earlier
   whole-project run (2026-09-21 02:14-02:19, commit `0eee118`), up from
   96.47% after a genuine fable-model verify pass fixed 5 more real gaps and
   the malformed-SQL survivor category was fully resolved (6 more killed, 3

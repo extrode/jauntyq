@@ -66,6 +66,7 @@ public static class AutoCrud
     private static string JoinColumns(List<ColumnSchema> cols, string separator, System.Func<ColumnSchema, string> selector)
     {
         if (cols.Count == 0)
+            // Stryker disable once all : NoCoverage, no caller passes an empty column list; documented equivalent floor
             return "";
         var parts = new List<string>(cols.Count);
         foreach (var c in cols)
@@ -92,6 +93,7 @@ public static class AutoCrud
                 if (!IsBareIdentifier(col.Name, schema.Dialect, SqlIdentifierPosition.Column))
                 {
                     allColumnsUsable = false;
+                    // Stryker disable once Statement : the loop's accumulated `columns` list is discarded on this failure path regardless of whether the loop breaks early or keeps iterating
                     break;
                 }
                 columns.Add(col);

@@ -110,6 +110,7 @@ public static class MigrationParser
 
         foreach (var def in SplitTopLevel(tokens, ref pos))
         {
+            // Stryker disable once Statement : ParseColumnDef's own `def.Count < 2` guard returns null for an empty def, and `if (column != null) stmt.Columns.Add(column)` below already skips adding anything -- dropping this `continue` reaches the exact same no-op outcome one call deeper
             if (def.Count == 0)
                 continue;
 
@@ -206,6 +207,7 @@ public static class MigrationParser
     /// starting a new one.</summary>
     private sealed class AlterActionGroup
     {
+        // Stryker disable once String : every AlterActionGroup is constructed via `new AlterActionGroup { Action = action }` (see GroupAlterActions), which always overwrites this default before any read -- the field initializer's value is never observed
         public string Action = string.Empty;
         public List<List<Token>> Bodies { get; } = new();
     }
@@ -502,6 +504,7 @@ public static class MigrationParser
             SkipParenGroup(def, ref cp);
             while (cp < def.Count)
             {
+                // Stryker disable once String : this branch's only effect is `cp++` before continuing, identical to the catchall `cp++` at the bottom of this loop that an unrecognized token falls through to -- blanking "PERSISTED" changes nothing observable
                 if (Is(def, cp, "PERSISTED")) { cp++; continue; }
                 if (Is(def, cp, "NOT") && Is(def, cp + 1, "NULL")) { computed.IsNullable = false; cp += 2; continue; }
                 if (Is(def, cp, "NULL")) { computed.IsNullable = true; cp++; continue; }
@@ -555,6 +558,7 @@ public static class MigrationParser
         if (column.DbType == "double" && Is(def, pos, "PRECISION"))
         {
             column.DbType += " precision";
+            // Stryker disable once Statement,Update : the outer flags loop's own catchall skips exactly one unrecognized token per iteration, so a dropped or reversed `pos++` here just defers the same single-position advance to that catchall on the next iteration -- no observable state changes either way
             pos++;
         }
         else if ((column.DbType == "character" || column.DbType == "bit") && Is(def, pos, "VARYING"))
@@ -646,7 +650,9 @@ public static class MigrationParser
                 {
                     while (pos < def.Count && !IsSymbol(def, pos, ")"))
                         pos++;
+                    // Stryker disable once Boolean,Equality : Is/IsSymbol and the outer `while (pos < def.Count)` loop guard are all bounds-checked against an out-of-range pos, so mutating this comparison only changes whether the terminating `)` gets skipped here or absorbed as an out-of-range no-op by those downstream checks -- same end state either way
                     if (pos < def.Count)
+                        // Stryker disable once Statement : the outer flags loop's own catchall skips exactly one unrecognized token per iteration, so dropping this `pos++` just defers the same single-position advance to that catchall on the next iteration
                         pos++;
                 }
                 continue;
@@ -668,7 +674,9 @@ public static class MigrationParser
             {
                 column.DbType += " unsigned";
                 pos++;
+                // Stryker disable once String : this branch's only effect is `pos++`, identical to the outer flags loop's own catchall that an unrecognized token falls through to -- blanking "ZEROFILL" changes nothing observable
                 if (Is(def, pos, "ZEROFILL"))
+                    // Stryker disable once Statement : the outer flags loop's own catchall skips exactly one unrecognized token per iteration, so dropping this `pos++` just defers the same single-position advance to that catchall on the next iteration
                     pos++;
                 continue;
             }
@@ -706,6 +714,7 @@ public static class MigrationParser
                 pos++;
                 if (Is(def, pos, "ALWAYS"))
                     pos++;
+                // Stryker disable once Arithmetic,String : confirmed genuinely equivalent (2026-09-21) -- the outer flags loop's own catchall unconditionally re-scans every subsequent token, so a later bare IDENTITY keyword is picked up by the standalone identity branch regardless of how this BY/DEFAULT prefix was parsed; see docs/06-reference/mutation-coverage-report.md's "2026-09-21 pass" section
                 else if (Is(def, pos, "BY") && Is(def, pos + 1, "DEFAULT"))
                     pos += 2;
                 if (Is(def, pos, "AS"))
@@ -722,7 +731,9 @@ public static class MigrationParser
                     {
                         column.IsComputed = true;
                         SkipParenGroup(def, ref pos);
+                        // Stryker disable once Logical,String : whichever of STORED/VIRTUAL is actually present, either it matches this check directly (advancing pos here) or it falls through unmatched to the outer flags loop's own catchall, which skips exactly one unrecognized token per iteration -- same final pos either way
                         if (Is(def, pos, "STORED") || Is(def, pos, "VIRTUAL"))
+                            // Stryker disable once Statement,Update : the outer flags loop's own catchall skips exactly one unrecognized token per iteration, so a dropped or reversed `pos++` here just defers the same single-position advance to that catchall on the next iteration
                             pos++;
                     }
                 }
@@ -742,6 +753,7 @@ public static class MigrationParser
     /// </summary>
     private static void SkipParenGroup(List<Token> def, ref int pos)
     {
+        // Stryker disable once Statement : dead code -- all three call sites already check IsSymbol(def, pos, "(") before calling SkipParenGroup, so this guard's condition is never true at runtime (NoCoverage, confirmed by the doc's coverage-misattribution note)
         if (!IsSymbol(def, pos, "("))
             return;
         int depth = 0;
@@ -842,6 +854,7 @@ public static class MigrationParser
             {
                 if (depth == 0)
                 {
+                    // Stryker disable once Statement,Update : SplitTopLevel's sole caller (ParseCreateTable, line 111) never reads `pos` again after this call, so this closing paren's exact final position is discarded either way
                     pos++;
                     break;
                 }

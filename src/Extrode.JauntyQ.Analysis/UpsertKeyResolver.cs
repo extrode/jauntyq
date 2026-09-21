@@ -138,6 +138,7 @@ public static class UpsertKeyResolver
                 if (col == null || col.IsIdentity)
                 {
                     allResolved = false;
+                    // Stryker disable once Statement : no later iteration of this loop ever sets allResolved back to true, so dropping `break` and continuing to iterate yields the same final value
                     break;
                 }
                 keyCols.Add(col);
@@ -276,6 +277,7 @@ public static class UpsertKeyResolver
             // indexes (and refuses a PK enforced only by one), so an index
             // reaching here flagged means the key is enforced in full elsewhere
             // and this one genuinely competes.
+            // Stryker disable once Statement : CoversKey(index.Columns, keyNames) being true means index.Columns is an exact restatement of keyNames, which trivially also satisfies ContainsAllKeyColumns below -- dropping this `continue` just falls through to the next guard's identical `continue`
             if (!index.HasPrefixKeyPart && CoversKey(index.Columns, keyNames))
                 continue;
 
@@ -343,6 +345,7 @@ public static class UpsertKeyResolver
                 if (string.Equals(key, col, StringComparison.OrdinalIgnoreCase))
                 {
                     found = true;
+                    // Stryker disable once Statement : no later iteration of this loop ever sets found back to false, so dropping `break` and continuing to iterate yields the same final value
                     break;
                 }
             }
