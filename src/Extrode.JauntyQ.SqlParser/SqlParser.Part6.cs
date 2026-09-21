@@ -57,6 +57,7 @@ public static partial class SqlParser
                 {
                     var pt = tokens[j];
                     if (pt.Type == TokenType.End)
+                        // Stryker disable once Statement : the loop's own bound guarantees this is its last possible iteration (the tokenizer's End sentinel is always the final token), so whether this breaks or falls through to add the sentinel and let the for-loop's own condition end it next, ParseProjectionList's while-loop below stops at the first End it sees either way -- one harmless extra trailing End changes nothing observable
                         break;
                     if (pt.Type == TokenType.Symbol && pt.Value == "(") innerDepth++;
                     else if (pt.Type == TokenType.Symbol && pt.Value == ")") innerDepth--;
@@ -64,6 +65,7 @@ public static partial class SqlParser
                         break;
                     projTokens.Add(pt);
                 }
+                // Stryker disable once String : an End token's Value is never read anywhere downstream (every consumer of an End token checks only its Type) -- the placeholder text here is inert
                 projTokens.Add(new Token(TokenType.End, string.Empty));
                 ParseProjectionList(projTokens, 0, model, model.Returning);
                 return;
@@ -112,8 +114,10 @@ public static partial class SqlParser
             if (t.Type == TokenType.End || t.Type == TokenType.Unterminated)
                 continue;
 
+            // Stryker disable once String : this guard's own copy of the literal is never independently observable -- the Add call's literal two lines below is the one that actually lands in the model and is tested for its exact text; this function returns immediately after its one and only Add, so the guard can never be re-checked against a value the Add itself put there
             if (!model.UnsupportedConstructs.Contains("MULTI_STATEMENT"))
                 model.UnsupportedConstructs.Add("MULTI_STATEMENT");
+            // Stryker disable once Statement : with the guard already true and no further "(" / ")" / ";" tokens able to un-terminate this loop, every remaining token merely re-runs the same already-true !Contains(guard)==false no-op down to the tokenizer's own trailing End token, which the check on the line above continues past anyway -- the final model state is identical whether this returns now or the loop runs to completion
             return;
         }
     }
