@@ -27,6 +27,7 @@ public static partial class SqlParser
         var insertColumns = new List<string>();
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "(")
         {
+            // Stryker disable once Statement : the loop below already skips any non-Identifier token (including this "(" itself) via its own pos++, so this explicit skip is a redundant no-op with identical final state either way
             pos++; // skip (
             while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")"))
             {
@@ -71,6 +72,7 @@ public static partial class SqlParser
                 if (t.Type == TokenType.Symbol && t.Value == "(")
                 {
                     depth++;
+                    // Stryker disable once Statement : BindInsertSlot only inspects slot.Count and slot[0]/[1]'s own Type/Value for its Count==1 (Parameter/Literal) and Count==2 (negative-number) shapes, neither of which a bare "(" can ever form part of, so whether it's physically present in a multi-token slot is unobservable
                     slot.Add(t);
                 }
                 else if (t.Type == TokenType.Symbol && t.Value == ")")
@@ -78,9 +80,11 @@ public static partial class SqlParser
                     if (depth == 0)
                     {
                         BindInsertSlot(slot, insertColumns, colIndex, model);
+                        // Stryker disable once Statement : without this break the loop just keeps absorbing trailing tokens (e.g. RETURNING) into further no-op slots -- BindInsertSlot's slot.Count==1-Parameter/Literal guard never matches multi-token leftovers, and ExtractReturning re-scans the full token list independently of this loop's pos, so no observable state differs either way
                         break;
                     }
                     depth--;
+                    // Stryker disable once Statement : same argument as the "(" branch above -- a bare ")" can never form part of BindInsertSlot's Count==1 or Count==2 shape checks, so its presence in a multi-token slot is unobservable
                     slot.Add(t);
                 }
                 else if (t.Type == TokenType.Symbol && t.Value == "," && depth == 0)
@@ -111,6 +115,7 @@ public static partial class SqlParser
     /// </summary>
     private static void ParseInsertSelect(List<Token> tokens, int selectPos, List<string> insertColumns, QueryModel model)
     {
+        // Stryker disable once Initializer : selectModel is discarded after this method except for its Tables/Joins, which are merged below -- Name only ever affects nested subquery/CTE naming inside selectModel's own (never-merged) Subqueries/Ctes, so it has no observable effect through the parser's public API
         var selectModel = new QueryModel { Name = model.Name };
         int pos = ParseSelect(tokens, selectPos + 1, selectModel);
 
@@ -284,6 +289,7 @@ public static partial class SqlParser
         for (int i = 0; i < tokens.Count; i++)
         {
             if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == "(") { depth++; continue; }
+            // Stryker disable once Statement : removing this continue changes nothing -- the write-target check below only ever matches tokens[i].Type == Parameter, which a ")" symbol token never is, so falling through to it is a no-op either way
             if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ")") { if (depth > 0) depth--; continue; }
             if (tokens[i].Type == TokenType.Keyword)
             {
