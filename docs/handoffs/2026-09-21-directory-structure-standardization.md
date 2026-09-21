@@ -3,9 +3,17 @@
 Handoff from a cross-repo initiative run out of the `jaunty` session. Owner's goal: standardize
 directory-structure conventions across all .NET projects under `C:/home/code/extrode.com/`,
 starting with jaunty and jauntyq specifically (as the two most similar/mature sibling repos), then
-extending the settled convention to the other ~17 .NET repos in that directory later. No code or
-docs in *this* repo (jauntyq) have been touched yet — that's intentionally left for this session to
-pick up, with full context below so nothing needs re-deriving.
+extending the settled convention to the other ~17 .NET repos in that directory later.
+
+**Update, same day:** the owner approved the "quick fixes" batch and the jaunty session executed
+the jauntyq-specific ones directly in this repo (branch `chore/dirstruct-quick-fixes-2026-09-21`,
+merged to `dev`): added `.config/dotnet-tools.json` pinning `dotnet-stryker 4.16.0`; deleted the 3
+dead schema JSON files in `data/` (see the correction in the section below); moved
+`docs/assets/build-not-prod.svg` to `docs/_assets/`; renumbered `docs/06-reference` →
+`docs/04-reference` and `docs/07-roadmap` → `docs/09-roadmap` with all cross-file links updated.
+The rest of this doc is left as originally written (below) as the record of what was flagged and
+why — the "not yet actioned" framing in the next paragraph now only applies to the bigger,
+sign-off-gated items in the "What jaunty is not changing unilaterally" section near the bottom.
 
 ## What's already been done (all in the jaunty repo, read/analysis only until noted)
 
@@ -42,8 +50,13 @@ doesn't have to rediscover them:
   manifest; jauntyq's nightly workflow instead installs Stryker ad hoc in a workflow step. Flagged
   as an actual oversight (not just an optional style difference) — an unpinned Stryker version in
   CI can silently drift.
-- **`data/` is an empty top-level directory** with no files and nothing referencing it — likely
-  dead, candidate for deletion (verify nothing gitignored-but-intended lives there first).
+- **`data/` held 3 unreferenced schema JSON files** (`edgecases.schema.json`,
+  `northwind.schema.json`, `relationships.schema.json`) from the repo's very first two commits,
+  predating the current `samples/*/db/schema/` convention. Correction: an earlier version of this
+  handoff wrongly described the directory as empty — it wasn't, it had these 3 files; that was my
+  own error during the original survey, not Fable's. Grepped `src/`, `tests/`, `samples/`, `docs/`,
+  `scripts/`, `.github/` for their filenames with nothing found referencing them, so treated as
+  dead by the same "nothing referenced it" bar used for jaunty's now-deleted `seed/`.
 - **`docs/assets/build-not-prod.svg` duplicates the `docs/_assets/` convention** — one stray file
   outside the underscore-prefixed asset folder both repos otherwise use. Candidate to move into
   `docs/_assets/`.

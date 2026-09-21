@@ -159,11 +159,11 @@ Under consideration (future, not now — no commitment):
   (Broader schema-object generation, functions, enums, UDTs, remains
   deferred; see below.)
 - **API reference / JNT diagnostics reference docs.**
-  `docs/06-reference/diagnostics.md` (every JNTxxxx code, severity, meaning)
-  and `docs/06-reference/api-overview.md` (shape of the generated surface,
+  `docs/04-reference/diagnostics.md` (every JNTxxxx code, severity, meaning)
+  and `docs/04-reference/api-overview.md` (shape of the generated surface,
   pointing to XML doc comments in `src/Extrode.JauntyQ.Generator/CodeEmitter*.cs` as the
   authoritative reference), alongside the CLI, configuration, snapshot-format,
-  directives, and dialect references under `docs/06-reference/`. Full
+  directives, and dialect references under `docs/04-reference/`. Full
   XML-doc-driven site generation (DocFX or similar) remains deferred; see below.
 - **SBOM generation.** `.github/workflows/release.yml` generates a CycloneDX
   SBOM (`dotnet CycloneDX`) for every tagged release and attaches it alongside
@@ -182,7 +182,7 @@ Under consideration (future, not now — no commitment):
   `.pfx`.
 - **XML-doc-driven API reference site (DocFX or similar).** A generated site
   built from the generator's XML doc comments; the hand-written
-  `docs/06-reference/` pages cover the reference need for now.
+  `docs/04-reference/` pages cover the reference need for now.
 
   **Scoped (2026-09-19):** JauntyQ's docs already run on a shared engine — the
   sibling repo `../docs` (`github.com/extrode/docs`, née `Beparey.DocsGen`),

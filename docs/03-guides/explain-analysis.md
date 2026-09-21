@@ -112,5 +112,5 @@ Even if the variable is set and the database is down, the command exits `0`
 - Explain write statements (skipped with a note).
 - Prescribe DDL, it reports the problem and the hint, not a migration.
 
-See the [CLI reference](../06-reference/cli.md) for the full option table and
+See the [CLI reference](../04-reference/cli.md) for the full option table and
 exit codes.

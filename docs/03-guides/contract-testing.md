@@ -17,7 +17,7 @@ There are two entry points, both driven by the same classifier:
 - The **`Extrode.JauntyQ.Schema.Contract`** package, a test-embeddable assertion API you
   drop into your own xUnit / NUnit / MSTest suite.
 - The **`jauntyq schema verify`** CLI command, for pipelines without a test host
-  (see the [CLI reference](../06-reference/cli.md)).
+  (see the [CLI reference](../04-reference/cli.md)).
 
 ## Installing the package
 
@@ -149,7 +149,7 @@ Semantics worth knowing:
 - Two services may both depend on `orders`; each verifies it independently.
 
 The CLI equivalent is `jauntyq schema verify --service <id> [--registry <path>]`
-(see the [CLI reference](../06-reference/cli.md)).
+(see the [CLI reference](../04-reference/cli.md)).
 
 ## Usage-aware severity: downgrading drift you cannot hit
 
@@ -265,9 +265,9 @@ itself does not soft-skip.
 - [Runtime startup schema verification](startup-verification.md), the same
   classifier at boot time: fail fast (or warn) when the database a deployment
   actually connects to has drifted.
-- [CLI reference, `schema verify`](../06-reference/cli.md), the same classifier
+- [CLI reference, `schema verify`](../04-reference/cli.md), the same classifier
   for pipelines without a test host.
-- [Schema snapshot format](../06-reference/schema-snapshot-format.md), the file
+- [Schema snapshot format](../04-reference/schema-snapshot-format.md), the file
   the contract is checked against.
-- [Migration impact analysis](../06-reference/cli.md), the offline `migrate
+- [Migration impact analysis](../04-reference/cli.md), the offline `migrate
   impact` command for pending migration sets.

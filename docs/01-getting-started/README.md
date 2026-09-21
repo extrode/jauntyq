@@ -72,7 +72,7 @@ DDL alike, they are classified by folder) plus the snapshot:
 ```
 
 The full set of properties, globs, and folder conventions is in the
-[configuration reference](../06-reference/configuration.md).
+[configuration reference](../04-reference/configuration.md).
 
 ## The `db/` folder layout
 
@@ -95,7 +95,7 @@ synthesised for every table unless a same-named `.sql` file overrides them.
 
 ## First build
 
-1. Pull a snapshot (see the [CLI reference](../06-reference/cli.md)). The CLI ships as a
+1. Pull a snapshot (see the [CLI reference](../04-reference/cli.md)). The CLI ships as a
    .NET global tool, `dotnet tool install --global Extrode.JauntyQ.Cli` installs it as `jauntyq` (the premium verbs come with `Extrode.JauntyQ.Cli.Premium`, same command).
    Working inside a clone of this repository, the equivalent without installing is:
 
@@ -124,4 +124,4 @@ synthesised for every table unless a same-named `.sql` file overrides them.
 
 If a query does not match the schema, the build fails with a `JNTxxxx`
 diagnostic rather than compiling. If something does not generate as expected,
-see [troubleshooting](../06-reference/troubleshooting.md).
+see [troubleshooting](../04-reference/troubleshooting.md).
