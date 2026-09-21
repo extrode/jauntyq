@@ -22,6 +22,6 @@
          Extrode.JauntyQ.Runtime — read as uncovered. Inert outside an XPlat Code Coverage run. -->
     <PackageReference Include="coverlet.collector" />
     <!-- Shared CI-strictness gate for Docker-gated fixtures, compiled once per suite. -->
-    <Compile Include="$(MSBuildThisFileDirectory)../test-infra/FixtureGate.cs" Link="TestInfra/FixtureGate.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../tests/Shared/FixtureGate.cs" Link="Shared/FixtureGate.cs" />
   </ItemGroup>
 </Project>

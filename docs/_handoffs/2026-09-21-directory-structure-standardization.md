@@ -15,6 +15,19 @@ The rest of this doc is left as originally written (below) as the record of what
 why — the "not yet actioned" framing in the next paragraph now only applies to the bigger,
 sign-off-gated items in the "What jaunty is not changing unilaterally" section near the bottom.
 
+**Update, same day (second batch):** owner approved moving on the "adopt from each other" item too
+(branch `chore/dirstruct-tests-shared`, merged to `dev`). Moved `test-infra/FixtureGate.cs` to
+`tests/Shared/FixtureGate.cs` (the `tests/Shared/` linked-sources convention from section 3 of
+`dirstruct-fable-recommendations-2026-09-21.md`), updated both `tests/Directory.Build.props` and
+`samples/Directory.Build.props`'s `<Compile Include>`/`Link` paths accordingly, and updated the two
+prose references in `.github/workflows/ci.yml` and `scripts/skip-audit.js`. Verified both a
+`tests/` project and a `samples/*.Tests` project still build clean against the new path. `data/`
+was already gone (deleted in the first batch, along with its 3 dead schema files), so that
+"empty `data/`" cleanup item is moot. `laws/` remains explicitly deferred — no invariant yet worth
+that pattern. The `tests/`-naming rename (section 3's `.Tests`-suffix rules) doesn't apply to
+jauntyq: every existing test project already ends in `.Tests` with no runner-split naming problem
+like jaunty's `UnitTests`, so there's nothing to rename here.
+
 ## What's already been done (all in the jaunty repo, read/analysis only until noted)
 
 1. Generated full ASCII directory trees for both repos and wrote a comparison analysis, committed
