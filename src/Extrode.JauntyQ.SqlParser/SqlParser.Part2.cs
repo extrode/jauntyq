@@ -281,12 +281,22 @@ public static partial class SqlParser
     private static (string tableAlias, string columnName) SplitQualifiedName(string name)
     {
         int lastDot = name.LastIndexOf('.');
+        // Stryker disable once Equality : lastDot == 0 (name starting with a
+        // dot) is unreachable -- name is always an Identifier token's value,
+        // and the tokenizer's IsIdentifierStart only accepts a letter or
+        // underscore, so this boundary can never actually be hit
         if (lastDot < 0)
             return (string.Empty, name);
 
         string columnName = name.Substring(lastDot + 1);
         string prefix = name.Substring(0, lastDot);
         int prevDot = prefix.LastIndexOf('.');
+        // Stryker disable once Conditional,Equality : Conditional -- when
+        // prevDot < 0, prefix.Substring(prevDot + 1) == prefix.Substring(0)
+        // == prefix itself, identical to the false branch, so forcing the
+        // true branch is a no-op and indistinguishable by any input.
+        // Equality -- prevDot == 0 (prefix starting with a dot) is
+        // unreachable for the same identifier-grammar reason as lastDot above
         string tableAlias = prevDot >= 0 ? prefix.Substring(prevDot + 1) : prefix;
         return (tableAlias, columnName);
     }
@@ -309,6 +319,13 @@ public static partial class SqlParser
     private static string StripQualifier(string name)
     {
         int lastDot = name.LastIndexOf('.');
+        // Stryker disable once Conditional,Equality : Conditional -- when
+        // lastDot < 0, name.Substring(lastDot + 1) == name.Substring(0) ==
+        // name itself, identical to the false branch, so forcing the true
+        // branch is a no-op and indistinguishable by any input. Equality --
+        // lastDot == 0 (name starting with a dot) is unreachable: name is
+        // always an Identifier token's value, and the tokenizer only accepts
+        // a letter or underscore as an identifier's first character
         return lastDot >= 0 ? name.Substring(lastDot + 1) : name;
     }
 

@@ -458,6 +458,295 @@ public class SqlParserCoreMutationCoverageTests
         Assert.Single(second.UnsupportedConstructs, c => c == "DISTINCT ON");
     }
 
+    // ── ParseJoinCondition: multiple AND conditions in ON clause ────────
+
+    [Fact]
+    public void JoinCondition_WithTwoAndClauses_RecordsBothJoinPairs()
+    {
+        var model = ParseSql(
+            "SELECT * FROM orders o JOIN order_items oi " +
+            "ON o.id = oi.order_id AND o.tenant = oi.tenant");
+
+        Assert.Equal(2, model.Joins.Count);
+        Assert.Equal("o", model.Joins[0].LeftTable);
+        Assert.Equal("id", model.Joins[0].LeftColumn);
+        Assert.Equal("oi", model.Joins[0].RightTable);
+        Assert.Equal("order_id", model.Joins[0].RightColumn);
+        Assert.Equal("o", model.Joins[1].LeftTable);
+        Assert.Equal("tenant", model.Joins[1].LeftColumn);
+        Assert.Equal("oi", model.Joins[1].RightTable);
+        Assert.Equal("tenant", model.Joins[1].RightColumn);
+    }
+
+    [Fact]
+    public void JoinCondition_WithThreeAndClauses_RecordsAllThreeJoinPairs()
+    {
+        // Exercises the AND-chain loop iterating more than once (pos += 4
+        // advancing correctly across repeated iterations), not just entering
+        // it once.
+        var model = ParseSql(
+            "SELECT * FROM a JOIN b ON a.x = b.x AND a.y = b.y AND a.z = b.z");
+
+        Assert.Equal(3, model.Joins.Count);
+        Assert.Equal("z", model.Joins[2].LeftColumn);
+        Assert.Equal("z", model.Joins[2].RightColumn);
+    }
+
+    [Fact]
+    public void JoinCondition_SingleClauseOnly_DoesNotConsumeTrailingAnd()
+    {
+        // A single ON clause followed by a WHERE ... AND ... must not have
+        // its own AND folded into the join-condition loop.
+        var model = ParseSql(
+            "SELECT * FROM a JOIN b ON a.x = b.x WHERE a.flag = 1 AND b.flag = 1");
+
+        Assert.Single(model.Joins);
+    }
+
+    // ── ParseUsingClause: multi-column USING(...) sugar ─────────────────
+
+    [Fact]
+    public void UsingClause_WithSingleColumn_ExpandsToOneJoinPair()
+    {
+        var model = ParseSql("SELECT * FROM orders o JOIN customers c USING (customer_id)");
+
+        var join = Assert.Single(model.Joins);
+        Assert.Equal("o", join.LeftTable);
+        Assert.Equal("customer_id", join.LeftColumn);
+        Assert.Equal("c", join.RightTable);
+        Assert.Equal("customer_id", join.RightColumn);
+    }
+
+    [Fact]
+    public void UsingClause_WithMultipleColumns_ExpandsToOneJoinPairPerColumn()
+    {
+        var model = ParseSql("SELECT * FROM orders o JOIN order_lines l USING (order_id, line_no)");
+
+        Assert.Equal(2, model.Joins.Count);
+        Assert.Equal("order_id", model.Joins[0].LeftColumn);
+        Assert.Equal("order_id", model.Joins[0].RightColumn);
+        Assert.Equal("line_no", model.Joins[1].LeftColumn);
+        Assert.Equal("line_no", model.Joins[1].RightColumn);
+    }
+
+    [Fact]
+    public void UsingClause_WithOnlyOneTableInScope_IsANoOp()
+    {
+        // ParseUsingClause guards on model.Tables.Count < 2 -- a malformed
+        // single-table USING(...) must not throw or fabricate a join.
+        var model = ParseSql("SELECT * FROM orders USING (id)");
+
+        Assert.Empty(model.Joins);
+    }
+
+    [Fact]
+    public void UsingClause_WithNoAliasesOnEitherTable_FallsBackToTableNames()
+    {
+        // rightKey/leftKey prefer Alias only when it's non-empty; with no
+        // alias on either side both must fall back to TableName, not an
+        // empty string.
+        var model = ParseSql("SELECT * FROM orders JOIN customers USING (customer_id)");
+
+        var join = Assert.Single(model.Joins);
+        Assert.Equal("orders", join.LeftTable);
+        Assert.Equal("customers", join.RightTable);
+    }
+
+    // ── ParseJoin: alias vs. bare "USING" identifier disambiguation ─────
+
+    [Fact]
+    public void JoinedTable_WithRealAliasNamedNearUsing_KeepsAliasNotSwallowedAsUsing()
+    {
+        var model = ParseSql("SELECT * FROM orders o JOIN customers cust ON o.customer_id = cust.id");
+
+        var joined = model.Tables.Find(t => t.TableName == "customers");
+        Assert.NotNull(joined);
+        Assert.Equal("cust", joined!.Alias);
+    }
+
+    [Fact]
+    public void JoinedTableFollowedByUsingClause_DoesNotTreatUsingAsAlias()
+    {
+        var model = ParseSql("SELECT * FROM orders o JOIN customers USING (customer_id)");
+
+        var joined = model.Tables.Find(t => t.TableName == "customers");
+        Assert.NotNull(joined);
+        Assert.Equal(string.Empty, joined!.Alias);
+        Assert.Single(model.Joins);
+    }
+
+    [Fact]
+    public void JoinedTable_WithAsAlias_RecordsAliasAndJoinKind()
+    {
+        var model = ParseSql("SELECT * FROM orders o LEFT JOIN customers AS c ON o.customer_id = c.id");
+
+        var joined = model.Tables.Find(t => t.TableName == "customers");
+        Assert.NotNull(joined);
+        Assert.Equal("c", joined!.Alias);
+        Assert.Equal(JoinKind.Left, joined.Join);
+    }
+
+    // ── ParseJoin: LATERAL / CROSS APPLY / OUTER APPLY unmodeled forms ──
+
+    [Fact]
+    public void Join_Lateral_RecordsUnmodeledConstructWithoutFabricatingTable()
+    {
+        var model = ParseSql("SELECT * FROM orders o JOIN LATERAL (SELECT 1) x ON true");
+
+        Assert.Contains("LATERAL", model.UnsupportedConstructs);
+        Assert.DoesNotContain(model.Tables, t => string.Equals(t.TableName, "lateral", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Join_CrossApply_RecordsUnmodeledConstructWithoutFabricatingTable()
+    {
+        var model = ParseSql("SELECT * FROM orders o CROSS APPLY (SELECT 1) x");
+
+        Assert.Contains("APPLY", model.UnsupportedConstructs);
+        Assert.DoesNotContain(model.Tables, t => string.Equals(t.TableName, "apply", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Join_OuterApply_RecordsUnmodeledConstructWithoutFabricatingTable()
+    {
+        var model = ParseSql("SELECT * FROM orders o OUTER APPLY (SELECT 1) x");
+
+        Assert.Contains("APPLY", model.UnsupportedConstructs);
+    }
+
+    [Fact]
+    public void Join_ApplyWithoutCrossOrOuter_IsATableNamedApply()
+    {
+        // The APPLY recognition is gated on having seen CROSS/OUTER first --
+        // an ordinary table genuinely named "apply" via a plain JOIN must
+        // parse as a normal table reference, not an unmodeled construct.
+        var model = ParseSql("SELECT * FROM orders o JOIN apply a ON o.id = a.order_id");
+
+        Assert.DoesNotContain("APPLY", model.UnsupportedConstructs);
+        Assert.Contains(model.Tables, t => string.Equals(t.TableName, "apply", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ── SplitQualifiedName: dot-segment boundaries ───────────────────────
+
+    [Fact]
+    public void SplitQualifiedName_Unqualified_ReturnsEmptyAliasAndFullName()
+    {
+        var model = ParseSql("SELECT * FROM a JOIN b ON amount = total");
+
+        var join = Assert.Single(model.Joins);
+        Assert.Equal(string.Empty, join.LeftTable);
+        Assert.Equal("amount", join.LeftColumn);
+        Assert.Equal(string.Empty, join.RightTable);
+        Assert.Equal("total", join.RightColumn);
+    }
+
+    [Fact]
+    public void SplitQualifiedName_SingleQualifier_SplitsAliasAndColumn()
+    {
+        var model = ParseSql("SELECT * FROM a JOIN b ON a.id = b.id");
+
+        var join = Assert.Single(model.Joins);
+        Assert.Equal("a", join.LeftTable);
+        Assert.Equal("id", join.LeftColumn);
+    }
+
+    [Fact]
+    public void SplitQualifiedName_SchemaQualified_KeepsOnlyInnermostSegmentAsAlias()
+    {
+        // "dbo.orders.id" -- only the segment immediately before the last
+        // dot ("orders") is the alias/table; the outer "dbo" schema
+        // qualifier is discarded, exactly like StripQualifier does for
+        // TableRef.TableName.
+        var model = ParseSql("SELECT * FROM a JOIN b ON dbo.orders.id = b.id");
+
+        var join = Assert.Single(model.Joins);
+        Assert.Equal("orders", join.LeftTable);
+        Assert.Equal("id", join.LeftColumn);
+    }
+
+    // ── StripQualifier / ParseFrom: schema-qualified table names ────────
+
+    [Fact]
+    public void ParseFrom_SchemaQualifiedTableName_StripsToFinalSegment()
+    {
+        var model = ParseSql("SELECT * FROM dbo.orders o");
+
+        var table = Assert.Single(model.Tables);
+        Assert.Equal("orders", table.TableName);
+    }
+
+    [Fact]
+    public void ParseFrom_ThreePartQualifiedTableName_StripsToFinalSegment()
+    {
+        var model = ParseSql("SELECT * FROM server.dbo.orders o");
+
+        var table = Assert.Single(model.Tables);
+        Assert.Equal("orders", table.TableName);
+    }
+
+    // ── IsClauseKeyword: every listed keyword individually terminates ──
+
+    [Theory]
+    [InlineData("FROM")]
+    [InlineData("WHERE")]
+    [InlineData("JOIN")]
+    [InlineData("LEFT")]
+    [InlineData("RIGHT")]
+    [InlineData("INNER")]
+    [InlineData("OUTER")]
+    [InlineData("CROSS")]
+    [InlineData("FULL")]
+    [InlineData("GROUP")]
+    [InlineData("ORDER")]
+    [InlineData("LIMIT")]
+    [InlineData("HAVING")]
+    [InlineData("UNION")]
+    [InlineData("RETURNING")]
+    public void ClauseKeyword_TerminatesExpressionRunEvenWithNoOtherKeywordPresent(string keyword)
+    {
+        // Each keyword must individually satisfy IsClauseKeyword's "is X or
+        // Y or ..." check -- if one literal were blanked to "", only that
+        // specific keyword would fail to terminate an expression item.
+        // GROUP/ORDER/HAVING/UNION need their full two-token clause spelled
+        // out or the tokenizer won't classify the second word as a keyword.
+        string clause = keyword switch
+        {
+            "GROUP" => "GROUP BY b",
+            "ORDER" => "ORDER BY b",
+            "HAVING" => "HAVING b > 1",
+            "UNION" => "UNION SELECT b FROM t2",
+            "JOIN" => "JOIN t2 ON t2.b = t.b",
+            "LEFT" or "RIGHT" or "INNER" or "OUTER" or "CROSS" or "FULL" => $"{keyword} JOIN t2 ON t2.b = t.b",
+            "RETURNING" => "RETURNING b",
+            _ => $"{keyword} b = 1",
+        };
+        // No FROM prefix: puts the terminator keyword directly adjacent to
+        // the SELECT-list expression, in ParseProjectionList's own scan --
+        // FROM would otherwise always terminate the list first, so the other
+        // 14 keywords would never reach IsClauseKeyword's check at all.
+        var model = ParseSql($"SELECT a + 1 AS total {clause}");
+
+        // If IsClauseKeyword failed to recognize the terminator, the
+        // projection loop wouldn't stop and would swallow the clause's
+        // own tokens as a second (malformed, unaliased) expression item.
+        if (keyword == "UNION")
+        {
+            // UNION correctly starts a fresh, plain-column projection list
+            // ("b") for the SELECT after it. If "UNION" weren't recognized,
+            // "UNION SELECT b" would instead glue onto an unaliased
+            // expression item ending at the still-recognized "FROM".
+            Assert.Equal(2, model.Columns.Count);
+            Assert.False(model.Columns[1].IsExpression);
+            Assert.Equal("b", model.Columns[1].ColumnName);
+        }
+        else
+        {
+            Assert.Single(model.Columns);
+        }
+        var col = Expr(model, "total");
+        Assert.NotNull(col);
+    }
+
     // ── CASE/END nesting depth: ++ / -- swap is genuinely equivalent ────
     //
     // caseDepth is only ever compared against zero (`caseDepth != 0`).
