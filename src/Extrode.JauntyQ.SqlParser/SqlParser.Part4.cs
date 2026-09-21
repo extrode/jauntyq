@@ -27,21 +27,27 @@ public static partial class SqlParser
         int boundaryDepth = 0;
         for (int i = 0; i < tokens.Count; i++)
         {
+            // Stryker disable once Statement : removing this continue is a no-op -- the very next line's own "!= Keyword" check is already true for a Symbol token, so it continues regardless of boundaryDepth
             if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == "(") { boundaryDepth++; continue; }
+            // Stryker disable once Statement : same argument as the "(" branch above
             if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ")") { boundaryDepth--; continue; }
             if (tokens[i].Type != TokenType.Keyword || boundaryDepth != 0)
                 continue;
+            // Stryker disable once Equality : start is only ever -1 (initial) or i+1 for some i>=0 (i.e. >=1) -- it can never equal exactly 0, so start<0 and start<=0 always agree
             if (start < 0 && tokens[i].Value == "WHERE")
             {
                 start = i + 1;
+                // Stryker disable once Statement : removing this continue is a no-op -- the very next check below tests Value against "GROUP"/"ORDER"/"HAVING", which "WHERE" can never match, so it falls through to the same loop-end either way
                 continue;
             }
+            // Stryker disable once Equality : same never-exactly-0 argument as start<0 above applies symmetrically to start>=0 vs start>0
             if (start >= 0 && tokens[i].Value is "GROUP" or "ORDER" or "HAVING")
             {
                 end = i;
                 break;
             }
         }
+        // Stryker disable once Equality : same never-exactly-0 argument as the loop's own start<0 check
         if (start < 0)
             return;
 
@@ -56,6 +62,7 @@ public static partial class SqlParser
             if (isFunctionHead)
             {
                 int close = FindMatchingParen(tokens, i + 1, end);
+                // Stryker disable once Equality : close is only ever -1 (not found) or a matched index >= openIndex (>=1, since openIndex = i+1 for i>=start>=0) -- it can never equal exactly 0, so close<0 and close<=0 always agree
                 if (close < 0)
                     continue;
 
@@ -63,6 +70,7 @@ public static partial class SqlParser
                                      ComparisonOperators.Contains(tokens[close + 1].Value);
                 bool comparedBefore = i - 1 >= start && tokens[i - 1].Type == TokenType.Symbol &&
                                       ComparisonOperators.Contains(tokens[i - 1].Value);
+                // Stryker disable once Statement : removing this continue is a no-op -- i is already set to close on the line above, so the identifier scan below (for j = i+2; j < close; ...) starts past its own upper bound and never executes either way
                 if (!comparedAfter && !comparedBefore)
                 {
                     i = close;
@@ -87,6 +95,7 @@ public static partial class SqlParser
                     }
                 }
                 i = close;
+                // Stryker disable once Statement : removing this continue is a no-op -- i is already set to close (a Symbol ")" token), and both the LIKE check and the column=column check just below require tokens[i].Type == Identifier, which a ")" token never is
                 continue;
             }
 
@@ -109,6 +118,7 @@ public static partial class SqlParser
                         BoundColumnName = columnName,
                         Detail = tokens[k + 1].Value
                     });
+                    // Stryker disable once Statement : removing this continue is a no-op -- tokens[i + 1] was just matched above as Keyword "NOT" or "LIKE", so it can never simultaneously be the Symbol "=" the column=column check below requires, and that check is the only code reachable before this loop iteration's natural end
                     continue;
                 }
 
@@ -137,6 +147,7 @@ public static partial class SqlParser
                         BoundColumnName = rightColumn
                     });
                     i += 2;
+                    // Stryker disable once Statement : removing this continue is a no-op -- it is the last statement in the loop body, so control reaches the same for-loop increment either way
                     continue;
                 }
             }
@@ -176,21 +187,27 @@ public static partial class SqlParser
         int boundaryDepth = 0;
         for (int i = 0; i < tokens.Count; i++)
         {
+            // Stryker disable once Statement : removing this continue is a no-op -- the very next line's own "!= Keyword" check is already true for a Symbol token, so it continues regardless of boundaryDepth
             if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == "(") { boundaryDepth++; continue; }
+            // Stryker disable once Statement : same argument as the "(" branch above
             if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ")") { boundaryDepth--; continue; }
             if (tokens[i].Type != TokenType.Keyword || boundaryDepth != 0)
                 continue;
+            // Stryker disable once Equality : start is only ever -1 (initial) or i+1 for some i>=0 (i.e. >=1) -- it can never equal exactly 0, so start<0 and start<=0 always agree
             if (start < 0 && tokens[i].Value == "WHERE")
             {
                 start = i + 1;
+                // Stryker disable once Statement : removing this continue is a no-op -- the very next check below tests Value against "GROUP"/"ORDER"/"HAVING", which "WHERE" can never match, so it falls through to the same loop-end either way
                 continue;
             }
+            // Stryker disable once Equality : same never-exactly-0 argument as start<0 above applies symmetrically to start>=0 vs start>0
             if (start >= 0 && tokens[i].Value is "GROUP" or "ORDER" or "HAVING")
             {
                 end = i;
                 break;
             }
         }
+        // Stryker disable once Equality : same never-exactly-0 argument as the loop's own start<0 check
         if (start < 0)
             return;
 
@@ -204,6 +221,7 @@ public static partial class SqlParser
             if (scanDepth == 0 && t.Type == TokenType.Keyword && t.Value == "OR")
             {
                 hasTopLevelOr = true;
+                // Stryker disable once Statement : hasTopLevelOr is this loop's only output and it is already true here; removing this break just lets the loop keep updating scanDepth (unused after the loop) until it naturally ends, with no other observable effect
                 break;
             }
         }
@@ -269,6 +287,7 @@ public static partial class SqlParser
                 // The tokenizer drops the leading '@'; put it back so the
                 // canonical form reads like the SQL the author wrote when it is
                 // quoted in a diagnostic message.
+                // Stryker disable once Conditional : the tokenizer's Parameter branch (SqlTokenizer) always skips the '@' character before recording the substring, so token.Value never starts with '@' for a real Parameter token -- the true branch is unreachable and forcing the false branch always is indistinguishable from any input
                 return new AtomTerm
                 {
                     Kind = AtomTermKind.Parameter,
