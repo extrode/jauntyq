@@ -18,6 +18,7 @@ public static partial class SqlParser
     {
         int pos = 1; // skip WITH
 
+        // Stryker disable once Equality : ParseWith is only called when tokens[0].Value=="WITH" (SqlParser.cs), and the tokenizer always appends a trailing End token, so tokens.Count is always >= 2 here -- pos(1) can never equal tokens.Count, making < and <= agree on every call
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "RECURSIVE")
         {
             model.WithRecursive = true;
@@ -27,14 +28,17 @@ public static partial class SqlParser
 
         // Parse each CTE definition until a non-CTE token follows a completed
         // definition (i.e. the final statement begins).
+        // Stryker disable once Equality : every entry to this while (the initial pos=1, or a re-entry via the comma-continue path below) leaves pos strictly less than tokens.Count -- the comma-continue path only advances past a real, non-sentinel Symbol token -- so < and <= always agree here
         while (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
         {
             var cte = new CteRef { Name = tokens[pos].Value };
             pos++;
 
             // Optional declared column list: ( a, b, c )
+            // Stryker disable once Equality : pos here is always the index right after a just-consumed Identifier token (never the End sentinel, since an Identifier can't be End), so pos < tokens.Count always holds and <= agrees
             if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "(")
             {
+                // Stryker disable once Statement : removing this skip changes nothing observable -- the inner while's own body only skips non-Identifier tokens without recording them, so the "(" (never an Identifier) is silently absorbed as this loop's own first no-op iteration either way, leaving DeclaredColumns and the final pos identical
                 pos++; // skip (
                 while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")"))
                 {
@@ -42,6 +46,7 @@ public static partial class SqlParser
                         cte.DeclaredColumns.Add(tokens[pos].Value);
                     pos++;
                 }
+                // Stryker disable once Equality : if the list never closes, pos reaches exactly tokens.Count here (one past the End sentinel index); every later use of pos is itself guarded by a fresh "pos < tokens.Count" check before any indexing, so letting pos become tokens.Count+1 instead of staying at tokens.Count changes no observable behavior
                 if (pos < tokens.Count) pos++; // skip )
             }
 
@@ -55,6 +60,7 @@ public static partial class SqlParser
 
             int bodyOpen = pos;
             int bodyClose = FindMatchingParen(tokens, bodyOpen, tokens.Count);
+            // Stryker disable once Equality : bodyOpen is always >= 3 here (WITH, name, AS all precede it), so FindMatchingParen returns either -1 (not found) or a matched index > bodyOpen (>= 4) -- it can never be exactly 0, so < and <= agree
             if (bodyClose < 0)
                 break;
 
@@ -75,6 +81,7 @@ public static partial class SqlParser
             foreach (var p in cte.Body.Parameters)
             {
                 var existing = model.Parameters.Find(x => x.Name == p.Name);
+                // Stryker disable once Initializer,Block : unreachable through Parse() -- the top-level scan (SqlParser.cs) registers every @parameter in the ORIGINAL token stream, including ones that only appear inside a CTE body, before ParseWith ever runs, so `existing` is never null here
                 if (existing == null)
                 {
                     model.Parameters.Add(new ParameterRef
@@ -117,7 +124,9 @@ public static partial class SqlParser
                 continue;
             finalTokens.Add(tokens[i]);
         }
+        // Stryker disable once Boolean,Equality : finalTokens is built by copying from the master tokens list, which always ends in a real End token (the tokenizer's own invariant) -- so whenever finalTokens is non-empty, its last element is always already End, making "last != End" unreachable; and Parse()'s dispatch loop stops at the FIRST End it sees, so an extra trailing End (from forcing this check true) or a missing one (from forcing it false on an empty list, which Parse() handles identically to a single-End list) changes nothing observable
         if (finalTokens.Count == 0 || finalTokens[finalTokens.Count - 1].Type != TokenType.End)
+            // Stryker disable once Statement,String : reachable only when finalTokens is empty (the branch above), where Parse()'s dispatch loop already stops immediately regardless of whether this Add runs at all or what Value its End token carries -- an empty list and a single-End list are indistinguishable to that loop
             finalTokens.Add(new Token(TokenType.End, string.Empty));
 
         var finalModel = Parse(finalTokens, model.Name);
@@ -133,6 +142,7 @@ public static partial class SqlParser
             return;
         }
 
+        // Stryker disable once Conditional : model.Columns is only ever populated by ParseSelect (SqlParser.cs), which only runs for a body whose statement actually reached a SELECT keyword -- so for any non-Select body reaching this branch, cte.Body.Columns is already empty, identical to the "new List<ColumnRef>()" fallback this condition guards against
         var source = cte.Body.HasReturning ? cte.Body.Returning
             : cte.Body.StatementType == StatementType.Select ? cte.Body.Columns
             : new List<ColumnRef>();
@@ -173,6 +183,7 @@ public static partial class SqlParser
         foreach (var p in from.Parameters)
         {
             var existing = to.Parameters.Find(x => x.Name == p.Name);
+            // Stryker disable once Statement,Block : unreachable through Parse() -- the outer model's own top-level scan (SqlParser.cs) already registered every @parameter in the ORIGINAL token stream, including ones that only appear in the final statement's own portion, before ParseWith (and this copy) ever runs, so `existing` is never null here
             if (existing == null)
             {
                 to.Parameters.Add(p);
@@ -188,6 +199,7 @@ public static partial class SqlParser
 
         // Carry unsupported constructs the final statement itself detected
         // (e.g. UNION), but not a spurious CTE flag — the WITH is supported.
+        // Stryker disable once Logical,String : "CTE" is never actually added to UnsupportedConstructs anywhere in this codebase (grep confirms it), so from.UnsupportedConstructs can never contain it -- this guard is defensive dead code today, and forcing its comparison true/false or its literal to "" changes nothing reachable through the public Parse() API
         foreach (var c in from.UnsupportedConstructs)
             if (c != "CTE" && !to.UnsupportedConstructs.Contains(c))
                 to.UnsupportedConstructs.Add(c);

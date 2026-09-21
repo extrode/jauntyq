@@ -69,6 +69,24 @@ public class SqlParserPart7CteMutationCoverageTests
     }
 
     [Fact]
+    public void CteBoundParameter_IsNotOverwrittenByTheFinalStatementsOwnBinding()
+    {
+        // This exercises CopyFinalStatement's OWN parameter merge (not
+        // ParseWith's CTE-body merge above): the CTE body binds @id to
+        // order_id first; the final statement then also uses @id, bound to
+        // a DIFFERENT column (cust_id). "First binding wins" must hold here
+        // too -- the final statement's own parse must not clobber a binding
+        // ParseWith already merged in from the CTE body.
+        var model = ParseSql(
+            "with sub as (select order_id from orders where order_id = @id) " +
+            "select cust_id from customers where cust_id = @id");
+
+        var p = model.Parameters.Find(x => x.Name == "id");
+        Assert.NotNull(p);
+        Assert.Equal("order_id", p!.BoundColumnName);
+    }
+
+    [Fact]
     public void FirstCteBindingWins_SecondCteBodyDoesNotOverwriteIt()
     {
         // The test above binds @id unbound in one CTE and bound in the outer
@@ -86,6 +104,50 @@ public class SqlParserPart7CteMutationCoverageTests
         var p = model.Parameters.Find(x => x.Name == "id");
         Assert.NotNull(p);
         Assert.Equal("order_id", p!.BoundColumnName);
+    }
+
+    [Fact]
+    public void CteBodyEndingInAParameterComparison_ParsesWithoutIndexingPastItsSlicedTokens()
+    {
+        // The sliced body tokens don't inherently end in the tokenizer's
+        // usual End sentinel -- ParseWith must append one explicitly before
+        // handing them to the sub-parser, since downstream extractors (e.g.
+        // ExtractParameterBindings' lookahead scans) assume that sentinel is
+        // always there. A body whose last real token is a bound parameter
+        // exercises exactly that lookahead at the tail end of the list.
+        var model = ParseSql("with c as (select id from t where x = @p) select 1");
+
+        var cte = Assert.Single(model.Ctes);
+        var p = Assert.Single(cte.Body.Parameters);
+        Assert.Equal("p", p.Name);
+        Assert.Equal("x", p.BoundColumnName);
+    }
+
+    [Fact]
+    public void CteBodyEndingInABetweenClause_ParsesWithoutIndexingPastItsSlicedTokens()
+    {
+        // A BETWEEN clause's binding scan looks ahead several tokens past
+        // its "identifier" anchor (see Part3.cs's ExtractParameterBindings),
+        // so a body ending in one right at the sliced token list's tail
+        // exercises the deepest lookahead this sentinel protects against.
+        var model = ParseSql("with c as (select id from t where x between @lo and @hi) select 1");
+
+        var cte = Assert.Single(model.Ctes);
+        Assert.Equal(2, cte.Body.Parameters.Count);
+    }
+
+    [Fact]
+    public void SecondCteWithoutALeadingComma_IsNotTreatedAsPartOfTheList()
+    {
+        // A completed CTE body not followed by "," must stop the CTE list
+        // outright, not merely skip the "continue" and fall through to
+        // re-check the loop condition -- if it did, a same-shaped
+        // Identifier-then-AS-then-paren token run right after (like a
+        // missing-comma second CTE) would be wrongly consumed as another
+        // CTE definition instead of becoming part of the final statement.
+        var model = ParseSql("with c as (select 1) d as (select 2) select 1");
+
+        Assert.Single(model.Ctes);
     }
 
     // ── Malformed CTE definitions: break, don't throw or loop ───────────
@@ -154,6 +216,18 @@ public class SqlParserPart7CteMutationCoverageTests
         Assert.False(model.WithRecursive);
     }
 
+    // ── Final statement's unsupported constructs are carried onto model ─
+
+    [Fact]
+    public void FinalStatementUnsupportedConstruct_IsCarriedOntoTheOuterModel()
+    {
+        var model = ParseSql(
+            "with active as (select id from t) " +
+            "select id into archived from t");
+
+        Assert.Contains("SELECT INTO", model.UnsupportedConstructs);
+    }
+
     // ── Final statement: trailing ';' is dropped, not carried into it ──
 
     [Fact]
@@ -183,6 +257,154 @@ public class SqlParserPart7CteMutationCoverageTests
     {
         var model = ParseSql("with c as (select id from orders) select id from c");
 
+        Assert.Equal(StatementType.Select, model.StatementType);
+    }
+
+    // ── Non-identifier, non-RECURSIVE token immediately after WITH ─────
+
+    [Fact]
+    public void KeywordImmediatelyAfterWith_ThatIsNeitherRecursiveNorAName_StartsNoCteAndParsesRestAsFinalStatement()
+    {
+        // tokens[1] is a real Keyword ("SELECT"), so the RECURSIVE check's
+        // three-way AND (pos<Count && Type==Keyword && Value=="RECURSIVE")
+        // must actually evaluate Value=="RECURSIVE" (false here) rather than
+        // short-circuiting via an OR'd Type check -- and the CTE-name while
+        // loop's Type==Identifier check must actually gate entry, not be
+        // forced true by an OR, since a Keyword token would otherwise be
+        // wrongly consumed as a CTE name and pos would be dragged one token
+        // past where the final statement should start.
+        var model = ParseSql("with select 1");
+
+        Assert.False(model.WithRecursive);
+        Assert.Empty(model.Ctes);
+        // StatementType defaults to Select regardless (QueryModel's ctor),
+        // so it can't distinguish this on its own: if the CTE-name loop were
+        // wrongly entered (forcing "SELECT" itself to be consumed as a bogus
+        // CTE name), the final statement would be re-parsed starting from
+        // "1" alone, and "SELECT" -- the only token that would ever reach
+        // ParseSelect and populate a projected column -- would already be
+        // gone. Only Columns actually being populated proves "select 1" was
+        // parsed as a real SELECT and not skipped past.
+        Assert.NotEmpty(model.Columns);
+    }
+
+    // ── Boundary tokens that are the right token-type but wrong value ───
+
+    [Fact]
+    public void SymbolAfterAs_ThatIsNotAnOpeningParen_BreaksOutInsteadOfMisreadingAsBodyStart()
+    {
+        // tokens[pos] right after AS is a real Symbol (")"), so the body-open
+        // check's Value=="(" comparison must actually run rather than being
+        // OR'd away by the preceding Type==Symbol check -- otherwise a stray
+        // ")" gets misread as the CTE body's opening paren and an empty/
+        // garbage CTE is recorded instead of the definition breaking clean.
+        var model = ParseSql("with c as ) select 1");
+
+        Assert.Empty(model.Ctes);
+    }
+
+    // ── WITH RECURSIVE short-circuit returns immediately ────────────────
+
+    [Fact]
+    public void WithRecursive_ReturnsImmediately_NeverTreatingTheRemainingTokensAsAStatement()
+    {
+        // WithRecursive_Rejected (ParserTests.cs) already asserts the flag
+        // and UnsupportedConstructs entry -- both are set on the lines
+        // BEFORE the return, so they hold whether or not the return itself
+        // executes. Only a check on what happens AFTER the return (should
+        // never happen) actually distinguishes it: without it, the
+        // remaining "t as (select ...) select ... from t" tokens get fed to
+        // Parse() as an ordinary statement, populating Tables/Ctes from
+        // fragments that were never meant to be parsed at all.
+        var model = ParseSql(
+            "with recursive t as (select product_id from products) select product_id from t");
+
+        Assert.True(model.WithRecursive);
+        Assert.Empty(model.Tables);
+        Assert.Empty(model.Ctes);
+    }
+
+    // ── Virtual columns: alias precedence and wildcard/empty exclusion ──
+
+    [Fact]
+    public void CteVirtualColumns_UseOutputAliasWhenPresent_NotTheRawColumnName()
+    {
+        var model = ParseSql("with c as (select product_id as pid from products) select pid from c");
+
+        var cte = Assert.Single(model.Ctes);
+        Assert.Contains("pid", cte.VirtualColumns);
+        Assert.DoesNotContain("product_id", cte.VirtualColumns);
+    }
+
+    [Fact]
+    public void CteVirtualColumns_ExcludeWildcardStar()
+    {
+        var model = ParseSql("with c as (select * from products) select x from c");
+
+        var cte = Assert.Single(model.Ctes);
+        Assert.DoesNotContain("*", cte.VirtualColumns);
+    }
+
+    [Fact]
+    public void CommaAfterCteName_LeavesNoCteRegressionCheck()
+    {
+        // Regression check for a stray Symbol ("," ) right after a CTE
+        // name (not "("). Traced but not confirmed as a mutant kill: the
+        // top-level Parse() dispatcher's tolerant one-token skip made the
+        // observable result identical whether the declared-column-list
+        // open check wrongly consumed "AS (select 1)" as a bogus column
+        // list or correctly broke out immediately -- both leave Ctes empty
+        // and exactly one projected column in the final statement.
+        var model = ParseSql("with c , as (select 1) select 1");
+
+        Assert.Empty(model.Ctes);
+        Assert.Single(model.Columns);
+    }
+
+    [Fact]
+    public void CommaAfterAs_WithARealParenPairLaterInTheStream_DoesNotGetMisreadAsBodyStart()
+    {
+        // tokens[pos] right after AS is a Symbol ("," ) that is not "(", but
+        // there IS a real "(...)" pair later in the stream (inside the final
+        // "select (a) from t"). If the body-open check's Value=="(" were
+        // OR'd away by the Type==Symbol check alone, FindMatchingParen would
+        // be wrongly invoked starting at the comma and would "accidentally"
+        // match that unrelated later paren pair, fabricating a bogus CTE
+        // body out of "select (" instead of breaking out cleanly.
+        var model = ParseSql("with c as , select (a) from t");
+
+        Assert.Empty(model.Ctes);
+    }
+
+    [Fact]
+    public void UnclosedDeclaredColumnList_RunsToEndSentinelWithoutIndexingPastIt()
+    {
+        // No closing ")" ever appears, so the declared-column-list scan (and
+        // the AS-keyword check right after it) must stop exactly at the
+        // tokenizer's trailing End sentinel rather than reading one token
+        // past it -- an off-by-one on any of these "pos < tokens.Count"
+        // guards throws IndexOutOfRangeException here.
+        var model = ParseSql("with c (a, b");
+
+        Assert.Empty(model.Ctes);
+    }
+
+    [Fact]
+    public void StraySymbolAfterCompleteCteBody_LeavesExactlyOneCteAndAValidFinalStatement()
+    {
+        // Regression check for a stray Symbol (not ",") right after a
+        // completed CTE body. Traced but NOT claimed as a kill: the
+        // top-level Parse() dispatch loop skips any single non-Keyword
+        // token one position at a time regardless of type/value (see
+        // SqlParser.cs's `else { pos++; }` fallback), so whether this ")"
+        // is left in front of the final statement's tokens (break, the
+        // real behavior) or silently consumed as if it were a
+        // list-continuing comma (the mutated behavior) produces the same
+        // observable final statement here. Kept as a plain regression
+        // check, not a claimed mutant kill.
+        var model = ParseSql("with c as (select 1) ) select 1");
+
+        Assert.Single(model.Ctes);
         Assert.Equal(StatementType.Select, model.StatementType);
     }
 }

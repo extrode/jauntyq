@@ -66,6 +66,55 @@ public class FinalStatementShapeTests
         Assert.True(cte.Body.HasRowLimit);
     }
 
+    [Fact]
+    public void FinalStatementJoinOrderByAndLiteralPredicate_AreCopiedOntoTheOuterModel()
+    {
+        var model = ParseSql(
+            "with active as (select event_id from events where correlation_id = @corr) "
+            + "select o.id from orders o join active a on o.event_id = a.event_id "
+            + "where o.status = 'shipped' order by o.id");
+
+        Assert.NotEmpty(model.Joins);
+        Assert.NotEmpty(model.OrderBy);
+        Assert.NotEmpty(model.Literals);
+        Assert.NotEmpty(model.PredicateAtoms);
+    }
+
+    [Fact]
+    public void FinalStatementReturningAndTargetTable_AreCopiedForAnInsert()
+    {
+        var model = ParseSql(
+            "with active as (select event_id from events where correlation_id = @corr) "
+            + "insert into orders (id) values (@id) returning id, status");
+
+        Assert.Equal(StatementType.Insert, model.StatementType);
+        Assert.Equal("orders", model.TargetTable);
+        Assert.True(model.HasReturning);
+        Assert.NotEmpty(model.Returning);
+    }
+
+    [Fact]
+    public void FinalStatementSubqueryAndPerfHint_AreCopiedOntoTheOuterModel()
+    {
+        var model = ParseSql(
+            "with active as (select event_id from events where correlation_id = @corr) "
+            + "select o.id from orders o where upper(o.status) = 'SHIPPED' "
+            + "and exists (select 1 from active a where a.event_id = o.event_id)");
+
+        Assert.NotEmpty(model.PerfHints);
+        Assert.NotEmpty(model.Subqueries);
+    }
+
+    [Fact]
+    public void FinalStatementExpressionMissingAlias_IsCopiedOntoTheOuterModel()
+    {
+        var model = ParseSql(
+            "with active as (select event_id from events where correlation_id = @corr) "
+            + "select o.qty * o.price from orders o");
+
+        Assert.NotEmpty(model.ExpressionsMissingAlias);
+    }
+
     // ── Member parity, the standing check ────────────────────────────────
     //
     // CopyFinalStatement is a hand-maintained memberwise copy with no analyzer
