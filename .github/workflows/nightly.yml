@@ -152,7 +152,7 @@ jobs:
       # `include`, not a flat `project` list, because two entries (Extrode.JauntyQ.Schema and
       # its own Schema.Extraction) share one test-project directory and need different config
       # files and extra flags to disambiguate -- a flat list can't carry that. Widened
-      # 2026-09-20 from 2 to 6 of 8 src projects (docs/handoffs/2026-09-20-coverage-mutation-
+      # 2026-09-20 from 2 to 6 of 8 src projects (docs/_handoffs/2026-09-20-coverage-mutation-
       # gaps-from-jaunty-probe.md); Extrode.JauntyQ.Runtime is source-free (README only) and
       # Extrode.JauntyQ.Cli is a 6-line Program.cs, neither is worth its own mutation run.
       matrix:
