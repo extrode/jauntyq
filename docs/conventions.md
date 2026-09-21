@@ -2,7 +2,7 @@
 
 Mechanical how-we-work rules. Defaults are project-local;
 this file records project-specific deltas. Binding principles live in docs/constitution.md;
-project memory lives in docs/lessons/.
+project memory lives in docs/_lessons/.
 
 ## File & directory naming
 - kebab-case for files and dirs: `mail-pipeline.md`, `data-model.sql`.
