@@ -35,6 +35,7 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 2026-09-21 | Genuine fable-model verify pass: 5 real gaps fixed in `MigrationParser.cs` | 96.47% → higher (scoped fixes, whole-project re-run below) | `5deae22` |
 | 2026-09-21 | Malformed-SQL survivor category resolved: 6 mutants killed with a nested-paren test, 3 confirmed genuinely equivalent (outer-loop IDENTITY-branch fallback) | — | `a9603e4` |
 | 2026-09-21 | Whole-project re-run confirming both passes above | **97.23%** | `0eee118` |
+| 2026-09-21 | Stryker comment-based exclusions for 47 confirmed-equivalent survivors across 7 files | **99.14%** | (pending commit) |
 
 ## Current per-file breakdown (as of 95.84%, whole-project re-run 2026-09-20 19:05-19:09, confirming the `ReadObjectName` fix)
 
@@ -677,6 +678,78 @@ tested. **Final mutation score: 97.23%.** This closes out the malformed-SQL
 survivor category entirely (all 20 mutants either killed with real tests or
 documented as genuinely equivalent) and exceeds the 96% parity target with
 `jaunty`.
+
+## 2026-09-21 pass: Stryker comment-based exclusions for confirmed-equivalent survivors (97.23% → 99.14%)
+
+The 62 Survived + 4 NoCoverage mutants left after the pass above were
+individually triaged rather than left as unexplained residue. For each
+candidate: (1) checked whether excluding it (by source line + Stryker
+mutator category) would also silence any currently-Killed/Timeout sibling
+mutant sharing that same line+category — Stryker's comment-based exclusion
+operates at that granularity, not per-mutant-ID, so a collision would
+silently weaken real test coverage; (2) for every collision-safe candidate,
+traced the actual code to confirm genuine semantic equivalence (not just
+"safe to exclude") before writing a reason. Of 66 candidates, 47 passed both
+checks and were annotated with `// Stryker disable once <category> :
+<reason>` comments directly above the target statement, across 7 files:
+`AutoCrud.cs`, `Migrations/SchemaSimulator.cs`, `DialectMapper.cs`,
+`DialectReservedWords.cs`, `Impact/ReferencedObjects.cs`,
+`UpsertKeyResolver.cs`, `Migrations/MigrationParser.cs`. The recurring
+equivalence patterns:
+
+- **`TryFindX(...) || x == null` / `&& x != null` redundant null guards** —
+  `TryFindTable`/`TryFindColumnKey`/`TryFindColumn`'s contract guarantees the
+  out-parameter is null iff the method returns false, making the extra
+  null-check clause unreachable-different from the bare boolean check.
+- **Outer flags-loop catchall absorption** (`Migrations/MigrationParser.cs`'s
+  column-definition parser) — many flag branches' only effect is to advance
+  `pos`/`cp` past a recognized keyword; dropping/reversing that advance, or
+  blanking the keyword string being matched, just defers the identical
+  single-token skip to the loop's own unconditional catchall on the next
+  iteration, with no observable difference in final parse state.
+- **`GetHashCode` combining-step mutations** (`ReferencedObjects.cs`) — the
+  method's only contract is equal objects ⇒ equal hashes, which holds under
+  any fixed arithmetic/bitwise transform, mutated or not.
+- **Discarded loop `break`/`continue` outcomes** (`UpsertKeyResolver.cs`,
+  `MigrationParser.cs`) — where no later loop iteration ever reverses the
+  flag being set, or the dropped `continue` already falls through to an
+  identical guard's `continue` right after.
+- **Dead-code guards proven unreachable** — e.g. `SkipParenGroup`'s own
+  `!IsSymbol(pos, "(")` guard, whose condition is never true at any of its
+  3 call sites, all of which already check that condition before calling.
+
+19 candidates were left untouched: either the collision check flagged a
+same-line/category Killed sibling, or (one explicit case,
+`ReferencedColumnComparer`'s `unchecked` block-removal mutant, id 1459 in
+`ReferencedObjects.cs`) tracing showed the mutation is not actually
+equivalent — removing `unchecked` could allow an `OverflowException` on hash
+combination, a real behavioral difference just impractical to trigger with
+normal test inputs — so no equivalence comment was written for it, and it
+remains a documented, accepted residual gap.
+
+Each file's edits were verified independently via an isolated, sequential
+scoped Stryker run (`dotnet stryker --mutate "**/<File>.cs"`, one at a time
+— never in parallel, per the earlier lesson about MSBuild/`obj`-directory
+contention) before being trusted:
+
+| File | Scoped score | Notes |
+|---|---|---|
+| `Migrations/SchemaSimulator.cs` | 100.00% | 12/12 target mutants moved to Ignored, 194/206 tested |
+| `DialectMapper.cs` | 99.68% | 1/1 target mutant moved to Ignored; remaining `Ignored: 16` in this file's own bucket are Stryker's own built-in "block already covered filter", unrelated to the comment |
+| `AutoCrud.cs` | 100.00% | 141/141 tested |
+| `DialectReservedWords.cs` | 100.00% | 631/631 tested |
+| `Impact/ReferencedObjects.cs` | 97.87% | 1 Survived remaining (id 1459, the `unchecked`-block mutant above, deliberately left undocumented-equivalent) |
+| `UpsertKeyResolver.cs` | 100.00% | 77/77 tested |
+| `Migrations/MigrationParser.cs` | 97.71% | 17 Survived remaining — the collision-unsafe set from the triage above |
+
+### Whole-project re-run
+
+Killed 2251, Timeout 60, Survived 20, NoCoverage 0, Ignored 294 (comment
+exclusions + Stryker's own coverage-based filters), 3 Pending (transient —
+this run overlapped with a peer session's concurrent Stryker process on the
+same machine; a handful of mutants hit `vstest.console` connection
+flakiness during retries and were not re-attempted), total 2331 mutants
+scored. **Final mutation score: 99.14%.**
 
 ## Extrode.JauntyQ.SqlParser — baseline
 
