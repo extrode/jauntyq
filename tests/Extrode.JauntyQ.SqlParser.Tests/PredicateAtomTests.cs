@@ -1,3 +1,4 @@
+using System.Linq;
 using Extrode.JauntyQ.SqlParser;
 using Extrode.JauntyQ.SqlParser.IR;
 using Xunit;
@@ -172,5 +173,86 @@ public class PredicateAtomTests
         Assert.Equal(
             new[] { "bookmarks.id IN ( SELECT tags.bookmark_id FROM tags )", "status = 1" },
             Rendered(model));
+    }
+
+    [Fact]
+    public void GroupKeywordInsideParens_DoesNotEndTheRegion()
+    {
+        // A GROUP keyword nested inside parens (here, a subquery's own GROUP
+        // BY) must not be mistaken for the enclosing statement's own region
+        // boundary -- the boundary-depth guard must keep it inside the atom.
+        var model = ParseSql(
+            "select id from bookmarks where id in (select x from tags group by x) and status = 1");
+
+        Assert.Equal(
+            new[] { "id IN ( SELECT x FROM tags GROUP BY x )", "status = 1" },
+            Rendered(model));
+    }
+
+    [Fact]
+    public void GroupByContent_NeverLeaksIntoAtoms_EvenWithOrderByAfter()
+    {
+        // The region must end at the FIRST boundary keyword found and stay
+        // there -- a later ORDER BY must never re-widen the region back
+        // over the GROUP BY clause that already closed it.
+        var model = ParseSql(
+            "select id from t where status = 1 group by category order by category");
+
+        Assert.Equal(new[] { "status = 1" }, Rendered(model));
+    }
+
+    [Fact]
+    public void OrderByAlone_EndsTheRegion()
+    {
+        var model = ParseSql("select id from t where status = 1 order by id");
+
+        Assert.Equal(new[] { "status = 1" }, Rendered(model));
+    }
+
+    [Fact]
+    public void HavingAlone_EndsTheRegion()
+    {
+        var model = ParseSql("select id from t where status = 1 having status = 2");
+
+        Assert.Equal(new[] { "status = 1" }, Rendered(model));
+    }
+
+    [Fact]
+    public void LeadingAndWithNoPrecedingTerms_NeverProducesAnEmptyAtom()
+    {
+        // A split point reached with zero terms accumulated so far must
+        // never flush an empty atom into the model.
+        var model = ParseSql("select id from t where and a = 1");
+
+        Assert.Equal(new[] { "a = 1" }, Rendered(model));
+    }
+
+    [Fact]
+    public void EmptyWhereRegion_NeverProducesAnEmptyAtom()
+    {
+        // The final flush after the loop ends must apply the same
+        // no-empty-atom guard as the mid-loop AND-split does.
+        var model = ParseSql("select id from t where group by x");
+
+        Assert.Empty(model.PredicateAtoms);
+    }
+
+    [Fact]
+    public void EveryNonColumnTermKind_CarriesAnEmptyTableAlias()
+    {
+        // Parameter, Literal/Number, Operator and Keyword terms all set
+        // TableAlias to string.Empty explicitly -- only a Column term ever
+        // carries a real alias.
+        var model = ParseSql("select id from t where views between @lo and 5 or status = 'x'");
+
+        var atom = Assert.Single(model.PredicateAtoms);
+        Assert.All(
+            atom.Terms.Where(t => t.Kind != AtomTermKind.Column),
+            t => Assert.Equal(string.Empty, t.TableAlias));
+
+        Assert.Contains(atom.Terms, t => t.Kind == AtomTermKind.Parameter);
+        Assert.Contains(atom.Terms, t => t.Kind == AtomTermKind.Literal);
+        Assert.Contains(atom.Terms, t => t.Kind == AtomTermKind.Operator);
+        Assert.Contains(atom.Terms, t => t.Kind == AtomTermKind.Keyword);
     }
 }
