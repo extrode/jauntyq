@@ -62,4 +62,39 @@ public class IrModelTypesMutationCoverageTests
 
         Assert.Equal(string.Empty, q.Name);
     }
+
+    [Fact]
+    public void ParameterRef_Defaults_AreEmptyStrings()
+    {
+        var p = new ParameterRef();
+
+        Assert.Equal(string.Empty, p.Name);
+        Assert.Equal(string.Empty, p.BoundTableAlias);
+        Assert.Equal(string.Empty, p.BoundColumnName);
+        Assert.Equal(string.Empty, p.ComparisonOp);
+    }
+
+    [Fact]
+    public void ColumnRef_Defaults_AreEmptyStrings()
+    {
+        var c = new ColumnRef();
+
+        Assert.Equal(string.Empty, c.TableAlias);
+        Assert.Equal(string.Empty, c.ColumnName);
+        Assert.Equal(string.Empty, c.OutputAlias);
+        Assert.Equal(string.Empty, c.ExpressionSql);
+        Assert.Equal(string.Empty, c.InferredDbType);
+        Assert.Equal(string.Empty, c.AggregateFunction);
+        Assert.Equal(string.Empty, c.AggregateArgTableAlias);
+        Assert.Equal(string.Empty, c.AggregateArgColumnName);
+    }
+
+    [Fact]
+    public void OrderByRef_Defaults_AreEmptyStrings()
+    {
+        var o = new OrderByRef();
+
+        Assert.Equal(string.Empty, o.BoundTableAlias);
+        Assert.Equal(string.Empty, o.BoundColumnName);
+    }
 }
