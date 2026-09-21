@@ -28,6 +28,25 @@ that pattern. The `tests/`-naming rename (section 3's `.Tests`-suffix rules) doe
 jauntyq: every existing test project already ends in `.Tests` with no runner-split naming problem
 like jaunty's `UnitTests`, so there's nothing to rename here.
 
+**Update, same day (revert):** the `docs/` renumbering from the first batch is reverted —
+`docs/04-reference` → back to `docs/06-reference`, `docs/09-roadmap` → back to `docs/07-roadmap`,
+all cross-file links restored (branch `chore/revert-docs-numbering`, merged to `dev`). Reason: a
+later jaunty session disputed that the specific `00-overview`…`09-roadmap` numbered map from
+`dirstruct-fable-recommendations-2026-09-21.md` section 5 was ever actually agreed, stating that
+what was settled in *that* session was only a shape-axis rule (numbered folders are living pages,
+underscore folders are dated/append-only records or site infra) with no specific cross-repo number
+sequence, and that jauntyq renumbering to match the proposed map was done ahead of the intended
+sequencing (jaunty settles a convention first, jauntyq gets a handoff after — not the other way
+round). This directly contradicts what the first-batch update above (and commit `8cb3f37`) records
+as having happened — a jaunty session's own Fable consultation produced the specific numbered
+table, and a jaunty session's own commit message cited that table as the reason for renumbering
+jauntyq — but the owner chose to resolve the conflict between the two jaunty-session accounts in
+favor of the later one rather than adjudicate it further. `docs/06-reference` and
+`docs/07-roadmap` are jauntyq's own pre-existing numbers; they satisfy the shape-axis rule (both
+are numbered/living-page folders) without asserting any specific cross-repo sequence. No other
+item from either batch is affected — `tests/Shared/`, the `.config/dotnet-tools.json` pin, the dead
+schema JSON deletion and the `_assets/` move all stand.
+
 ## What's already been done (all in the jaunty repo, read/analysis only until noted)
 
 1. Generated full ASCII directory trees for both repos and wrote a comparison analysis, committed

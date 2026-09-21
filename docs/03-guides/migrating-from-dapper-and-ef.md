@@ -50,18 +50,18 @@ a typo in a column name breaks the build instead of throwing at runtime.
 
 Translation notes:
 
-- `QuerySingleOrDefault` / `QueryFirstOrDefault` → [`-- @first`](../04-reference/directives.md#-first)
+- `QuerySingleOrDefault` / `QueryFirstOrDefault` → [`-- @first`](../06-reference/directives.md#-first)
   (returns `Row?`).
 - `Query` (many rows) → default (returns `List<Row>`); use
-  [`-- @stream`](../04-reference/directives.md#-stream) for large sets.
-- `Execute` (no result) → [`-- @result void`](../04-reference/directives.md#-result)
+  [`-- @stream`](../06-reference/directives.md#-stream) for large sets.
+- `Execute` (no result) → [`-- @result void`](../06-reference/directives.md#-result)
   (returns row count).
-- `IN (@ids)` list expansion → [`-- @each`](../04-reference/directives.md#-each).
+- `IN (@ids)` list expansion → [`-- @each`](../06-reference/directives.md#-each).
 - Anonymous-parameter objects → named parameters (`@ProductId`) become typed
   method arguments; declare any the parser cannot infer with
-  [`-- @params`](../04-reference/directives.md#-params).
+  [`-- @params`](../06-reference/directives.md#-params).
 - Custom projections (joins, partial selects) → a
-  [`-- @result (...)`](../04-reference/directives.md#-result) inline shape or a
+  [`-- @result (...)`](../06-reference/directives.md#-result) inline shape or a
   named DTO.
 - Simple CRUD you were writing by hand → delete it; auto-CRUD synthesises
   `GetAll`/`GetById`/`Insert`/`Update`/`Delete`/`Upsert`/`BulkInsert`.
@@ -80,7 +80,7 @@ tracking, and gain compile-time validation and zero runtime overhead.
 - **Change tracking → explicit writes.** There is no `SaveChanges()`.
   `Update(poco)` is a full-row update (last-writer-wins); for concurrency use a
   SQL Server `rowversion` column, which auto-CRUD turns into an optimistic
-  token. See the [API overview](../04-reference/api-overview.md).
+  token. See the [API overview](../06-reference/api-overview.md).
 - **EF migrations → snapshot + `db/migrations/`.** JauntyQ does not run
   migrations against the database; it *simulates* pending DDL in
   `db/migrations/` on top of the snapshot so the build validates against the

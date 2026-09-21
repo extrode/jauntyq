@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         The reference documentation covers the diagnostics, the directives and the
-        supported SQL surface: [docs/04-reference](../tree/dev/docs/04-reference).
+        supported SQL surface: [docs/06-reference](../tree/dev/docs/06-reference).
         If the answer should have been there and was not, say so, that is a
         documentation bug worth reporting.
 
