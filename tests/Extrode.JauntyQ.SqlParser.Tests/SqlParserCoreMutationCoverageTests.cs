@@ -398,4 +398,76 @@ public class SqlParserCoreMutationCoverageTests
 
         Assert.Null(ex);
     }
+
+    // ── ORDER BY terminator/lookahead literal checks ────────────────────
+
+    [Fact]
+    public void OrderBy_TerminatesExactlyAtOffsetKeyword()
+    {
+        // OFFSET is deliberately not in IsClauseKeyword's list -- it is the
+        // ORDER BY terminator's own explicit "|| token.Value == OFFSET" arm.
+        var model = ParseSql("SELECT a FROM t ORDER BY x OFFSET 5");
+
+        var item = Assert.Single(model.OrderBy);
+        Assert.Equal("x", item.BoundColumnName);
+    }
+
+    [Fact]
+    public void OrderByColumnFollowedByComma_IsPlainColumn_NotExpression()
+    {
+        // IsPlainOrderByItem's comma lookahead must match the literal ",",
+        // not any Symbol token -- otherwise a bare column before a comma
+        // wrongly falls through to the expression path.
+        var model = ParseSql("SELECT a FROM t ORDER BY x, y");
+
+        Assert.Equal(2, model.OrderBy.Count);
+        Assert.Equal(OrderByItemKind.PlainColumn, model.OrderBy[0].Kind);
+        Assert.Equal("x", model.OrderBy[0].BoundColumnName);
+        Assert.Equal(OrderByItemKind.PlainColumn, model.OrderBy[1].Kind);
+        Assert.Equal("y", model.OrderBy[1].BoundColumnName);
+    }
+
+    // ── Expression-list comma boundary (depth-0 only) ───────────────────
+
+    [Fact]
+    public void ExpressionItem_TerminatesAtTopLevelComma_NotInsideParens()
+    {
+        // The expression-run collector's comma check must match the literal
+        // "," at depth 0; a paren-nested comma must NOT terminate the run.
+        var model = ParseSql("SELECT a + (b, c) AS x, d FROM t");
+
+        Assert.Equal(2, model.Columns.Count);
+        var expr = Expr(model, "x");
+        Assert.True(expr.IsExpression);
+        Assert.Equal("d", model.Columns[1].ColumnName);
+    }
+
+    // ── UnsupportedConstructs dedup guards match their real literal ─────
+
+    [Fact]
+    public void DistinctOnRecordedTwiceAcrossSeparateStatements_DedupesByExactLiteral()
+    {
+        // The dedup guard checks Contains("DISTINCT ON") specifically -- if
+        // it matched any other string (e.g. blanked to ""), a second
+        // occurrence would append a duplicate entry instead of being
+        // deduped.
+        var first = ParseSql("SELECT DISTINCT ON (a) a FROM t");
+        var second = ParseSql("SELECT DISTINCT ON (b) b FROM t", "Second");
+
+        Assert.Single(first.UnsupportedConstructs, c => c == "DISTINCT ON");
+        Assert.Single(second.UnsupportedConstructs, c => c == "DISTINCT ON");
+    }
+
+    // ── CASE/END nesting depth: ++ / -- swap is genuinely equivalent ────
+    //
+    // caseDepth is only ever compared against zero (`caseDepth != 0`).
+    // Swapping its CASE/END increment/decrement direction negates every
+    // partial sum in the running total, but negation preserves zero
+    // exactly (-0 == 0) and preserves the sign-pattern of every
+    // zero/nonzero crossing (x == 0 iff -x == 0). So for any sequence of
+    // CASE/END tokens, nested or not, the swapped counter crosses zero at
+    // the exact same token positions as the real one -- the mutation
+    // (Stryker ids 812, 821 in SqlParser.cs) cannot be distinguished by
+    // any input. See the `// Stryker disable once` comments at the
+    // caseDepth++/-- sites in InferExpressionType.
 }

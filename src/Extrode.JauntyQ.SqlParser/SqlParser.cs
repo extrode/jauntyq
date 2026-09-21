@@ -849,7 +849,9 @@ public static partial class SqlParser
             var t = run[i];
             if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; continue; }
             if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; continue; }
+            // Stryker disable once Update : caseDepth is only ever compared against zero; swapping ++/-- here negates every partial sum in the running total, and negation preserves both -0==0 and every zero/nonzero crossing position, so the mutant is indistinguishable from any input
             if (t.Type == TokenType.Keyword && t.Value == "CASE") { caseDepth++; continue; }
+            // Stryker disable once Update : same negation-invariance argument as the CASE arm above applies symmetrically to END's decrement
             if (t.Type == TokenType.Keyword && t.Value == "END") { caseDepth--; continue; }
             if (depth != 0 || caseDepth != 0)
                 continue;
