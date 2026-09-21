@@ -10,7 +10,7 @@ substitute.
 
 Full XML-doc-driven API site generation (e.g. DocFX) is not set up, that is
 a separate, larger infrastructure task (a docs pipeline, hosting, CI wiring)
-outside the scope of this reference page. See `docs/09-roadmap/roadmap.md`.
+outside the scope of this reference page. See `docs/07-roadmap/roadmap.md`.
 
 ## Shape of the generated surface
 
@@ -47,7 +47,7 @@ outside the scope of this reference page. See `docs/09-roadmap/roadmap.md`.
   `-- @proc`, `-- @call`), control codegen shape per query file. See
   `src/Extrode.JauntyQ.Generator/Directives/` for the full parser.
 - **Diagnostics**, every `JNTxxxx` code the generator can report, with
-  meaning and fix guidance: see `docs/04-reference/diagnostics.md`.
+  meaning and fix guidance: see `docs/06-reference/diagnostics.md`.
 
 ## Where to look for exact signatures
 
