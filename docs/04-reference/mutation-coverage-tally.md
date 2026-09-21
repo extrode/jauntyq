@@ -33,10 +33,27 @@ planned — the remaining survivors are considered a confirmed
 equivalent-mutant floor. See mutation-coverage-report.md for the full
 per-mutant reasoning and the standing lesson that category-matching a
 survivor to a known-equivalent neighbor is not sufficient — each needs its
-own trace. `Extrode.JauntyQ.SqlParser`
-has a first-ever baseline (59.22%), a 6-file IR-model cleanup (59.65%), and a
-parser-core pass on 4 more files (no new whole-project number yet — two
-attempts crashed with VsTest socket errors). For score-history-over-time and
+own trace. `Extrode.JauntyQ.SqlParser`'s earlier figures (59.22% baseline, 59.65% after
+the IR-model cleanup, a 4-file parser-core pass with no confirmed
+whole-project number) are now superseded: a 2026-09-21 pass established a
+correct fresh whole-project baseline (**76.98%**) and then pushed all 10
+survivor-carrying files through the same real-test + individually-traced
+equivalence-exclusion discipline as Analysis above, closing 3 IR files to
+100% and improving the 7 parser-body files (`SqlParser.cs` 83.41%,
+`SqlParser.Part2.cs` 78.03%, `SqlParser.Part5.cs`, `SqlParser.Part3.cs`
+100.00%, `SqlParser.Part4.cs` 85.61%, `SqlTokenizer.cs` 99.80%,
+`SqlParser.Part7.cs` 90.24%, `SqlParser.Part6.cs` 94.16%). Final whole-project
+re-run: **88.53%** (Killed 2216, Timeout 162, Survived 289, NoCoverage 19) —
+short of the 96% target. The remaining gap is dominated by one recurring
+survivor class (the `pos < tokens.Count && tokens[pos].Type == X` guard-chain
+idiom and variants, repeated across nearly every parser-body file), deferred
+honestly rather than force-excluded in every file's pass because proving
+equivalence requires per-call-site tracing of each caller's loop-exit
+behavior — out of budget for a single-file pass. **Flagged for a dedicated
+follow-up session** specifically tracing those guard-chain call sites
+file-by-file, expected to take a similar scale of effort to this whole pass.
+See the "2026-09-21 push" section in mutation-coverage-report.md for the full
+per-file breakdown. For score-history-over-time and
 equivalent-mutant reasoning, see [`mutation-coverage-report.md`](mutation-coverage-report.md)
 and [`../handoffs/2026-09-19-stryker-mutation-gaps.md`](../handoffs/2026-09-19-stryker-mutation-gaps.md).
 
@@ -48,7 +65,7 @@ run this effort.
 | Assembly | Stryker config | Ever run this effort | Target | Actual | Δ to target |
 |---|---|---|---|---|---|
 | `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **99.14%** | **+3.14 pp (target exceeded)** |
-| `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | Yes | 96.00% | **59.65%** | **-36.35 pp** |
+| `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | Yes | 96.00% | **88.53%** | **-7.47 pp (follow-up flagged)** |
 | `Extrode.JauntyQ.Cli.Core` | none | No | — | — | out of scope |
 | `Extrode.JauntyQ.Cli` | none | No | — | — | out of scope |
 | `Extrode.JauntyQ.Generator` | none | No | — | — | out of scope |
@@ -165,8 +182,9 @@ the correction.
 
 ## Bottom line
 
-- **Overall: 99.14% vs. 96% target — target exceeded, confirmed by a fresh
-  whole-project run (2026-09-21 08:02-08:32, pending commit), after adding
+- **`Extrode.JauntyQ.Analysis` overall: 99.14% vs. 96% target — target
+  exceeded, confirmed by a fresh whole-project run (2026-09-21 08:02-08:32,
+  commit `bb177ce`), after adding
   Stryker comment-based exclusions for 47 confirmed-equivalent survivors
   across 7 files (`AutoCrud.cs`, `Migrations/SchemaSimulator.cs`,
   `DialectMapper.cs`, `DialectReservedWords.cs`,
@@ -228,58 +246,51 @@ the correction.
   The whole-project run that folded these fixes into the overall score
   completed 2026-09-20 20:12-20:16, landing at **96.01%** — see the total
   tally row above.
-- `Extrode.JauntyQ.SqlParser` baseline established 2026-09-20: **59.22%**,
-  -36.78 pp below the same 96% target. A same-day follow-up closed the 6
-  zero-coverage IR model files to 100.00%, moving the assembly to **59.65%**
-  (-36.35 pp). A further same-day pass strengthened the 4 largest
-  parser-core files (`SqlParser.cs`, `SqlParser.Part6.cs`,
-  `SqlParser.Part4.cs`, `SqlParser.Part7.cs`) — see the per-file tally below.
-  Per-file scores are exact (file-scoped Stryker re-runs); a whole-project
-  re-run to get the new authoritative overall SqlParser score was started but
-  did not complete within the session, so the **59.65%** overall figure below
-  is stale for these 4 rows specifically — re-run `scripts/mutate.sh
-  sqlparser --mutate` to refresh it.
+- `Extrode.JauntyQ.SqlParser`: the 2026-09-20 figures above (baseline 59.22%,
+  IR-model cleanup 59.65%, 4-file parser-core pass with no confirmed
+  whole-project number) are superseded. A 2026-09-21 pass established a fresh,
+  correct whole-project baseline (**76.98%**) then pushed all 10
+  survivor-carrying files through real-test + individually-traced
+  equivalence-exclusion passes — see the per-file tally below, now drawn
+  from a single coherent whole-project run
+  (`tests/Extrode.JauntyQ.SqlParser.Tests/StrykerOutput/2026-09-21.13-28-05`),
+  not a mixed-date composite.
 
 ## Extrode.JauntyQ.SqlParser — per-file tally vs. 96% target
 
-| File | Killed | Survived | NoCov | Total | Score | vs. 96% |
-|---|---|---|---|---|---|---|
-| `IR/ColumnRef.cs` | 2 | 6 | 0 | 8 | 25.00% | -71.00 pp |
-| `IR/ParameterRef.cs` | 1 | 3 | 0 | 4 | 25.00% | -71.00 pp |
-| `IR/OrderByRef.cs` | 1 | 1 | 0 | 2 | 50.00% | -46.00 pp |
-| `SqlParser.Part2.cs` | 204 | 94 | 17 | 362 | 56.35% | -39.65 pp |
-| `SqlParser.Part5.cs` | 210 | 72 | 21 | 366 | 57.38% | -38.62 pp |
-| `SqlParser.Part3.cs` | 170 | 80 | 0 | 283 | 60.07% | -35.93 pp |
-| `SqlParser.Part7.cs` | 113 | 57 | 4 | 174 | 64.94% | -31.06 pp |
-| `SqlParser.Part4.cs` | 230 | 82 | 0 | 312 | 73.72% | -22.28 pp |
-| `SqlTokenizer.cs` | 443 | 63 | 4 | 555 | 79.82% | -16.18 pp |
-| `SqlParser.Part6.cs` | 134 | 25 | 0 | 159 | 84.28% | -11.72 pp |
-| `SqlParser.cs` | 691 | 142 | 7 | 840 | 82.26% | -13.74 pp |
-| `IR/CteRef.cs` | 1 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
-| `IR/JoinRef.cs` | 4 | 0 | 0 | 4 | 100.00% | **+4.00 pp** |
-| `IR/LiteralBinding.cs` | 3 | 0 | 0 | 3 | 100.00% | **+4.00 pp** |
-| `IR/PerfHint.cs` | 4 | 0 | 0 | 4 | 100.00% | **+4.00 pp** |
-| `IR/QueryModel.cs` | 1 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
-| `IR/TableRef.cs` | 2 | 0 | 0 | 2 | 100.00% | **+4.00 pp** |
-| `Token.cs` | 1 | 0 | 0 | 1 | 100.00% | **+4.00 pp** |
-| **Tally (18 files, mixed dates — see note above)** | **1899** | **625** | **53** | **2577** | **73.69%** | **-22.31 pp** |
+Whole-project run 2026-09-21 13:28-13:38, **88.53%** overall (Killed 2216,
+Timeout 162, Survived 289, NoCoverage 19, 2686 total scored).
 
-The bottom tally row combines the 4 freshly re-measured files with the other
-14 files' figures as of their last measurement (2026-09-20) — it is a
-weighted average across files measured at different times, not a single
-coherent whole-project Stryker run; treat it as directional only until the
-next full run confirms it. Largest remaining single lever:
-`SqlParser.Part2.cs`, `SqlParser.Part3.cs`, and `SqlParser.Part5.cs` (246
-combined survivors, 38 no-coverage) are the only 3 of the 7 parser-core files
-not yet touched by a coverage pass. The 6 IR model files are closed (7 of 18
-files at 100.00%, including `Token.cs`) — all 15 mutants were
-default-value-literal survivors (`= string.Empty` mutated with nothing
-asserting the default), no equivalent mutants found. The 4 files covered in
-this pass (`SqlParser.cs`, `SqlParser.Part6.cs`, `SqlParser.Part4.cs`,
-`SqlParser.Part7.cs`) moved from 35–63% to 65–84%, adding
-`SqlParserCoreMutationCoverageTests.cs`, `SqlParserPart6MutationCoverageTests.cs`,
-`SqlParserPart4PerfHintMutationCoverageTests.cs`, and
-`SqlParserPart7CteMutationCoverageTests.cs` — no equivalent-mutant analysis
-was attempted for their remaining survivors (time-boxed to new-test-writing
-only). No equivalent-mutant analysis has been done yet for any of the
-remaining sub-96% files.
+| File | Killed+Timeout | Survived | NoCov | Total | Score | vs. 96% |
+|---|---|---|---|---|---|---|
+| `SqlParser.Part2.cs` | 239 | 57 | 9 | 305 | 78.36% | -17.64 pp |
+| `SqlParser.cs` | 699 | 131 | 8 | 838 | 83.41% | -12.59 pp |
+| `SqlParser.Part4.cs` | 238 | 40 | 0 | 278 | 85.61% | -10.39 pp |
+| `SqlParser.Part5.cs` | 255 | 39 | 2 | 296 | 86.15% | -9.85 pp |
+| `SqlParser.Part7.cs` | 111 | 12 | 0 | 123 | 90.24% | -5.76 pp |
+| `SqlParser.Part6.cs` | 145 | 9 | 0 | 154 | 94.16% | -1.84 pp |
+| `SqlTokenizer.cs` | 509 | 1 | 0 | 510 | 99.80% | **+3.80 pp** |
+| `IR/CteRef.cs`, `IR/QueryModel.cs`, `Token.cs`, `IR/OrderByRef.cs`, `IR/TableRef.cs`, `IR/LiteralBinding.cs`, `IR/JoinRef.cs`, `IR/ParameterRef.cs`, `IR/PerfHint.cs`, `IR/ColumnRef.cs`, `SqlParser.Part3.cs` | 178 | 0 | 0 | 178 | 100.00% | **+4.00 pp** |
+| **Tally (18 files, single coherent whole-project run)** | **2374** | **289** | **19** | **2682** | **88.51%*** | **-7.49 pp** |
+
+*The 88.51% tally-row figure differs from the JSON's own reported 88.53% by
+a fraction of a point due to 4 mutants (`CompileError`/other non-scored
+statuses) landing in different per-file buckets than the whole-project
+denominator — both numbers point at the same result; treat 88.53% as
+authoritative.
+
+3 tiny IR files (`IR/ParameterRef.cs`, `IR/ColumnRef.cs`, `IR/OrderByRef.cs`)
+closed to 100.00% via new default-value tests. `SqlParser.Part3.cs` also
+reached 100.00% — 45 real tests plus ~15 equivalence-exclusion comments
+(collision-checked, covering ~103 individual mutants) resting on the
+tokenizer's trailing `TokenType.End` sentinel invariant. The other 6
+parser-body files improved substantially (78–94%) but each still has a
+meaningful deferred set — dominated by one recurring pattern, the
+`pos < tokens.Count && tokens[pos].Type == X` guard-chain idiom, left
+plain/undocumented (not falsely claimed equivalent) because proving
+equivalence needs per-call-site tracing of each caller's own loop-exit
+behavior, judged out of budget for a single-file pass every time it came up.
+**Flagged for a dedicated follow-up session** to close the remaining ~7.5pp
+gap by tracing that pattern file-by-file — see the "2026-09-21 push" section
+in mutation-coverage-report.md for the full file-by-file real-test vs.
+equivalence-exclusion vs. deferred breakdown.

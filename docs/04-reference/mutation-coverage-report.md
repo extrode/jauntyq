@@ -35,7 +35,9 @@ Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`
 | 2026-09-21 | Genuine fable-model verify pass: 5 real gaps fixed in `MigrationParser.cs` | 96.47% → higher (scoped fixes, whole-project re-run below) | `5deae22` |
 | 2026-09-21 | Malformed-SQL survivor category resolved: 6 mutants killed with a nested-paren test, 3 confirmed genuinely equivalent (outer-loop IDENTITY-branch fallback) | — | `a9603e4` |
 | 2026-09-21 | Whole-project re-run confirming both passes above | **97.23%** | `0eee118` |
-| 2026-09-21 | Stryker comment-based exclusions for 47 confirmed-equivalent survivors across 7 files | **99.14%** | (pending commit) |
+| 2026-09-21 | Stryker comment-based exclusions for 47 confirmed-equivalent survivors across 7 files | **99.14%** | `bb177ce` |
+| 2026-09-21 | SqlParser: fresh whole-project baseline (supersedes stale 59.22%/59.65%/73.69% mixed-date figures) | 76.98% | (baseline run only) |
+| 2026-09-21 | SqlParser: full push across all 10 files (3 tiny IR files to 100%, 7 parser-body files real-test + equivalence passes) | **88.53%** | `0b8b78b` (dev HEAD) |
 
 ## Current per-file breakdown (as of 95.84%, whole-project re-run 2026-09-20 19:05-19:09, confirming the `ReadObjectName` fix)
 
@@ -867,3 +869,55 @@ non-default-value mutants (e.g. `IsExpression`/comparer logic) outside this
 pass's scope. The 7 `SqlParser.Part*.cs`/`SqlParser.cs` files remain the
 dominant gap (~680 of the remaining 756 survivors) and are unaffected by this
 pass.
+
+## 2026-09-21 push: fresh baseline + full file-by-file pass toward 96% (76.98% → 88.53%)
+
+The figures above (59.22%/59.65%/73.69%-ish mixed dates) were never confirmed
+by a single clean whole-project run — every prior whole-project attempt
+crashed on VsTest socket errors. This pass started by re-establishing a
+correct, single-run baseline
+(`tests/Extrode.JauntyQ.SqlParser.Tests/StrykerOutput/2026-09-21.08-41-30`):
+**76.98%**, which supersedes every earlier SqlParser figure in this doc.
+
+From there, all 10 files carrying survivors were addressed file-by-file
+(largest survivor+nocoverage count first), each via an isolated scoped
+Stryker run, real tests for genuine gaps, and `// Stryker disable once` for
+individually-traced (not assumed-transferable) equivalent mutants, verified
+against the file's own JSON report and checked against Killed/Timeout
+siblings before excluding — same discipline as the Analysis assembly's pass
+above.
+
+| File | Before | After | Real tests | Equivalence exclusions | Deferred |
+|---|---|---|---|---|---|
+| `IR/ParameterRef.cs`, `IR/ColumnRef.cs`, `IR/OrderByRef.cs` | 25–50% | **100.00%** | new default-value tests | 0 | 0 |
+| `SqlParser.cs` | 82.38% | 83.41% | 6 | 2 | 131 Survived + 8 NoCoverage |
+| `SqlParser.Part2.cs` | 63.81% | 78.03% | ~20 | 2 | ~65 Survived + 2 NoCoverage |
+| `SqlParser.Part5.cs` | (114 survived+nocoverage) | (41 remaining) | 14 | 5 | 41 |
+| `SqlParser.Part3.cs` | 71.20% (fresh scoped) | **100.00%** | 45 | ~15 comments (~103 mutants) | 0 |
+| `SqlParser.Part4.cs` | 63.81%-attributed | 85.61% | 13 | 19 | 40 |
+| `SqlTokenizer.cs` | 87.45% | **99.80%** | ~15 | 0 | 3 |
+| `SqlParser.Part7.cs` | 68.97% | 90.24% | 14 | 13 | 12 |
+| `SqlParser.Part6.cs` | 84.91% | 94.16% | 14 | 4 | 9 |
+
+**Whole-project re-run**
+(`tests/Extrode.JauntyQ.SqlParser.Tests/StrykerOutput/2026-09-21.13-28-05`):
+Killed 2216, Timeout 162, Survived 289, NoCoverage 19. **Final mutation
+score: 88.53%.**
+
+**Short of the 96% target.** Every file above deferred a large, recurring
+survivor class rather than force-excluding it: the `pos < tokens.Count &&
+tokens[pos].Type == X` guard-chain idiom (and its `<=`/`||`/`break` variants)
+repeated across nearly every parser-body file, where an outer loop's own
+control flow *might* make a corrupted guard unobservable, but proving that
+requires per-call-site tracing of every caller's loop-exit behavior — judged
+out of budget in every single-file pass rather than claimed as equivalent
+without individual verification. This is the dominant remaining gap (roughly
+250–280 of the 289 Survived), not scattered residue.
+
+**Follow-up needed to close to 96%:** a dedicated pass specifically tracing
+the guard-chain call sites file-by-file (the same files above, in the same
+order, since each already isolated its own deferred set) — expect a similar
+scale of effort to this pass (6-8 more focused rounds), since it is the same
+pattern repeated rather than a handful of one-off gaps. Not attempted in this
+push per explicit user decision (stop at 88.53%, flag for later rather than
+push blindly toward 96%).
