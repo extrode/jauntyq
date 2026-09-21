@@ -220,7 +220,7 @@ async function main(args) {
 
   if (dockerReachable) {
     console.error("Docker WAS reachable when this run started, so a 'Docker unavailable' reason above");
-    console.error("means FixtureGate misclassified a real bring-up failure. See test-infra/FixtureGate.cs.");
+    console.error("means FixtureGate misclassified a real bring-up failure. See tests/Shared/FixtureGate.cs.");
   }
 
   return 1;

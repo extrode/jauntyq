@@ -38,7 +38,7 @@ jobs:
         # self-provisioning (it boots its own SQL Server container and applies
         # schema.sqlserver.sql), so the old "needs a pre-seeded SQL Server
         # instance" rationale no longer holds. Under GITHUB_ACTIONS the fixtures
-        # rethrow on container bring-up failure (see test-infra/FixtureGate.cs),
+        # rethrow on container bring-up failure (see tests/Shared/FixtureGate.cs),
         # so a broken Docker runner fails the job loudly instead of silently
         # skipping the Docker-gated matrix.
         #
