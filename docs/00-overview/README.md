@@ -17,7 +17,7 @@ Because there is no reflection or runtime code generation, the emitted code is N
 - **[Getting started](../01-getting-started/README.md)**, requirements, installing the packages, wiring the generator, and your first build.
 - **[Learn by doing](../02-learn/README.md)**, a guided first hour against SQLite plus coding exercises, no database server required.
 - **[Guides](../03-guides/README.md)**, task-focused walkthroughs: DDL as schema source, sequences, bulk insert, and migrating from Dapper/EF.
-- **[Reference](../06-reference/README.md)**, the CLI, snapshot format, configuration, directives, dialect differences, diagnostics, and troubleshooting.
-- **[Roadmap](../07-roadmap/roadmap.md)**, where JauntyQ is headed.
+- **[Reference](../04-reference/README.md)**, the CLI, snapshot format, configuration, directives, dialect differences, diagnostics, and troubleshooting.
+- **[Roadmap](../09-roadmap/roadmap.md)**, where JauntyQ is headed.
 
 For quickstart instructions and the full feature walkthrough, see the repository `README.md`.

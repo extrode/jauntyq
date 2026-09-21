@@ -127,7 +127,7 @@ before any I/O.
 
 - [Database contract testing](contract-testing.md), the same classifier at
   test time, gating CI on drift.
-- [CLI reference, `schema verify`](../06-reference/cli.md), the classifier
+- [CLI reference, `schema verify`](../04-reference/cli.md), the classifier
   for pipelines without a test host.
-- [Schema snapshot format](../06-reference/schema-snapshot-format.md), the
+- [Schema snapshot format](../04-reference/schema-snapshot-format.md), the
   contract file itself.
