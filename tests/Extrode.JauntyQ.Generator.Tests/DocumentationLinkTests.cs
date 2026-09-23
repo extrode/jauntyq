@@ -58,6 +58,6 @@ public class DocumentationLinkTests
     [Fact]
     public void TheDocsFindTheirImages()
     {
-        Assert.True(File.Exists(Path.Combine(RepoRoot(), "docs", "assets", "build-not-prod.svg")));
+        Assert.True(File.Exists(Path.Combine(RepoRoot(), "docs", "_assets", "build-not-prod.svg")));
     }
 }
