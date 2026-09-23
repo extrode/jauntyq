@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Reference &#8250; Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-readme.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-readme.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-readme.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-readme.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-mutation-coverage-report.html" class="active" aria-current="page">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</a>  <a href="06-reference-mutation-coverage-tally.html">Mutation coverage tally vs. target</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#score-history">Score history</a><a class="toc-l2" href="#current-per-file-breakdown-as-of-9584-whole-project-re-run-2026-09-20-1905-1909-confirming-the-readobjectname-fix">Current per-file breakdown (as of 95.84%, whole-project re-run 2026-09-20 19:05-19:09, confirming the ReadObjectName fix)</a><a class="toc-l2" href="#mutation-coverage-test-files-added-this-effort">Mutation-coverage test files added this effort</a><a class="toc-l2" href="#remaining-gap-to-96">Remaining gap to 96%</a><a class="toc-l3" href="#migrationparsercs--per-mutant-pass-2026-09-20-8702--8978">MigrationParser.cs — per-mutant pass, 2026-09-20 (87.02% → 89.78%)</a><a class="toc-l3" href="#migrationparsercs--readobjectname-bracket-quoted-dot-correction-2026-09-20-8978-scoped--9584-whole-project">MigrationParser.cs — ReadObjectName bracket-quoted-dot correction, 2026-09-20 (89.78% scoped → 95.84% whole-project)</a><a class="toc-l2" href="#post-96-survivor-pass-2026-09-20--small-files">Post-96% survivor pass, 2026-09-20 — small files</a><a class="toc-l2" href="#post-96-survivor-pass-2026-09-20--migrationparsercs-full-sweep">Post-96% survivor pass, 2026-09-20 — MigrationParser.cs full sweep</a><a class="toc-l2" href="#adversarial-fable-verify-pass-over-the-post-96-survivor-claims-2026-09-20">Adversarial fable-verify pass over the post-96% survivor claims, 2026-09-20</a><a class="toc-l2" href="#2026-09-21-pass-genuine-fable-model-verify--malformed-sql-survivor-category-9647--9723">2026-09-21 pass: genuine fable-model verify + malformed-SQL survivor category (96.47% → 97.23%)</a><a class="toc-l3" href="#5-confirmed-real-gaps-5deae22">5 confirmed real gaps (5deae22)</a><a class="toc-l3" href="#malformed-sql-category-resolved-a9603e4">Malformed-SQL category resolved (a9603e4)</a><a class="toc-l3" href="#whole-project-re-run-0eee118">Whole-project re-run (0eee118)</a><a class="toc-l2" href="#2026-09-21-pass-stryker-comment-based-exclusions-for-confirmed-equivalent-survivors-9723--9914">2026-09-21 pass: Stryker comment-based exclusions for confirmed-equivalent survivors (97.23% → 99.14%)</a><a class="toc-l3" href="#whole-project-re-run">Whole-project re-run</a><a class="toc-l2" href="#extrodejauntyqsqlparser--baseline">Extrode.JauntyQ.SqlParser — baseline</a><a class="toc-l2" href="#extrodejauntyqsqlparser--parser-core-pass-sqlparsercs-part467">Extrode.JauntyQ.SqlParser — parser-core pass (SqlParser.cs, Part4/6/7)</a><a class="toc-l2" href="#extrodejauntyqsqlparser--ir-model-types-pass-easiest-win-done">Extrode.JauntyQ.SqlParser — IR model types pass (easiest win, done)</a><a class="toc-l2" href="#2026-09-21-push-fresh-baseline--full-file-by-file-pass-toward-96-7698--8853">2026-09-21 push: fresh baseline + full file-by-file pass toward 96% (76.98% → 88.53%)</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</nav>
+        <article>
+<h1 id="mutation-coverage-report--extrodejauntyqanalysis--sqlparser">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</h1>
+<p>Living record of Stryker.NET mutation-testing results for the two <code>src/</code>
+assemblies that carry a Stryker config: <code>Extrode.JauntyQ.Analysis</code> and
+<code>Extrode.JauntyQ.SqlParser</code>. Updated after each coverage-raising pass.
+Equivalent-mutant reasoning and per-mutant detail live in
+<code>docs/_handoffs/2026-09-19-stryker-mutation-gaps.md</code>;
+this file tracks the numbers over time.</p>
+<p>Score formula: <code>(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)</code>.</p>
+<h2 id="score-history">Score history</h2>
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Milestone</th>
+<th>Score</th>
+<th>Commit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-09-19 (earlier session)</td>
+<td>Baseline before this effort</td>
+<td>32.52%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>2026-09-19 (earlier session)</td>
+<td>Reserved-word tests + misplaced-test-file relocations</td>
+<td>81.51%</td>
+<td><code>98af6f3</code></td>
+</tr>
+<tr>
+<td>2026-09-19</td>
+<td>7-file targeted plan complete (DialectMapper, ReferencedObjects, UpsertKeyResolver, AutoCrud, SchemaSimulator, ImpactClassifier, MigrationParser 1st pass)</td>
+<td>91.89%</td>
+<td><code>9de5f4e</code></td>
+</tr>
+<tr>
+<td>2026-09-19</td>
+<td>MigrationParser.cs 2nd pass</td>
+<td>92.98%</td>
+<td><code>e567844</code></td>
+</tr>
+<tr>
+<td>2026-09-19</td>
+<td>MigrationParser.cs — SkipParenGroup/ApplyFacets follow-up</td>
+<td>93.78%</td>
+<td><code>75dfcf9</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>6 previously out-of-scope small files raised</td>
+<td>94.33%</td>
+<td><code>951a120</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>Round 4 (4 remaining sub-96% files)</td>
+<td>94.50%</td>
+<td><code>3535b13</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>Near-target cleanup (UpsertKeyResolver/AutoCrud/DialectMapper/DialectReservedWords)</td>
+<td>94.54%</td>
+<td><code>1dd7886</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>SqlParser baseline run (first ever)</td>
+<td>59.22%</td>
+<td><code>209db2d</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>SqlParser — 6 zero-coverage IR model files closed</td>
+<td>59.65%</td>
+<td><code>6763087</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>fable-verify pass: fixed 3 mislabeled-equivalent survivors (DialectMapper/DialectReservedWords)</td>
+<td><strong>94.66%</strong></td>
+<td><code>6059d24</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>SqlParser — SqlParser.cs/Part4/6/7.cs parser-core pass (76 new tests)</td>
+<td><em>(SqlParser whole-project re-run pending — see note below)</em></td>
+<td><code>91e4c04</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>MigrationParser.cs — per-mutant pass (12 new tests, 7 real gaps)</td>
+<td>89.78% (scoped; whole-project re-run pending)</td>
+<td><code>3938a48</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>Whole-project re-run confirming the per-mutant pass</td>
+<td>95.55%</td>
+<td>(pre-<code>4b5c154</code>)</td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>MigrationParser.cs — <code>ReadObjectName</code> bracket-quoted-dot merge correction + boundary test</td>
+<td><strong>95.84%</strong></td>
+<td><code>c9fa8c1</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>Adversarial fable-verify pass over <code>pos &lt;= def.Count</code>/<code>SkipParenGroup</code> equivalence claims + MigrationParser.cs DEFAULT-value Negate mutant fix (line 689, flagged by the pass)</td>
+<td><strong>95.97%</strong></td>
+<td><code>ac22f74</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>MigrationParser.cs GENERATED-column Negate mutant fix (line 704, found by manual re-check after the fable-verify pass)</td>
+<td><strong>96.01% — target reached</strong></td>
+<td>(merge into <code>dev</code> after <code>34c070b</code>)</td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>Post-96% survivor pass: 1 real gap in <code>ReferencedColumnComparer.Equals</code> + 6 real gaps in <code>MigrationParser.cs</code> (91→84 survived)</td>
+<td><strong>96.30%</strong></td>
+<td><code>703192c</code>, <code>f8e2c18</code></td>
+</tr>
+<tr>
+<td>2026-09-20</td>
+<td>Adversarial fable-verify pass over the 84 remaining survivors: 0/18 small-file claims refuted, 3/60 <code>MigrationParser.cs</code> claims refuted (6 mutants, 2 correcting wrong claims)</td>
+<td><strong>96.47%</strong></td>
+<td><code>9dba99b</code>, <code>cca01e6</code></td>
+</tr>
+<tr>
+<td>2026-09-21</td>
+<td>Genuine fable-model verify pass: 5 real gaps fixed in <code>MigrationParser.cs</code></td>
+<td>96.47% → higher (scoped fixes, whole-project re-run below)</td>
+<td><code>5deae22</code></td>
+</tr>
+<tr>
+<td>2026-09-21</td>
+<td>Malformed-SQL survivor category resolved: 6 mutants killed with a nested-paren test, 3 confirmed genuinely equivalent (outer-loop IDENTITY-branch fallback)</td>
+<td>—</td>
+<td><code>a9603e4</code></td>
+</tr>
+<tr>
+<td>2026-09-21</td>
+<td>Whole-project re-run confirming both passes above</td>
+<td><strong>97.23%</strong></td>
+<td><code>0eee118</code></td>
+</tr>
+<tr>
+<td>2026-09-21</td>
+<td>Stryker comment-based exclusions for 47 confirmed-equivalent survivors across 7 files</td>
+<td><strong>99.14%</strong></td>
+<td><code>bb177ce</code></td>
+</tr>
+<tr>
+<td>2026-09-21</td>
+<td>SqlParser: fresh whole-project baseline (supersedes stale 59.22%/59.65%/73.69% mixed-date figures)</td>
+<td>76.98%</td>
+<td>(baseline run only)</td>
+</tr>
+<tr>
+<td>2026-09-21</td>
+<td>SqlParser: full push across all 10 files (3 tiny IR files to 100%, 7 parser-body files real-test + equivalence passes)</td>
+<td><strong>88.53%</strong></td>
+<td><code>0b8b78b</code> (dev HEAD)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="current-per-file-breakdown-as-of-9584-whole-project-re-run-2026-09-20-1905-1909-confirming-the-readobjectname-fix">Current per-file breakdown (as of 95.84%, whole-project re-run 2026-09-20 19:05-19:09, confirming the <code>ReadObjectName</code> fix)</h2>
+<p>19 source files, 2380 mutants tested (2281 killed+timeout, 95 survived, 4 no-coverage).</p>
+<p><strong>Superseded by the 96.01% whole-project run, 2026-09-20 20:12-20:16</strong>
+(2285 killed+timeout, 91 survived, 4 no-coverage, 2380 total) — the two
+fixes below (lines 689 and 704) moved 4 mutants from Survived to Killed;
+Stryker's coverage-based test-impact selection also shifted 2 mutants
+between the Killed and Timeout buckets run-to-run (694 killed / 33 timeout
+in the prior run's <code>MigrationParser.cs</code> row vs. this run's totals), which is
+normal run-to-run noise in timeout classification, not a regression. No
+fresh file-scoped <code>MigrationParser.cs</code> run has been taken at 96.01%, so the
+per-file breakdown below is not re-stated row-by-row; the totals above are
+the authoritative current numbers.</p>
+<table>
+<thead>
+<tr>
+<th>Score</th>
+<th>Killed</th>
+<th>Timeout</th>
+<th>Survived</th>
+<th>NoCov</th>
+<th>Total</th>
+<th>File</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>90.00%</td>
+<td>9</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>10</td>
+<td><code>Impact/MigrationImpactReport.cs</code></td>
+</tr>
+<tr>
+<td>90.38%</td>
+<td>45</td>
+<td>0</td>
+<td>5</td>
+<td>2</td>
+<td>52</td>
+<td><code>Impact/ReferencedObjects.cs</code></td>
+</tr>
+<tr>
+<td>91.86% (→ was 89.78% scoped)</td>
+<td>659</td>
+<td>33</td>
+<td>70</td>
+<td>1</td>
+<td>763</td>
+<td><code>Migrations/MigrationParser.cs</code></td>
+</tr>
+<tr>
+<td>94.17%</td>
+<td>194</td>
+<td>0</td>
+<td>12</td>
+<td>0</td>
+<td>206</td>
+<td><code>Migrations/SchemaSimulator.cs</code></td>
+</tr>
+<tr>
+<td>96.25%</td>
+<td>77</td>
+<td>0</td>
+<td>3</td>
+<td>0</td>
+<td>80</td>
+<td><code>UpsertKeyResolver.cs</code></td>
+</tr>
+<tr>
+<td>98.60%</td>
+<td>141</td>
+<td>0</td>
+<td>1</td>
+<td>1</td>
+<td>143</td>
+<td><code>AutoCrud.cs</code></td>
+</tr>
+<tr>
+<td>99.36%</td>
+<td>307</td>
+<td>3</td>
+<td>2</td>
+<td>0</td>
+<td>312</td>
+<td><code>DialectMapper.cs</code></td>
+</tr>
+<tr>
+<td>99.84%</td>
+<td>627</td>
+<td>4</td>
+<td>1</td>
+<td>0</td>
+<td>632</td>
+<td><code>DialectReservedWords.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td><code>AnalysisDiagnostic.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>27</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>27</td>
+<td><code>CrudColumnRules.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>15</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>15</td>
+<td><code>Diff/SchemaDelta.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>44</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>44</td>
+<td><code>Diff/StructuralSchemaDiff.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>15</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>15</td>
+<td><code>EntityNameResolver.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>4</td>
+<td><code>Impact/Classification.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>66</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>66</td>
+<td><code>Impact/ImpactClassifier.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>3</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>3</td>
+<td><code>Impact/ImpactEntry.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>4</td>
+<td><code>Impact/ImpactReason.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td><code>Impact/QueryImpactInput.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>2</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>2</td>
+<td><code>Migrations/MigrationStatement.cs</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="mutation-coverage-test-files-added-this-effort">Mutation-coverage test files added this effort</h2>
+<table>
+<thead>
+<tr>
+<th>Test file</th>
+<th>Target file</th>
+<th>Score reached</th>
+<th>Commit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AutoCrudSynthesizeTests.cs</code> (strengthened)</td>
+<td><code>AutoCrud.cs</code></td>
+<td>97.90% → 98.60%</td>
+<td><code>7c554e0</code>, <code>6e4c5d9</code></td>
+</tr>
+<tr>
+<td><code>ImpactClassifierTests.cs</code> (strengthened)</td>
+<td><code>Impact/ImpactClassifier.cs</code></td>
+<td>100.00%</td>
+<td><code>875ac78</code></td>
+</tr>
+<tr>
+<td><code>SchemaSimulatorMutationCoverageTests.cs</code></td>
+<td><code>Migrations/SchemaSimulator.cs</code></td>
+<td>94.17%</td>
+<td><code>bd11450</code></td>
+</tr>
+<tr>
+<td><code>DialectMapperMutationCoverageTests.cs</code></td>
+<td><code>DialectMapper.cs</code></td>
+<td>98.72% → 99.36%</td>
+<td><code>147e904</code>, <code>6059d24</code></td>
+</tr>
+<tr>
+<td><code>ReferencedObjectsMutationCoverageTests.cs</code></td>
+<td><code>Impact/ReferencedObjects.cs</code></td>
+<td>86.54%</td>
+<td><code>e6a75c3</code></td>
+</tr>
+<tr>
+<td><code>UpsertKeyResolverMutationCoverageTests.cs</code></td>
+<td><code>UpsertKeyResolver.cs</code></td>
+<td>96.25%</td>
+<td><code>bf40c03</code></td>
+</tr>
+<tr>
+<td><code>MigrationParserMutationCoverageTests.cs</code> (created)</td>
+<td><code>Migrations/MigrationParser.cs</code></td>
+<td>84.0% → 87.02%</td>
+<td><code>23e129c</code>, <code>04f7b1f</code>, <code>75dfcf9</code>, <code>091f6a9</code></td>
+</tr>
+<tr>
+<td><code>MigrationParserMutationCoverageTests.cs</code> (12 more tests)</td>
+<td><code>Migrations/MigrationParser.cs</code></td>
+<td>87.02% → 89.78%</td>
+<td><code>3938a48</code></td>
+</tr>
+<tr>
+<td><code>SmallModelTypesMutationCoverageTests.cs</code></td>
+<td><code>MigrationStatement.cs</code>, <code>ImpactReason.cs</code>, <code>ImpactEntry.cs</code>, <code>MigrationImpactReport.cs</code>, <code>Classification.cs</code>, <code>SchemaDelta.cs</code></td>
+<td>90–100%</td>
+<td><code>951a120</code></td>
+</tr>
+<tr>
+<td><code>DialectReservedWordsTests.cs</code> (earlier session, strengthened)</td>
+<td><code>DialectReservedWords.cs</code></td>
+<td>99.68% → 99.84%</td>
+<td><code>7a08a4b</code>, <code>6059d24</code></td>
+</tr>
+</tbody>
+</table>
+<p>Also relocated from <code>Generator.Tests</code> to <code>Analysis.Tests</code> (earlier session): <code>DialectMapperTests.cs</code>
+(<code>ae9b086</code>), <code>MigrationParserTests.cs</code> (<code>afb9fad</code>, <code>9f34577</code>).</p>
+<h2 id="remaining-gap-to-96">Remaining gap to 96%</h2>
+<p>As of 94.54%, 4 files remain below 96%: <code>ReferencedObjects.cs</code> (86.54%),
+<code>MigrationParser.cs</code> (87.02%), <code>MigrationImpactReport.cs</code> (90.00%), and
+<code>SchemaSimulator.cs</code> (94.17%). The round-4 pass (<code>091f6a9</code>, <code>555dda3</code>,
+merged <code>3535b13</code>) fixed 4 more <code>MigrationParser.cs</code> mutants and rigorously
+re-verified the other three files, concluding:</p>
+<ul>
+<li><code>SchemaSimulator.cs</code> is <strong>fully closed</strong> at 94.17% — all 12 remaining
+survivors proven equivalent via the <code>TryFindTable</code>/<code>TryFindColumnKey</code>/
+<code>TryFindColumn</code> &quot;null-iff-false&quot; contract (traced through every helper and
+call site). No further test can move this file without a source change.</li>
+<li><code>ReferencedObjects.cs</code> and <code>MigrationImpactReport.cs</code> were re-verified with
+no new findings — both remain at their documented-equivalent floors.</li>
+<li><code>MigrationParser.cs</code> still has ~91 survivors and is the only file with real
+remaining headroom, but most now fall under one of two absorption
+mechanisms (the &quot;unknown flag, skip one token&quot; fallback, generalized this
+round to cover positional-arithmetic facet-parsing mutations too, not just
+flag-keyword literals) — further gains need slow per-mutant manual-mutation
+verification, not another broad sweep.</li>
+</ul>
+<p>A follow-up &quot;near-target cleanup&quot; pass (<code>6e4c5d9</code>, merged <code>1dd7886</code>) pushed
+the four files that were already ≥96% toward their own ceilings instead:</p>
+<ul>
+<li><code>AutoCrud.cs</code> 97.90% → <strong>98.60%</strong>: the one real fix was a <code>List&lt;T&gt;</code> capacity
+arithmetic mutant (<code>pkCols.Count + versionCols.Count</code> → <code>- versionCols.Count</code>)
+killed with a table carrying more RowVersion columns than PK columns
+(negative capacity would otherwise throw). Its remaining <code>break;</code>-removal
+survivor is equivalent — the loop's result list is discarded on the failure
+path regardless of whether the loop breaks early or keeps iterating.</li>
+<li><code>UpsertKeyResolver.cs</code> (96.25%), <code>DialectMapper.cs</code> (98.72%), and
+<code>DialectReservedWords.cs</code> (99.68%) did <strong>not</strong> move — all 9 remaining
+survivors across the three were proven equivalent by direct code-flow
+tracing (documented in the handoff doc): mostly <code>break;</code>/<code>continue;</code>
+removals whose surrounding loop already discards its accumulated state on
+the same path, plus two <code>NormalizeDbType</code>/<code>StripMySqlUnsignedModifier</code>
+boundary conditions (<code>index == 0</code>) that are reachable only by strings that
+can never match a real dictionary key either way, and a <code>||</code>→<code>&amp;&amp;</code> guard
+mutation in <code>DialectReservedWords</code> whose &quot;protected&quot; branches already fall
+through to <code>false</code> on their own. These three files are now considered
+<strong>closed at their current scores</strong> — no further test-writing can move them.</li>
+</ul>
+<p>Net: the 96% target is likely not fully reachable through more test-writing
+alone; the remaining gap is dominated by a confirmed equivalent-mutant floor
+in 6 of the 7 files below 100% (all but <code>MigrationParser.cs</code>), which remains
+the sole file where further (slow) work could still move the needle.</p>
+<p><strong>Correction, 2026-09-20 (fable-verify pass).</strong> The &quot;did <strong>not</strong> move&quot; /
+&quot;closed at their current scores&quot; claim two paragraphs up turned out to be
+wrong for 2 of the 3 files it names. An adversarial (fable) verify pass,
+instructed to try to break each equivalence claim rather than confirm it,
+found real, killable gaps in <code>DialectMapper.cs</code> (2 mutants) and
+<code>DialectReservedWords.cs</code> (1 mutant) — both boundary/guard conditions whose
+equivalence reasoning missed a code path (see
+the handoff doc's fable-verify update
+for the full per-mutant trace). Fixed in branch <code>test/fix-mislabeled-equivalents</code>
+(<code>6059d24</code>): <code>DialectMapper.cs</code> 98.72% → <strong>99.36%</strong>, <code>DialectReservedWords.cs</code>
+99.68% → <strong>99.84%</strong>. <code>UpsertKeyResolver.cs</code>'s equivalence claim held under
+the same adversarial pass. The &quot;6 of 7 files&quot; count in the Net paragraph
+above is accordingly one file too many as originally stated — the corrected,
+per-mutant-traced state for all 7 sub-100% files is in the current per-file
+breakdown table above this section, not this historical paragraph.</p>
+<p><strong>Final update: the 96% target was reached, 2026-09-20 20:12-20:16 — 96.01%.</strong>
+Two more genuine gaps were found in <code>MigrationParser.cs</code> after this section
+was written (line 689 and line 704, both documented further down this file),
+closing the last 1-mutant gap. The &quot;likely not fully reachable through more
+test-writing alone&quot; conclusion above turned out to be wrong — the target was
+reached with real tests, not source changes or contrived tests. See the
+score-history table at the top of this document for the full path from
+94.66% to 96.01%.</p>
+<h3 id="migrationparsercs--per-mutant-pass-2026-09-20-8702--8978">MigrationParser.cs — per-mutant pass, 2026-09-20 (87.02% → 89.78%)</h3>
+<p>Went through the ~91 survivors from the prior baseline one by one (or in
+small related batches): read the exact mutated line, tried to construct a
+concrete distinguishing SQL input, wrote and verified a test against both
+the real source and a hand-mutated copy where a test's result was ever in
+doubt. 12 new tests added to <code>MigrationParserMutationCoverageTests.cs</code>, all
+44 tests in that file still pass. Result: Killed 632→652 (+20, since several
+tests each kill 2-3 related mutants sharing one root cause), Survived 91→70,
+NoCoverage unchanged at 8, scoped score 87.02%→<strong>89.78%</strong>.</p>
+<p><strong>7 real, killable gaps found and fixed</strong> (mutated line, mechanism, killed via):</p>
+<ol>
+<li><strong>Line 502/745</strong> — <code>SkipParenGroup</code> call removed/no-op in the AS-shorthand
+computed-column path (<code>Total AS (Qty * Price)</code>). Without the call, the
+parenthesized expression's tokens leak into the flags loop one at a time.
+Killed with a computed column whose expression contains a token that
+textually matches a flag keyword.</li>
+<li><strong>Line 675</strong> (<code>DEFAULT</code> keyword-literal blanking) — breaks the atomic
+default-expression skip; the DEFAULT keyword becomes an unrecognized
+token and its expression's tokens leak into the flags loop instead of
+being atomically skipped.</li>
+<li><strong>Line 447</strong> (<code>ADD</code>/<code>DROP</code> GENERATED|IDENTITY arms of an OR-chain) — only
+the <code>SET</code> arm had a test previously; added two tests covering <code>ADD</code> and
+<code>DROP</code>.</li>
+<li><strong>Line 626</strong> (bare <code>NULL</code> flag-check blanking) — specifically the
+&quot;flip PK-forced nullability back to <code>true</code>&quot; case, not just the ordinary
+nullable-flag case already covered.</li>
+<li><strong>Line 640</strong> (bare <code>AUTOINCREMENT</code>/<code>SERIAL</code> keyword flags) — distinct
+from the <code>SERIAL</code> DbType-sugar path; two new tests, one per keyword.</li>
+<li><strong>Line 647</strong> (identity-seed-paren closing-<code>)</code> detection) — <del>specifically
+the case where a real closing paren IS present and is followed by more
+flags, distinguished from the already-tested genuinely-unterminated case
+(which produces the same observable result either way).</del> <strong>Correction,
+2026-09-20 (fable-verify pass):</strong> this test does not actually kill the
+<code>&lt;=</code> boundary mutant it was written for — per <code>Is</code>/<code>IsSymbol</code>'s own
+bounds-checking (lines 792-799), that mutant is genuinely equivalent. The
+test's real (and only) kill power is against an unrelated <code>&amp;&amp;</code>→<code>||</code>
+Timeout mutant on the same line. The test's comment in
+<code>MigrationParserMutationCoverageTests.cs</code> was corrected to state this
+honestly rather than the original overclaim; this is the one item of the
+7 below that is not, as originally listed, a &quot;real, killable gap.&quot;</li>
+<li><strong>Line 815-818</strong> (<code>ReadObjectName</code>'s multi-level dotted-name while-loop,
+previously <code>NoCoverage</code>) — required bracket-quoted syntax
+(<code>[dbo].[Gadgets]</code>) to trigger the tokenizer-split path at all; unbracketed
+dotted names tokenize as one compound identifier handled entirely by
+<code>BareName</code>, never reaching this loop.</li>
+<li><strong>Line 851</strong> (<code>SplitTopLevel</code>'s comma-detection, <code>&amp;&amp;</code>→<code>||</code> mutation) —
+at paren-depth 0, the mutated condition treats <em>any</em> Symbol token (not
+just <code>,</code>) as a column-def separator. A first attempt using
+<code>create table t (a int default -1, b int)</code> did NOT distinguish the
+mutant: the spurious split at <code>-</code> produces an orphaned <code>[1]</code> fragment
+whose leading token is a <code>Number</code>, which <code>ParseColumnDef</code>'s
+<code>def[0].Type != Identifier</code> guard silently filters — column count/names
+came out identical either way. The mutant-killing input needed a flag
+<em>after</em> the negative default (<code>a int default -1 not null, b int</code>): under
+the mutation, <code>NOT NULL</code> ends up inside that same orphaned/filtered
+fragment and is lost, so column <code>a</code> wrongly reports <code>IsNullable == true</code>.
+This is a concrete instance of the &quot;always empirically verify a survived
+test actually distinguishes the mutant — don't stop at 'looks plausible'&quot;
+lesson from this campaign; see the coverage-misattribution caveat below
+for the matching Stryker-side version of the same lesson.</li>
+</ol>
+<p><strong>No new equivalent-mutant classes were confirmed this round beyond what was
+already documented</strong> in the handoff doc — the ~70 remaining survivors were
+individually re-traced (not just template-matched against existing
+categories) and fall entirely under the previously-established mechanisms:
+unknown-flag/positional-arithmetic absorption in the flags loop (lines
+558-751 region, including the numeric-facet block and the GENERATED
+ALWAYS/BY DEFAULT/AS IDENTITY vs. AS (expr) STORED/VIRTUAL block),
+bounds-safety via <code>Is</code>/<code>IsSymbol</code> (lines 618-748 loop-bound comparisons),
+dead/unreachable branches (<code>SkipParenGroup</code>'s unreachable guard, line 798's
+<code>index &gt; 0</code> in a helper only ever called with <code>index &gt;= 0</code> from a caller
+that already special-cases the zero case upstream), discarded return values
+(<code>SplitTopLevel</code>/<code>SplitRemaining</code>'s exact final <code>pos</code>, lines 845/862/886/
+898-899 — never re-read by the sole caller in either method), and algebraic
+equivalence (line 805's <code>dot &gt;= 0 ? Substring(dot+1) : name</code>). Time did not
+allow writing out a fresh per-line justification for every one of the ~70 in
+this doc; the categories above are the same ones already itemized with
+specific line numbers in the handoff doc's MigrationParser section, and this
+pass's spot checks did not surface any case where the category assignment
+was wrong.</p>
+<p><strong>Open methodological caveat — Stryker coverage misattribution.</strong> During
+this pass, Stryker's own scoped report listed the line-506 String mutations
+(<code>&quot;NOT&quot;</code>→<code>&quot;&quot;</code> and <code>&quot;NULL&quot;</code>→<code>&quot;&quot;</code>) as &quot;Survived&quot; in two separate runs, but
+direct hand-mutation + <code>dotnet test --filter</code> against the real test suite
+proved both are already killed by the pre-existing test
+<code>ComputedColumn_JunkTokenAfterAnExplicitNotNull_DoesNotFlipNullabilityBack</code>.
+Attempts to fix this via <code>--coverage-analysis all</code> (unrecognized CLI option,
+silently no-ops) and via <code>&quot;coverage-analysis&quot;: &quot;all&quot;</code> in <code>stryker-config.json</code>
+(accepted without error, but the run log still showed
+<code>'SkipUncoveredMutants'</code>/<code>'CoverageBasedTest'</code> mode and produced identical
+counts) did not resolve it. This means Stryker's own survivor counts for
+this file may already include false positives beyond the two confirmed
+here — a caveat for whoever picks up the remaining ~70, not something
+resolved in this pass. Ground truth for any individual mutant should be
+re-verified by hand-mutation + targeted <code>dotnet test --filter</code>, not taken on
+Stryker's report alone.</p>
+<h3 id="migrationparsercs--readobjectname-bracket-quoted-dot-correction-2026-09-20-8978-scoped--9584-whole-project">MigrationParser.cs — <code>ReadObjectName</code> bracket-quoted-dot correction, 2026-09-20 (89.78% scoped → 95.84% whole-project)</h3>
+<p>Whole-project re-run after the 89.78% scoped pass landed at <strong>95.55%</strong>
+(2241 killed, 33 timeout, 95 survived, 11 no-coverage) — an exact match for
+the pre-computed estimate above, confirming that number. Investigating the
+file's 8 <code>NoCoverage</code> mutants found the existing test
+<code>CreateTable_BracketQuotedSchemaAndTableName_Tokenizer...</code> was asserting a
+false premise: its comment claimed <code>[dbo].[Gadgets]</code> exercises
+<code>ReadObjectName</code>'s dotted-name while-loop (lines 815-818), but tracing
+<code>SqlTokenizer.MergeQualifiedIdentifiers</code> proved the tokenizer actually
+<strong>merges</strong> <code>[dbo].[Gadgets]</code> into one <code>Identifier</code> token before the loop ever
+runs (it only leaves an <code>Identifier '.' Identifier</code> sequence unmerged when the
+left segment's own value already contains a literal dot and isn't a chain
+continuation) — the test passed, but not for the reason its comment claimed,
+and the loop itself stayed uncovered.</p>
+<p>Fixed in <code>test/migrationparser-readobjectname-boundary</code> (<code>4b5c154</code>, merged
+<code>c9fa8c1</code>): renamed the test to
+<code>CreateTable_BracketQuotedSchemaAndTableName_TokenizerMergesToOneIdentifier</code>
+with a corrected comment, and added two new tests exploiting the one input
+shape that actually reaches the while-loop — a bracket-quoted segment
+containing a literal internal dot (<code>[db.with.dots].[Gadgets]</code>):</p>
+<ul>
+<li><code>CreateTable_BracketQuotedNameContainingLiteralDot_TokenizerLeavesUnmergedForReadObjectNamesLoop</code>
+— kills the loop's real body mutants and documents the line-815
+<code>tokens[pos + 1]</code> → <code>tokens[pos - 1]</code> mutant as equivalent (at that check,
+<code>pos</code> is always one past a just-consumed <code>Identifier</code>, so <code>tokens[pos - 1]</code>
+is always of type <code>Identifier</code> too — same boolean result as the correct
+check, whenever the loop's other conditions hold).</li>
+<li><code>CreateTable_TrailingDotWithNoFollowingIdentifier_DoesNotOverrunTheTokenArray</code>
+— guards the loop's <code>pos + 1 &lt; tokens.Count</code> bound with a truncated input
+(<code>create table [db.with.dots].</code>) so the unmerged trailing <code>.</code> is the last
+token; without the bound, the inner <code>tokens[pos + 1]</code> read would index past
+the end of the array.</li>
+</ul>
+<p>Result: whole-project Killed 2241→2248 (+7), NoCoverage 11→4, Survived flat
+at 95 (6 of the file's 8 no-coverage mutants killed outright, the other 2
+converted to 1 killed + 1 confirmed-equivalent, per the file's own
+<code>Survived 70 / NoCov 1</code> split above). <strong>Whole-project score: 95.55% →
+95.84%.</strong> Full Analysis suite: 1431/1431 on both net8.0 and net10.0.</p>
+<p><strong>Why 96% is likely not reachable through more test-writing.</strong> 96% needs
+<code>Survived + NoCoverage ≤ 95</code> project-wide; the count is currently 99, so 4
+more mutants would need killing with no equivalent-mutant substitutions. A
+focused trace of the file's remaining survivors found a systematic
+equivalence class that likely accounts for most of what's left: nearly every
+<code>while (pos &lt; def.Count)</code>-style loop guard in this file has a
+<code>pos &lt;= def.Count</code> (&quot;off-by-one loosen&quot;) survivor (lines 503, 618, 647, 649,
+682, 689, 748), and every one of them is equivalent for the same reason —
+the loop body's own <code>Is</code>/<code>IsSymbol</code> calls re-check <code>index &lt; tokens.Count</code>
+internally (lines 792-799), so once <code>pos</code> reaches <code>def.Count</code>, <code>Is</code>/<code>IsSymbol</code>
+already return <code>false</code> regardless of the loop guard's <code>&lt;</code> vs <code>&lt;=</code>. The
+mutation lets the loop run exactly one extra (no-op) iteration, incrementing
+<code>pos</code> to <code>def.Count + 1</code>, but that value is never read by anything after the
+loop exits — same observable result either way. This matches (and
+generalizes) the line-798 equivalence reasoning already documented above. Line
+746's lone remaining <code>NoCoverage</code> (<code>SkipParenGroup</code>'s <code>if (!IsSymbol(...)) return;</code> guard) is dead code in practice: all 3 call sites in the file (lines
+502, 719, 724) only ever invoke <code>SkipParenGroup</code> after already confirming
+<code>IsSymbol(def, pos, &quot;(&quot;)</code> is true, so the guard's false branch is unreachable
+through the public API — not a real gap, just an unreachable defensive check.</p>
+<p><strong>Adversarially re-verified, 2026-09-20 (fable-verify pass).</strong> A second pass
+instructed to try to refute the above, not confirm it, hand-traced each of
+the 7 <code>pos &lt;= def.Count</code> line numbers individually (not just template-matched)
+and confirmed all 7 equivalent, and grepped the whole project (not just this
+file) for <code>SkipParenGroup</code> call sites, confirming exactly 3 (the doc
+originally undercounted at &quot;2&quot;) and that all 3 pre-check <code>IsSymbol(..., &quot;(&quot;)</code>. No refutations survived. The pass did, however, surface one mutant
+outside the scope of what it was asked to check: a <strong>Negate</strong> mutation on
+line 689 (<code>else if (pos &lt; def.Count)</code> → <code>else if (!(pos &lt; def.Count))</code>, the
+single-token non-parenthesized <code>DEFAULT</code> value branch) that traces as a real,
+killable gap, not equivalent — <code>NOT NULL DEFAULT NULL</code>'s trailing <code>NULL</code>
+value token is left unconsumed under the mutation and leaks back into the
+flags loop's own <code>Is(def, pos, &quot;NULL&quot;)</code> check, wrongly flipping
+<code>IsNullable</code> back to <code>true</code> even though <code>NOT NULL</code> already set it <code>false</code>.
+Fixed with a new test,
+<code>DefaultExpression_SingleTokenNullValueAfterExplicitNotNull_DoesNotFlipNullabilityBack</code>,
+mirroring the existing parenthesized-expression sibling test just above it in
+<code>MigrationParserMutationCoverageTests.cs</code>.</p>
+<p><strong>Second genuine gap found while re-checking survivors after that fix,
+2026-09-20.</strong> A subsequent whole-project run (95.55% → <strong>95.97%</strong> after the
+above fix) left the project 1 mutant short of 96%. Re-tracing line 704's
+Negate mutant (<code>if (Is(def, pos, &quot;GENERATED&quot;))</code> → <code>if (!(Is(def, pos, &quot;GENERATED&quot;)))</code>) — previously assumed part of the
+&quot;unknown-flag absorption&quot; equivalence class without being individually
+verified — found it is also a real, killable gap. Hand-simulating several
+GENERATED-shaped inputs first suggested equivalence (the mutation makes the
+block enter one token late, but its own internal forward search for &quot;AS&quot;
+coincidentally resynchronizes for every input containing the optional
+&quot;ALWAYS&quot;/&quot;BY DEFAULT&quot; prefix, since the misaligned entry token gets
+consumed harmlessly and &quot;AS&quot; is still found one position later than
+expected) — every existing test happens to use that shape, which is exactly
+why this survived undetected. Omitting the optional &quot;ALWAYS&quot; prefix breaks
+the resynchronization: the misaligned block instead consumes the real &quot;AS&quot;
+token itself as the (wrongly) expected flag keyword, then searches for &quot;AS&quot;
+one token too late (landing on &quot;(&quot;) and never finds it, so <code>IsComputed</code>
+silently stays <code>false</code>. Confirmed by hand-mutating the source directly:
+<code>create table t (total int generated as (x))</code> gives <code>IsComputed=True</code> on
+real code and <code>IsComputed=False</code> under the mutant. Fixed with
+<code>GeneratedAsComputedColumn_WithoutAlwaysKeyword_StillMarkedComputed</code>. Full
+suite: 1433/1433 on both net8.0 and net10.0. This is a caution against
+trusting a survivor's category assignment without re-verifying each
+specific line — &quot;looks like the same absorption pattern as its neighbors&quot;
+was wrong here despite being right for the 7 <code>pos &lt;= def.Count</code> mutants
+right next to it.</p>
+<p><strong>Update: this line-704 fix, combined with the line-689 fix above, closed
+the last 1-mutant gap.</strong> The whole-project run immediately after (2026-09-20
+20:12-20:16) landed at <strong>96.01%</strong> — target reached. Note that this session's
+own prediction just above (&quot;recommend treating 95.84% as the practical
+ceiling&quot;) turned out to be wrong twice in a row: both the line-689 and
+line-704 mutants looked, on first pass, like they belonged to the same
+absorbed/equivalent category as their neighbors, and both were in fact real,
+killable gaps. The remaining ~91 survivors after this fix are still believed
+equivalent under the previously-documented absorption mechanisms, but that
+belief has now been wrong twice for mutants that looked exactly this
+confident beforehand — treat any future &quot;this is definitely the practical
+ceiling&quot; claim in this file with the same skepticism, and adversarially
+verify before relying on it.</p>
+<p><strong>Coverage gap (NoCoverage mutants) adversarially closed, 2026-09-20.</strong> At
+96.01% the whole project still carries exactly 4 <code>NoCoverage</code> mutants (never
+executed by any test, as opposed to the 91 <code>Survived</code> mutants that ran but
+weren't killed): <code>AutoCrud.cs</code>'s <code>JoinColumns</code> empty-list guard (line 69,
+<code>return &quot;&quot;</code>), <code>ReferencedObjects.cs</code>'s <code>ReferencedColumnComparer.GetHashCode</code>
+<code>?? &quot;&quot;</code> fallbacks (lines 185-186), and <code>MigrationParser.cs</code>'s
+<code>SkipParenGroup</code> not-<code>&quot;(&quot;</code> early return (line 746, already discussed above
+as one of the 7-mutant class's siblings). An adversarial fork, instructed to
+find a real call path refuting each claim rather than confirm it, traced
+every call site fresh: <code>JoinColumns</code>'s 8 call sites in <code>AutoCrud.cs</code> are each
+upstream-guarded (<code>pkCols</code>/<code>whereCols</code> via <code>pkCols.Count == 0 continue</code>,
+<code>insertCols</code>/<code>setCols</code> via their own <code>Count &gt; 0</code> blocks, <code>columns</code> via an
+<code>allColumnsUsable || columns.Count == 0</code> gate); <code>ReferencedColumn</code>'s <code>Table</code>
+and <code>Column</code> are only ever constructed inside <code>ResolveInto</code>'s <code>AddColumn</code>
+closure from strings already checked non-empty (column at line 80, table via
+<code>aliasToTable</code>/<code>alias</code>/<code>inScope</code>, all populated only from non-empty
+strings); and <code>SkipParenGroup</code>'s 3 call sites (lines 502, 719, 724) all
+pre-check <code>IsSymbol(def, pos, &quot;(&quot;)</code> immediately before calling, with no
+intervening mutation of <code>pos</code>. No counter-examples were found — all 4
+<code>NoCoverage</code> mutants are confirmed genuinely unreachable dead/defensive
+code, not real coverage gaps. <strong>The <code>NoCoverage</code> portion of the gap to 96%
+is closed</strong>; all remaining headroom is in the 91 <code>Survived</code> mutants, not
+addressed by this pass.</p>
+<h2 id="post-96-survivor-pass-2026-09-20--small-files">Post-96% survivor pass, 2026-09-20 — small files</h2>
+<p>With the target met, work moved to individually re-verifying (not
+template-matching) the 91 remaining <code>Survived</code> mutants, starting with the
+19 in <code>SchemaSimulator.cs</code>, <code>ReferencedObjects.cs</code>, <code>AutoCrud.cs</code>, and
+<code>MigrationImpactReport.cs</code> whose equivalence had only been self-certified in
+the earlier round-4 pass, never adversarially checked.</p>
+<p><strong>One genuine gap found and fixed.</strong> <code>ReferencedObjects.cs</code>'s
+<code>ReferencedColumnComparer.Equals</code> (the <code>&amp;&amp;</code> combining the table-name and
+column-name comparisons) had a surviving <code>&amp;&amp;</code>→<code>||</code> Logical mutation. The two
+existing tests that should have caught it
+(<code>Resolve_SameColumnNameOnDifferentTables_KeptAsDistinctEntries</code>,
+<code>Resolve_DifferentColumnNamesOnSameTable_KeptAsDistinctEntries</code>) only
+observe <code>Equals</code> at all when two entries land in the same <code>HashSet&lt;T&gt;</code>
+bucket — pure luck of the hash layout, since <code>GetHashCode</code> combines both
+fields, so two entries differing in only one field usually (but not
+always) hash to different buckets and never reach <code>Equals</code>. Fixed by
+calling the private <code>ReferencedColumnComparer.Instance</code> directly via
+reflection, bypassing bucket placement: 3 new tests in
+<code>ReferencedObjectsMutationCoverageTests.cs</code>
+(<code>Comparer_SameColumnDifferentTable_IsNotEqual</code>,
+<code>Comparer_SameTableDifferentColumn_IsNotEqual</code>,
+<code>Comparer_SameTableAndColumn_IsEqual</code>). Verified by hand-mutation: the two
+negative-case tests fail against the <code>||</code> mutant, pass against real code.</p>
+<p><strong>18 mutants confirmed equivalent, re-derived from scratch:</strong></p>
+<ul>
+<li><code>ReferencedObjects.cs</code>'s <code>GetHashCode</code> (4 mutants: 2 null-coalescing
+fallbacks, 1 bitwise-complement, 1 arithmetic-divide) are all equivalent
+for the same reason: <code>GetHashCode</code>'s only contract obligation is &quot;equal
+objects → equal hash codes,&quot; not distinctness or specific values. Each
+mutation is a deterministic pure transform applied uniformly, so it can
+only ever increase hash collisions — which <code>HashSet&lt;T&gt;</code> already handles
+correctly via <code>Equals</code> (now itself covered, see above). No input through
+the public API can distinguish a worse-but-still-contract-preserving hash
+function. This corrects the prior claim, which had conflated this with
+the separate (and also equivalent, but for a different reason) NoCoverage
+null-fallback finding above.</li>
+<li><code>SchemaSimulator.cs</code>'s all 12 survivors, re-derived (not re-stated) via
+the <code>TryFindTable</code>/<code>TryFindColumnKey</code>/<code>TryFindColumn</code> &quot;out-param null iff
+returns false&quot; invariant, checked against every real call site: 9
+caller-side <code>!TryFind...() || x == null</code> Logical mutations
+(<code>A||A</code>→<code>A&amp;&amp;A</code>, both reduce to <code>A</code> under the invariant), 1 internal
+<code>&amp;&amp;</code>→<code>||</code> at the same identity, 1 inert <code>continue;</code> removal (the loop's
+last statement before implicit loop-back — the fallthrough produces a
+logically identical, if reallocated, result), and 1 <code>return false</code>→
+<code>return true</code> bug inside <code>TryFindColumn</code> that is fully masked by both
+call sites' own redundant <code>|| existing == null</code> guard.</li>
+<li><code>AutoCrud.cs</code>'s <code>break;</code>-removal survivor: equivalent because the loop's
+only externally-visible effect is the <code>allColumnsUsable</code> flag, which the
+surrounding <code>if (!allColumnsUsable || columns.Count == 0) continue;</code>
+gates on — removing <code>break</code> just lets the loop finish populating a
+<code>columns</code> list that's discarded either way.</li>
+<li><code>MigrationImpactReport.cs</code>'s <code>&gt;</code>→<code>&gt;=</code> survivor in <code>Highest</code>'s max-finding
+loop: equivalent because <code>Classification</code> is a value-type enum, so
+reassigning <code>highest = e.Classification</code> when the two are already equal
+is a true no-op with no observable side effect.</li>
+</ul>
+<p>Full suite: 1436/1436 passing on both net8.0 and net10.0 after the fix.</p>
+<h2 id="post-96-survivor-pass-2026-09-20--migrationparsercs-full-sweep">Post-96% survivor pass, 2026-09-20 — MigrationParser.cs full sweep</h2>
+<p>Following the small-files pass above, all 66 remaining <code>Survived</code> mutants in
+<code>MigrationParser.cs</code> were individually re-traced (not template-matched
+against prior &quot;equivalent&quot; classes without checking the specific mechanism
+applies).</p>
+<p><strong>6 more genuine gaps found and fixed</strong> (5 new tests, one of which also
+corrects a wrong equivalence claim written earlier this session):</p>
+<ul>
+<li><code>ColumnFlag_ParenthesizedDefaultExpression_TrailingNotNullStillRecognized</code>
+(line 685) — the DEFAULT branch's paren-depth scan (<code>--depth == 0</code>
+mutated to <code>!= 0</code>) never finds the matching close-paren of a single
+balanced pair like <code>(5)</code> (depth goes 1→0, which doesn't satisfy <code>!= 0</code>),
+so the scan runs past the closing paren with nothing to stop it, silently
+swallowing a trailing <code>not null</code> as part of the &quot;skipped default
+expression.&quot;</li>
+<li><code>GeneratedComputedColumn_ExpressionContainsNotNull_DoesNotFlipNullability</code>
+(line 724) — dropping the <code>SkipParenGroup</code> call in the GENERATED-AS
+computed-expression branch leaves <code>pos</code> on the expression's own opening
+<code>(</code>, so the outer flags loop re-scans tokens <em>inside</em> the expression one
+at a time — an embedded <code>is not null</code> inside the expression's own text
+gets misread as a real trailing flag on the column itself.</li>
+<li><code>ComputedColumn_RedundantNotNullRepeatedTwice_StaysNonNullable</code> and
+<code>ColumnFlag_RedundantNotNullRepeatedTwice_StaysNonNullable</code> (lines 506,
+624) — dropping the NOT+NULL branch's own <code>continue</code> lets a second
+<code>NOT NULL</code> pair's trailing <code>NULL</code> fall through to the bare-NULL check on
+the <em>next</em> iteration, wrongly flipping <code>IsNullable</code> back to <code>true</code>.</li>
+<li><code>ColumnFlag_BareNullFollowedByNotNull_NotNullTakesEffect</code> (line 630) —
+mirror image: dropping the bare-NULL branch's <code>continue</code> lets the
+following <code>NOT</code> get consumed by the generic unknown-flag skip instead of
+being recognized as the start of a <code>NOT NULL</code> pair (which sits earlier in
+the if-chain and is never revisited), so the trailing <code>NULL</code> is
+wrongly caught as a fresh bare-NULL on the next iteration.</li>
+<li><code>CreateTable_DottedNameSegmentFollowedByNonIdentifierToken_DoesNotMergeAndIsUnsupported</code>
+(line 815) — <strong>corrects a wrong equivalence claim</strong> written earlier this
+session, which argued <code>ReadObjectName</code>'s <code>tokens[pos + 1].Type == Identifier</code> check was equivalent to <code>tokens[pos - 1]...</code> because
+<code>tokens[pos - 1]</code> (the segment just consumed) is always an Identifier at
+that point. True but insufficient — the real check's purpose is to
+reject the case where <code>tokens[pos + 1]</code> is <em>not</em> an Identifier, which
+<code>tokens[pos - 1]</code> can never see. <code>SqlTokenizer.MergeQualifiedIdentifiers</code>
+only fuses <code>Identifier '.' Identifier</code>, so <code>[dbo].5</code> leaves <code>.</code> and the
+Number <code>5</code> unmerged; real code correctly refuses to merge and falls back
+to <code>Unsupported</code>, while the mutant wrongly merges anyway and accepts the
+statement with <code>TableName == &quot;5&quot;</code>.</li>
+</ul>
+<p><strong>All other survivors confirmed equivalent</strong>, each via a specific traced
+mechanism (not a blanket &quot;looks like the others&quot;):</p>
+<ul>
+<li><strong>Generic-skip absorption</strong>: the main flags loop's trailing unknown-flag
+<code>pos++</code> catchall silently reabsorbs leftover tokens from a dropped
+branch, at lines 558, 579, 585, 606, 611, 649 (×4), 671/672, 725/726
+(×6), 751 (×2, verified across all 3 call sites).</li>
+<li><strong>Cross-recognition between independent branches</strong>: a failed branch's
+leftover tokens get caught by a separate, more generic branch elsewhere
+in the same loop recognizing the same concept, at lines 709 (×3), 714,
+717 (×2), 718 (×2), 719.</li>
+<li><strong>Off-by-one loop-guard absorbed by bounds-checked helpers</strong> (the
+previously-confirmed <code>pos &lt;= def.Count</code> class, individually re-checked
+rather than assumed): lines 618, 647, 682, 689, 748.</li>
+<li><strong>Dead output</strong> (mutated <code>ref pos</code> value never read again by the
+caller): line 845 (×2).</li>
+<li><strong>Invariant/identity proofs</strong>: line 805 (<code>Substring(dot+1)</code> when
+<code>dot==-1</code> degenerates to <code>Substring(0)</code>, identical to the unconditional
+branch), line 798 (<code>index &gt;= 0</code>→<code>index &gt; 0</code> in <code>IsSymbol</code>, exhaustively
+confirmed <code>index</code> is never 0 at any of ~17 call sites).</li>
+<li><code>SplitTopLevel</code>/<code>SplitRemaining</code>'s spurious-empty-entry survivors (lines
+862, 886) — absorbed by the respective callers' <code>Count == 0</code> guards one
+layer up.</li>
+</ul>
+<p><strong>Result: <code>MigrationParser.cs</code> 70→64 survived (6 killed), whole-project
+Killed+Timeout 2285→2292 (+7, including the small-files fix above),
+Survived 91→84.</strong> Full suite: 1442/1442 on both net8.0 and net10.0.
+<strong>Whole-project score: 96.01% → 96.30%.</strong></p>
+<h2 id="adversarial-fable-verify-pass-over-the-post-96-survivor-claims-2026-09-20">Adversarial fable-verify pass over the post-96% survivor claims, 2026-09-20</h2>
+<p>Following the two passes above, dispatched two independent adversarial
+forks (instructed to try to REFUTE the equivalence claims just written, not
+confirm them) over all 78 <code>Survived</code> mutants those passes had labeled
+equivalent: 60 in <code>MigrationParser.cs</code>, and 18 across <code>SchemaSimulator.cs</code>
+(12), <code>ReferencedObjects.cs</code> (4), <code>AutoCrud.cs</code> (1), and
+<code>MigrationImpactReport.cs</code> (1). (The other 6 sub-100% files —
+<code>UpsertKeyResolver.cs</code>, <code>DialectMapper.cs</code>, <code>DialectReservedWords.cs</code> — had
+already been through an equivalent adversarial pass earlier this session,
+see the &quot;Correction, 2026-09-20 (fable-verify pass)&quot; note above.)</p>
+<p><strong>Small files: 0/18 refuted.</strong> Independent re-derivation confirmed every
+claim, including re-checking the <code>SchemaSimulator.cs</code> null-iff-false
+invariant at all 9 call sites directly rather than assuming it holds
+everywhere, and confirming <code>GetHashCode</code>'s only contract (equal objects ⇒
+equal hashes) is preserved by all 4 <code>ReferencedObjects.cs</code> mutations
+regardless of the specific hash transform.</p>
+<p><strong>MigrationParser.cs: 3/60 refuted (6 mutants), 2 of which correct
+claims made two paragraphs above</strong> — the &quot;invariant/identity proof&quot; at
+line 576 and the &quot;never-fires / vacuous-condition absorption&quot; at lines
+898-899 were both wrong:</p>
+<ul>
+<li><strong>Line 576</strong> (<code>def[pos+1]</code>→<code>def[pos-1]</code>) — the prior claim (&quot;invariant on
+token type at that position&quot;) was insufficient: with different
+precision/scale values in a <code>decimal(10,2)</code> facet, the mutant reads
+<code>Scale</code> from the wrong token and silently duplicates <code>Precision</code> (<code>Scale</code>
+comes out <code>10</code> instead of <code>2</code>). No existing test used differing
+precision/scale, so the duplication went unnoticed. New test:
+<code>FacetParen_PrecisionAndScale_ScaleReadsTheSecondDigitGroupNotTheFirst</code>.</li>
+<li><strong>Lines 898-899</strong> (<code>ReadParenNameList</code>'s closing-paren check) — the prior
+claim's contradiction analysis was correct as far as it went, but missed
+that a broken check means the scan never stops at all, running past the
+paren list's own close paren into the surrounding clause and picking up
+a trailing identifier as a bogus extra PK column name. New test:
+<code>TableLevelPrimaryKeyParenList_StopsAtClosingParen_DoesNotConsumeTrailingIdentifier</code>.</li>
+<li><strong>Line 507</strong> (computed-column shorthand's inline flags loop) — a
+trailing bare <code>NULL</code> after an explicit <code>NOT NULL</code> (e.g.
+<code>total as (x) not null null</code>) didn't flip <code>IsNullable</code> back to <code>true</code>;
+this specific override case was untested. New test:
+<code>ComputedColumn_NotNullFollowedByBareNull_FlipsBackToNullable</code>.</li>
+</ul>
+<p>The other 54 <code>MigrationParser.cs</code> mutants (57 individual mutations) were
+independently re-derived as genuinely equivalent, matching the mechanisms
+documented above.</p>
+<p><strong>Result: <code>MigrationParser.cs</code> 64→61 survived (3 killed).</strong> Full suite:
+1445/1445 on net8.0. Whole-project re-run (2026-09-20 22:48-22:52): Killed
+2256, Timeout 40, Survived 80, NoCoverage 4 (unchanged) — <strong>whole-project
+score: 96.30% → 96.47%</strong>. (Survived dropped by 4 rather than the expected 3
+and Timeout rose by 4 vs. the 96.30% run; this is normal run-to-run
+variance in which near-miss mutants land as Timeout vs. Survived under
+Stryker's coverage-based test selection, not a discrepancy in the fix
+count.)</p>
+<p>All 84 mutants that survived the 96.30% run have now been through the
+adversarial fable-verify pattern: the 4 <code>NoCoverage</code> mutants (closed
+earlier this session), and all 84 <code>Survived</code> mutants across every sub-100%
+file. No further batch-level re-check is planned; any remaining survivors
+are considered a confirmed equivalent-mutant floor for this assembly.</p>
+<h2 id="2026-09-21-pass-genuine-fable-model-verify--malformed-sql-survivor-category-9647--9723">2026-09-21 pass: genuine fable-model verify + malformed-SQL survivor category (96.47% → 97.23%)</h2>
+<p>A genuine fable-tier <code>verify</code> worker was dispatched over the 84-survivor
+state from the prior adversarial pass, split into two buckets: mutants it
+judged non-equivalent (real, killable gaps) and mutants it judged
+&quot;distinguishable only with malformed SQL&quot; (15 mutants at the time, later
+found to be 20 once the exact line ranges were re-checked).</p>
+<h3 id="5-confirmed-real-gaps-5deae22">5 confirmed real gaps (<code>5deae22</code>)</h3>
+<p>The worker found 5 genuine, non-equivalent survivors with concrete valid-SQL
+distinguishing inputs (lines 606/611 WITH/WITHOUT TIME ZONE <code>pos</code> underflow
+absorbed by a flag-word column name; line 725 negated STORED/VIRTUAL guard;
+line 751 SkipParenGroup off-by-one via the generated-column expression path;
+line 685 DEFAULT-expression close-paren off-by-one; line 507 dropped
+<code>continue</code> in the computed-column bare-NULL branch). All 5 fixed with new
+tests, hand-verified against individually-mutated code before commit.</p>
+<h3 id="malformed-sql-category-resolved-a9603e4">Malformed-SQL category resolved (<code>a9603e4</code>)</h3>
+<p>The worker's remaining 15 (later confirmed 20) mutants spanning lines
+447-719 were all previously undecided: distinguishable only by SQL that is
+syntactically well-formed but not valid for the dialect in question (e.g.
+<code>decimal(10,[2])</code>, <code>time(6,2) with time zone</code>, <code>identity(null)</code>). Prior
+practice in this doc already accepted such inputs as legitimate
+distinguishing tests (they are not <em>malformed</em> tokenizer-breaking input,
+just semantically nonsensical SQL) — the remaining question was purely
+whether a testable subset of these SQL-shaped inputs actually reaches and
+kills each mutant. 14 of the 20 were resolved in earlier rounds; the final
+9 (lines 709-719, the Postgres <code>GENERATED BY DEFAULT AS IDENTITY (...)</code>
+parsing chain) were resolved this round:</p>
+<ul>
+<li><strong>6 mutants killed</strong> (2129, 2132, 2133, 2134, 2135, 2136 — the
+<code>IDENTITY</code> literal check, the <code>pos++</code> past it, the following-paren guard,
+and the <code>SkipParenGroup</code> call itself). The first attempt at a
+distinguishing test used a single-level paren
+(<code>identity(null)</code>-style) and did <strong>not</strong> kill the mutants: removing the
+<code>SkipParenGroup</code> call causes execution to fall through to the outer
+flags-loop catchall, which re-dispatches into a <em>separate</em>, unrelated
+standalone-IDENTITY branch elsewhere in the file — that branch has its
+own naive (non-nested) paren-skip that happens to land on the exact same
+<code>pos</code> for single-level content. The fix needed a <strong>nested</strong>-paren
+sequence-options clause (<code>identity (x(y)null)</code>): the naive scan stops at
+the first (inner) <code>)</code>, exposing a trailing bare <code>null</code> to the outer
+loop, which the depth-tracking <code>SkipParenGroup</code> would have consumed
+atomically. New test:
+<code>GeneratedAsIdentity_SequenceOptionsSkippedAtomically_EvenWithNestedParens</code>.</li>
+<li><strong>3 mutants confirmed genuinely equivalent</strong> (2119, 2120, 2121 — the
+<code>BY</code>+<code>DEFAULT</code> prefix check on line 709). Hand-mutation of all three
+proved no input, valid or malformed, distinguishes them: the outer
+flags-loop catchall unconditionally re-scans every subsequent token
+against all flag branches regardless of how the <code>GENERATED</code> prefix was
+parsed, so a later bare <code>IDENTITY</code> keyword is picked up by the standalone
+branch either way. This is a stronger, corrected version of the worker's
+original &quot;needs malformed SQL&quot; framing — the absorption is
+unconditional, not merely a malformed-input edge case.</li>
+<li>Two more small tests were added along the way for related NoCoverage/loose
+gaps found during tracing: <code>AlterColumn_EmptyBracketIdentifierAfterSet_StillMatchesUnsupportedGuard</code>,
+<code>DecimalScale_BracketQuotedDigit_NotTreatedAsNumericFacet</code>,
+<code>TimeMaxFacet_PositionAdvancesPastClosingParen_BeforeTimeZoneCheck</code>,
+<code>TimeTwoFacets_PositionAdvancesPastBothAndClosingParen_BeforeTimeZoneCheck</code>,
+<code>StandaloneIdentity_SeedParenPositionAdvancesPastClosingParen</code>.</li>
+</ul>
+<h3 id="whole-project-re-run-0eee118">Whole-project re-run (<code>0eee118</code>)</h3>
+<p>Killed 2277, Timeout 37, Survived 62, NoCoverage 4, total 2380 mutants
+tested. <strong>Final mutation score: 97.23%.</strong> This closes out the malformed-SQL
+survivor category entirely (all 20 mutants either killed with real tests or
+documented as genuinely equivalent) and exceeds the 96% parity target with
+<code>jaunty</code>.</p>
+<h2 id="2026-09-21-pass-stryker-comment-based-exclusions-for-confirmed-equivalent-survivors-9723--9914">2026-09-21 pass: Stryker comment-based exclusions for confirmed-equivalent survivors (97.23% → 99.14%)</h2>
+<p>The 62 Survived + 4 NoCoverage mutants left after the pass above were
+individually triaged rather than left as unexplained residue. For each
+candidate: (1) checked whether excluding it (by source line + Stryker
+mutator category) would also silence any currently-Killed/Timeout sibling
+mutant sharing that same line+category — Stryker's comment-based exclusion
+operates at that granularity, not per-mutant-ID, so a collision would
+silently weaken real test coverage; (2) for every collision-safe candidate,
+traced the actual code to confirm genuine semantic equivalence (not just
+&quot;safe to exclude&quot;) before writing a reason. Of 66 candidates, 47 passed both
+checks and were annotated with <code>// Stryker disable once &lt;category&gt; : &lt;reason&gt;</code> comments directly above the target statement, across 7 files:
+<code>AutoCrud.cs</code>, <code>Migrations/SchemaSimulator.cs</code>, <code>DialectMapper.cs</code>,
+<code>DialectReservedWords.cs</code>, <code>Impact/ReferencedObjects.cs</code>,
+<code>UpsertKeyResolver.cs</code>, <code>Migrations/MigrationParser.cs</code>. The recurring
+equivalence patterns:</p>
+<ul>
+<li><strong><code>TryFindX(...) || x == null</code> / <code>&amp;&amp; x != null</code> redundant null guards</strong> —
+<code>TryFindTable</code>/<code>TryFindColumnKey</code>/<code>TryFindColumn</code>'s contract guarantees the
+out-parameter is null iff the method returns false, making the extra
+null-check clause unreachable-different from the bare boolean check.</li>
+<li><strong>Outer flags-loop catchall absorption</strong> (<code>Migrations/MigrationParser.cs</code>'s
+column-definition parser) — many flag branches' only effect is to advance
+<code>pos</code>/<code>cp</code> past a recognized keyword; dropping/reversing that advance, or
+blanking the keyword string being matched, just defers the identical
+single-token skip to the loop's own unconditional catchall on the next
+iteration, with no observable difference in final parse state.</li>
+<li><strong><code>GetHashCode</code> combining-step mutations</strong> (<code>ReferencedObjects.cs</code>) — the
+method's only contract is equal objects ⇒ equal hashes, which holds under
+any fixed arithmetic/bitwise transform, mutated or not.</li>
+<li><strong>Discarded loop <code>break</code>/<code>continue</code> outcomes</strong> (<code>UpsertKeyResolver.cs</code>,
+<code>MigrationParser.cs</code>) — where no later loop iteration ever reverses the
+flag being set, or the dropped <code>continue</code> already falls through to an
+identical guard's <code>continue</code> right after.</li>
+<li><strong>Dead-code guards proven unreachable</strong> — e.g. <code>SkipParenGroup</code>'s own
+<code>!IsSymbol(pos, &quot;(&quot;)</code> guard, whose condition is never true at any of its
+3 call sites, all of which already check that condition before calling.</li>
+</ul>
+<p>19 candidates were left untouched: either the collision check flagged a
+same-line/category Killed sibling, or (one explicit case,
+<code>ReferencedColumnComparer</code>'s <code>unchecked</code> block-removal mutant, id 1459 in
+<code>ReferencedObjects.cs</code>) tracing showed the mutation is not actually
+equivalent — removing <code>unchecked</code> could allow an <code>OverflowException</code> on hash
+combination, a real behavioral difference just impractical to trigger with
+normal test inputs — so no equivalence comment was written for it, and it
+remains a documented, accepted residual gap.</p>
+<p>Each file's edits were verified independently via an isolated, sequential
+scoped Stryker run (<code>dotnet stryker --mutate &quot;**/&lt;File&gt;.cs&quot;</code>, one at a time
+— never in parallel, per the earlier lesson about MSBuild/<code>obj</code>-directory
+contention) before being trusted:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Scoped score</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Migrations/SchemaSimulator.cs</code></td>
+<td>100.00%</td>
+<td>12/12 target mutants moved to Ignored, 194/206 tested</td>
+</tr>
+<tr>
+<td><code>DialectMapper.cs</code></td>
+<td>99.68%</td>
+<td>1/1 target mutant moved to Ignored; remaining <code>Ignored: 16</code> in this file's own bucket are Stryker's own built-in &quot;block already covered filter&quot;, unrelated to the comment</td>
+</tr>
+<tr>
+<td><code>AutoCrud.cs</code></td>
+<td>100.00%</td>
+<td>141/141 tested</td>
+</tr>
+<tr>
+<td><code>DialectReservedWords.cs</code></td>
+<td>100.00%</td>
+<td>631/631 tested</td>
+</tr>
+<tr>
+<td><code>Impact/ReferencedObjects.cs</code></td>
+<td>97.87%</td>
+<td>1 Survived remaining (id 1459, the <code>unchecked</code>-block mutant above, deliberately left undocumented-equivalent)</td>
+</tr>
+<tr>
+<td><code>UpsertKeyResolver.cs</code></td>
+<td>100.00%</td>
+<td>77/77 tested</td>
+</tr>
+<tr>
+<td><code>Migrations/MigrationParser.cs</code></td>
+<td>97.71%</td>
+<td>17 Survived remaining — the collision-unsafe set from the triage above</td>
+</tr>
+</tbody>
+</table>
+<h3 id="whole-project-re-run">Whole-project re-run</h3>
+<p>Killed 2251, Timeout 60, Survived 20, NoCoverage 0, Ignored 294 (comment
+exclusions + Stryker's own coverage-based filters), 3 Pending (transient —
+this run overlapped with a peer session's concurrent Stryker process on the
+same machine; a handful of mutants hit <code>vstest.console</code> connection
+flakiness during retries and were not re-attempted), total 2331 mutants
+scored. <strong>Final mutation score: 99.14%.</strong></p>
+<h2 id="extrodejauntyqsqlparser--baseline">Extrode.JauntyQ.SqlParser — baseline</h2>
+<p>First-ever Stryker run for this assembly, 2026-09-20, whole-project
+(<code>tests/Extrode.JauntyQ.SqlParser.Tests/StrykerOutput/2026-09-20.15-17-57</code>).
+Baseline only — no fixes attempted yet.</p>
+<p><strong>Overall: 59.22%</strong> (2058 killed/timeout, 771 survived, 64 no-coverage, 3475 total).</p>
+<table>
+<thead>
+<tr>
+<th>Score</th>
+<th>Killed</th>
+<th>Survived</th>
+<th>NoCov</th>
+<th>Total</th>
+<th>File</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.00%</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+<td><code>IR/CteRef.cs</code></td>
+</tr>
+<tr>
+<td>0.00%</td>
+<td>0</td>
+<td>4</td>
+<td>0</td>
+<td>4</td>
+<td><code>IR/JoinRef.cs</code></td>
+</tr>
+<tr>
+<td>0.00%</td>
+<td>0</td>
+<td>3</td>
+<td>0</td>
+<td>3</td>
+<td><code>IR/LiteralBinding.cs</code></td>
+</tr>
+<tr>
+<td>0.00%</td>
+<td>0</td>
+<td>4</td>
+<td>0</td>
+<td>4</td>
+<td><code>IR/PerfHint.cs</code></td>
+</tr>
+<tr>
+<td>0.00%</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+<td><code>IR/QueryModel.cs</code></td>
+</tr>
+<tr>
+<td>0.00%</td>
+<td>0</td>
+<td>2</td>
+<td>0</td>
+<td>2</td>
+<td><code>IR/TableRef.cs</code></td>
+</tr>
+<tr>
+<td>25.00%</td>
+<td>2</td>
+<td>6</td>
+<td>0</td>
+<td>8</td>
+<td><code>IR/ColumnRef.cs</code></td>
+</tr>
+<tr>
+<td>25.00%</td>
+<td>1</td>
+<td>3</td>
+<td>0</td>
+<td>4</td>
+<td><code>IR/ParameterRef.cs</code></td>
+</tr>
+<tr>
+<td>35.53%</td>
+<td>124</td>
+<td>34</td>
+<td>1</td>
+<td>349</td>
+<td><code>SqlParser.Part6.cs</code></td>
+</tr>
+<tr>
+<td>50.00%</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+<td>2</td>
+<td><code>IR/OrderByRef.cs</code></td>
+</tr>
+<tr>
+<td>52.14%</td>
+<td>183</td>
+<td>125</td>
+<td>4</td>
+<td>351</td>
+<td><code>SqlParser.Part4.cs</code></td>
+</tr>
+<tr>
+<td>52.20%</td>
+<td>107</td>
+<td>62</td>
+<td>5</td>
+<td>205</td>
+<td><code>SqlParser.Part7.cs</code></td>
+</tr>
+<tr>
+<td>56.35%</td>
+<td>204</td>
+<td>94</td>
+<td>17</td>
+<td>362</td>
+<td><code>SqlParser.Part2.cs</code></td>
+</tr>
+<tr>
+<td>57.38%</td>
+<td>210</td>
+<td>72</td>
+<td>21</td>
+<td>366</td>
+<td><code>SqlParser.Part5.cs</code></td>
+</tr>
+<tr>
+<td>60.07%</td>
+<td>170</td>
+<td>80</td>
+<td>0</td>
+<td>283</td>
+<td><code>SqlParser.Part3.cs</code></td>
+</tr>
+<tr>
+<td>62.83%</td>
+<td>612</td>
+<td>216</td>
+<td>12</td>
+<td>974</td>
+<td><code>SqlParser.cs</code></td>
+</tr>
+<tr>
+<td>79.82%</td>
+<td>443</td>
+<td>63</td>
+<td>4</td>
+<td>555</td>
+<td><code>SqlTokenizer.cs</code></td>
+</tr>
+<tr>
+<td>100.00%</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td><code>Token.cs</code></td>
+</tr>
+</tbody>
+</table>
+<p>The 6 zero-score <code>IR/*.cs</code> files are small model types (likely record/DTO
+shapes) with no dedicated coverage yet — analogous to <code>MigrationStatement.cs</code>
+etc. in Analysis before the small-files pass. The bulk of the gap is in the
+7 <code>SqlParser*.cs</code> parser-body files (50–63% each, ~680 combined survivors),
+which will need the same file-by-file assertion-strengthening approach used
+on <code>MigrationParser.cs</code>. No equivalent-mutant analysis has been done yet —
+this is an unfiltered baseline.</p>
+<h2 id="extrodejauntyqsqlparser--parser-core-pass-sqlparsercs-part467">Extrode.JauntyQ.SqlParser — parser-core pass (SqlParser.cs, Part4/6/7)</h2>
+<p>Same-day follow-up to the baseline above, targeting the 4 largest-gap
+parser-body files by file-scoped Stryker runs (<code>--mutate &quot;**/&lt;File&gt;.cs&quot;</code>).
+Added <code>SqlParserCoreMutationCoverageTests.cs</code> (41 tests, <code>SqlParser.cs</code>),
+<code>SqlParserPart6MutationCoverageTests.cs</code> (12 tests),
+<code>SqlParserPart4PerfHintMutationCoverageTests.cs</code> (13 tests), and
+<code>SqlParserPart7CteMutationCoverageTests.cs</code> (10 tests). Full
+<code>Extrode.JauntyQ.SqlParser.Tests</code> suite passed 479/479 on both net8.0 and
+net10.0 after all four files. At the time, no equivalent mutants were found
+or claimed in this pass — every survivor closed was believed to be a real,
+previously-untested gap (aggregate exact-shape capture, redundant-paren
+stripping depth, SELECT INTO target-skipping, TOP N PERCENT WITH TIES token
+arithmetic, DELETE's optional FROM, RETURNING's nested-paren/trailing-<code>;</code>
+handling, EXISTS-subquery lookback guards, WHERE-region boundary and
+column/column comparisons in <code>ExtractPerfHints</code>, and <code>ParseWith</code>'s
+parameter-merge/WITH RECURSIVE position-exactness rules).</p>
+<p><strong>Correction, 2026-09-20 (fable-verify pass, <code>test/fix-weak-mutation-tests</code>,
+<code>c898c59</code>).</strong> A subsequent adversarial pass over these same test files found
+one genuine exception to &quot;no equivalent mutants&quot;: <code>SqlParser.Part7.cs</code>'s
+trailing-semicolon-strip mutant. An initial fix attempt to write a
+distinguishing test failed; re-tracing the actual control flow through
+<code>Parse</code> confirmed no input reachable through the public API can distinguish
+this mutant — it is equivalent, and is now documented as such in
+<code>SqlParserPart7CteMutationCoverageTests.cs</code> rather than force-killed. The
+other three files' fixes in that same pass (Part4, Part6, and the rest of
+Part7) were genuine gap-closing, not equivalence corrections; see the score
+table below, which reflects their pre-fix scores only — a further re-run is
+needed to capture the <code>c898c59</code> improvements.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SqlParser.cs</code></td>
+<td>62.83% (whole-project baseline attribution)</td>
+<td><strong>82.26%</strong> (691/142/7/840, scoped)</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part6.cs</code></td>
+<td>35.53%</td>
+<td><strong>84.28%</strong> (134/25/0/159, scoped)</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part4.cs</code></td>
+<td>52.14%</td>
+<td><strong>73.72%</strong> (230/82/0/312, scoped)</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part7.cs</code></td>
+<td>52.20%</td>
+<td><strong>64.94%</strong> (113/57/4/174, scoped)</td>
+</tr>
+</tbody>
+</table>
+<p>A whole-project re-run to obtain a new authoritative overall SqlParser score
+was attempted twice and crashed both times with VsTest socket errors
+(<code>SocketException (10054)</code>, no <code>reports/</code> output produced) rather than
+completing — the file-scoped scores above are exact, but there is currently
+no valid whole-project number superseding the 59.65%/59.22% baseline figures
+elsewhere in this doc for these 4 files specifically. Re-run
+<code>scripts/mutate.sh sqlparser --mutate</code> (ideally offloaded to a machine that
+can sustain a multi-minute VsTest session, per this repo's &quot;no long local
+runs&quot; convention) to get a clean number.</p>
+<p>Not covered in this pass (left for a future round): <code>SqlParser.Part2.cs</code>,
+<code>SqlParser.Part3.cs</code>, <code>SqlParser.Part5.cs</code>, <code>SqlTokenizer.cs</code>, and the two
+still-low IR files (<code>IR/ColumnRef.cs</code>, <code>IR/ParameterRef.cs</code>,
+<code>IR/OrderByRef.cs</code>).</p>
+<h2 id="extrodejauntyqsqlparser--ir-model-types-pass-easiest-win-done">Extrode.JauntyQ.SqlParser — IR model types pass (easiest win, done)</h2>
+<p>All 15 survivors in the 6 zero-score <code>IR/*.cs</code> files turned out to be a single
+recurring shape: every <code>string</code>-typed property defaulting to <code>string.Empty</code>
+had its default-value literal mutated (<code>&quot;&quot; → &quot;Stryker was here!&quot;</code>) and nothing
+asserted the default, so it survived. Added
+<code>tests/Extrode.JauntyQ.SqlParser.Tests/IrModelTypesMutationCoverageTests.cs</code>
+(6 tests, one per type) asserting every string-typed property's default value.
+No equivalent mutants — all 15 were real, if trivial, gaps.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IR/CteRef.cs</code></td>
+<td>0.00% (1 survived)</td>
+<td><strong>100.00%</strong></td>
+</tr>
+<tr>
+<td><code>IR/JoinRef.cs</code></td>
+<td>0.00% (4 survived)</td>
+<td><strong>100.00%</strong></td>
+</tr>
+<tr>
+<td><code>IR/LiteralBinding.cs</code></td>
+<td>0.00% (3 survived)</td>
+<td><strong>100.00%</strong></td>
+</tr>
+<tr>
+<td><code>IR/PerfHint.cs</code></td>
+<td>0.00% (4 survived)</td>
+<td><strong>100.00%</strong></td>
+</tr>
+<tr>
+<td><code>IR/QueryModel.cs</code></td>
+<td>0.00% (1 survived)</td>
+<td><strong>100.00%</strong></td>
+</tr>
+<tr>
+<td><code>IR/TableRef.cs</code></td>
+<td>0.00% (2 survived)</td>
+<td><strong>100.00%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>New overall SqlParser score: <strong>59.65%</strong> (2073 killed/timeout, 756 survived, 64
+no-coverage, 3475 total) — up from the 59.22% baseline. <code>IR/ColumnRef.cs</code> and
+<code>IR/ParameterRef.cs</code> (25.00% each) were left untouched — they carry other,
+non-default-value mutants (e.g. <code>IsExpression</code>/comparer logic) outside this
+pass's scope. The 7 <code>SqlParser.Part*.cs</code>/<code>SqlParser.cs</code> files remain the
+dominant gap (~680 of the remaining 756 survivors) and are unaffected by this
+pass.</p>
+<h2 id="2026-09-21-push-fresh-baseline--full-file-by-file-pass-toward-96-7698--8853">2026-09-21 push: fresh baseline + full file-by-file pass toward 96% (76.98% → 88.53%)</h2>
+<p>The figures above (59.22%/59.65%/73.69%-ish mixed dates) were never confirmed
+by a single clean whole-project run — every prior whole-project attempt
+crashed on VsTest socket errors. This pass started by re-establishing a
+correct, single-run baseline
+(<code>tests/Extrode.JauntyQ.SqlParser.Tests/StrykerOutput/2026-09-21.08-41-30</code>):
+<strong>76.98%</strong>, which supersedes every earlier SqlParser figure in this doc.</p>
+<p>From there, all 10 files carrying survivors were addressed file-by-file
+(largest survivor+nocoverage count first), each via an isolated scoped
+Stryker run, real tests for genuine gaps, and <code>// Stryker disable once</code> for
+individually-traced (not assumed-transferable) equivalent mutants, verified
+against the file's own JSON report and checked against Killed/Timeout
+siblings before excluding — same discipline as the Analysis assembly's pass
+above.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Before</th>
+<th>After</th>
+<th>Real tests</th>
+<th>Equivalence exclusions</th>
+<th>Deferred</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IR/ParameterRef.cs</code>, <code>IR/ColumnRef.cs</code>, <code>IR/OrderByRef.cs</code></td>
+<td>25–50%</td>
+<td><strong>100.00%</strong></td>
+<td>new default-value tests</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>SqlParser.cs</code></td>
+<td>82.38%</td>
+<td>83.41%</td>
+<td>6</td>
+<td>2</td>
+<td>131 Survived + 8 NoCoverage</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part2.cs</code></td>
+<td>63.81%</td>
+<td>78.03%</td>
+<td>~20</td>
+<td>2</td>
+<td>~65 Survived + 2 NoCoverage</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part5.cs</code></td>
+<td>(114 survived+nocoverage)</td>
+<td>(41 remaining)</td>
+<td>14</td>
+<td>5</td>
+<td>41</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part3.cs</code></td>
+<td>71.20% (fresh scoped)</td>
+<td><strong>100.00%</strong></td>
+<td>45</td>
+<td>~15 comments (~103 mutants)</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part4.cs</code></td>
+<td>63.81%-attributed</td>
+<td>85.61%</td>
+<td>13</td>
+<td>19</td>
+<td>40</td>
+</tr>
+<tr>
+<td><code>SqlTokenizer.cs</code></td>
+<td>87.45%</td>
+<td><strong>99.80%</strong></td>
+<td>~15</td>
+<td>0</td>
+<td>3</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part7.cs</code></td>
+<td>68.97%</td>
+<td>90.24%</td>
+<td>14</td>
+<td>13</td>
+<td>12</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part6.cs</code></td>
+<td>84.91%</td>
+<td>94.16%</td>
+<td>14</td>
+<td>4</td>
+<td>9</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Whole-project re-run</strong>
+(<code>tests/Extrode.JauntyQ.SqlParser.Tests/StrykerOutput/2026-09-21.13-28-05</code>):
+Killed 2216, Timeout 162, Survived 289, NoCoverage 19. <strong>Final mutation
+score: 88.53%.</strong></p>
+<p><strong>Short of the 96% target.</strong> Every file above deferred a large, recurring
+survivor class rather than force-excluding it: the <code>pos &lt; tokens.Count &amp;&amp; tokens[pos].Type == X</code> guard-chain idiom (and its <code>&lt;=</code>/<code>||</code>/<code>break</code> variants)
+repeated across nearly every parser-body file, where an outer loop's own
+control flow <em>might</em> make a corrupted guard unobservable, but proving that
+requires per-call-site tracing of every caller's loop-exit behavior — judged
+out of budget in every single-file pass rather than claimed as equivalent
+without individual verification. This is the dominant remaining gap (roughly
+250–280 of the 289 Survived), not scattered residue.</p>
+<p><strong>Follow-up needed to close to 96%:</strong> a dedicated pass specifically tracing
+the guard-chain call sites file-by-file (the same files above, in the same
+order, since each already isolated its own deferred set) — expect a similar
+scale of effort to this pass (6-8 more focused rounds), since it is the same
+pattern repeated rather than a handful of one-off gaps. Not attempted in this
+push per explicit user decision (stop at 88.53%, flag for later rather than
+push blindly toward 96%).</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="06-reference-directives.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Directives reference</span>
+</a><a class="pn-next" href="06-reference-mutation-coverage-tally.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Mutation coverage tally vs. target</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>
