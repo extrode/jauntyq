@@ -98,12 +98,15 @@ public static partial class SqlParser
         bool terminated = false;
         foreach (var t in tokens)
         {
-            if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; continue; }
-            if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; continue; }
-
+            // Parens still count as content after the terminator: "SELECT 1; ()"
+            // has a second statement, however malformed.
+            if (t.Type == TokenType.Symbol && t.Value == "(")
+                depth++;
+            else if (t.Type == TokenType.Symbol && t.Value == ")")
+                depth--;
             // A ';' below depth 0 is malformed rather than a terminator; leave
             // it to the ordinary parsers rather than claiming a new statement.
-            if (depth == 0 && t.Type == TokenType.Symbol && t.Value == ";")
+            else if (depth == 0 && t.Type == TokenType.Symbol && t.Value == ";")
             {
                 terminated = true;
                 continue;
