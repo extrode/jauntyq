@@ -59,21 +59,30 @@ and [`../handoffs/2026-09-19-stryker-mutation-gaps.md`](../handoffs/2026-09-19-s
 
 ## Assemblies covered by Stryker
 
-Only 2 of 8 `src/` assemblies have a Stryker config at all; both have been
-run this effort.
+Latest whole-assembly runs (2026-09-24/25, all on mb1). This table supersedes
+the per-assembly figures in the history below it.
 
-| Assembly | Stryker config | Ever run this effort | Target | Actual | Δ to target |
-|---|---|---|---|---|---|
-| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | Yes | 96.00% | **99.14%** | **+3.14 pp (target exceeded)** |
-| `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | Yes | 96.00% | **88.53%** | **-7.47 pp (follow-up flagged)** |
-| `Extrode.JauntyQ.Cli.Core` | none | No | — | — | out of scope |
-| `Extrode.JauntyQ.Cli` | none | No | — | — | out of scope |
-| `Extrode.JauntyQ.Generator` | none | No | — | — | out of scope |
-| `Extrode.JauntyQ.Runtime` | none | No | — | — | out of scope |
-| `Extrode.JauntyQ.Schema` | none | No | — | — | out of scope |
-| `Extrode.JauntyQ.Schema.Extraction` | none | No | — | — | out of scope |
+| Assembly | Stryker config | Score | Killed | Timeout | Survived | NoCov | Notes |
+|---|---|---|---|---|---|---|---|
+| `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | **100%** | 2464 | 158 | 0 | 0 | `additional-timeout` 2000; timeouts are mutants that turn a parser loop infinite |
+| `Extrode.JauntyQ.Schema` | none (run ad hoc) | **100%** | | | 0 | 0 | |
+| `Extrode.JauntyQ.Cli.Core` | `tests/Extrode.JauntyQ.Cli.Tests/stryker-config.json` | **99.59%** | | | | | |
+| `Extrode.JauntyQ.Generator` | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.json` | **99.43%** | 1573 | 5 | 9 | 0 | 382 CompileError (excluded from score, left as is) |
+| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | **99.14%** | | | 20 | 0 | unchanged since 2026-09-21 |
+| `Extrode.JauntyQ.Schema.Extraction` | `tests/Extrode.JauntyQ.Schema.Extraction.Tests/stryker-config.json` | **97.47%** | 691 | 3 | 17 | 1 | survivors are MySql/Sqlite equivalents; NoCov is dead code at `IndexCapture.cs:18` |
+| `Extrode.JauntyQ.Cli` | — | — | | | | | no testable mutants |
+| `Extrode.JauntyQ.Runtime` | — | — | | | | | no source |
 
-Both configured Stryker projects carry the same `stryker-config.json`
+For Schema.Extraction, start the shared engines first; a scoped run went from
+15.5 min to 2.2 min with identical results:
+
+```
+eval "$(scripts/mutation-engines.sh --quiet)"
+(cd tests/Extrode.JauntyQ.Schema.Extraction.Tests && dotnet-stryker --concurrency 4)
+scripts/mutation-engines.sh --stop
+```
+
+Every configured Stryker project carries the same `stryker-config.json`
 thresholds: `high: 80, low: 65, break: 0`. The 96% target is a user-set goal
 for `Extrode.JauntyQ.Analysis` specifically, not the tool's own break
 threshold — `dotnet stryker` will not fail the build below 96%, only below 0%
