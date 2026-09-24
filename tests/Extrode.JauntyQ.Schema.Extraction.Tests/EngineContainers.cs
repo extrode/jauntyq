@@ -67,10 +67,15 @@ public static class EngineContainers
     /// a bare deterministic name would fail. Failure here is a real bug, never
     /// a skip — it runs outside any skip classification, matching the
     /// seed-outside-the-catch policy FixtureContainerBuildSiteTests enforces.
+    /// A per-process token sits between the two because an external engine
+    /// (see <see cref="ExternalEngine"/>) outlives the process: concurrent and
+    /// successive test runs share it, and each restarts the counter at 1.
     /// </summary>
     public static async Task<string> CreateDatabaseAsync(EngineHandle engine, string databaseName)
     {
-        databaseName = $"{databaseName}_{Interlocked.Increment(ref _databaseCounter)}";
+        databaseName = $"{databaseName}_{RunToken}_{Interlocked.Increment(ref _databaseCounter)}";
+        if (_externalKinds.ContainsKey(engine.Kind))
+            _externalDatabases.Add((engine, databaseName));
         switch (engine.Kind)
         {
             case EngineKind.MsSql:
@@ -103,9 +108,80 @@ public static class EngineContainers
         }
     }
 
+    internal static readonly string RunToken = Guid.NewGuid().ToString("N").Substring(0, 8);
+
     private static int _databaseCounter;
 
     private static readonly System.Collections.Concurrent.ConcurrentBag<DotNet.Testcontainers.Containers.IDatabaseContainer> _started = new();
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<EngineKind, bool> _externalKinds = new();
+
+    private static readonly System.Collections.Concurrent.ConcurrentBag<(EngineHandle Engine, string Database)> _externalDatabases = new();
+
+    /// <summary>
+    /// The environment variable that points an engine at an already-running
+    /// server instead of a container this process starts. Meant for mutation
+    /// runs: every Stryker test run starts its engines again (mid-run on mb1,
+    /// 2026-09-24, no engine container was older than 22 s), and container
+    /// lifetime (4-19 s per engine, measured locally the same day) dwarfs the
+    /// tests themselves (under 1 s per engine). The value is an admin connection
+    /// string with CREATE DATABASE rights, the same thing a container hands back.
+    /// </summary>
+    internal static string ExternalEngineVariable(EngineKind kind) => kind switch
+    {
+        EngineKind.MsSql => "JAUNTYQ_TEST_ENGINE_SQLSERVER",
+        EngineKind.Postgres => "JAUNTYQ_TEST_ENGINE_POSTGRES",
+        EngineKind.MySql => "JAUNTYQ_TEST_ENGINE_MYSQL",
+        EngineKind.MariaDb => "JAUNTYQ_TEST_ENGINE_MARIADB",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
+
+    internal static EngineHandle? ExternalEngine(EngineKind kind, Func<string, string?> getVariable)
+    {
+        string? connectionString = getVariable(ExternalEngineVariable(kind));
+        return string.IsNullOrWhiteSpace(connectionString)
+            ? null
+            : new EngineHandle(kind, Available: true, SkipReason: null, connectionString);
+    }
+
+    /// <summary>
+    /// Drops a fixture database. Only external engines need this: a container
+    /// takes its databases with it, but an external engine serves hundreds of
+    /// runs and would otherwise keep every one.
+    /// </summary>
+    internal static async Task DropDatabaseAsync(EngineHandle engine, string databaseName)
+    {
+        switch (engine.Kind)
+        {
+            case EngineKind.MsSql:
+            {
+                await using var conn = new SqlConnection(engine.AdminConnectionString);
+                await conn.OpenAsync();
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = $"ALTER DATABASE [{databaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{databaseName}]";
+                await cmd.ExecuteNonQueryAsync();
+                return;
+            }
+            case EngineKind.Postgres:
+            {
+                await using var conn = new NpgsqlConnection(engine.AdminConnectionString);
+                await conn.OpenAsync();
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = $"DROP DATABASE \"{databaseName}\" WITH (FORCE)";
+                await cmd.ExecuteNonQueryAsync();
+                return;
+            }
+            default:
+            {
+                await using var conn = new MySqlConnection(engine.AdminConnectionString);
+                await conn.OpenAsync();
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = $"DROP DATABASE `{databaseName}`";
+                await cmd.ExecuteNonQueryAsync();
+                return;
+            }
+        }
+    }
 
     /// <summary>
     /// Called once by EngineContainersTestFramework when the assembly run
@@ -114,6 +190,12 @@ public static class EngineContainers
     /// </summary>
     internal static async Task DisposeAllAsync()
     {
+        foreach (var (engine, database) in _externalDatabases)
+        {
+            try { await DropDatabaseAsync(engine, database); }
+            catch { /* best effort at teardown */ }
+        }
+
         foreach (var container in _started)
         {
             try { await ((IAsyncDisposable)container).DisposeAsync(); }
@@ -139,6 +221,13 @@ public static class EngineContainers
     // pre-declared database.
     private static async Task<EngineHandle> StartEngineAsync(EngineKind kind)
     {
+        var external = ExternalEngine(kind, Environment.GetEnvironmentVariable);
+        if (external != null)
+        {
+            _externalKinds[kind] = true;
+            return external;
+        }
+
         DotNet.Testcontainers.Containers.IDatabaseContainer container;
         try
         {
