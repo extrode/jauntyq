@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Extrode.JauntyQ.TestInfra;
@@ -190,11 +191,11 @@ public static class EngineContainers
     /// </summary>
     internal static async Task DisposeAllAsync()
     {
-        foreach (var (engine, database) in _externalDatabases)
+        await Task.WhenAll(_externalDatabases.Select(async entry =>
         {
-            try { await DropDatabaseAsync(engine, database); }
+            try { await DropDatabaseAsync(entry.Engine, entry.Database); }
             catch { /* best effort at teardown */ }
-        }
+        }));
 
         foreach (var container in _started)
         {
