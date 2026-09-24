@@ -1,5 +1,6 @@
 using Extrode.JauntyQ.SqlParser;
 using Extrode.JauntyQ.SqlParser.IR;
+using Extrode.JauntyQ.SqlParser.Tokens;
 using Xunit;
 
 namespace Extrode.JauntyQ.SqlParser.Tests;
@@ -11,6 +12,66 @@ public class SqlParserCoreSliceBMutationCoverageTests
         SqlParser.Parse(SqlTokenizer.Tokenize(sql), "TestQuery");
 
     private static ColumnRef Single(QueryModel model) => Assert.Single(model.Columns);
+
+    private static List<Token> TokensWithoutEnd(string sql)
+    {
+        var tokens = SqlTokenizer.Tokenize(sql);
+        Assert.Equal(TokenType.End, tokens[^1].Type);
+        tokens.RemoveAt(tokens.Count - 1);
+        return tokens;
+    }
+
+    [Theory]
+    [InlineData("SELECT a b")]
+    [InlineData("SELECT a INTO TEMP")]
+    [InlineData("SELECT a INTO #")]
+    [InlineData("SELECT a INTO t")]
+    [InlineData("SELECT a")]
+    [InlineData("SELECT a + b")]
+    public void TokenListWithoutEndSentinel_ParsesWithoutThrowing(string sql)
+    {
+        var tokens = TokensWithoutEnd(sql);
+
+        var ex = Record.Exception(() => SqlParser.Parse(tokens, "TestQuery"));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void LoneIdentifierAtEndOfSentinelFreeList_IsAPlainColumn()
+    {
+        var model = SqlParser.Parse(TokensWithoutEnd("SELECT a"), "TestQuery");
+
+        var col = Single(model);
+        Assert.False(col.IsExpression);
+        Assert.Equal("a", col.ColumnName);
+        Assert.Empty(model.ExpressionsMissingAlias);
+    }
+
+    [Fact]
+    public void LiteralOpenParenBeforeRealParens_IsNotStrippedAsAWrappingParen()
+    {
+        var col = Single(ParseSql("SELECT '(' EXISTS (x) AS e FROM t"));
+
+        Assert.Equal(string.Empty, col.InferredDbType);
+    }
+
+    [Fact]
+    public void ExistsFollowedOnlyByOpenParen_StillInfersBoolean()
+    {
+        var col = Single(ParseSql("SELECT EXISTS ( AS e"));
+
+        Assert.Equal("e", col.OutputAlias);
+        Assert.Equal("boolean", col.InferredDbType);
+    }
+
+    [Fact]
+    public void EmptyCountCall_InfersBigint()
+    {
+        var col = Single(ParseSql("SELECT count() AS n FROM t"));
+
+        Assert.Equal("bigint", col.InferredDbType);
+    }
 
     [Fact]
     public void ImplicitAliasFollowedByOperator_IsNotTakenAsAlias()
