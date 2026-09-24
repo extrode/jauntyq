@@ -322,7 +322,7 @@ public class QueryValidatorPart2MutationCoverageTests
     public void PaginatedQueryWithAJoin_NotChecked()
     {
         var query = Parse("select id from t limit 5");
-        query.Joins.Add(new JoinRef { LeftTable = "t", LeftColumn = "id", RightTable = "t", RightColumn = "id" });
+        query.Joins.Add(new JoinRef { LeftTable = "t", LeftColumn = "a", RightTable = "t", RightColumn = "b" });
 
         var errors = QueryValidator.Validate(query, IndexedSchema());
 
