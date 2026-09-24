@@ -2,7 +2,7 @@
 
 Binding project rules. These are the WON'T-change decisions. Contributors obey them;
 changing one is a deliberate governance act, not a casual edit. This is NOT lessons-learned
-(see docs/_lessons/) and NOT mechanical conventions (see docs/conventions.md).
+(see docs/lessons/) and NOT mechanical conventions (see docs/conventions.md).
 
 Status: draft, not yet populated with governance decisions
 

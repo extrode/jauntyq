@@ -4,7 +4,7 @@ Living record of Stryker.NET mutation-testing results for the two `src/`
 assemblies that carry a Stryker config: `Extrode.JauntyQ.Analysis` and
 `Extrode.JauntyQ.SqlParser`. Updated after each coverage-raising pass.
 Equivalent-mutant reasoning and per-mutant detail live in
-[`docs/_handoffs/2026-09-19-stryker-mutation-gaps.md`](../_handoffs/2026-09-19-stryker-mutation-gaps.md);
+[`docs/handoffs/2026-09-19-stryker-mutation-gaps.md`](../handoffs/2026-09-19-stryker-mutation-gaps.md);
 this file tracks the numbers over time.
 
 Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`.
@@ -148,7 +148,7 @@ instructed to try to break each equivalence claim rather than confirm it,
 found real, killable gaps in `DialectMapper.cs` (2 mutants) and
 `DialectReservedWords.cs` (1 mutant) — both boundary/guard conditions whose
 equivalence reasoning missed a code path (see
-[the handoff doc's fable-verify update](../_handoffs/2026-09-19-stryker-mutation-gaps.md)
+[the handoff doc's fable-verify update](../handoffs/2026-09-19-stryker-mutation-gaps.md)
 for the full per-mutant trace). Fixed in branch `test/fix-mislabeled-equivalents`
 (`6059d24`): `DialectMapper.cs` 98.72% → **99.36%**, `DialectReservedWords.cs`
 99.68% → **99.84%**. `UpsertKeyResolver.cs`'s equivalence claim held under

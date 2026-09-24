@@ -27,7 +27,7 @@ flowchart LR
 
 Rename a column, drop a table, shrink a `varchar` - the build breaks at your desk, with the query file and reason in the error list. Not in staging. Not at 2 a.m.
 
-![Build breaks, not production](../_assets/build-not-prod.svg)
+![Build breaks, not production](../assets/build-not-prod.svg)
 
 ## The problems JauntyQ solves
 

@@ -1,7 +1,7 @@
 # JauntyQ
 
 <p align="center">
-  <img src="docs/_assets/logo/jauntyq-mark.svg" alt="JauntyQ" width="160">
+  <img src="docs/assets/logo/jauntyq-mark.svg" alt="JauntyQ" width="160">
 </p>
 
 A compile-time SQL-to-C# generator. You write real `.sql` files; JauntyQ validates them at

@@ -55,7 +55,7 @@ file-by-file, expected to take a similar scale of effort to this whole pass.
 See the "2026-09-21 push" section in mutation-coverage-report.md for the full
 per-file breakdown. For score-history-over-time and
 equivalent-mutant reasoning, see [`mutation-coverage-report.md`](mutation-coverage-report.md)
-and [`../_handoffs/2026-09-19-stryker-mutation-gaps.md`](../_handoffs/2026-09-19-stryker-mutation-gaps.md).
+and [`../handoffs/2026-09-19-stryker-mutation-gaps.md`](../handoffs/2026-09-19-stryker-mutation-gaps.md).
 
 ## Assemblies covered by Stryker
 
