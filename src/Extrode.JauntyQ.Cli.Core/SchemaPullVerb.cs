@@ -42,6 +42,7 @@ public sealed class SchemaPullVerb : IVerb
                 extractor, connection, options.Provider!, dialect, LiveSchema.ProgressStream(verify: false));
 
             var dir = Path.GetDirectoryName(output);
+            // Stryker disable once Logical : output is a full path PathSafety already confined strictly below the working directory, so dir is never null or empty, and "||" only adds a CreateDirectory call on a directory that exists, which is a no-op
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
