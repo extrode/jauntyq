@@ -343,6 +343,20 @@ public class NPlusOneAnalyzerMutationCoverageTests
     }
 
     [Fact]
+    public void AmbiguousUnqualifiedBinding_IsSkipped()
+    {
+        var result = Run(Schema(new[] { Orders, OrderItems }, OrderItemsFk),
+            ("db/Orders/GetWithItems.sql",
+                "select orders.order_id, order_items.sku\nfrom orders\n" +
+                "join order_items on order_items.order_id = orders.order_id\nwhere order_id = @order_id\n" +
+                "-- @params order_id:int"),
+            ("db/OrderItems/GetByOrderId.sql", ChildGetByOrderId));
+
+        Assert.Contains(result.Results[0].GeneratedSources, s => s.HintName == "Orders.GetWithItems.g.cs");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
+    }
+
+    [Fact]
     public void SubqueryLocalBinding_IsSkipped()
     {
         var result = Run(Schema(new[] { Orders, OrderItems }, OrderItemsFk),
