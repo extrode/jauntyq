@@ -109,6 +109,7 @@ public class MySqlExtractor : ISchemaExtractor
                 bool? isUnicode = await reader.IsDBNullAsync(10) ? null : reader.GetInt32(10) == 1;
                 bool isComputed = reader.GetInt32(11) == 1;
                 bool isTinyint1 = reader.GetInt32(12) == 1;
+                // Stryker disable once String : INFORMATION_SCHEMA.COLUMNS.COLUMN_TYPE is NOT NULL, so the string.Empty arm never runs
                 string columnType = await reader.IsDBNullAsync(13) ? string.Empty : reader.GetString(13);
                 bool isView = reader.GetInt32(14) == 1;
                 // A boolean-shaped TINYINT(1)/BOOLEAN column has no
@@ -262,6 +263,7 @@ public class MySqlExtractor : ISchemaExtractor
                 {
                     if (row.Column is null)
                         continue;
+                    // Stryker disable once Boolean : with anyRealColumn left false, EnsureIndex below finds the index AddIndexColumn just created (or returns null for a missing table) and only re-applies the same expression flag
                     anyRealColumn = true;
                     IndexCapture.AddIndexColumn(schema, row.Table, row.Index, row.IsUnique, row.Column, hasPrefixKeyPart, hasExpressionKeyPart);
                 }
@@ -450,6 +452,7 @@ public class MySqlExtractor : ISchemaExtractor
 
                 string paramName = reader.GetString(1).TrimStart('@');
                 string paramType = reader.GetString(2);
+                // Stryker disable once String : PARAMETER_MODE is never NULL for a procedure parameter, and "" would fall into the same _ => In arm as "IN"
                 string mode = await reader.IsDBNullAsync(3) ? "IN" : reader.GetString(3);
                 long? paramMaxRaw = await reader.IsDBNullAsync(4) ? null : reader.GetInt64(4);
                 int? paramMax = paramMaxRaw == null ? null
@@ -523,6 +526,7 @@ public class MySqlExtractor : ISchemaExtractor
                 if (!pending.TryGetValue(fnName, out var fn))
                 {
                     long? retMaxRaw = await reader.IsDBNullAsync(2) ? null : reader.GetInt64(2);
+                    // Stryker disable once String : ROUTINES.DATA_TYPE is never NULL for a function, so the string.Empty return type arm never runs
                     fn = new FunctionSchema
                     {
                         Name = fnName,
@@ -547,6 +551,7 @@ public class MySqlExtractor : ISchemaExtractor
                     continue;
 
                 long? paramMaxRaw = await reader.IsDBNullAsync(7) ? null : reader.GetInt64(7);
+                // Stryker disable once String : PARAMETERS.DATA_TYPE is never NULL for a named parameter row, so the string.Empty arm never runs
                 string paramType = await reader.IsDBNullAsync(6) ? string.Empty : reader.GetString(6);
 
                 fn.Params.Add(new FunctionParam
@@ -565,6 +570,7 @@ public class MySqlExtractor : ISchemaExtractor
                 schema.Functions[UserTypeResolution.FunctionKey(kv.Key, pendingArgTypes[kv.Key])] = kv.Value;
         }
 
+        // Stryker disable once Statement : MySQL and MariaDB have no user-defined types, so UserTypes is always empty and Apply returns without changing anything
         UserTypeResolution.Apply(schema);
 
         return schema;
