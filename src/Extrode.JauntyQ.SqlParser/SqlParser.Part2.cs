@@ -191,7 +191,8 @@ public static partial class SqlParser
     {
         if (model.Tables.Count < 2 || !(pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "("))
             return pos;
-        pos++; // skip (
+        // pos stays on the "(": the loop below steps over it like a ",",
+        // so a separate skip here would be unobservable.
 
         var right = model.Tables[model.Tables.Count - 1];
         var left = model.Tables[model.Tables.Count - 2];
@@ -201,10 +202,7 @@ public static partial class SqlParser
         while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
         {
             if (tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")")
-            {
-                pos++;
-                break;
-            }
+                return pos + 1;
             if (tokens[pos].Type == TokenType.Identifier)
             {
                 string col = StripQualifier(tokens[pos].Value);
@@ -216,7 +214,7 @@ public static partial class SqlParser
                     RightColumn = col
                 });
             }
-            pos++; // identifier or ","
+            pos++; // "(", identifier or ","
         }
 
         return pos;
