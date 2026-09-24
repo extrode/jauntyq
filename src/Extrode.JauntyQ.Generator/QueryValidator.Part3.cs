@@ -175,6 +175,7 @@ public static partial class QueryValidator
         Dictionary<string, List<string>>? virtualTables = null)
     {
         if (string.IsNullOrEmpty(tableAlias))
+            // Stryker disable once Statement : falling through looks up "" in the alias map, which only a table ref with an empty name and alias puts there, and then needs the schema to hold a table named "" before any error can differ
             return;
 
         if (aliasToTable.TryGetValue(tableAlias, out string? tableName))
