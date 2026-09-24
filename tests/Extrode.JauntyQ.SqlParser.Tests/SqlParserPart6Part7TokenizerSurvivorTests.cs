@@ -95,7 +95,7 @@ public class SqlParserPart6Part7TokenizerSurvivorTests
     [Fact]
     public void AQuotedParenAfterAs_IsNotACteBody()
     {
-        var model = ParseSql("WITH c AS [(] SELECT 1 AS x) SELECT x FROM c");
+        var model = ParseSql("WITH c AS [(] (SELECT 1 AS x) SELECT x FROM c");
 
         Assert.Empty(model.Ctes);
     }
