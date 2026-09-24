@@ -1,9 +1,10 @@
 {
-  "_comment": "break: 0 is deliberate, not an oversight: the nightly mutation job (.github/workflows/nightly.yml) treats a score as a report to look at, never a gate that fails the run. If you're reading this because the config moved somewhere that comment doesn't apply, re-check whether break:0 is still what you want. No `mutate` glob here on purpose (2026-09-20): at 3,800 LOC, whole-project mutation of SqlParser already runs in a reasonable time, and the last several mutation-survivor-fixing passes (SqlParser.cs, Part4/6/7) relied on its full-project results, not a narrowed subset. Narrow this only if the run time becomes a real problem, not preemptively -- Generator's config narrows because 13K LOC actually is expensive by default.",
+  "_comment": "break: 0 is deliberate, not an oversight: the nightly mutation job (.github/workflows/nightly.yml) treats a score as a report to look at, never a gate that fails the run. If you're reading this because the config moved somewhere that comment doesn't apply, re-check whether break:0 is still what you want. No `mutate` glob here on purpose (2026-09-20): at 3,800 LOC, whole-project mutation of SqlParser already runs in a reasonable time, and the last several mutation-survivor-fixing passes (SqlParser.cs, Part4/6/7) relied on its full-project results, not a narrowed subset. Narrow this only if the run time becomes a real problem, not preemptively -- Generator's config narrows because 13K LOC actually is expensive by default. additional-timeout 2000 (default 5000, 2026-09-24): ~170 mutants turn a parser loop into an infinite one (pos++ removed or flipped) and each waits out the full timeout; they stay Timeout (detected) by choice, the lower wait only shortens the run. Below ~1500 risks false timeouts on a loaded machine, and a false Timeout hides a survivor.",
   "stryker-config": {
     "project": "Extrode.JauntyQ.SqlParser.csproj",
     "reporters": ["progress", "json"],
     "verbosity": "info",
+    "additional-timeout": 2000,
     "thresholds": { "high": 80, "low": 65, "break": 0 }
   }
 }
