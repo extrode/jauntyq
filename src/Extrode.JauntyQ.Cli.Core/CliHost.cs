@@ -41,8 +41,8 @@ public sealed class CliHost
     public CliHost(IReadOnlyList<IVerb> verbs)
     {
         _verbs = verbs;
-        for (int i = 0; i < verbs.Count; i++)
-            for (int j = i + 1; j < verbs.Count; j++)
+        for (int i = 1; i < verbs.Count; i++)
+            for (int j = 0; j < i; j++)
                 if (string.Equals(verbs[i].Name, verbs[j].Name, StringComparison.Ordinal))
                     throw new ArgumentException($"Verb '{verbs[i].Name}' is registered twice.", nameof(verbs));
     }
@@ -78,10 +78,10 @@ public sealed class CliHost
         for (int i = 0; i < names.Length; i++)
             names[i] = _verbs[i].Name;
         string? name = MatchName(names, args, out consumed);
-        return name == null ? null : Find(name);
+        return Find(name);
     }
 
-    private IVerb? Find(string name)
+    private IVerb? Find(string? name)
     {
         foreach (var verb in _verbs)
             if (string.Equals(verb.Name, name, StringComparison.Ordinal))
@@ -96,7 +96,8 @@ public sealed class CliHost
         foreach (var name in names)
         {
             string[] words = name.Split(' ');
-            if (words.Length <= consumed && best != null)
+            // Stryker disable once Equality : "<" differs only for a name with as many words as the current best, and two distinct names of equal length cannot both match the same leading arguments
+            if (words.Length <= consumed)
                 continue;
             if (args.Length < words.Length)
                 continue;
@@ -118,6 +119,7 @@ public sealed class CliHost
     /// </summary>
     internal static string[] SkipArgs(string[] args, int count)
     {
+        // Stryker disable once Equality : ">" differs only at count == args.Length, where the copy path returns a fresh empty array instead of Array.Empty, observable only by reference identity
         if (count >= args.Length)
             return Array.Empty<string>();
         var result = new string[args.Length - count];
