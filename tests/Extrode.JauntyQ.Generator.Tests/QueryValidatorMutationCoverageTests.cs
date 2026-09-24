@@ -236,6 +236,16 @@ public class QueryValidatorMutationCoverageTests
     }
 
     [Fact]
+    public void InSubqueryQualifiedStarOverAJoin_CountsOnlyTheQualifiedTable()
+    {
+        var errors = Validate(
+            "select product_id from products where product_id in " +
+            "(select t.* from products p join tags t on p.product_id = t.tag_id)");
+
+        Assert.DoesNotContain(errors, e => e.Code == "JNT3007");
+    }
+
+    [Fact]
     public void InSubqueryStarOverCte_CountsTheCteColumns()
     {
         var errors = Validate(
