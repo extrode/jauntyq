@@ -62,6 +62,7 @@ public sealed class SqlServerMutationCoverageFixture : IAsyncLifetime
         "CREATE VIEW dbo.v_items AS SELECT id, name FROM dbo.items;",
         "CREATE PROCEDURE dbo.p_noargs AS SELECT 1, id, note FROM dbo.items;",
         "CREATE PROCEDURE dbo.p_shape AS SELECT id, name, note FROM dbo.items;",
+        "CREATE PROCEDURE dbo.[p]]br] AS SELECT id FROM dbo.items;",
         @"CREATE PROCEDURE dbo.p_args @code dbo.code_t, @amount decimal(9,2), @lines dbo.line_tt READONLY, @total int OUTPUT
           AS SELECT @total = COUNT(*) FROM @lines;",
         "CREATE SEQUENCE dbo.seq_a AS bigint START WITH 5 INCREMENT BY 3 MINVALUE 2 MAXVALUE 1000;",
@@ -187,6 +188,7 @@ public class SqlServerExtractorMutationCoverageTests : IClassFixture<SqlServerMu
         Assert.Equal(new[] { false, false, true }, shape.Select(c => c.IsNullable));
         Assert.Equal(new[] { "id", "note" }, procs["p_noargs"].Results.Select(c => c.Name));
         Assert.Empty(procs["p_args"].Results);
+        Assert.Equal(new[] { "id" }, procs["p]br"].Results.Select(c => c.Name));
     }
 
     [SkippableFact]
