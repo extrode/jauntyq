@@ -149,12 +149,12 @@ jobs:
     timeout-minutes: 240
     strategy:
       fail-fast: false
-      # `include`, not a flat `project` list, because two entries (Extrode.JauntyQ.Schema and
-      # its own Schema.Extraction) share one test-project directory and need different config
+      # `include`, not a flat `project` list, because entry pairs (Extrode.JauntyQ.Schema and
+      # Schema.Extraction; Cli and Cli.Core) share one test-project directory and need different config
       # files and extra flags to disambiguate -- a flat list can't carry that. Widened
       # 2026-09-20 from 2 to 6 of 8 src projects (docs/handoffs/2026-09-20-coverage-mutation-
-      # gaps-from-jaunty-probe.md); Extrode.JauntyQ.Runtime is source-free (README only) and
-      # Extrode.JauntyQ.Cli is a 6-line Program.cs, neither is worth its own mutation run.
+      # gaps-from-jaunty-probe.md), and 2026-09-24 to 7 by adding Extrode.JauntyQ.Cli (shares
+      # Cli.Tests with Cli.Core). Extrode.JauntyQ.Runtime is source-free (README only).
       matrix:
         include:
           - label: Extrode.JauntyQ.SqlParser.Tests
@@ -193,6 +193,10 @@ jobs:
             # extra kills, not fix a NoCoverage gap that doesn't exist here.
             directory: Extrode.JauntyQ.Schema.Extraction.Tests
             configFile: stryker-config.schema.json
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Cli
+            directory: Extrode.JauntyQ.Cli.Tests
+            configFile: stryker-config.cli.json
             extraArgs: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
