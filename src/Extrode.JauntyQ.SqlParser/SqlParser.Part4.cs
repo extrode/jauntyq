@@ -68,7 +68,10 @@ public static partial class SqlParser
 
                 bool comparedAfter = close + 1 < end && tokens[close + 1].Type == TokenType.Symbol &&
                                      ComparisonOperators.Contains(tokens[close + 1].Value);
-                bool comparedBefore = i - 1 >= start && tokens[i - 1].Type == TokenType.Symbol &&
+                // No i - 1 >= start bound: start is always the index just past
+                // the WHERE keyword, so at i == start tokens[i - 1] is that
+                // keyword -- in range, and never a comparison Symbol.
+                bool comparedBefore = tokens[i - 1].Type == TokenType.Symbol &&
                                       ComparisonOperators.Contains(tokens[i - 1].Value);
                 // Stryker disable once Statement : removing this continue is a no-op -- i is already set to close on the line above, so the identifier scan below (for j = i+2; j < close; ...) starts past its own upper bound and never executes either way
                 if (!comparedAfter && !comparedBefore)
@@ -78,8 +81,12 @@ public static partial class SqlParser
                 }
 
                 // first identifier inside the call is the wrapped column;
-                // no identifier means the function is on the value side
-                for (int j = i + 2; j < close; j++)
+                // no identifier means the function is on the value side.
+                // != rather than <: close >= i + 2 always (tokens[i + 1] is the
+                // call's own "(" and close its match), and tokens[close] is ")"
+                // -- never an Identifier -- so j < close and j <= close would be
+                // indistinguishable.
+                for (int j = i + 2; j != close; j++)
                 {
                     if (tokens[j].Type == TokenType.Identifier)
                     {
@@ -216,9 +223,11 @@ public static partial class SqlParser
         for (int i = start; i < end; i++)
         {
             var t = tokens[i];
-            if (t.Type == TokenType.Symbol && t.Value == "(") { scanDepth++; continue; }
-            if (t.Type == TokenType.Symbol && t.Value == ")") { scanDepth--; continue; }
-            if (scanDepth == 0 && t.Type == TokenType.Keyword && t.Value == "OR")
+            if (t.Type == TokenType.Symbol && t.Value == "(")
+                scanDepth++;
+            else if (t.Type == TokenType.Symbol && t.Value == ")")
+                scanDepth--;
+            else if (scanDepth == 0 && t.Type == TokenType.Keyword && t.Value == "OR")
             {
                 hasTopLevelOr = true;
                 // Stryker disable once Statement : hasTopLevelOr is this loop's only output and it is already true here; removing this break just lets the loop keep updating scanDepth (unused after the loop) until it naturally ends, with no other observable effect
