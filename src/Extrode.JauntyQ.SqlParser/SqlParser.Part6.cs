@@ -41,9 +41,9 @@ public static partial class SqlParser
         for (int i = 0; i < tokens.Count; i++)
         {
             var t = tokens[i];
-            if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; continue; }
-            if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; continue; }
-            if (depth == 0 && t.Type == TokenType.Keyword && t.Value == "RETURNING")
+            if (t.Type == TokenType.Symbol && t.Value == "(") depth++;
+            else if (t.Type == TokenType.Symbol && t.Value == ")") depth--;
+            else if (depth == 0 && t.Type == TokenType.Keyword && t.Value == "RETURNING")
             {
                 model.HasReturning = true;
                 // Slice the projection tokens up to (but excluding) a top-level
@@ -191,16 +191,16 @@ public static partial class SqlParser
 
     /// <summary>
     /// True when the SELECT at <paramref name="selectIndex"/> is the argument of
-    /// an EXISTS (...) — the two preceding tokens are the EXISTS keyword and an
-    /// opening paren. Such an EXISTS in the projection list is an expression
-    /// projection (Feature A), never a standalone subquery.
+    /// an EXISTS (...). The caller has already checked that the preceding token
+    /// is an opening paren, so only the EXISTS keyword before it is checked here.
+    /// Such an EXISTS in the projection list is an expression projection
+    /// (Feature A), never a standalone subquery.
     /// </summary>
     private static bool IsExistsSubquery(List<Token> tokens, int selectIndex)
     {
         if (selectIndex < 2)
             return false;
-        return tokens[selectIndex - 1].Type == TokenType.Symbol && tokens[selectIndex - 1].Value == "(" &&
-               tokens[selectIndex - 2].Type == TokenType.Keyword && tokens[selectIndex - 2].Value == "EXISTS";
+        return tokens[selectIndex - 2].Type == TokenType.Keyword && tokens[selectIndex - 2].Value == "EXISTS";
     }
 
     /// <summary>
