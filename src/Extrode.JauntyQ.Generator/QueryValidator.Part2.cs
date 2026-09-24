@@ -18,7 +18,6 @@ public static partial class QueryValidator
     {
         // JNT8001: more tables than join conditions linking them
         if (query.StatementType == StatementType.Select &&
-            query.Tables.Count > 1 &&
             query.Joins.Count < query.Tables.Count - 1)
         {
             errors.Add(new ValidationError(JauntyDiagnostics.JNT8001,
@@ -94,6 +93,7 @@ public static partial class QueryValidator
             if (table.Indexes.Count > 0)
             {
                 hasIndexMetadata = true;
+                // Stryker disable once Statement : without the break the loop only visits the remaining tables, and nothing in it can set the flag back to false
                 break;
             }
         }
@@ -173,6 +173,7 @@ public static partial class QueryValidator
             var column = ResolveColumn(query, orderBy.BoundTableAlias, orderBy.BoundColumnName, aliasToTable, schema, out string? tableName);
             if (column == null || tableName == null)
                 continue;
+            // Stryker disable once Statement : unreachable -- ResolveColumn returned a column only after SchemaLookup.TryGetTable found this same tableName, so this lookup cannot fail
             if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
                 continue;
             // Same reasoning as CheckIndexed's view gate: a view declares no
@@ -259,6 +260,7 @@ public static partial class QueryValidator
         var column = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
         if (column == null || tableName == null)
             return;
+        // Stryker disable once Statement : unreachable -- ResolveColumn returned a column only after SchemaLookup.TryGetTable found this same tableName, so this lookup cannot fail
         if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
             return;
 
@@ -334,6 +336,7 @@ public static partial class QueryValidator
                 if (!filterColumns.Contains(instanceKey + "|" + index.Columns[i]))
                 {
                     coveredUpToHere = false;
+                    // Stryker disable once Statement : without the break the loop only checks later columns, and nothing in it can set the flag back to true
                     break;
                 }
             }
@@ -373,6 +376,7 @@ public static partial class QueryValidator
             if (!equalitySeekColumns.Contains(instanceKey + "|" + col.Name))
             {
                 allPkColumnsFiltered = false;
+                // Stryker disable once Statement : hasPkColumn is already true here, and without the break the loop can only set allPkColumnsFiltered to false again
                 break;
             }
         }
@@ -392,6 +396,7 @@ public static partial class QueryValidator
                 if (!equalitySeekColumns.Contains(instanceKey + "|" + keyColumn))
                 {
                     allFiltered = false;
+                    // Stryker disable once Statement : without the break the loop only checks later key columns, and nothing in it can set the flag back to true
                     break;
                 }
             }
@@ -481,11 +486,12 @@ public static partial class QueryValidator
             if (item.Kind != OrderByItemKind.PlainColumn)
             {
                 allItemsArePlainColumns = false;
+                // Stryker disable once Statement : falling through can only add this item to orderByColumns/orderedNames, and with allItemsArePlainColumns already false every path after the loop returns without reporting
                 continue;
             }
 
-            var column = ResolveColumn(query, item.BoundTableAlias, item.BoundColumnName, aliasToTable, schema, out string? tableName);
-            if (column == null || tableName == null)
+            var column = ResolveColumn(query, item.BoundTableAlias, item.BoundColumnName, aliasToTable, schema, out _);
+            if (column == null)
             {
                 // An item we cannot resolve might be the unique one.
                 allItemsArePlainColumns = false;
