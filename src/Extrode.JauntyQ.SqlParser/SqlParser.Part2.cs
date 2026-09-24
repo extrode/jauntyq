@@ -336,7 +336,7 @@ public static partial class SqlParser
 
     private static readonly HashSet<string> ComparisonOperators = new()
     {
-        "=", "!=", "<>", "<", ">", "<=", ">="
+        "=", "!=", "", "<", ">", "<=", ">="
     };
 
 }

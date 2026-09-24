@@ -207,6 +207,12 @@ jobs:
       - name: Install Stryker.NET
         run: dotnet tool install --global dotnet-stryker
 
+      # Stryker's own restore retry does not recover a never-restored multi-TFM test project
+      # (jaunty's Extrode.Jaunty.Tests failed analysis with "project.assets.json not found" on a fresh
+      # checkout, 2026-09-24), so restore the solution before it starts.
+      - name: Restore
+        run: dotnet restore JauntyQ.slnx
+
       - name: Mutate ${{ matrix.label }}
         working-directory: tests/${{ matrix.directory }}
         run: >-
