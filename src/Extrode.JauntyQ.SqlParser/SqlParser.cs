@@ -823,6 +823,7 @@ public static partial class SqlParser
         // predicates (e.g. a WHERE clause's "=") as if they were top-level
         // comparisons on the outer expression.
         int lo = 0, hi = count;
+        // Stryker disable once Equality,Arithmetic : "> 2" differs only on a bare "( )", and stopping there instead of unwrapping it to empty changes nothing below (no comparison, count needs span >= 3, EXISTS/SUM need their head token); "hi + lo" differs only once lo == hi after an unwrap, where run[hi - 1] is the "(" just stripped, so the ")" check fails either way
         while (hi - lo >= 2 &&
                run[lo].Type == TokenType.Symbol && run[lo].Value == "(" &&
                run[hi - 1].Type == TokenType.Symbol && run[hi - 1].Value == ")" &&
