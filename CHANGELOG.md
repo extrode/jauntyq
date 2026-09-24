@@ -46,7 +46,7 @@ condensed.
   Restricted (ISL-R) 1.2 with the Output Exception (ISL-OE) 1.2. `LICENSE.md`, `EXCEPTION.md`
   and `NOTICE.md` ship inside every package. The history behind this release is the core's real
   history, filtered before publication; see
-  `docs/_decisions/2026-09-02-001-history-filtered-before-first-public-release.md`.
+  `docs/decisions/2026-09-02-001-history-filtered-before-first-public-release.md`.
 - **The CLI is two tools behind one command, `jauntyq`.** `Extrode.JauntyQ.Cli` on NuGet.org carries
   `schema pull`; `Extrode.JauntyQ.Cli.Premium` carries everything else and replaces it. Both are
   .NET global tools.
