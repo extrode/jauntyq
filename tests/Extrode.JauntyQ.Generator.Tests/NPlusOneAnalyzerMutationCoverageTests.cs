@@ -60,6 +60,7 @@ public class NPlusOneAnalyzerMutationCoverageTests
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
         var result = driver.GetRunResult();
         Assert.Null(result.Results[0].Exception);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT0001");
         return result;
     }
 
