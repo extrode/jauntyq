@@ -47,6 +47,11 @@ are numbered/living-page folders) without asserting any specific cross-repo sequ
 item from either batch is affected — `tests/Shared/`, the `.config/dotnet-tools.json` pin, the dead
 schema JSON deletion and the `_assets/` move all stand.
 
+**Update, 2026-09-24:** both repos dropped the underscore prefix from unnumbered `docs/` folders
+(`_assets/` → `assets/`, `_decisions/` → `decisions/`, and so on; jauntyq's `_plans/` merged into
+`plans/`). The shape-axis rule above still holds, with the missing number rather than the
+underscore marking a folder outside the reading order. Paths below are left as originally written.
+
 ## What's already been done (all in the jaunty repo, read/analysis only until noted)
 
 1. Generated full ASCII directory trees for both repos and wrote a comparison analysis, committed
