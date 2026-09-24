@@ -111,6 +111,7 @@ internal static class NPlusOneAnalyzer
                 continue;
             foreach (var tableKey in fact.TablesRead)
             {
+                // Stryker disable once Statement : TablesRead only holds keys Build already resolved through FindTableSchema, so this guard never fires
                 if (FindTableSchema(schema, tableKey) == null)
                     continue;
                 if (!collections.TryGetValue(tableKey, out var names))
@@ -298,6 +299,7 @@ internal static class NPlusOneAnalyzer
             if (!fact.EqualityFilterColumns.Contains(tableKey + "|" + column.Name.ToLowerInvariant()))
             {
                 pkFullyFiltered = false;
+                // Stryker disable once Statement : later iterations only set hasPk (already true) or pkFullyFiltered (already false, never reset)
                 break;
             }
         }
@@ -323,6 +325,7 @@ internal static class NPlusOneAnalyzer
                 if (!fact.EqualityFilterColumns.Contains(tableKey + "|" + column.ToLowerInvariant()))
                 {
                     allFiltered = false;
+                    // Stryker disable once Statement : later iterations can only set allFiltered to false again, and nothing resets it
                     break;
                 }
             }
@@ -411,6 +414,7 @@ internal static class NPlusOneAnalyzer
                 if (!fact.EqualityFilterColumns.Contains(childTableKey + "|" + column.ToLowerInvariant()))
                 {
                     allFiltered = false;
+                    // Stryker disable once Statement : later iterations can only set allFiltered to false again, and nothing resets it
                     break;
                 }
             }
@@ -499,10 +503,10 @@ internal static class NPlusOneAnalyzer
     /// </summary>
     private sealed class QueryFacts
     {
-        public string Name = string.Empty;
+        public readonly string Name;
 
         /// <summary>The child lookup's .sql path (JNT8008 diagnostic anchor).</summary>
-        public string? Path;
+        public readonly string? Path;
 
         /// <summary>Lowercased snapshot tables this statement reads in FROM/JOIN.</summary>
         public readonly HashSet<string> TablesRead = new HashSet<string>(StringComparer.Ordinal);
@@ -524,9 +528,15 @@ internal static class NPlusOneAnalyzer
         /// </summary>
         public bool AggregateOnlyProjection;
 
+        private QueryFacts(string name, string? path)
+        {
+            Name = name;
+            Path = path;
+        }
+
         public static QueryFacts Build(string name, string? path, QueryModel query, DatabaseSchema schema)
         {
-            var facts = new QueryFacts { Name = name, Path = path };
+            var facts = new QueryFacts(name, path);
 
             // Same alias map the validator builds (later duplicates win).
             var aliasToTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -535,6 +545,7 @@ internal static class NPlusOneAnalyzer
                 string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
                 aliasToTable[key] = table.TableName;
 
+                // Stryker disable once Statement : a CTE/unknown table has no schema columns, so it never yields a filter key, and every consumer of TablesRead re-checks FindTableSchema or matches FK table keys
                 if (FindTableSchema(schema, table.TableName) == null)
                     continue; // CTE/unknown: never judged
                 string tableKey = table.TableName.ToLowerInvariant();
@@ -548,6 +559,7 @@ internal static class NPlusOneAnalyzer
             // ambiguous unqualified names) are skipped — never guessed.
             foreach (var param in query.Parameters)
             {
+                // Stryker disable once Logical,Statement : facts are built for SELECTs only, which carry no write-target params, and an empty column name makes ResolveColumn return null so the loop continues below anyway
                 if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
                     continue;
                 bool isEquality = param.ComparisonOp == "=";
@@ -574,6 +586,7 @@ internal static class NPlusOneAnalyzer
                 if (!col.IsExpression)
                 {
                     allExpressions = false;
+                    // Stryker disable once Statement : allExpressions is never set back to true, so the result is false whatever later columns set anyAggregate to
                     break;
                 }
                 if (IsAggregateExpression(col))

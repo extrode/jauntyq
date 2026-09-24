@@ -51,12 +51,14 @@ internal static class PredicateDriftAnalyzer
 
         // Nothing declares a pairing: the whole pass is inert, which is the
         // normal state of every project that has not opted in.
+        // Stryker disable once Boolean : with no directive the main loop skips every entry and reports nothing, so skipping the early return changes no output
         bool anyDirective = false;
         foreach (var entry in corpus)
         {
             if (!string.IsNullOrEmpty(entry.MirrorsTarget))
             {
                 anyDirective = true;
+                // Stryker disable once Statement : later iterations can only set anyDirective to true again
                 break;
             }
         }
@@ -182,8 +184,7 @@ internal static class PredicateDriftAnalyzer
 
     private static string MethodSegment(string qualifiedName)
     {
-        int dot = qualifiedName.LastIndexOf('.');
-        return dot >= 0 ? qualifiedName.Substring(dot + 1) : qualifiedName;
+        return qualifiedName.Substring(qualifiedName.LastIndexOf('.') + 1);
     }
 
     /// <summary>
@@ -214,6 +215,7 @@ internal static class PredicateDriftAnalyzer
     private static void CollectFrom(
         QueryModel scope, DatabaseSchema schema, List<string> into, ref bool allResolved)
     {
+        // Stryker disable once Statement : with no atoms the loop below adds nothing and leaves allResolved untouched
         if (scope.PredicateAtoms.Count == 0)
             return;
 
@@ -270,6 +272,7 @@ internal static class PredicateDriftAnalyzer
                     if (column == null || tableName == null)
                     {
                         resolved = false;
+                        // Stryker disable once Statement : an unresolved atom's canonical text is never compared; the pair is reported as JNT3010 instead
                         parts.Add(AsWritten(term));
                         break;
                     }
