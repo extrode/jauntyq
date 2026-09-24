@@ -3,6 +3,8 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Extrode.JauntyQ.Generator;
+using Extrode.JauntyQ.Schema;
+using Extrode.JauntyQ.SqlParser.IR;
 using Xunit;
 
 namespace Extrode.JauntyQ.Generator.Tests;
@@ -112,14 +114,15 @@ public class PredicateDriftMutationCoverageTests
     }
 
     [Fact]
-    public void DeclaringQueryWithoutAModel_IsSkipped()
+    public void DeclaringEntryWithoutAModel_IsSkipped()
     {
-        var result = Run(
-            ("db/Bookmarks/ListPage.sql", FlatList),
-            ("db/Bookmarks/CountForUser.sql",
-                "-- @mirrors ListPage\nselect nosuchtable.id\nfrom nosuchtable\nwhere nosuchtable.user_id = @userId\n"));
+        var corpus = new[]
+        {
+            new PredicateDriftAnalyzer.Entry("Bookmarks.CountForUser", null, null, "ListPage"),
+            new PredicateDriftAnalyzer.Entry("Bookmarks.ListPage", null, new QueryModel(), null),
+        };
 
-        AssertSilent(result);
+        Assert.Empty(PredicateDriftAnalyzer.Analyze(corpus, new DatabaseSchema()));
     }
 
     [Fact]
