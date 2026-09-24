@@ -445,7 +445,9 @@ public class PostgresExtractor : ISchemaExtractor
                     Name = seqName,
                     StartValue = reader.GetInt64(1),
                     Increment = reader.GetInt64(2),
+                    // Stryker disable once Conditional : information_schema.sequences.minimum_value is never NULL in PostgreSQL (an undeclared bound is reported as its default), so the always-read arm cannot hit DBNull; the always-null arm is killed by PostgresExtractorMutationCoverageTests.Sequence_CarriesBoundsAndCurrentValue
                     MinValue = await reader.IsDBNullAsync(3) ? null : reader.GetInt64(3),
+                    // Stryker disable once Conditional : same as MinValue above, for maximum_value
                     MaxValue = await reader.IsDBNullAsync(4) ? null : reader.GetInt64(4),
                     CurrentValue = await reader.IsDBNullAsync(5) ? null : reader.GetInt64(5)
                 };
@@ -515,9 +517,13 @@ public class PostgresExtractor : ISchemaExtractor
 
                 string paramName = reader.GetString(1).TrimStart('@');
                 string paramType = reader.GetString(2);
+                // Stryker disable once Conditional,String : information_schema.parameters.parameter_mode is never NULL for a real parameter row (measured on PostgreSQL 16: IN/INOUT/OUT), so the "IN" fallback arm and its literal are unreachable
                 string mode = await reader.IsDBNullAsync(3) ? "IN" : reader.GetString(3);
+                // Stryker disable once Conditional : PostgreSQL keeps no typmod on routine parameters, so character_maximum_length is always NULL here (measured on 16 with a varchar(10) parameter) and the always-null arm returns the same null
                 int? paramMax = await reader.IsDBNullAsync(4) ? null : reader.GetInt32(4);
+                // Stryker disable once Conditional : same typmod argument as paramMax, for numeric_precision (NULL for a numeric(10,2) parameter on 16)
                 int? paramPrecision = await reader.IsDBNullAsync(5) ? null : reader.GetInt32(5);
+                // Stryker disable once Conditional : same typmod argument as paramMax, for numeric_scale
                 int? paramScale = await reader.IsDBNullAsync(6) ? null : reader.GetInt32(6);
 
                 proc.Params.Add(new ProcedureParam
@@ -604,6 +610,7 @@ public class PostgresExtractor : ISchemaExtractor
         foreach (var composite in schema.UserTypes.Values)
         {
             if (composite.Kind != UserTypeKind.Composite)
+                // Stryker disable once Statement : falling through runs the member query for a DOMAIN, whose typrelid is 0, so the pg_class join matches no row and no member is added; the skip only saves a round trip
                 continue;
 
             await using var cmd = conn.CreateCommand();

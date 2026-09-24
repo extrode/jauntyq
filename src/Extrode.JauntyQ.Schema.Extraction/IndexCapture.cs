@@ -11,6 +11,7 @@ internal static class IndexCapture
     public static void AddIndexColumn(DatabaseSchema schema, string tableName, string indexName, bool isUnique, string columnName, bool hasPrefixKeyPart = false, bool hasExpressionKeyPart = false)
     {
         if (!schema.Tables.TryGetValue(tableName, out var table))
+            // Stryker disable once Statement : without this return EnsureIndex repeats the same TryGetValue, returns null, and the null guard below returns instead
             return;
         var index = EnsureIndex(schema, tableName, indexName, isUnique, hasExpressionKeyPart);
         if (index == null)
