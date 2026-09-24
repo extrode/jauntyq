@@ -69,6 +69,7 @@ public static partial class SqlParser
             var bodyTokens = new List<Token>();
             for (int i = bodyOpen + 1; i < bodyClose; i++)
                 bodyTokens.Add(tokens[i]);
+            // Stryker disable once String : an End token's Value is never read anywhere downstream (every consumer of an End token checks only its Type) -- the placeholder text here is inert
             bodyTokens.Add(new Token(TokenType.End, string.Empty));
 
             cte.Body = Parse(bodyTokens, model.Name + "_" + cte.Name);
