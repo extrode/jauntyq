@@ -828,7 +828,8 @@ public static partial class SqlParser
                run[hi - 1].Type == TokenType.Symbol && run[hi - 1].Value == ")" &&
                EnclosesWholeRun(run, lo, hi))
         {
-            if (lo + 1 < hi && run[lo + 1].Type == TokenType.Keyword && run[lo + 1].Value == "SELECT")
+            // The loop condition already guarantees hi - lo >= 2, so lo + 1 is in range.
+            if (run[lo + 1].Type == TokenType.Keyword && run[lo + 1].Value == "SELECT")
                 break;
 
             lo++;
@@ -847,26 +848,43 @@ public static partial class SqlParser
         for (int i = lo; i < hi; i++)
         {
             var t = run[i];
-            if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; continue; }
-            if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; continue; }
-            // Stryker disable once Update : caseDepth is only ever compared against zero; swapping ++/-- here negates every partial sum in the running total, and negation preserves both -0==0 and every zero/nonzero crossing position, so the mutant is indistinguishable from any input
-            if (t.Type == TokenType.Keyword && t.Value == "CASE") { caseDepth++; continue; }
-            // Stryker disable once Update : same negation-invariance argument as the CASE arm above applies symmetrically to END's decrement
-            if (t.Type == TokenType.Keyword && t.Value == "END") { caseDepth--; continue; }
-            if (depth != 0 || caseDepth != 0)
-                continue;
-
-            if (t.Type == TokenType.Keyword && t.Value == "IS")
+            if (t.Type == TokenType.Symbol && t.Value == "(")
             {
-                col.InferredDbType = "boolean";
-                col.InferredNotNull = true;
-                return;
+                depth++;
             }
-            if (t.Type == TokenType.Symbol && ComparisonOperators.Contains(t.Value))
+            else if (t.Type == TokenType.Symbol && t.Value == ")")
             {
-                col.InferredDbType = "boolean";
-                col.InferredNotNull = true;
-                return;
+                depth--;
+            }
+            else if (t.Type == TokenType.Keyword && t.Value == "CASE")
+            {
+                // Stryker disable once Update : caseDepth is only ever compared against zero; swapping ++/-- here negates every partial sum in the running total, and negation preserves both -0==0 and every zero/nonzero crossing position, so the mutant is indistinguishable from any input
+                caseDepth++;
+            }
+            else if (t.Type == TokenType.Keyword && t.Value == "END")
+            {
+                // Stryker disable once Update : same negation-invariance argument as the CASE arm above applies symmetrically to END's decrement
+                caseDepth--;
+            }
+            else
+            {
+                if (depth != 0 || caseDepth != 0)
+                    continue;
+
+                if (t.Type == TokenType.Keyword && t.Value == "IS")
+                {
+                    col.InferredDbType = "boolean";
+                    col.InferredNotNull = true;
+                    // Stryker disable once Statement : falling through instead reaches only a later top-level IS/comparison (writes these same two values) or the count/EXISTS/SUM checks below, and none of those can claim a run with a top-level IS: count needs every token outside its call/OVER parens to be the head or OVER, EXISTS writes these same two values, and SUM needs exactly sum ( ident )
+                    return;
+                }
+                if (t.Type == TokenType.Symbol && ComparisonOperators.Contains(t.Value))
+                {
+                    col.InferredDbType = "boolean";
+                    col.InferredNotNull = true;
+                    // Stryker disable once Statement : same fall-through argument as the IS arm above; a top-level comparison symbol is neither a count head, OVER, EXISTS, nor part of sum ( ident ), whose only symbols are its own parens
+                    return;
+                }
             }
         }
 
@@ -894,23 +912,28 @@ public static partial class SqlParser
         // COUNT there) would be wrong for them. MySQL returns BIGINT UNSIGNED,
         // whose top of range does not fit long at all. They stay unresolved and
         // still require -- @type until there is a per-dialect width table.
-        if (hi - lo >= 2 &&
+        // The shortest count call that can consume the run is "count ( )", so
+        // the span guard is 3, not the 2 the two indexed tokens alone need.
+        int span = hi - lo;
+        if (span >= 3 &&
             IsCountHead(run[lo]) &&
             run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(" &&
             ConsumesRun(run, FindMatchingClose(run, lo + 1, hi), hi))
         {
             col.InferredDbType = "bigint";
             col.InferredNotNull = true;
+            // Stryker disable once Statement : falling through reaches only the EXISTS and SUM checks, and run[lo] here is a count head, which is neither the EXISTS keyword nor a SUM/AVG head
             return;
         }
 
         // EXISTS(...) as the head -> boolean NOT NULL.
-        if (hi - lo >= 2 &&
+        if (span >= 2 &&
             run[lo].Type == TokenType.Keyword && run[lo].Value == "EXISTS" &&
             run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(")
         {
             col.InferredDbType = "boolean";
             col.InferredNotNull = true;
+            // Stryker disable once Statement : falling through reaches only the SUM check, and run[lo] here is the EXISTS keyword, not a SUM/AVG head
             return;
         }
 
@@ -922,7 +945,7 @@ public static partial class SqlParser
         // column's own DB type, which the parser can't see (no schema
         // access), so only the shape is captured here; ProjectionBuilder
         // resolves the argument against the schema to type the result.
-        if (hi - lo == 4 &&
+        if (span == 4 &&
             IsAggregateHead(run[lo], "SUM", "AVG") &&
             run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(" &&
             run[lo + 2].Type == TokenType.Identifier &&
@@ -932,7 +955,6 @@ public static partial class SqlParser
             col.AggregateFunction = run[lo].Value.ToUpperInvariant();
             col.AggregateArgTableAlias = argAlias;
             col.AggregateArgColumnName = argColumn;
-            return;
         }
     }
 
@@ -991,7 +1013,8 @@ public static partial class SqlParser
     /// </summary>
     private static bool ConsumesRun(List<Token> run, int callClose, int hi)
     {
-        if (callClose < 0)
+        // Stryker disable once Unary : FindMatchingClose returns -1 or an index at least openIndex + 1 >= 2, so "== +1" never matches, and an unguarded -1 still ends false in the sole caller (InferExpressionType's count check): -1 != hi - 1 because hi >= 3, over + 1 = 1 < hi, and run[0] is the count head or a stripped "(", never OVER
+        if (callClose == -1)
             return false;
         if (callClose == hi - 1)
             return true;
