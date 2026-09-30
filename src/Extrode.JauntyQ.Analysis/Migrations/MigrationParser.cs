@@ -501,6 +501,7 @@ public static class MigrationParser
             };
             int cp = 2;
             SkipParenGroup(def, ref cp);
+            // Stryker disable once Equality : computed-column flag loop: the extra iteration `<=` adds runs at pos == def.Count, where every Is/IsSymbol check in the body is bounds-checked to false and the loop's catchall advance leaves the loop, so it changes no state; hand-applied against the full suite, 0 failures
             while (cp < def.Count)
             {
                 if (Is(def, cp, "NOT") && Is(def, cp + 1, "NULL")) { computed.IsNullable = false; cp += 2; continue; }
@@ -616,6 +617,7 @@ public static class MigrationParser
         ApplyFacets(column, first, second, isMax);
 
         // flags
+        // Stryker disable once Equality : column flag loop: the extra iteration `<=` adds runs at pos == def.Count, where every Is/IsSymbol check in the body is bounds-checked to false and the loop's catchall advance leaves the loop, so it changes no state; hand-applied against the full suite, 0 failures
         while (pos < def.Count)
         {
             if (Is(def, pos, "NOT") && Is(def, pos + 1, "NULL"))
@@ -645,6 +647,7 @@ public static class MigrationParser
                 // optional IDENTITY(seed, increment)
                 if (IsSymbol(def, pos, "("))
                 {
+                    // Stryker disable once Equality : IDENTITY(seed, increment) scan: at pos == def.Count IsSymbol is false so `<=` takes one more pos++ and leaves pos at def.Count + 1, which the `pos < def.Count` check below and the outer flags loop treat exactly like def.Count; hand-applied against the full suite, 0 failures
                     while (pos < def.Count && !IsSymbol(def, pos, ")"))
                         pos++;
                     // Stryker disable once Boolean,Equality : Is/IsSymbol and the outer `while (pos < def.Count)` loop guard are all bounds-checked against an out-of-range pos, so mutating this comparison only changes whether the terminating `)` gets skipped here or absorbed as an out-of-range no-op by those downstream checks -- same end state either way
@@ -744,6 +747,7 @@ public static class MigrationParser
         if (!IsSymbol(def, pos, "("))
             return;
         int depth = 0;
+        // Stryker disable once Equality : paren-group scan: at pos == def.Count IsSymbol is false for both checks, so `<=` takes one more pos++ and exits with pos at def.Count + 1, which every caller treats exactly like def.Count; hand-applied against the full suite, 0 failures
         while (pos < def.Count)
         {
             if (IsSymbol(def, pos, "(")) depth++;
