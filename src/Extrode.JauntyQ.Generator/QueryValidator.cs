@@ -58,23 +58,17 @@ public static partial class QueryValidator
 
         // Data-modifying CTE chain (Feature B): validate each CTE body as its
         // own statement — with earlier CTE names in scope as virtual tables —
-        // then the final statement with the full CTE scope. Per-statement
-        // validators (ambiguity, JNT8001) never run across the boundary.
-        if (query.Ctes.Count > 0)
+        // then the final statement with the full CTE scope (empty when the
+        // query has no CTEs). Per-statement validators (ambiguity, JNT8001)
+        // never run across the boundary.
+        var scope = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var cte in query.Ctes)
         {
-            var scope = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-            foreach (var cte in query.Ctes)
-            {
-                ValidateStatement(cte.Body, schema, scope, errors);
-                // Later CTEs + the final statement can reference this CTE name.
-                scope[cte.Name] = cte.VirtualColumns;
-            }
-            ValidateStatement(query, schema, scope, errors);
-            ValidateDialectConstructs(query, schema, errors);
-            return errors;
+            ValidateStatement(cte.Body, schema, scope, errors);
+            // Later CTEs + the final statement can reference this CTE name.
+            scope[cte.Name] = cte.VirtualColumns;
         }
-
-        ValidateStatement(query, schema, null, errors);
+        ValidateStatement(query, schema, scope, errors);
         ValidateDialectConstructs(query, schema, errors);
         return errors;
     }

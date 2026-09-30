@@ -320,9 +320,9 @@ internal static class PredicateDriftAnalyzer
                 continue;
             }
             int cmp = string.CompareOrdinal(left[i], right[j]);
-            if (cmp == 0) { i++; j++; }
-            else if (cmp < 0) result.Add(left[i++]);
-            else j++;
+            if (cmp < 0) result.Add(left[i++]);
+            else if (cmp > 0) j++;
+            else { i++; j++; }
         }
         return result;
     }

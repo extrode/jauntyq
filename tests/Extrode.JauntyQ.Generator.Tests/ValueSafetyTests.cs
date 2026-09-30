@@ -496,6 +496,15 @@ public class ValueSafetyTests
     }
 
     [Fact]
+    public void PostgresInt2_40000_OutOfRange_JNT5002()
+    {
+        var result = RunTinyint("postgres", "int2",
+            "insert into flags (flag_id, level) values (@flagId, 40000)");
+
+        Assert.Single(result.Diagnostics, d => d.Id == "JNT5002");
+    }
+
+    [Fact]
     public void PostgresSerial4_5000000000_OutOfRange_JNT5002()
     {
         // "serial4" is serial's synonym -- underlying int range

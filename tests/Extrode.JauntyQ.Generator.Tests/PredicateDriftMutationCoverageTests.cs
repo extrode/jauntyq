@@ -114,6 +114,18 @@ public class PredicateDriftMutationCoverageTests
     }
 
     [Fact]
+    public void LeadingDotTarget_IsMatchedAsQualifiedName()
+    {
+        var corpus = new[]
+        {
+            new PredicateDriftAnalyzer.Entry("Bookmarks.CountForUser", null, new QueryModel(), ".ListPage"),
+            new PredicateDriftAnalyzer.Entry(".ListPage", null, new QueryModel(), null),
+        };
+
+        Assert.Empty(PredicateDriftAnalyzer.Analyze(corpus, new DatabaseSchema()));
+    }
+
+    [Fact]
     public void DeclaringEntryWithoutAModel_IsSkipped()
     {
         var corpus = new[]

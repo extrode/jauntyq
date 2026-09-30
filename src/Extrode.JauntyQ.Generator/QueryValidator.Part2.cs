@@ -649,10 +649,7 @@ public static partial class QueryValidator
         // needed a hand-built schema carrying a precision the extractor never
         // emits.) Split here by how each engine actually FAILS, because that
         // is the only thing the two cases have in common -- the name.
-        string bitDbType = column.DbType.ToLowerInvariant();
-        int bitCut = bitDbType.IndexOfAny(new[] { '(', ' ' });
-        if (bitCut >= 0)
-            bitDbType = bitDbType.Substring(0, bitCut);
+        string bitDbType = column.DbType.ToLowerInvariant().Split('(', ' ')[0];
 
         if (bitDbType == "bit"
             && string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
@@ -737,11 +734,12 @@ public static partial class QueryValidator
             // Compared by VALUE, never by counting digits: 1.500 is written
             // with three fractional digits yet is exactly representable at
             // scale 2, and counting would make it a false positive. Scale
-            // above 28 is skipped because System.Decimal cannot represent it
-            // -- such a literal was already reshaped by decimal.TryParse
-            // above, so the comparison would report the parser's rounding
-            // rather than the column's.
-            if (scale >= 0 && scale <= 28 && Math.Round(value, scale) != value)
+            // above 28 is clamped to 28: Math.Round rejects more, and
+            // System.Decimal holds at most 28 fractional digits, so rounding
+            // there is the identity and never reports. Such a literal was
+            // already reshaped by decimal.TryParse above, so a comparison
+            // would report the parser's rounding rather than the column's.
+            if (scale >= 0 && Math.Round(value, Math.Min(scale, 28)) != value)
             {
                 errors.Add(new ValidationError(JauntyDiagnostics.JNT5002,
                     $"Numeric literal {lit.Value} does not fit {tableName}.{column.Name} ({column.DbType}, precision {precision}, scale {scale}): " +
@@ -783,10 +781,7 @@ public static partial class QueryValidator
     {
         string fullDbType = columnDbType.ToLowerInvariant();
         bool unsigned = fullDbType.Contains("unsigned");
-        string dbType = fullDbType;
-        int cut = dbType.IndexOfAny(new[] { '(', ' ' });
-        if (cut >= 0)
-            dbType = dbType.Substring(0, cut);
+        string dbType = fullDbType.Split('(', ' ')[0];
 
         // tinyint is the one integer type whose signedness depends on the
         // engine: SQL Server's is unsigned 0..255, MySQL/MariaDB's is SIGNED
