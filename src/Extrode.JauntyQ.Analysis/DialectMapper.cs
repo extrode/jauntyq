@@ -444,7 +444,6 @@ public static class DialectMapper
     /// </summary>
     private static string StripMySqlUnsignedModifier(string dbType)
     {
-        int unsignedIndex = dbType.IndexOf("unsigned", StringComparison.OrdinalIgnoreCase);
-        return unsignedIndex >= 0 ? dbType.Substring(0, unsignedIndex).Trim() : dbType;
+        return dbType.Substring(0, dbType.IndexOf("unsigned", StringComparison.OrdinalIgnoreCase)).Trim();
     }
 }

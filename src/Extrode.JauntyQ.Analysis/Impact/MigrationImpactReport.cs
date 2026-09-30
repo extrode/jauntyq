@@ -47,8 +47,7 @@ public sealed class MigrationImpactReport
         {
             var highest = Classification.Safe;
             foreach (var e in Entries)
-                if (e.Classification > highest)
-                    highest = e.Classification;
+                highest = (Classification)Math.Max((int)highest, (int)e.Classification);
             return highest;
         }
     }

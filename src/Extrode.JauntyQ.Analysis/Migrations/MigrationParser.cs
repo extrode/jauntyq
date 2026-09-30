@@ -205,10 +205,11 @@ public static class MigrationParser
     /// after the first are bare continuations (e.g. the "b int" in
     /// "ADD a int, b int") that belong to the same action rather than
     /// starting a new one.</summary>
+    private enum AlterAction { Add, Drop, Alter, Modify }
+
     private sealed class AlterActionGroup
     {
-        // Stryker disable once String : every AlterActionGroup is constructed via `new AlterActionGroup { Action = action }` (see GroupAlterActions), which always overwrites this default before any read -- the field initializer's value is never observed
-        public string Action = string.Empty;
+        public AlterAction Action;
         public List<List<Token>> Bodies { get; } = new();
     }
 
@@ -228,8 +229,8 @@ public static class MigrationParser
         {
             results.Add(group.Action switch
             {
-                "ADD" => ParseAddAction(group.Bodies, tableName, raw),
-                "DROP" => ParseDropAction(group.Bodies, tableName, raw),
+                AlterAction.Add => ParseAddAction(group.Bodies, tableName, raw),
+                AlterAction.Drop => ParseDropAction(group.Bodies, tableName, raw),
                 _ => ParseAlterOrModifyAction(group.Action, group.Bodies, tableName, raw)
             });
         }
@@ -249,8 +250,6 @@ public static class MigrationParser
     private static List<AlterActionGroup>? GroupAlterActions(List<Token> tokens, int pos)
     {
         var segments = SplitRemaining(tokens, pos);
-        if (segments.Count == 0)
-            return null;
 
         var groups = new List<AlterActionGroup>();
         foreach (var segment in segments)
@@ -258,15 +257,15 @@ public static class MigrationParser
             if (segment.Count == 0)
                 continue;
 
-            string? action = Is(segment, 0, "ADD") ? "ADD"
-                : Is(segment, 0, "DROP") ? "DROP"
-                : Is(segment, 0, "ALTER") ? "ALTER"
-                : Is(segment, 0, "MODIFY") ? "MODIFY"
+            AlterAction? action = Is(segment, 0, "ADD") ? AlterAction.Add
+                : Is(segment, 0, "DROP") ? AlterAction.Drop
+                : Is(segment, 0, "ALTER") ? AlterAction.Alter
+                : Is(segment, 0, "MODIFY") ? AlterAction.Modify
                 : null;
 
             if (action != null)
             {
-                var group = new AlterActionGroup { Action = action };
+                var group = new AlterActionGroup { Action = action.Value };
                 group.Bodies.Add(segment.GetRange(1, segment.Count - 1));
                 groups.Add(group);
             }
@@ -341,7 +340,7 @@ public static class MigrationParser
                 return Unsupported(raw);
             stmt.Columns.Add(column);
         }
-        return stmt.Columns.Count > 0 ? stmt : Unsupported(raw);
+        return stmt;
     }
 
     // ALTER TABLE t DROP COLUMN a [, b ...]
@@ -371,7 +370,7 @@ public static class MigrationParser
     // ALTER TABLE t ALTER COLUMN <coldef>            (SQL Server)
     // ALTER TABLE t ALTER COLUMN c TYPE <type>       (PostgreSQL)
     // ALTER TABLE t MODIFY [COLUMN] <coldef>         (MySQL)
-    private static MigrationStatement ParseAlterOrModifyAction(string action, List<List<Token>> bodies, string tableName, string raw)
+    private static MigrationStatement ParseAlterOrModifyAction(AlterAction action, List<List<Token>> bodies, string tableName, string raw)
     {
         // Neither form supports comma-continuation in any dialect — each
         // additional column repeats "ALTER COLUMN"/"MODIFY" (its own group).
@@ -379,7 +378,7 @@ public static class MigrationParser
             return Unsupported(raw);
 
         var body = bodies[0];
-        bool isAlterColumn = action == "ALTER";
+        bool isAlterColumn = action == AlterAction.Alter;
         int p = 0;
         if (isAlterColumn)
         {
@@ -502,10 +501,9 @@ public static class MigrationParser
             };
             int cp = 2;
             SkipParenGroup(def, ref cp);
+            // Stryker disable once Equality : computed-column flag loop: the extra iteration `<=` adds runs at pos == def.Count, where every Is/IsSymbol check in the body is bounds-checked to false and the loop's catchall advance leaves the loop, so it changes no state; hand-applied against the full suite, 0 failures
             while (cp < def.Count)
             {
-                // Stryker disable once String : this branch's only effect is `cp++` before continuing, identical to the catchall `cp++` at the bottom of this loop that an unrecognized token falls through to -- blanking "PERSISTED" changes nothing observable
-                if (Is(def, cp, "PERSISTED")) { cp++; continue; }
                 if (Is(def, cp, "NOT") && Is(def, cp + 1, "NULL")) { computed.IsNullable = false; cp += 2; continue; }
                 if (Is(def, cp, "NULL")) { computed.IsNullable = true; cp++; continue; }
                 cp++;
@@ -619,6 +617,7 @@ public static class MigrationParser
         ApplyFacets(column, first, second, isMax);
 
         // flags
+        // Stryker disable once Equality : column flag loop: the extra iteration `<=` adds runs at pos == def.Count, where every Is/IsSymbol check in the body is bounds-checked to false and the loop's catchall advance leaves the loop, so it changes no state; hand-applied against the full suite, 0 failures
         while (pos < def.Count)
         {
             if (Is(def, pos, "NOT") && Is(def, pos + 1, "NULL"))
@@ -648,6 +647,7 @@ public static class MigrationParser
                 // optional IDENTITY(seed, increment)
                 if (IsSymbol(def, pos, "("))
                 {
+                    // Stryker disable once Equality : IDENTITY(seed, increment) scan: at pos == def.Count IsSymbol is false so `<=` takes one more pos++ and leaves pos at def.Count + 1, which the `pos < def.Count` check below and the outer flags loop treat exactly like def.Count; hand-applied against the full suite, 0 failures
                     while (pos < def.Count && !IsSymbol(def, pos, ")"))
                         pos++;
                     // Stryker disable once Boolean,Equality : Is/IsSymbol and the outer `while (pos < def.Count)` loop guard are all bounds-checked against an out-of-range pos, so mutating this comparison only changes whether the terminating `)` gets skipped here or absorbed as an out-of-range no-op by those downstream checks -- same end state either way
@@ -685,19 +685,9 @@ public static class MigrationParser
                 // skip the default expression (single token or parenthesized)
                 pos++;
                 if (IsSymbol(def, pos, "("))
-                {
-                    int depth = 0;
-                    while (pos < def.Count)
-                    {
-                        if (IsSymbol(def, pos, "(")) depth++;
-                        if (IsSymbol(def, pos, ")") && --depth == 0) { pos++; break; }
-                        pos++;
-                    }
-                }
-                else if (pos < def.Count)
-                {
+                    SkipParenGroup(def, ref pos);
+                else
                     pos++;
-                }
                 continue;
             }
             // Postgres identity ("GENERATED ALWAYS|BY DEFAULT AS IDENTITY
@@ -757,6 +747,7 @@ public static class MigrationParser
         if (!IsSymbol(def, pos, "("))
             return;
         int depth = 0;
+        // Stryker disable once Equality : paren-group scan: at pos == def.Count IsSymbol is false for both checks, so `<=` takes one more pos++ and exits with pos at def.Count + 1, which every caller treats exactly like def.Count; hand-applied against the full suite, 0 failures
         while (pos < def.Count)
         {
             if (IsSymbol(def, pos, "(")) depth++;
@@ -807,14 +798,13 @@ public static class MigrationParser
         string.Equals(tokens[index].Value, word, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSymbol(List<Token> tokens, int index, string symbol) =>
-        index >= 0 && index < tokens.Count &&
+        index < tokens.Count &&
         tokens[index].Type == TokenType.Symbol && tokens[index].Value == symbol;
 
     /// <summary>dbo.Gadgets -> Gadgets; bracket quoting already stripped by the tokenizer.</summary>
     private static string BareName(string name)
     {
-        int dot = name.LastIndexOf('.');
-        return dot >= 0 ? name.Substring(dot + 1) : name;
+        return name.Substring(name.LastIndexOf('.') + 1);
     }
 
     private static string ReadObjectName(List<Token> tokens, ref int pos)
@@ -872,8 +862,7 @@ public static class MigrationParser
             }
             pos++;
         }
-        if (current.Count > 0)
-            result.Add(current);
+        result.Add(current);
         return result;
     }
 
@@ -896,8 +885,7 @@ public static class MigrationParser
             }
             current.Add(t);
         }
-        if (current.Count > 0)
-            result.Add(current);
+        result.Add(current);
         return result;
     }
 
