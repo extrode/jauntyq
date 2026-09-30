@@ -578,4 +578,18 @@ public class QueryValidatorPart2MutationCoverageTests
 
         Assert.Single(Messages(errors, "JNT5002"));
     }
+
+    [Fact]
+    public void JoinSideWithNoTableQualifier_IsNotResolvedAgainstAnEmptyNamedTable()
+    {
+        var query = new QueryModel { Name = "TestQuery" };
+        query.Columns.Add(new ColumnRef { ColumnName = "id", OutputAlias = "id" });
+        query.Tables.Add(new TableRef { TableName = "", Alias = "" });
+        query.Joins.Add(new JoinRef { LeftTable = "", LeftColumn = "x", RightTable = "", RightColumn = "y" });
+        var schema = Schema("sqlserver", Table("", new[] { Col("id", pk: true) }));
+
+        var errors = QueryValidator.Validate(query, schema);
+
+        Assert.Empty(Messages(errors, "JNT2002"));
+    }
 }
