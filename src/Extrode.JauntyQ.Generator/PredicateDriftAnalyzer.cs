@@ -49,22 +49,9 @@ internal static class PredicateDriftAnalyzer
     {
         var diagnostics = new List<Diagnostic>();
 
-        // Nothing declares a pairing: the whole pass is inert, which is the
-        // normal state of every project that has not opted in.
-        // Stryker disable once Boolean : with no directive the main loop skips every entry and reports nothing, so skipping the early return changes no output
-        bool anyDirective = false;
-        foreach (var entry in corpus)
-        {
-            if (!string.IsNullOrEmpty(entry.MirrorsTarget))
-            {
-                anyDirective = true;
-                // Stryker disable once Statement : later iterations can only set anyDirective to true again
-                break;
-            }
-        }
-        if (!anyDirective)
-            return diagnostics;
-
+        // Nothing declares a pairing: declaring stays empty and the whole pass
+        // is inert, which is the normal state of every project that has not
+        // opted in.
         var declaring = new List<Entry>();
         foreach (var entry in corpus)
         {
@@ -215,10 +202,6 @@ internal static class PredicateDriftAnalyzer
     private static void CollectFrom(
         QueryModel scope, DatabaseSchema schema, List<string> into, ref bool allResolved)
     {
-        // Stryker disable once Statement : with no atoms the loop below adds nothing and leaves allResolved untouched
-        if (scope.PredicateAtoms.Count == 0)
-            return;
-
         var aliasToTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var table in scope.Tables)
         {
@@ -271,9 +254,9 @@ internal static class PredicateDriftAnalyzer
                         scope, term.TableAlias, term.Text, aliasToTable, schema, out string? tableName);
                     if (column == null || tableName == null)
                     {
+                        // An unresolved atom's canonical text is never compared:
+                        // the pair is reported as JNT3010 instead.
                         resolved = false;
-                        // Stryker disable once Statement : an unresolved atom's canonical text is never compared; the pair is reported as JNT3010 instead
-                        parts.Add(AsWritten(term));
                         break;
                     }
                     parts.Add(tableName.ToLowerInvariant() + "." + column.Name.ToLowerInvariant());
