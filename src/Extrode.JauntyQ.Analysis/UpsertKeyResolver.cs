@@ -328,16 +328,7 @@ public static class UpsertKeyResolver
     {
         foreach (var key in keyNames)
         {
-            bool found = false;
-            foreach (var col in constraintCols)
-            {
-                if (string.Equals(key, col, StringComparison.OrdinalIgnoreCase))
-                {
-                    found = true;
-                    // Stryker disable once Statement : no later iteration of this loop ever sets found back to false, so dropping `break` and continuing to iterate yields the same final value
-                    break;
-                }
-            }
+            bool found = constraintCols.Exists(col => string.Equals(key, col, StringComparison.OrdinalIgnoreCase));
             if (!found)
                 return false;
         }

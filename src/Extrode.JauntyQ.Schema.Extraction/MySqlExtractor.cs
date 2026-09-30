@@ -109,8 +109,7 @@ public class MySqlExtractor : ISchemaExtractor
                 bool? isUnicode = await reader.IsDBNullAsync(10) ? null : reader.GetInt32(10) == 1;
                 bool isComputed = reader.GetInt32(11) == 1;
                 bool isTinyint1 = reader.GetInt32(12) == 1;
-                // Stryker disable once String : columnType is only read by ParseEnumMembers, which returns no members for "" and for any text without '(' such as Stryker's replacement string
-                string columnType = await StringOrAsync(reader, 13, string.Empty);
+                string columnType = reader.GetString(13);
                 bool isView = reader.GetInt32(14) == 1;
                 // A boolean-shaped TINYINT(1)/BOOLEAN column has no
                 // NUMERIC_PRECISION signal of its own (see the query comment
@@ -519,7 +518,7 @@ public class MySqlExtractor : ISchemaExtractor
                 string fnName = reader.GetString(0);
                 if (!pending.TryGetValue(fnName, out var fn))
                 {
-                    // Stryker disable once String : ROUTINES.DATA_TYPE is never NULL for a function, so the string.Empty return type arm never runs
+                    // Stryker disable once String : ROUTINES.DATA_TYPE is NULL-able in the MySQL 8.0 catalog (NOT NULL on MariaDB 11) but was non-NULL on every function row observed live, so the string.Empty return type arm was never reached
                     string returnType = await StringOrAsync(reader, 1, string.Empty);
                     fn = new FunctionSchema
                     {
@@ -543,7 +542,7 @@ public class MySqlExtractor : ISchemaExtractor
                 if (await reader.IsDBNullAsync(5))
                     continue;
 
-                // Stryker disable once String : PARAMETERS.DATA_TYPE is never NULL for a named parameter row, so the string.Empty arm never runs
+                // Stryker disable once String : PARAMETERS.DATA_TYPE is NULL-able in the MySQL 8.0 catalog (NOT NULL on MariaDB 11) but was non-NULL on every named parameter row observed live, so the string.Empty arm was never reached
                 string paramType = await StringOrAsync(reader, 6, string.Empty);
 
                 fn.Params.Add(new FunctionParam

@@ -9,6 +9,12 @@ this file tracks the numbers over time.
 
 Score formula: `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`.
 
+> **Superseded (2026-10-01):** the comment-based exclusions recorded in the 2026-09-21 sections below
+> were audited after 0.6.0. 146 of the 165 `// Stryker disable` comments in `src` were removed (dead code
+> deleted or a killing test added), and the remaining reasons were corrected. Current counts are in
+> [`mutation-coverage-tally.md`](mutation-coverage-tally.md). The sections below are a historical record
+> and their line numbers, scores and exclusion counts no longer match the code.
+
 ## Score history
 
 | Date | Milestone | Score | Commit |

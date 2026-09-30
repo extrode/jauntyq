@@ -57,7 +57,10 @@ public class SqlServerExtractor : ISchemaExtractor
                     -- does with domain_name -- so what was missing was never the
                     -- mapping, only the record that the column was declared
                     -- through a user type at all.
-                    c.DOMAIN_NAME AS domain_name
+                    -- Only a type in the extracted schema can resolve: UserTypes
+                    -- holds that schema's types, keyed by bare name, so a same-named
+                    -- type in another schema would resolve to the wrong one.
+                    CASE WHEN c.DOMAIN_SCHEMA = c.TABLE_SCHEMA THEN c.DOMAIN_NAME END AS domain_name
                 FROM INFORMATION_SCHEMA.TABLES t
                 JOIN INFORMATION_SCHEMA.COLUMNS c
                     ON t.TABLE_NAME = c.TABLE_NAME AND t.TABLE_SCHEMA = c.TABLE_SCHEMA
@@ -258,8 +261,6 @@ public class SqlServerExtractor : ISchemaExtractor
                     DbType = paramType,
                     Direction = mode switch
                     {
-                        // Stryker disable once String : SQL Server reports an OUTPUT parameter's mode as INOUT (measured live), so neither "OUT" nor an empty string ever matches here
-                        "OUT" => ProcedureParamDirection.Out,
                         "INOUT" => ProcedureParamDirection.InOut,
                         _ => ProcedureParamDirection.In
                     },
@@ -431,8 +432,8 @@ public class SqlServerExtractor : ISchemaExtractor
                        CAST(c.scale AS int) AS num_scale
                 FROM sys.table_types tt
                 JOIN sys.schemas s ON s.schema_id = tt.schema_id
-                LEFT JOIN sys.columns c ON c.object_id = tt.type_table_object_id
-                LEFT JOIN sys.types ty ON ty.user_type_id = c.user_type_id
+                JOIN sys.columns c ON c.object_id = tt.type_table_object_id
+                JOIN sys.types ty ON ty.user_type_id = c.user_type_id
                 WHERE s.name = @schema
                 ORDER BY tt.name, c.column_id";
             AddSchemaParam(cmd);
@@ -452,14 +453,7 @@ public class SqlServerExtractor : ISchemaExtractor
                     schema.UserTypes[typeName] = tableType;
                 }
 
-                // A table type with no columns cannot be declared, but the LEFT
-                // JOIN makes that unrepresentable rather than a crash.
-                if (await reader.IsDBNullAsync(1))
-                    // Stryker disable once Statement : a table type always has at least one column (CREATE TYPE AS TABLE requires one), so this continue is never reached
-                    continue;
-
-                // A column row always has its sys.types row, and sys.columns
-                // max_length, precision and scale are NOT NULL.
+                // sys.columns max_length, precision and scale are NOT NULL.
                 string columnType = reader.GetString(2);
                 bool numeric = columnType is "decimal" or "numeric" or "money" or "smallmoney";
                 int maxLength = reader.GetInt32(4);
@@ -504,7 +498,7 @@ public class SqlServerExtractor : ISchemaExtractor
                             THEN CAST(p.NUMERIC_PRECISION AS int) END AS param_precision,
                        CASE WHEN p.DATA_TYPE IN ('decimal','numeric','money','smallmoney')
                             THEN CAST(p.NUMERIC_SCALE AS int) END AS param_scale,
-                       p.USER_DEFINED_TYPE_NAME AS param_udt
+                       CASE WHEN p.USER_DEFINED_TYPE_SCHEMA = r.SPECIFIC_SCHEMA THEN p.USER_DEFINED_TYPE_NAME END AS param_udt
                 FROM INFORMATION_SCHEMA.ROUTINES r
                 LEFT JOIN INFORMATION_SCHEMA.PARAMETERS p
                     ON r.SPECIFIC_NAME = p.SPECIFIC_NAME
@@ -572,9 +566,6 @@ public class SqlServerExtractor : ISchemaExtractor
             foreach (var kv in pending)
                 schema.Functions[UserTypeResolution.FunctionKey(kv.Key, pendingArgTypes[kv.Key])] = kv.Value;
         }
-
-        // Stryker disable once Statement : a no-op for SQL Server output: columns and parameters already carry their alias (DOMAIN_NAME, USER_DEFINED_TYPE_NAME), a function's alias return is reported as its base type, and SQL Server refuses an alias named like a system type (Msg 219, measured live, also under a case-sensitive collation), so no unresolved base type name can match an alias
-        UserTypeResolution.Apply(schema);
 
         return schema;
     }

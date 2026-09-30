@@ -22,6 +22,14 @@ public static partial class SqlParser
         string.Equals(token.Value, "LATERAL", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// NATURAL is not a tokenizer keyword, so in "FROM t NATURAL JOIN u" it
+    /// arrives as an Identifier in the alias position and would be recorded as
+    /// t's alias, like USING before it.
+    /// </summary>
+    private static bool IsNaturalKeyword(Token token) =>
+        string.Equals(token.Value, "NATURAL", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Records an unmodeled relation construct and consumes its keyword,
     /// deliberately without adding a TableRef: inventing one is the bug.
     /// </summary>
@@ -49,7 +57,7 @@ public static partial class SqlParser
             pos++;
 
             // Check for alias
-            if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
+            if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier && !IsNaturalKeyword(tokens[pos]))
             {
                 alias = tokens[pos].Value;
                 pos++;
@@ -146,6 +154,7 @@ public static partial class SqlParser
             // skipped token-by-token by ParseStatement's main loop with no
             // join key ever recorded.
             if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
+                !IsNaturalKeyword(tokens[pos]) &&
                 !string.Equals(tokens[pos].Value, "USING", StringComparison.OrdinalIgnoreCase))
             {
                 alias = tokens[pos].Value;

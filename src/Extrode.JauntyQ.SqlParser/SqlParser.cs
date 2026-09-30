@@ -824,9 +824,6 @@ public static partial class SqlParser
         int lo = 0, hi = count;
         while (true)
         {
-            // Stryker disable once Equality,Arithmetic,Statement : "<= 2" differs only on a bare "( )", and stopping there instead of unwrapping it to empty changes nothing below (no comparison, count needs span >= 3, EXISTS/SUM need their head token); "hi + lo" and a removed break only let through a span of 0 or 1, and neither can pass the paren checks below: a span of 1 would need run[lo] to be both "(" and ")", and a span of 0 only follows an unwrapped "( )", where run[lo] is its ")"
-            if (hi - lo < 2)
-                break;
             if (!(run[lo].Type == TokenType.Symbol && run[lo].Value == "(" &&
                   run[hi - 1].Type == TokenType.Symbol && run[hi - 1].Value == ")" &&
                   EnclosesWholeRun(run, lo, hi)))
@@ -924,8 +921,6 @@ public static partial class SqlParser
         {
             col.InferredDbType = "bigint";
             col.InferredNotNull = true;
-            // Stryker disable once Statement : falling through reaches only the EXISTS and SUM checks, and run[lo] here is a count head, which is neither the EXISTS keyword nor a SUM/AVG head
-            return;
         }
 
         // EXISTS(...) as the head -> boolean NOT NULL.
@@ -935,8 +930,6 @@ public static partial class SqlParser
         {
             col.InferredDbType = "boolean";
             col.InferredNotNull = true;
-            // Stryker disable once Statement : falling through reaches only the SUM check, and run[lo] here is the EXISTS keyword, not a SUM/AVG head
-            return;
         }
 
         // sum(<col>) / avg(<col>) as the *entire* expression body, with a
