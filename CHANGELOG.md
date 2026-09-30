@@ -17,7 +17,8 @@ condensed.
   post-0.6.0 audit of `// Stryker disable` comments.
 - SQL Server extraction no longer resolves a function's CLR user-defined-type return through a
   same-named alias type in the extracted schema (it reported `int` for a CLR type that shares a
-  name with an `int` alias).
+  name with an `int` alias). Columns and function parameters typed with a user type from another
+  schema are likewise no longer resolved against a same-named type in the extracted schema.
 
 ### Changed
 - Audit of the `// Stryker disable` comments after 0.6.0: 131 of the 165 were removed (34 remain, 32 after a second pass). Each

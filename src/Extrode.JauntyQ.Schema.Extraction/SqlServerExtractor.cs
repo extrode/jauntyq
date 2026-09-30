@@ -57,7 +57,10 @@ public class SqlServerExtractor : ISchemaExtractor
                     -- does with domain_name -- so what was missing was never the
                     -- mapping, only the record that the column was declared
                     -- through a user type at all.
-                    c.DOMAIN_NAME AS domain_name
+                    -- Only a type in the extracted schema can resolve: UserTypes
+                    -- holds that schema's types, keyed by bare name, so a same-named
+                    -- type in another schema would resolve to the wrong one.
+                    CASE WHEN c.DOMAIN_SCHEMA = c.TABLE_SCHEMA THEN c.DOMAIN_NAME END AS domain_name
                 FROM INFORMATION_SCHEMA.TABLES t
                 JOIN INFORMATION_SCHEMA.COLUMNS c
                     ON t.TABLE_NAME = c.TABLE_NAME AND t.TABLE_SCHEMA = c.TABLE_SCHEMA
@@ -495,7 +498,7 @@ public class SqlServerExtractor : ISchemaExtractor
                             THEN CAST(p.NUMERIC_PRECISION AS int) END AS param_precision,
                        CASE WHEN p.DATA_TYPE IN ('decimal','numeric','money','smallmoney')
                             THEN CAST(p.NUMERIC_SCALE AS int) END AS param_scale,
-                       p.USER_DEFINED_TYPE_NAME AS param_udt
+                       CASE WHEN p.USER_DEFINED_TYPE_SCHEMA = r.SPECIFIC_SCHEMA THEN p.USER_DEFINED_TYPE_NAME END AS param_udt
                 FROM INFORMATION_SCHEMA.ROUTINES r
                 LEFT JOIN INFORMATION_SCHEMA.PARAMETERS p
                     ON r.SPECIFIC_NAME = p.SPECIFIC_NAME

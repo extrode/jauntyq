@@ -31,7 +31,9 @@ public sealed class SqlServerClrUserTypeFixture : IAsyncLifetime
             "CREATE TYPE dbo.JqPoint EXTERNAL NAME JqClrUdt.JqPoint;",
             "CREATE SCHEMA s2",
             "CREATE TYPE s2.JqPoint FROM int NULL",
-            "CREATE FUNCTION s2.f_ret() RETURNS dbo.JqPoint AS BEGIN RETURN NULL END"
+            "CREATE FUNCTION s2.f_ret() RETURNS dbo.JqPoint AS BEGIN RETURN NULL END",
+            "CREATE TABLE s2.pts (id int NOT NULL PRIMARY KEY, p dbo.JqPoint NULL)",
+            "CREATE FUNCTION s2.f_arg(@p dbo.JqPoint) RETURNS int AS BEGIN RETURN 1 END"
         })
         {
             await using var cmd = conn.CreateCommand();
@@ -74,5 +76,17 @@ public class SqlServerClrUserTypeTests : IClassFixture<SqlServerClrUserTypeFixtu
         var function = Assert.Contains("f_ret", schema.Functions);
         Assert.Equal("JqPoint", function.Return.DbType);
         Assert.Null(function.Return.ResolvedFromUserType);
+    }
+
+    [SkippableFact]
+    public async Task ClrUserTypeColumnAndParameterFromAnotherSchema_AreNotResolvedThroughSameNamedAlias()
+    {
+        Skip.IfNot(_fx.Available, _fx.SkipReason);
+
+        var schema = await new SqlServerExtractor("s2").ExtractAsync(_fx.ConnectionString);
+
+        Assert.Null(schema.Tables["pts"].Columns["p"].ResolvedFromUserType);
+        var function = schema.Functions.Values.Single(f => f.Name == "f_arg");
+        Assert.Null(Assert.Single(function.Params).ResolvedFromUserType);
     }
 }
