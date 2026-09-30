@@ -293,7 +293,7 @@ public static partial class SqlParser
             default:
                 // The tokenizer already upper-cases keyword values, so for the
                 // keywords this branch mostly sees, ToUpperInvariant is a
-                // no-op -- verified by perturbation: removing it reddens
+                // no-op -- verified by mutation: removing it reddens
                 // nothing. It stays for the degenerate token types that also
                 // land here (Unterminated, TooLarge, Unknown), whose text is
                 // whatever the input held.
