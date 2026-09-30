@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Starts one long-lived server per engine for a Stryker run over
-# tests/Extrode.JauntyQ.Schema.Extraction.Tests, and prints the
+# tests/Extrode.JauntyQ.Schema.Extraction.Tests or
+# tests/Extrode.JauntyQ.Generator.Tests, and prints the
 # JAUNTYQ_TEST_ENGINE_* variables that point EngineContainers at them.
 #
 #   eval "$(./scripts/mutation-engines.sh --quiet)"

@@ -751,6 +751,7 @@ public static class MigrationParser
         while (pos < def.Count)
         {
             if (IsSymbol(def, pos, "(")) depth++;
+            // Stryker disable once Statement : dropping this pos++ leaves pos on the closing ")" instead of past it; every caller then lets the surrounding flags loop's own catchall skip that one token, so the final position and parsed column are the same either way
             if (IsSymbol(def, pos, ")") && --depth == 0) { pos++; break; }
             pos++;
         }
