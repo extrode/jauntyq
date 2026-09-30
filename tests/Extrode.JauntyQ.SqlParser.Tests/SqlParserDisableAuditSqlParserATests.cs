@@ -160,4 +160,21 @@ public class SqlParserDisableAuditSqlParserATests
         var cte = Assert.Single(model.Ctes);
         Assert.Equal("c", cte.Name);
     }
+
+    [Theory]
+    [InlineData("SELECT a FROM t NATURAL JOIN u", "", "")]
+    [InlineData("SELECT a FROM t natural join u", "", "")]
+    [InlineData("SELECT a FROM t NATURAL LEFT JOIN u", "", "")]
+    [InlineData("SELECT a FROM t x NATURAL JOIN u y", "x", "y")]
+    [InlineData("SELECT a FROM t JOIN v ON t.id = v.id NATURAL JOIN u", "", "")]
+    [InlineData("SELECT a FROM t CROSS JOIN v NATURAL JOIN u", "", "")]
+    public void NaturalJoin_IsNotTakenAsAnAlias(string sql, string firstAlias, string lastAlias)
+    {
+        var model = ParseSql(sql);
+
+        Assert.Equal(firstAlias, model.Tables[0].Alias);
+        Assert.Equal(lastAlias, model.Tables[^1].Alias);
+        Assert.DoesNotContain(model.Tables, t => t.Alias.Equals("NATURAL", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(model.Tables, t => t.TableName.Equals("NATURAL", StringComparison.OrdinalIgnoreCase));
+    }
 }

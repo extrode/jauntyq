@@ -19,9 +19,10 @@ condensed.
   same-named alias type in the extracted schema (it reported `int` for a CLR type that shares a
   name with an `int` alias). Columns and function parameters typed with a user type from another
   schema are likewise no longer resolved against a same-named type in the extracted schema.
+- `FROM t NATURAL JOIN u` no longer records `NATURAL` as the alias of `t` (or of a joined table).
 
 ### Changed
-- Audit of the `// Stryker disable` comments after 0.6.0: 131 of the 165 were removed (34 remain, 32 after a second pass). Each
+- Audit of the `// Stryker disable` comments after 0.6.0: 146 of the 165 were removed over two passes (19 remain). Each
   was either a mutant a test can kill (new tests added) or dead code (deleted). Schema.Extraction
   now reads never-NULL catalog columns directly instead of null-checking them.
 
