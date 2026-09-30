@@ -823,13 +823,17 @@ public static partial class SqlParser
         // predicates (e.g. a WHERE clause's "=") as if they were top-level
         // comparisons on the outer expression.
         int lo = 0, hi = count;
-        // Stryker disable once Equality,Arithmetic : "> 2" differs only on a bare "( )", and stopping there instead of unwrapping it to empty changes nothing below (no comparison, count needs span >= 3, EXISTS/SUM need their head token); "hi + lo" differs only once lo == hi after an unwrap, where run[hi - 1] is the "(" just stripped, so the ")" check fails either way
-        while (hi - lo >= 2 &&
-               run[lo].Type == TokenType.Symbol && run[lo].Value == "(" &&
-               run[hi - 1].Type == TokenType.Symbol && run[hi - 1].Value == ")" &&
-               EnclosesWholeRun(run, lo, hi))
+        while (true)
         {
-            // The loop condition already guarantees hi - lo >= 2, so lo + 1 is in range.
+            // Stryker disable once Equality,Arithmetic,Statement : "<= 2" differs only on a bare "( )", and stopping there instead of unwrapping it to empty changes nothing below (no comparison, count needs span >= 3, EXISTS/SUM need their head token); "hi + lo" and a removed break only let through a span of 0 or 1, and neither can pass the paren checks below: a span of 1 would need run[lo] to be both "(" and ")", and a span of 0 only follows an unwrapped "( )", where run[lo] is its ")"
+            if (hi - lo < 2)
+                break;
+            if (!(run[lo].Type == TokenType.Symbol && run[lo].Value == "(" &&
+                  run[hi - 1].Type == TokenType.Symbol && run[hi - 1].Value == ")" &&
+                  EnclosesWholeRun(run, lo, hi)))
+                break;
+
+            // The check above guarantees hi - lo >= 2, so lo + 1 is in range.
             if (run[lo + 1].Type == TokenType.Keyword && run[lo + 1].Value == "SELECT")
                 break;
 
@@ -859,12 +863,10 @@ public static partial class SqlParser
             }
             else if (t.Type == TokenType.Keyword && t.Value == "CASE")
             {
-                // Stryker disable once Update : caseDepth is only ever compared against zero; swapping ++/-- here negates every partial sum in the running total, and negation preserves both -0==0 and every zero/nonzero crossing position, so the mutant is indistinguishable from any input
                 caseDepth++;
             }
             else if (t.Type == TokenType.Keyword && t.Value == "END")
             {
-                // Stryker disable once Update : same negation-invariance argument as the CASE arm above applies symmetrically to END's decrement
                 caseDepth--;
             }
             else
