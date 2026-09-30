@@ -200,7 +200,7 @@ public static partial class SqlParser
 
         // Carry unsupported constructs the final statement itself detected
         // (e.g. UNION), but not a spurious CTE flag — the WITH is supported.
-        // Stryker disable once Logical,String : "CTE" is never actually added to UnsupportedConstructs anywhere in this codebase (grep confirms it), so from.UnsupportedConstructs can never contain it -- this guard is defensive dead code today, and forcing its comparison true/false or its literal to "" changes nothing reachable through the public Parse() API
+        // Stryker disable once Logical,String : from and to never hold the same construct here (the only construct added to to earlier is MULTI_STATEMENT, and the ; that triggers it is stripped from the final statement's tokens), so dropping the dedup changes nothing; "CTE" is never added to UnsupportedConstructs anywhere, so the c != "CTE" half is dead today
         foreach (var c in from.UnsupportedConstructs)
             if (c != "CTE" && !to.UnsupportedConstructs.Contains(c))
                 to.UnsupportedConstructs.Add(c);
