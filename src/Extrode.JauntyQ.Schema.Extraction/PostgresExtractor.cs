@@ -445,10 +445,10 @@ public class PostgresExtractor : ISchemaExtractor
                     Name = seqName,
                     StartValue = reader.GetInt64(1),
                     Increment = reader.GetInt64(2),
-                    // Stryker disable once Conditional : information_schema.sequences.minimum_value is never NULL in PostgreSQL (an undeclared bound is reported as its default), so the always-read arm cannot hit DBNull; the always-null arm is killed by PostgresExtractorMutationCoverageTests.Sequence_CarriesBoundsAndCurrentValue
-                    MinValue = await reader.IsDBNullAsync(3) ? null : reader.GetInt64(3),
-                    // Stryker disable once Conditional : same as MinValue above, for maximum_value
-                    MaxValue = await reader.IsDBNullAsync(4) ? null : reader.GetInt64(4),
+                    // minimum_value and maximum_value are never NULL in
+                    // PostgreSQL: an undeclared bound is reported as its default.
+                    MinValue = reader.GetInt64(3),
+                    MaxValue = reader.GetInt64(4),
                     CurrentValue = await reader.IsDBNullAsync(5) ? null : reader.GetInt64(5)
                 };
             }
@@ -490,10 +490,7 @@ public class PostgresExtractor : ISchemaExtractor
                 SELECT r.routine_name AS proc_name,
                        p.parameter_name AS param_name,
                        p.data_type AS data_type,
-                       p.parameter_mode AS mode,
-                       p.character_maximum_length AS max_length,
-                       p.numeric_precision AS num_precision,
-                       p.numeric_scale AS num_scale
+                       p.parameter_mode AS mode
                 FROM information_schema.routines r
                 LEFT JOIN information_schema.parameters p
                     ON r.specific_name = p.specific_name AND r.specific_schema = p.specific_schema
@@ -517,14 +514,12 @@ public class PostgresExtractor : ISchemaExtractor
 
                 string paramName = reader.GetString(1).TrimStart('@');
                 string paramType = reader.GetString(2);
-                // Stryker disable once Conditional,String : information_schema.parameters.parameter_mode is never NULL for a real parameter row (measured on PostgreSQL 16: IN/INOUT/OUT), so the "IN" fallback arm and its literal are unreachable
-                string mode = await reader.IsDBNullAsync(3) ? "IN" : reader.GetString(3);
-                // Stryker disable once Conditional : PostgreSQL keeps no typmod on routine parameters, so character_maximum_length is always NULL here (measured on 16 with a varchar(10) parameter) and the always-null arm returns the same null
-                int? paramMax = await reader.IsDBNullAsync(4) ? null : reader.GetInt32(4);
-                // Stryker disable once Conditional : same typmod argument as paramMax, for numeric_precision (NULL for a numeric(10,2) parameter on 16)
-                int? paramPrecision = await reader.IsDBNullAsync(5) ? null : reader.GetInt32(5);
-                // Stryker disable once Conditional : same typmod argument as paramMax, for numeric_scale
-                int? paramScale = await reader.IsDBNullAsync(6) ? null : reader.GetInt32(6);
+                // parameter_mode is never NULL for a real parameter row
+                // (measured on PostgreSQL 16: IN/INOUT/OUT). No length,
+                // precision or scale is read: PostgreSQL keeps no typmod on
+                // routine parameters, so information_schema reports them as
+                // NULL (measured on 16 with varchar(10) and numeric(10,2)).
+                string mode = reader.GetString(3);
 
                 proc.Params.Add(new ProcedureParam
                 {
@@ -535,10 +530,7 @@ public class PostgresExtractor : ISchemaExtractor
                         "OUT" => ProcedureParamDirection.Out,
                         "INOUT" => ProcedureParamDirection.InOut,
                         _ => ProcedureParamDirection.In
-                    },
-                    MaxLength = paramMax,
-                    Precision = paramPrecision,
-                    Scale = paramScale
+                    }
                 });
             }
         }

@@ -65,20 +65,19 @@ Three things sit outside it, and the table below is the running record of each.
 
 | Assembly | `// Stryker disable` lines in `src` | Timeouts (count as killed) | CompileError (excluded) | Mutate scope |
 |---|---|---|---|---|
-| `Extrode.JauntyQ.SqlParser` | 67 | 158 | | whole assembly |
+| `Extrode.JauntyQ.SqlParser` | 9 | 158 | | whole assembly |
 | `Extrode.JauntyQ.Schema` | 0 | | | whole assembly |
-| `Extrode.JauntyQ.Schema.Extraction` | 38 | | | whole assembly |
-| `Extrode.JauntyQ.Cli.Core` | 3 | 5 | 8 | whole assembly |
-| `Extrode.JauntyQ.Generator` | 19 | 5 | 382 | `**/QueryValidator*.cs`, `**/*Analyzer.cs`, `**/JauntyDiagnostics.cs`, `**/IdentifierGuard.cs` only |
-| `Extrode.JauntyQ.Analysis` | 38 | 26 | 108 | whole assembly |
+| `Extrode.JauntyQ.Schema.Extraction` | 8 | | | whole assembly |
+| `Extrode.JauntyQ.Cli.Core` | 2 | 5 | 8 | whole assembly |
+| `Extrode.JauntyQ.Generator` | 2 | 5 | 382 | `**/QueryValidator*.cs`, `**/*Analyzer.cs`, `**/JauntyDiagnostics.cs`, `**/IdentifierGuard.cs` only |
+| `Extrode.JauntyQ.Analysis` | 13 | 26 | 108 | whole assembly |
 
 Rules for this table:
 - A `// Stryker disable once <Mutators> : <reason>` is allowed only where no test can
   distinguish the mutant (a provably equivalent mutant such as a loop bound). Never for
   a test that is merely inconvenient to write. Prefer, in order: a killing test, simplifying
   the code so the mutated construct disappears, then a disable with the reason on the line.
-- A disable is evidence-based, not proven: the reason names why the mutant is equivalent,
-  and many were hand-applied against the full suite (0 failures). They are open to challenge.
+- A disable is evidence-based, not proven. The 2026-10 audit removed 131 of the 165 disables the 0.6.0 cut carried (34 remain), by deleting dead code or adding tests, and found one real bug (JNT8008 missed Kelvin-sign table names). Timeout and CompileError columns predate the audit.
 - Refresh the counts with
   `grep -rE 'Stryker disable' src/Extrode.JauntyQ.<Assembly> --include=*.cs | wc -l`
   and the Timeout/CompileError columns from the run's `mutation-report.json`.

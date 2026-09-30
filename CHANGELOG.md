@@ -11,6 +11,16 @@ condensed.
 
 ## [Unreleased]
 
+### Fixed
+- `JNT8008` (N+1) no longer misses a parent table whose lowercase form is not case-insensitively
+  equal to its written form (for example a name containing U+212A, the Kelvin sign). Found by the
+  post-0.6.0 audit of `// Stryker disable` comments.
+
+### Changed
+- Audit of the `// Stryker disable` comments after 0.6.0: about 100 of the 165 were removable. Each
+  was either a mutant a test can kill (new tests added) or dead code (deleted). Schema.Extraction
+  now reads never-NULL catalog columns directly instead of null-checking them.
+
 ## [0.6.0] - 2026-09-30
 
 ### Added
