@@ -523,7 +523,7 @@ public class MySqlExtractor : ISchemaExtractor
                 string fnName = reader.GetString(0);
                 if (!pending.TryGetValue(fnName, out var fn))
                 {
-                                        // Stryker disable once String : ROUTINES.DATA_TYPE is never NULL for a function, so the string.Empty return type arm never runs
+                    // Stryker disable once String : ROUTINES.DATA_TYPE is never NULL for a function, so the string.Empty return type arm never runs
                     fn = new FunctionSchema
                     {
                         Name = fnName,
@@ -546,7 +546,7 @@ public class MySqlExtractor : ISchemaExtractor
                 if (await reader.IsDBNullAsync(5))
                     continue;
 
-                                // Stryker disable once String : PARAMETERS.DATA_TYPE is never NULL for a named parameter row, so the string.Empty arm never runs
+                // Stryker disable once String : PARAMETERS.DATA_TYPE is never NULL for a named parameter row, so the string.Empty arm never runs
                 string paramType = await StringOrAsync(reader, 6, string.Empty);
 
                 fn.Params.Add(new FunctionParam
