@@ -153,5 +153,6 @@ public class CliHostTests
     {
         Assert.Empty(CliHost.SkipArgs(new[] { "a" }, 2));
         Assert.Equal(["b"], CliHost.SkipArgs(new[] { "a", "b" }, 1));
+        Assert.Same(Array.Empty<string>(), CliHost.SkipArgs(new[] { "a" }, 1));
     }
 }

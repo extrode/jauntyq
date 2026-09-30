@@ -119,7 +119,6 @@ public sealed class CliHost
     /// </summary>
     internal static string[] SkipArgs(string[] args, int count)
     {
-        // Stryker disable once Equality : ">" differs only at count == args.Length, where the copy path returns a fresh empty array instead of Array.Empty, observable only by reference identity
         if (count >= args.Length)
             return Array.Empty<string>();
         var result = new string[args.Length - count];

@@ -2,7 +2,8 @@
 
 Per-assembly, per-file mutation score, tallied against the 96% target set for
 `Extrode.JauntyQ.Analysis` (parity with sibling repo `jaunty`'s ~96% baseline).
-Last confirmed whole-project `Extrode.JauntyQ.Analysis` run: **99.14%**
+Current scores are in the table under "Assemblies covered by Stryker" (all 100%); what follows
+is history. Analysis at the time of this paragraph: **99.14%**
 (2026-09-21 08:02-08:32, pending commit) — a comment-based Stryker exclusion
 pass over 47 confirmed-equivalent survivors across 7 files, see the
 "2026-09-21 pass: Stryker comment-based exclusions" section below and in

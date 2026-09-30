@@ -65,9 +65,6 @@ public static class AutoCrud
     /// </summary>
     private static string JoinColumns(List<ColumnSchema> cols, string separator, System.Func<ColumnSchema, string> selector)
     {
-        if (cols.Count == 0)
-            // Stryker disable once all : NoCoverage, no caller passes an empty column list; documented equivalent floor
-            return "";
         var parts = new List<string>(cols.Count);
         foreach (var c in cols)
             parts.Add(selector(c));
