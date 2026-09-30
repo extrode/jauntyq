@@ -130,4 +130,25 @@ public class SqlParserDisableAuditSqlParserATests
         Assert.Equal("2", literal.Value);
         Assert.Equal("b", literal.BoundColumnName);
     }
+
+    [Theory]
+    [InlineData("INSERT INTO t (a) VALUES (@a) RETURNING id id2;", "id", "id2")]
+    [InlineData("UPDATE t SET a = @a RETURNING a new_a;", "a", "new_a")]
+    [InlineData("DELETE FROM t WHERE id = @id RETURNING t.id old_id;", "id", "old_id")]
+    public void Returning_ImplicitAliasOnLastItemBeforeSemicolon_IsAnAlias(string sql, string column, string alias)
+    {
+        var model = ParseSql(sql);
+
+        var item = Assert.Single(model.Returning);
+        Assert.Equal(column, item.ColumnName);
+        Assert.Equal(alias, item.OutputAlias);
+    }
+
+    [Fact]
+    public void InsertValues_UnbalancedCloseParen_DoesNotBindLaterReturningParameter()
+    {
+        var model = ParseSql("INSERT INTO t (a, b) VALUES (@a) RETURNING f(x, @p)");
+
+        Assert.DoesNotContain(model.Parameters, p => p.Name == "p" && p.IsWriteTarget);
+    }
 }
