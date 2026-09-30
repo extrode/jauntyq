@@ -57,8 +57,7 @@ public static partial class SqlParser
 
             int bodyOpen = pos;
             int bodyClose = FindMatchingParen(tokens, bodyOpen, tokens.Count);
-            // Stryker disable once Equality : FindMatchingParen returns -1 or an index above bodyOpen (>= 3, after WITH, name, AS), never 0, so "<= 0" is equivalent
-            if (bodyClose < 0)
+            if (bodyClose == -1)
                 break;
 
             // Slice the body tokens (excluding the surrounding parens) and add

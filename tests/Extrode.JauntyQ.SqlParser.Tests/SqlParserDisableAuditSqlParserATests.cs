@@ -151,4 +151,13 @@ public class SqlParserDisableAuditSqlParserATests
 
         Assert.DoesNotContain(model.Parameters, p => p.Name == "p" && p.IsWriteTarget);
     }
+
+    [Fact]
+    public void Cte_WellFormedBody_IsParsed()
+    {
+        var model = ParseSql("WITH c AS ( SELECT x FROM t ) SELECT x FROM c");
+
+        var cte = Assert.Single(model.Ctes);
+        Assert.Equal("c", cte.Name);
+    }
 }
