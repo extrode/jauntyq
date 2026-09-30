@@ -1119,4 +1119,13 @@ public class MigrationParserMutationCoverageTests
         Assert.True(col.IsComputed);
         Assert.False(col.IsNullable);
     }
+
+    [Fact]
+    public void AlterColumn_BracketQuotedSetBeforeGenerated_IsUnsupported()
+    {
+        var statements = MigrationParser.Parse("alter table t alter column c [set] generated always as identity");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
 }
