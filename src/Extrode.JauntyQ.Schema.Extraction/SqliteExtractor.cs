@@ -177,9 +177,9 @@ public class SqliteExtractor : ISchemaExtractor
                     else
                         cols.Add(reader.GetString(2));
                 }
-                if (hasExpressionColumn && cols.Count == 0)
+                if (hasExpressionColumn)
                 {
-                    // ALL-expression index: no column rows, but the entry must
+                    // Expression index (an all-expression one has no column rows): the entry must
                     // exist so a unique one is visible as a competing
                     // constraint.
                     IndexCapture.EnsureIndex(schema, tableName, indexName, isUnique && !isPartial, hasExpressionKeyPart: true);
