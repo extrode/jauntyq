@@ -109,7 +109,7 @@ public class MySqlExtractor : ISchemaExtractor
                 bool? isUnicode = await reader.IsDBNullAsync(10) ? null : reader.GetInt32(10) == 1;
                 bool isComputed = reader.GetInt32(11) == 1;
                 bool isTinyint1 = reader.GetInt32(12) == 1;
-                // Stryker disable once String : INFORMATION_SCHEMA.COLUMNS.COLUMN_TYPE is NOT NULL, so the string.Empty arm never runs
+                // Stryker disable once String : columnType is only read by ParseEnumMembers, which returns no members for "" and for any text without '(' such as Stryker's replacement string
                 string columnType = await StringOrAsync(reader, 13, string.Empty);
                 bool isView = reader.GetInt32(14) == 1;
                 // A boolean-shaped TINYINT(1)/BOOLEAN column has no
@@ -258,17 +258,13 @@ public class MySqlExtractor : ISchemaExtractor
                 // and Columns holding the real-column subset, so a UNIQUE one
                 // stays visible as a competing constraint. Consumers that
                 // need the full ordinal key shape skip flagged indexes.
-                bool anyRealColumn = false;
                 foreach (var row in members)
                 {
                     if (row.Column is null)
                         continue;
-                    // Stryker disable once Boolean : with anyRealColumn left false, EnsureIndex below finds the index AddIndexColumn just created (or returns null for a missing table) and only re-applies the same expression flag
-                    anyRealColumn = true;
                     IndexCapture.AddIndexColumn(schema, row.Table, row.Index, row.IsUnique, row.Column, hasPrefixKeyPart, hasExpressionKeyPart);
                 }
-                if (!anyRealColumn)
-                    IndexCapture.EnsureIndex(schema, key.Table, key.Index, members[0].IsUnique, hasExpressionKeyPart);
+                IndexCapture.EnsureIndex(schema, key.Table, key.Index, members[0].IsUnique, hasExpressionKeyPart);
             }
         }
 
@@ -452,7 +448,7 @@ public class MySqlExtractor : ISchemaExtractor
 
                 string paramName = reader.GetString(1).TrimStart('@');
                 string paramType = reader.GetString(2);
-                // Stryker disable once String : PARAMETER_MODE is never NULL for a procedure parameter, and "" would fall into the same _ => In arm as "IN"
+                // Stryker disable once String : "" falls into the same _ => In arm as "IN"
                 string mode = await StringOrAsync(reader, 3, "IN");
                 int? paramMax = NarrowLength(await NullableInt64Async(reader, 4));
                 int? paramPrecision = await reader.IsDBNullAsync(5) ? null : (int)reader.GetInt64(5);
@@ -524,13 +520,14 @@ public class MySqlExtractor : ISchemaExtractor
                 if (!pending.TryGetValue(fnName, out var fn))
                 {
                     // Stryker disable once String : ROUTINES.DATA_TYPE is never NULL for a function, so the string.Empty return type arm never runs
+                    string returnType = await StringOrAsync(reader, 1, string.Empty);
                     fn = new FunctionSchema
                     {
                         Name = fnName,
                         Schema = database,
                         Return = new FunctionReturn
                         {
-                            DbType = await StringOrAsync(reader, 1, string.Empty),
+                            DbType = returnType,
                             MaxLength = NarrowLength(await NullableInt64Async(reader, 2)),
                             Precision = await reader.IsDBNullAsync(3) ? null : (int)reader.GetInt64(3),
                             Scale = await reader.IsDBNullAsync(4) ? null : (int)reader.GetInt64(4)
@@ -563,9 +560,6 @@ public class MySqlExtractor : ISchemaExtractor
             foreach (var kv in pending)
                 schema.Functions[UserTypeResolution.FunctionKey(kv.Key, pendingArgTypes[kv.Key])] = kv.Value;
         }
-
-        // Stryker disable once Statement : MySQL and MariaDB have no user-defined types, so UserTypes is always empty and Apply returns without changing anything
-        UserTypeResolution.Apply(schema);
 
         return schema;
     }
@@ -638,11 +632,9 @@ public class MySqlExtractor : ISchemaExtractor
         int close = columnType.LastIndexOf(')');
         if (open < 0)
             return members;
-        // Stryker disable once Equality : close < open only differs from close <= open when close == open, impossible since '(' != ')'
-        if (close <= open)
-            return members;
 
-        string body = columnType.Substring(open + 1, close - open - 1);
+        // A missing ')' or one before the '(' leaves an empty body, so no members.
+        string body = columnType.Substring(open + 1, Math.Max(0, close - open - 1));
 
         var sb = new System.Text.StringBuilder();
         bool inQuotes = false;
