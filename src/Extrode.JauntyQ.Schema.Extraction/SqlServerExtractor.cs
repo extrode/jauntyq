@@ -258,8 +258,6 @@ public class SqlServerExtractor : ISchemaExtractor
                     DbType = paramType,
                     Direction = mode switch
                     {
-                        // Stryker disable once String : SQL Server reports an OUTPUT parameter's mode as INOUT (measured live), so neither "OUT" nor an empty string ever matches here
-                        "OUT" => ProcedureParamDirection.Out,
                         "INOUT" => ProcedureParamDirection.InOut,
                         _ => ProcedureParamDirection.In
                     },
@@ -431,8 +429,8 @@ public class SqlServerExtractor : ISchemaExtractor
                        CAST(c.scale AS int) AS num_scale
                 FROM sys.table_types tt
                 JOIN sys.schemas s ON s.schema_id = tt.schema_id
-                LEFT JOIN sys.columns c ON c.object_id = tt.type_table_object_id
-                LEFT JOIN sys.types ty ON ty.user_type_id = c.user_type_id
+                JOIN sys.columns c ON c.object_id = tt.type_table_object_id
+                JOIN sys.types ty ON ty.user_type_id = c.user_type_id
                 WHERE s.name = @schema
                 ORDER BY tt.name, c.column_id";
             AddSchemaParam(cmd);
@@ -452,14 +450,7 @@ public class SqlServerExtractor : ISchemaExtractor
                     schema.UserTypes[typeName] = tableType;
                 }
 
-                // A table type with no columns cannot be declared, but the LEFT
-                // JOIN makes that unrepresentable rather than a crash.
-                if (await reader.IsDBNullAsync(1))
-                    // Stryker disable once Statement : a table type always has at least one column (CREATE TYPE AS TABLE requires one), so this continue is never reached
-                    continue;
-
-                // A column row always has its sys.types row, and sys.columns
-                // max_length, precision and scale are NOT NULL.
+                // sys.columns max_length, precision and scale are NOT NULL.
                 string columnType = reader.GetString(2);
                 bool numeric = columnType is "decimal" or "numeric" or "money" or "smallmoney";
                 int maxLength = reader.GetInt32(4);
@@ -572,9 +563,6 @@ public class SqlServerExtractor : ISchemaExtractor
             foreach (var kv in pending)
                 schema.Functions[UserTypeResolution.FunctionKey(kv.Key, pendingArgTypes[kv.Key])] = kv.Value;
         }
-
-        // Stryker disable once Statement : a no-op for SQL Server output: columns and parameters already carry their alias (DOMAIN_NAME, USER_DEFINED_TYPE_NAME), a function's alias return is reported as its base type, and SQL Server refuses an alias named like a system type (Msg 219, measured live, also under a case-sensitive collation), so no unresolved base type name can match an alias
-        UserTypeResolution.Apply(schema);
 
         return schema;
     }

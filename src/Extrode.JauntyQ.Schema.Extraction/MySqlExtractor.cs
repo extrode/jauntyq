@@ -109,8 +109,7 @@ public class MySqlExtractor : ISchemaExtractor
                 bool? isUnicode = await reader.IsDBNullAsync(10) ? null : reader.GetInt32(10) == 1;
                 bool isComputed = reader.GetInt32(11) == 1;
                 bool isTinyint1 = reader.GetInt32(12) == 1;
-                // Stryker disable once String : columnType is only read by ParseEnumMembers, which returns no members for "" and for any text without '(' such as Stryker's replacement string
-                string columnType = await StringOrAsync(reader, 13, string.Empty);
+                string columnType = reader.GetString(13);
                 bool isView = reader.GetInt32(14) == 1;
                 // A boolean-shaped TINYINT(1)/BOOLEAN column has no
                 // NUMERIC_PRECISION signal of its own (see the query comment
