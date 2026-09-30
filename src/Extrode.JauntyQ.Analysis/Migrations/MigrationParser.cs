@@ -497,6 +497,7 @@ public static class MigrationParser
             };
             int cp = 2;
             SkipParenGroup(def, ref cp);
+            // Stryker disable once Equality : `<=` runs one extra iteration at cp == def.Count where Is() sees no token and the catch-all only advances cp, so it ends in the same state; `<`-to-`>` is also covered by this disable but skips the loop, which any computed-column test with NULL or NOT NULL after the expression kills
             while (cp < def.Count)
             {
                 if (Is(def, cp, "NOT") && Is(def, cp + 1, "NULL")) { computed.IsNullable = false; cp += 2; continue; }
@@ -612,6 +613,7 @@ public static class MigrationParser
         ApplyFacets(column, first, second, isMax);
 
         // flags
+        // Stryker disable once Equality : `<=` runs one extra iteration at pos == def.Count where Is()/IsSymbol() see no token and the catch-all only advances pos, so it ends in the same state
         while (pos < def.Count)
         {
             if (Is(def, pos, "NOT") && Is(def, pos + 1, "NULL"))
@@ -641,6 +643,7 @@ public static class MigrationParser
                 // optional IDENTITY(seed, increment)
                 if (IsSymbol(def, pos, "("))
                 {
+                    // Stryker disable once Equality : `<=` lets pos reach def.Count, where the statement below is guarded by its own pos < def.Count and the outer flags loop then ends, the same state as stopping at def.Count
                     while (pos < def.Count && !IsSymbol(def, pos, ")"))
                         pos++;
                     // Stryker disable once Boolean,Equality : Is/IsSymbol and the outer `while (pos < def.Count)` loop guard are all bounds-checked against an out-of-range pos, so mutating this comparison only changes whether the terminating `)` gets skipped here or absorbed as an out-of-range no-op by those downstream checks -- same end state either way
@@ -732,6 +735,7 @@ public static class MigrationParser
     private static void SkipParenGroup(List<Token> def, ref int pos)
     {
         int depth = 0;
+        // Stryker disable once Equality : `<=` runs one extra iteration at pos == def.Count where IsSymbol() sees no token, so depth never changes and the loop only advances pos past the end, which no caller reads
         while (pos < def.Count)
         {
             if (IsSymbol(def, pos, "(")) depth++;

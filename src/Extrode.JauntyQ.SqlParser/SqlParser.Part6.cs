@@ -47,8 +47,8 @@ public static partial class SqlParser
             {
                 model.HasReturning = true;
                 // Slice the projection tokens up to (but excluding) a top-level
-                // statement terminator ';', appending an End sentinel so the
-                // shared projection parser treats ';' exactly like end-of-input.
+                // statement terminator ';', so the shared projection parser
+                // sees ';' as end-of-input (the parser tolerates a list with no End token).
                 // Without this a trailing ';' is swallowed into the last item,
                 // demoting a plain column to an alias-less expression (JNT3004).
                 var projTokens = new List<Token>();
@@ -62,8 +62,6 @@ public static partial class SqlParser
                         break;
                     projTokens.Add(pt);
                 }
-                // Stryker disable once String : an End token's Value is never read anywhere downstream (every consumer of an End token checks only its Type) -- the placeholder text here is inert
-                projTokens.Add(new Token(TokenType.End, string.Empty));
                 ParseProjectionList(projTokens, 0, model, model.Returning);
                 return;
             }

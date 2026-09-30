@@ -33,9 +33,12 @@ public static partial class SqlParser
                 boundaryDepth--;
             if (tokens[i].Type != TokenType.Keyword || boundaryDepth != 0)
                 continue;
-            if (start == -1 && tokens[i].Value == "WHERE")
-                start = i + 1;
-            if (start != -1 && tokens[i].Value is "GROUP" or "ORDER" or "HAVING")
+            if (start == -1)
+            {
+                if (tokens[i].Value == "WHERE")
+                    start = i + 1;
+            }
+            else if (tokens[i].Value is "GROUP" or "ORDER" or "HAVING")
             {
                 end = i;
                 break;
@@ -185,9 +188,12 @@ public static partial class SqlParser
                 boundaryDepth--;
             if (tokens[i].Type != TokenType.Keyword || boundaryDepth != 0)
                 continue;
-            if (start == -1 && tokens[i].Value == "WHERE")
-                start = i + 1;
-            if (start != -1 && tokens[i].Value is "GROUP" or "ORDER" or "HAVING")
+            if (start == -1)
+            {
+                if (tokens[i].Value == "WHERE")
+                    start = i + 1;
+            }
+            else if (tokens[i].Value is "GROUP" or "ORDER" or "HAVING")
             {
                 end = i;
                 break;
