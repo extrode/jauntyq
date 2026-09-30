@@ -1078,4 +1078,45 @@ public class MigrationParserMutationCoverageTests
         Assert.False(stmt.Columns[0].IsNullable);
         Assert.Equal("b", stmt.Columns[1].Name);
     }
+
+    [Fact]
+    public void AlterColumn_AddGenerated_IsUnsupported()
+    {
+        var statements = MigrationParser.Parse("alter table t alter column c add generated always as identity");
+
+        var stmt = Assert.Single(statements);
+        Assert.Equal(MigrationStatementKind.Unsupported, stmt.Kind);
+    }
+
+    [Fact]
+    public void CreateTable_ParenthesizedDefaultFollowedByNotNull_KeepsNotNull()
+    {
+        var statements = MigrationParser.Parse("create table t (a int default (0) not null)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
+    [Fact]
+    public void CreateTable_ComputedShorthandFollowedByNotNull_KeepsNotNull()
+    {
+        var statements = MigrationParser.Parse("create table t (a int, b as (a + 1) not null)");
+
+        var stmt = Assert.Single(statements);
+        var computed = stmt.Columns.Single(c => c.Name == "b");
+        Assert.True(computed.IsComputed);
+        Assert.False(computed.IsNullable);
+    }
+
+    [Fact]
+    public void CreateTable_GeneratedAsExpressionStoredFollowedByNotNull_KeepsNotNull()
+    {
+        var statements = MigrationParser.Parse("create table t (a int, b int generated always as (a + 1) stored not null)");
+
+        var stmt = Assert.Single(statements);
+        var col = stmt.Columns.Single(c => c.Name == "b");
+        Assert.True(col.IsComputed);
+        Assert.False(col.IsNullable);
+    }
 }
