@@ -183,7 +183,7 @@ public sealed class ReferencedObjects
             // Stryker disable once NullCoalescing,String : GetHashCode's only contract is equal objects => equal hashes, which holds under any fixed hash transform of a possibly-null Table, mutated or not
             int h = StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Table ?? "");
             // Stryker disable once Arithmetic,Bitwise,NullCoalescing,String : same GetHashCode contract argument applies to this line's combining step regardless of the specific transform
-            return (h * 397) ^ StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Column ?? "");
+            return unchecked((h * 397) ^ StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Column ?? ""));
         }
     }
 }
