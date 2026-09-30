@@ -518,7 +518,7 @@ public class MySqlExtractor : ISchemaExtractor
                 string fnName = reader.GetString(0);
                 if (!pending.TryGetValue(fnName, out var fn))
                 {
-                    // Stryker disable once String : ROUTINES.DATA_TYPE is never NULL for a function, so the string.Empty return type arm never runs
+                    // Stryker disable once String : ROUTINES.DATA_TYPE is NULL-able in the MySQL 8.0 catalog (NOT NULL on MariaDB 11) but was non-NULL on every function row observed live, so the string.Empty return type arm was never reached
                     string returnType = await StringOrAsync(reader, 1, string.Empty);
                     fn = new FunctionSchema
                     {
@@ -542,7 +542,7 @@ public class MySqlExtractor : ISchemaExtractor
                 if (await reader.IsDBNullAsync(5))
                     continue;
 
-                // Stryker disable once String : PARAMETERS.DATA_TYPE is never NULL for a named parameter row, so the string.Empty arm never runs
+                // Stryker disable once String : PARAMETERS.DATA_TYPE is NULL-able in the MySQL 8.0 catalog (NOT NULL on MariaDB 11) but was non-NULL on every named parameter row observed live, so the string.Empty arm was never reached
                 string paramType = await StringOrAsync(reader, 6, string.Empty);
 
                 fn.Params.Add(new FunctionParam
