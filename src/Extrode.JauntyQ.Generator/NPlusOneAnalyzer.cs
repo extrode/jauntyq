@@ -431,7 +431,9 @@ internal static class NPlusOneAnalyzer
     /// Two genuinely distinct FKs between the same pair of tables also merge —
     /// a deliberate conservative choice: the merged group demands equality on
     /// the union of columns, so it can only under-fire, never over-fire.
-    /// Groups and their columns are sorted for deterministic output.
+    /// Groups are ordered by child table only; ties between groups for the same
+    /// child table never reach a diagnostic (see CountDistinctFilteredParentFks).
+    /// Columns within a group are sorted.
     /// </summary>
     private static List<FkGroup> BuildFkGroups(DatabaseSchema schema)
     {
