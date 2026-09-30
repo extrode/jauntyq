@@ -57,6 +57,32 @@ per-file breakdown. For score-history-over-time and
 equivalent-mutant reasoning, see [`mutation-coverage-report.md`](mutation-coverage-report.md)
 and [`../handoffs/2026-09-19-stryker-mutation-gaps.md`](../handoffs/2026-09-19-stryker-mutation-gaps.md).
 
+## What the 100% does and does not mean
+
+The score is killed-or-timed-out over the mutants Stryker was allowed to test.
+Three things sit outside it, and the table below is the running record of each.
+
+| Assembly | `// Stryker disable` lines in `src` | Timeouts (count as killed) | CompileError (excluded) | Mutate scope |
+|---|---|---|---|---|
+| `Extrode.JauntyQ.SqlParser` | 67 | 158 | | whole assembly |
+| `Extrode.JauntyQ.Schema` | 0 | | | whole assembly |
+| `Extrode.JauntyQ.Schema.Extraction` | 38 | | | whole assembly |
+| `Extrode.JauntyQ.Cli.Core` | 3 | 5 | 8 | whole assembly |
+| `Extrode.JauntyQ.Generator` | 19 | 5 | 382 | `**/QueryValidator*.cs`, `**/*Analyzer.cs`, `**/JauntyDiagnostics.cs`, `**/IdentifierGuard.cs` only |
+| `Extrode.JauntyQ.Analysis` | 38 | 26 | 108 | whole assembly |
+
+Rules for this table:
+- A `// Stryker disable once <Mutators> : <reason>` is allowed only where no test can
+  distinguish the mutant (a provably equivalent mutant such as a loop bound). Never for
+  a test that is merely inconvenient to write. Prefer, in order: a killing test, simplifying
+  the code so the mutated construct disappears, then a disable with the reason on the line.
+- A disable is evidence-based, not proven: the reason names why the mutant is equivalent,
+  and many were hand-applied against the full suite (0 failures). They are open to challenge.
+- Refresh the counts with
+  `grep -rE 'Stryker disable' src/Extrode.JauntyQ.<Assembly> --include=*.cs | wc -l`
+  and the Timeout/CompileError columns from the run's `mutation-report.json`.
+- Code coverage is tracked separately in `code-coverage.md`.
+
 ## Assemblies covered by Stryker
 
 Latest whole-assembly runs (2026-09-24 to 2026-09-30, all on mb1). This table supersedes
