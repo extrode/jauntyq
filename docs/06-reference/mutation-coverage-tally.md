@@ -68,7 +68,7 @@ the per-assembly figures in the history below it.
 | `Extrode.JauntyQ.Schema` | none (run ad hoc) | **100%** | | | 0 | 0 | |
 | `Extrode.JauntyQ.Cli.Core` | `tests/Extrode.JauntyQ.Cli.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 1m08s |
 | `Extrode.JauntyQ.Generator` | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 1h34m with shared engines (`eval "$(scripts/mutation-engines.sh --quiet)"`, concurrency 4); CompileError mutants excluded from score |
-| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | **99.14%** | | | 20 | 0 | unchanged since 2026-09-21 |
+| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | **100%** | | | 0 | 0 | whole-assembly run 99.91% (2 survivors), both resolved; scoped rerun of those two files 100% |
 | `Extrode.JauntyQ.Schema.Extraction` | `tests/Extrode.JauntyQ.Schema.Extraction.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 22 min with shared engines |
 | `Extrode.JauntyQ.Cli` | — | — | | | | | no testable mutants |
 | `Extrode.JauntyQ.Runtime` | — | — | | | | | no source |
