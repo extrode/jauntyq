@@ -224,8 +224,10 @@ public class SqliteExtractor : ISchemaExtractor
     {
         int open = declaredType.IndexOf('(');
         int close = declaredType.IndexOf(')');
-        // Stryker disable once Arithmetic : open - 1 only differs from open + 1 when close is open or open + 1; the first is impossible since '(' != ')' and the second is "()", whose empty inner text parses to (null, null) anyway
-        if (open < 0 || close <= open + 1)
+        if (open < 0)
+            return (null, null);
+        // Stryker disable once Arithmetic,Equality : open - 1 and close < open + 1 only differ from the original when close is open or open + 1; the first is impossible since '(' != ')' and the second is "()", whose empty inner text parses to (null, null) anyway
+        if (close <= open + 1)
             return (null, null);
         var parts = declaredType.Substring(open + 1, close - open - 1).Split(',');
         int? first = int.TryParse(parts[0].Trim(), out int f) ? f : null;
