@@ -48,7 +48,8 @@ public static partial class SqlParser
                 model.HasReturning = true;
                 // Slice the projection tokens up to (but excluding) a top-level
                 // statement terminator ';', so the shared projection parser
-                // sees ';' as end-of-input (the parser tolerates a list with no End token).
+                // sees ';' as end-of-input. The slice carries no End token, which the
+                // projection parser treats as the end of the list.
                 // Without this a trailing ';' is swallowed into the last item,
                 // demoting a plain column to an alias-less expression (JNT3004).
                 var projTokens = new List<Token>();

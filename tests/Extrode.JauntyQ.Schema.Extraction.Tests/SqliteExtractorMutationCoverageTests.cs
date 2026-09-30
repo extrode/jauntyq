@@ -71,6 +71,8 @@ public class SqliteExtractorMutationCoverageTests : IDisposable
     [InlineData("(10)", 10, null)]
     [InlineData("(10,2)", 10, 2)]
     [InlineData("VARCHAR()", null, null)]
+    [InlineData("DECIMAL(10", null, null)]
+    [InlineData("a)b(1", null, null)]
     [InlineData("VARCHAR", null, null)]
     public void ParseDeclaredNumbers_ReadsOnlyAWellFormedParenthesisedList(string declared, int? first, int? second)
     {

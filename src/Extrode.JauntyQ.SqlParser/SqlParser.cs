@@ -580,16 +580,10 @@ public static partial class SqlParser
                     else if (tokens[pos + 1].Type == TokenType.Identifier &&
                              !IsClauseKeyword(tokens[pos + 1].Value))
                     {
-                        if (pos + 2 < tokens.Count)
+                        if (pos + 2 >= tokens.Count || EndsAnAliasedItem(tokens[pos + 2]))
                         {
-                            var afterAlias = tokens[pos + 2];
-                            if ((afterAlias.Type == TokenType.Symbol && afterAlias.Value == ",") ||
-                                (afterAlias.Type == TokenType.Keyword && EndsASelectListItem(afterAlias.Value)) ||
-                                afterAlias.Type == TokenType.End)
-                            {
-                                outputAlias = tokens[pos + 1].Value;
-                                pos++;
-                            }
+                            outputAlias = tokens[pos + 1].Value;
+                            pos++;
                         }
                     }
                 }
@@ -633,6 +627,11 @@ public static partial class SqlParser
     /// 2026-08-31: with the refusal in place but this helper absent, the
     /// aliased form was refused and the unaliased form was not.</para>
     /// </summary>
+    private static bool EndsAnAliasedItem(Token token) =>
+        (token.Type == TokenType.Symbol && token.Value == ",") ||
+        (token.Type == TokenType.Keyword && EndsASelectListItem(token.Value)) ||
+        token.Type == TokenType.End;
+
     private static bool EndsASelectListItem(string keyword) =>
         IsClauseKeyword(keyword) || string.Equals(keyword, "INTO", StringComparison.OrdinalIgnoreCase);
 

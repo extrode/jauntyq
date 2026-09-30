@@ -79,7 +79,6 @@ public static partial class SqlParser
                     if (depth == 0)
                     {
                         BindInsertSlot(slot, insertColumns, colIndex, model);
-                        // Stryker disable once Statement : without this break the fall-through runs depth-- and slot.Add(")"), so every later slot keeps this row's leftovers plus ")" and never matches BindInsertSlot's lone Parameter/Literal or '-' Number shapes; ExtractReturning rescans the whole token list, so nothing observable changes
                         break;
                     }
                     depth--;
