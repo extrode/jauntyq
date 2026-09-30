@@ -147,7 +147,6 @@ public static class SchemaSimulator
             {
                 errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: cannot drop column '{stmt.TableName}.{name}': it does not exist in the effective schema."));
-                // Stryker disable once Statement : this is the loop's last statement, so dropping `continue` here falls through to the loop's own end with no further statement to wrongly execute -- observably identical
                 continue;
             }
 
