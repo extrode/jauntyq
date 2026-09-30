@@ -9,7 +9,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Extrode.JauntyQ.TestInfra;
 using Npgsql;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace Extrode.JauntyQ.Generator.Tests;
@@ -27,25 +26,23 @@ namespace Extrode.JauntyQ.Generator.Tests;
 /// </summary>
 public sealed class PostgresEnumRoundTripFixture : IAsyncLifetime
 {
-    private PostgreSqlContainer? _container;
+    private string _connectionString = "";
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
-    public string ConnectionString => _container!.GetConnectionString();
+    public string ConnectionString => _connectionString;
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
-            await _container.StartAsync();
-        }
-        catch (Exception ex)
+        var engine = await EngineContainers.Postgres;
+        if (!engine.Available)
         {
             Available = false;
-            SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            SkipReason = engine.SkipReason;
             return;
         }
+
+        _connectionString = await EngineContainers.CreateDatabaseAsync(engine, "fx_enum_roundtrip");
 
         await using var conn = new NpgsqlConnection(ConnectionString);
         await conn.OpenAsync();
@@ -72,11 +69,7 @@ public sealed class PostgresEnumRoundTripFixture : IAsyncLifetime
         Available = true;
     }
 
-    public async Task DisposeAsync()
-    {
-        if (_container is null) return;
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
-    }
+    public Task DisposeAsync() => Task.CompletedTask;
 }
 
 public class PostgresEnumRoundTripTests : IClassFixture<PostgresEnumRoundTripFixture>
@@ -322,25 +315,23 @@ public class PostgresEnumRoundTripTests : IClassFixture<PostgresEnumRoundTripFix
 /// </summary>
 public sealed class PostgresEnumDriftFixture : IAsyncLifetime
 {
-    private PostgreSqlContainer? _container;
+    private string _connectionString = "";
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
-    public string ConnectionString => _container!.GetConnectionString();
+    public string ConnectionString => _connectionString;
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
-            await _container.StartAsync();
-        }
-        catch (Exception ex)
+        var engine = await EngineContainers.Postgres;
+        if (!engine.Available)
         {
             Available = false;
-            SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            SkipReason = engine.SkipReason;
             return;
         }
+
+        _connectionString = await EngineContainers.CreateDatabaseAsync(engine, "fx_enum_drift");
 
         await using var conn = new NpgsqlConnection(ConnectionString);
         await conn.OpenAsync();
@@ -367,11 +358,7 @@ public sealed class PostgresEnumDriftFixture : IAsyncLifetime
         Available = true;
     }
 
-    public async Task DisposeAsync()
-    {
-        if (_container is null) return;
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
-    }
+    public Task DisposeAsync() => Task.CompletedTask;
 }
 
 public class PostgresEnumUnknownValueTests : IClassFixture<PostgresEnumDriftFixture>
