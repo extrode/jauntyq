@@ -90,8 +90,6 @@ public static class AutoCrud
                 if (!IsBareIdentifier(col.Name, schema.Dialect, SqlIdentifierPosition.Column))
                 {
                     allColumnsUsable = false;
-                    // Stryker disable once Statement : the loop's accumulated `columns` list is discarded on this failure path regardless of whether the loop breaks early or keeps iterating
-                    break;
                 }
                 columns.Add(col);
             }
