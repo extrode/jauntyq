@@ -15,9 +15,12 @@ condensed.
 - `JNT8008` (N+1) no longer misses a parent table whose lowercase form is not case-insensitively
   equal to its written form (for example a name containing U+212A, the Kelvin sign). Found by the
   post-0.6.0 audit of `// Stryker disable` comments.
+- SQL Server extraction no longer resolves a function's CLR user-defined-type return through a
+  same-named alias type in the extracted schema (it reported `int` for a CLR type that shares a
+  name with an `int` alias).
 
 ### Changed
-- Audit of the `// Stryker disable` comments after 0.6.0: about 100 of the 165 were removable. Each
+- Audit of the `// Stryker disable` comments after 0.6.0: 131 of the 165 were removed (34 remain, 32 after a second pass). Each
   was either a mutant a test can kill (new tests added) or dead code (deleted). Schema.Extraction
   now reads never-NULL catalog columns directly instead of null-checking them.
 
