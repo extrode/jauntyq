@@ -110,10 +110,6 @@ public static class MigrationParser
 
         foreach (var def in SplitTopLevel(tokens, ref pos))
         {
-            // Stryker disable once Statement : ParseColumnDef's own `def.Count < 2` guard returns null for an empty def, and `if (column != null) stmt.Columns.Add(column)` below already skips adding anything -- dropping this `continue` reaches the exact same no-op outcome one call deeper
-            if (def.Count == 0)
-                continue;
-
             // Table-level constraints: PRIMARY KEY (a, b) marks columns;
             // CONSTRAINT name PRIMARY KEY (...) likewise; others ignored.
             int c = 0;
@@ -501,7 +497,6 @@ public static class MigrationParser
             };
             int cp = 2;
             SkipParenGroup(def, ref cp);
-            // Stryker disable once Equality : computed-column flag loop: the extra iteration `<=` adds runs at pos == def.Count, where every Is/IsSymbol check in the body is bounds-checked to false and the loop's catchall advance leaves the loop, so it changes no state; hand-applied against the full suite, 0 failures
             while (cp < def.Count)
             {
                 if (Is(def, cp, "NOT") && Is(def, cp + 1, "NULL")) { computed.IsNullable = false; cp += 2; continue; }
@@ -556,7 +551,7 @@ public static class MigrationParser
         if (column.DbType == "double" && Is(def, pos, "PRECISION"))
         {
             column.DbType += " precision";
-            // Stryker disable once Statement,Update : the outer flags loop's own catchall skips exactly one unrecognized token per iteration, so a dropped or reversed `pos++` here just defers the same single-position advance to that catchall on the next iteration -- no observable state changes either way
+            // Stryker disable once Statement,Update : a dropped or reversed `pos++` leaves pos on PRECISION (or back on "double"); the facet check below then misses any "(n)", but ApplyFacets ignores facets for "double precision", and the flags loop's catchall skips double/PRECISION/(/n/) since none is a flag keyword
             pos++;
         }
         else if ((column.DbType == "character" || column.DbType == "bit") && Is(def, pos, "VARYING"))
@@ -617,7 +612,6 @@ public static class MigrationParser
         ApplyFacets(column, first, second, isMax);
 
         // flags
-        // Stryker disable once Equality : column flag loop: the extra iteration `<=` adds runs at pos == def.Count, where every Is/IsSymbol check in the body is bounds-checked to false and the loop's catchall advance leaves the loop, so it changes no state; hand-applied against the full suite, 0 failures
         while (pos < def.Count)
         {
             if (Is(def, pos, "NOT") && Is(def, pos + 1, "NULL"))
@@ -647,7 +641,6 @@ public static class MigrationParser
                 // optional IDENTITY(seed, increment)
                 if (IsSymbol(def, pos, "("))
                 {
-                    // Stryker disable once Equality : IDENTITY(seed, increment) scan: at pos == def.Count IsSymbol is false so `<=` takes one more pos++ and leaves pos at def.Count + 1, which the `pos < def.Count` check below and the outer flags loop treat exactly like def.Count; hand-applied against the full suite, 0 failures
                     while (pos < def.Count && !IsSymbol(def, pos, ")"))
                         pos++;
                     // Stryker disable once Boolean,Equality : Is/IsSymbol and the outer `while (pos < def.Count)` loop guard are all bounds-checked against an out-of-range pos, so mutating this comparison only changes whether the terminating `)` gets skipped here or absorbed as an out-of-range no-op by those downstream checks -- same end state either way
@@ -669,15 +662,12 @@ public static class MigrationParser
             // overflow bug the unsigned mapping fix exists to prevent.
             // ZEROFILL always rides with UNSIGNED and never appears alone;
             // skipped rather than appended, to match MySqlExtractor's format
-            // exactly (it never captures ZEROFILL either).
+            // exactly (it never captures ZEROFILL either). The outer loop's
+            // catchall skips the ZEROFILL token like any other unknown flag.
             if (Is(def, pos, "UNSIGNED"))
             {
                 column.DbType += " unsigned";
                 pos++;
-                // Stryker disable once String : this branch's only effect is `pos++`, identical to the outer flags loop's own catchall that an unrecognized token falls through to -- blanking "ZEROFILL" changes nothing observable
-                if (Is(def, pos, "ZEROFILL"))
-                    // Stryker disable once Statement : the outer flags loop's own catchall skips exactly one unrecognized token per iteration, so dropping this `pos++` just defers the same single-position advance to that catchall on the next iteration
-                    pos++;
                 continue;
             }
             if (Is(def, pos, "DEFAULT"))
@@ -704,7 +694,6 @@ public static class MigrationParser
                 pos++;
                 if (Is(def, pos, "ALWAYS"))
                     pos++;
-                // Stryker disable once Arithmetic,String : confirmed genuinely equivalent (2026-09-21) -- the outer flags loop's own catchall unconditionally re-scans every subsequent token, so a later bare IDENTITY keyword is picked up by the standalone identity branch regardless of how this BY/DEFAULT prefix was parsed; see docs/06-reference/mutation-coverage-report.md's "2026-09-21 pass" section
                 else if (Is(def, pos, "BY") && Is(def, pos + 1, "DEFAULT"))
                     pos += 2;
                 if (Is(def, pos, "AS"))
@@ -720,11 +709,9 @@ public static class MigrationParser
                     else if (IsSymbol(def, pos, "("))
                     {
                         column.IsComputed = true;
+                        // A trailing STORED/VIRTUAL is left to the outer
+                        // loop's catchall, like any other unknown flag.
                         SkipParenGroup(def, ref pos);
-                        // Stryker disable once Logical,String : whichever of STORED/VIRTUAL is actually present, either it matches this check directly (advancing pos here) or it falls through unmatched to the outer flags loop's own catchall, which skips exactly one unrecognized token per iteration -- same final pos either way
-                        if (Is(def, pos, "STORED") || Is(def, pos, "VIRTUAL"))
-                            // Stryker disable once Statement,Update : the outer flags loop's own catchall skips exactly one unrecognized token per iteration, so a dropped or reversed `pos++` here just defers the same single-position advance to that catchall on the next iteration
-                            pos++;
                     }
                 }
                 continue;
@@ -739,21 +726,18 @@ public static class MigrationParser
     /// Advances <paramref name="pos"/> past a balanced "(...)" group starting
     /// at <paramref name="pos"/>, tracking nested parens so a function call
     /// inside the expression (e.g. "(ROUND(price, 2))") doesn't terminate
-    /// early on its own inner ")". No-op if <paramref name="pos"/> isn't "(".
+    /// early on its own inner ")". Callers must have checked that
+    /// <paramref name="pos"/> is on "(".
     /// </summary>
     private static void SkipParenGroup(List<Token> def, ref int pos)
     {
-        // Stryker disable once Statement : dead code -- all three call sites already check IsSymbol(def, pos, "(") before calling SkipParenGroup, so this guard's condition is never true at runtime (NoCoverage, confirmed by the doc's coverage-misattribution note)
-        if (!IsSymbol(def, pos, "("))
-            return;
         int depth = 0;
-        // Stryker disable once Equality : paren-group scan: at pos == def.Count IsSymbol is false for both checks, so `<=` takes one more pos++ and exits with pos at def.Count + 1, which every caller treats exactly like def.Count; hand-applied against the full suite, 0 failures
         while (pos < def.Count)
         {
             if (IsSymbol(def, pos, "(")) depth++;
-            // Stryker disable once Statement : dropping this pos++ leaves pos on the closing ")" instead of past it; every caller then lets the surrounding flags loop's own catchall skip that one token, so the final position and parsed column are the same either way
-            if (IsSymbol(def, pos, ")") && --depth == 0) { pos++; break; }
+            else if (IsSymbol(def, pos, ")")) depth--;
             pos++;
+            if (depth == 0) break;
         }
     }
 
@@ -826,7 +810,7 @@ public static class MigrationParser
     }
 
     /// <summary>Splits the tokens of a parenthesized body (starting after the
-    /// opening paren) into top-level comma-separated chunks; advances pos past
+    /// opening paren) into top-level comma-separated chunks; leaves pos on
     /// the closing paren.</summary>
     private static List<List<Token>> SplitTopLevel(List<Token> tokens, ref int pos)
     {
@@ -844,11 +828,7 @@ public static class MigrationParser
             else if (t.Type == TokenType.Symbol && t.Value == ")")
             {
                 if (depth == 0)
-                {
-                    // Stryker disable once Statement,Update : SplitTopLevel's sole caller (ParseCreateTable, line 111) never reads `pos` again after this call, so this closing paren's exact final position is discarded either way
-                    pos++;
                     break;
-                }
                 depth--;
                 current.Add(t);
             }
