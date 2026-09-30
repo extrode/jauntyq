@@ -87,4 +87,18 @@ public class GeneratorDisableAuditTests
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
     }
+
+    [Fact]
+    public void TwoTablesDifferingOnlyInCase_ResolveTheExactNameBeforeTheCaseInsensitiveOne()
+    {
+        var uniqueScope = "\"indexes\": [ { \"name\": \"ux_locks_key_tenant\", \"columns\": [\"key_id\", \"tenant_id\"], \"isUnique\": true } ]";
+        var exactLocks = "\"locks\": { \"name\": \"locks\", \"columns\": { " + string.Join(", ", Col("id"), Col("key_id"), Col("tenant_id")) + " }, " + uniqueScope + " }";
+        var result = Run(
+            Schema(new[] { Table("Locks", Col("id"), Col("key_id"), Col("tenant_id")), exactLocks, Table("keys", Col("id", pk: true)) },
+                Fk("locks", "key_id", "keys", "id")),
+            ("db/Keys/GetAll.sql", "select id\nfrom keys"),
+            ("db/Locks/GetByKeyAndTenant.sql", "select id\nfrom locks\nwhere locks.key_id = @key_id and locks.tenant_id = @tenant_id"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
+    }
 }
