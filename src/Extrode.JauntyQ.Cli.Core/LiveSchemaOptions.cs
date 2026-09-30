@@ -105,25 +105,27 @@ public static class LiveSchema
             return false;
         }
 
-        extractor = resolvedDialect switch
-        {
-            "postgres" => new PostgresExtractor(),
-            "sqlserver" => new SqlServerExtractor(),
-            "mysql" => new MySqlExtractor(),
-            "sqlite" => new SqliteExtractor(),
-            // Named rather than a catch-all: the alias switch and this one are
-            // two halves of the same mapping with nothing relating them, and
-            // they have already drifted once (AUD-R26-01). A discard arm would
-            // run SQLite catalog SQL against a newly-added engine and surface
-            // it as an opaque SqliteException.
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(options), resolvedDialect, "No extractor is wired for this dialect.")
-        };
+        extractor = ExtractorFor(resolvedDialect);
         dialect = resolvedDialect;
         connection = resolvedConnection!;
         output = resolvedOutput;
         return true;
     }
+
+    internal static ISchemaExtractor ExtractorFor(string dialect) => dialect switch
+    {
+        "postgres" => new PostgresExtractor(),
+        "sqlserver" => new SqlServerExtractor(),
+        "mysql" => new MySqlExtractor(),
+        "sqlite" => new SqliteExtractor(),
+        // Named rather than a catch-all: the alias switch and this one are
+        // two halves of the same mapping with nothing relating them, and
+        // they have already drifted once (AUD-R26-01). A discard arm would
+        // run SQLite catalog SQL against a newly-added engine and surface
+        // it as an opaque SqliteException.
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(dialect), dialect, "No extractor is wired for this dialect.")
+    };
 
     /// <summary>Reflects the database, announcing progress on <paramref name="progress"/>.</summary>
     public static async Task<DatabaseSchema> ExtractAsync(
