@@ -518,6 +518,16 @@ public class MigrationParserMutationCoverageTests
         Assert.False(col.IsNullable);
     }
 
+    [Fact]
+    public void DefaultParenthesizedExpression_ScanStopsAtMatchingParen_TrailingNotNullStillRecognized()
+    {
+        var statements = MigrationParser.Parse("create table t (c int default (1) not null)");
+
+        var stmt = Assert.Single(statements);
+        var col = Assert.Single(stmt.Columns);
+        Assert.False(col.IsNullable);
+    }
+
     // ── GENERATED ... AS (expr) with STORED/VIRTUAL omitted (MySQL allows this) ──
 
     [Fact]
