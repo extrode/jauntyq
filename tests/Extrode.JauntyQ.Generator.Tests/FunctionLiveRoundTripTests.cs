@@ -11,9 +11,6 @@ using Extrode.JauntyQ.TestInfra;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
 using Npgsql;
-using Testcontainers.MsSql;
-using Testcontainers.MySql;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace Extrode.JauntyQ.Generator.Tests;
@@ -125,25 +122,23 @@ internal static class FunctionRoundTrip
 
 public sealed class PostgresFunctionRoundTripFixture : IAsyncLifetime
 {
-    private PostgreSqlContainer? _container;
+    private string _connectionString = "";
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
-    public string ConnectionString => _container!.GetConnectionString();
+    public string ConnectionString => _connectionString;
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
-            await _container.StartAsync();
-        }
-        catch (Exception ex)
+        var engine = await EngineContainers.Postgres;
+        if (!engine.Available)
         {
             Available = false;
-            SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            SkipReason = engine.SkipReason;
             return;
         }
+
+        _connectionString = await EngineContainers.CreateDatabaseAsync(engine, "fx_fn_pg");
 
         await using var conn = new NpgsqlConnection(ConnectionString);
         await conn.OpenAsync();
@@ -180,11 +175,7 @@ public sealed class PostgresFunctionRoundTripFixture : IAsyncLifetime
         Available = true;
     }
 
-    public async Task DisposeAsync()
-    {
-        if (_container is null) return;
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
-    }
+    public Task DisposeAsync() => Task.CompletedTask;
 }
 
 public class PostgresFunctionRoundTripTests : IClassFixture<PostgresFunctionRoundTripFixture>
@@ -352,25 +343,23 @@ public class PostgresFunctionRoundTripTests : IClassFixture<PostgresFunctionRoun
 
 public sealed class MySqlFunctionRoundTripFixture : IAsyncLifetime
 {
-    private MySqlContainer? _container;
+    private string _connectionString = "";
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
-    public string ConnectionString => _container!.GetConnectionString();
+    public string ConnectionString => _connectionString;
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            _container = new MySqlBuilder("mysql:8.0").WithUsername("root").Build();
-            await _container.StartAsync();
-        }
-        catch (Exception ex)
+        var engine = await EngineContainers.MySql;
+        if (!engine.Available)
         {
             Available = false;
-            SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            SkipReason = engine.SkipReason;
             return;
         }
+
+        _connectionString = await EngineContainers.CreateDatabaseAsync(engine, "fx_fn_mysql");
 
         await using var conn = new MySqlConnection(ConnectionString);
         await conn.OpenAsync();
@@ -391,11 +380,7 @@ public sealed class MySqlFunctionRoundTripFixture : IAsyncLifetime
         Available = true;
     }
 
-    public async Task DisposeAsync()
-    {
-        if (_container is null) return;
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
-    }
+    public Task DisposeAsync() => Task.CompletedTask;
 }
 
 public class MySqlFunctionRoundTripTests : IClassFixture<MySqlFunctionRoundTripFixture>
@@ -459,33 +444,35 @@ public class MySqlFunctionRoundTripTests : IClassFixture<MySqlFunctionRoundTripF
 
         var admin = new MySqlConnectionStringBuilder(_fx.ConnectionString);
         string original = admin.Database;
+        string capture = $"fn_capture_{EngineContainers.RunToken}";
+        string runtime = $"fn_runtime_{EngineContainers.RunToken}";
 
         const string fnDdl =
             "CREATE FUNCTION calc_tax(amount decimal(12,2), rate decimal(5,4)) " +
             "RETURNS decimal(12,2) DETERMINISTIC RETURN amount * rate";
 
-        await Exec(_fx.ConnectionString, "CREATE DATABASE fn_capture");
+        await Exec(_fx.ConnectionString, $"CREATE DATABASE {capture}");
         // A table as well as the function: JauntyDb, which carries the
         // FunctionAccessor, is only emitted for a snapshot that has tables.
-        await Exec(Db(admin, "fn_capture"),
+        await Exec(Db(admin, capture),
             "CREATE TABLE people (id int AUTO_INCREMENT PRIMARY KEY, code varchar(11) NOT NULL)");
-        await Exec(Db(admin, "fn_capture"), fnDdl);
-        await Exec(_fx.ConnectionString, "CREATE DATABASE fn_runtime");
-        await Exec(Db(admin, "fn_runtime"), fnDdl);
+        await Exec(Db(admin, capture), fnDdl);
+        await Exec(_fx.ConnectionString, $"CREATE DATABASE {runtime}");
+        await Exec(Db(admin, runtime), fnDdl);
 
         var schema = await new contract::Extrode.JauntyQ.Schema.Extraction.MySqlExtractor()
-            .ExtractAsync(Db(admin, "fn_capture"));
+            .ExtractAsync(Db(admin, capture));
         var asm = await FunctionRoundTrip.GenerateAndCompile(schema, "mysql");
 
-        await Exec(_fx.ConnectionString, "DROP DATABASE fn_capture");
+        await Exec(_fx.ConnectionString, $"DROP DATABASE {capture}");
 
-        await using var conn = new MySqlConnection(Db(admin, "fn_runtime"));
+        await using var conn = new MySqlConnection(Db(admin, runtime));
         await conn.OpenAsync();
 
         Assert.Equal(25m, FunctionRoundTrip.StaticFn(asm, "CalcTax", 4)
             .Invoke(null, new object?[] { conn, 100m, 0.25m, null }));
 
-        await Exec(Db(admin, original), "DROP DATABASE fn_runtime");
+        await Exec(Db(admin, original), $"DROP DATABASE {runtime}");
     }
 
     private static string Db(MySqlConnectionStringBuilder template, string database)
@@ -504,25 +491,23 @@ public class MySqlFunctionRoundTripTests : IClassFixture<MySqlFunctionRoundTripF
 
 public sealed class SqlServerFunctionRoundTripFixture : IAsyncLifetime
 {
-    private MsSqlContainer? _container;
+    private string _connectionString = "";
 
     public bool Available { get; private set; }
     public string? SkipReason { get; private set; }
-    public string ConnectionString => _container!.GetConnectionString();
+    public string ConnectionString => _connectionString;
 
     public async Task InitializeAsync()
     {
-        try
-        {
-            _container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
-            await _container.StartAsync();
-        }
-        catch (Exception ex)
+        var engine = await EngineContainers.MsSql;
+        if (!engine.Available)
         {
             Available = false;
-            SkipReason = FixtureGate.SkipReasonOrThrow(ex);
+            SkipReason = engine.SkipReason;
             return;
         }
+
+        _connectionString = await EngineContainers.CreateDatabaseAsync(engine, "fx_fn_mssql");
 
         await using var conn = new SqlConnection(ConnectionString);
         await conn.OpenAsync();
@@ -548,11 +533,7 @@ public sealed class SqlServerFunctionRoundTripFixture : IAsyncLifetime
         Available = true;
     }
 
-    public async Task DisposeAsync()
-    {
-        if (_container is null) return;
-        try { await _container.DisposeAsync(); } catch { /* nothing started */ }
-    }
+    public Task DisposeAsync() => Task.CompletedTask;
 }
 
 public class SqlServerFunctionRoundTripTests : IClassFixture<SqlServerFunctionRoundTripFixture>
