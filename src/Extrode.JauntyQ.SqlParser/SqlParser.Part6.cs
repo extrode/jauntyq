@@ -41,9 +41,9 @@ public static partial class SqlParser
         for (int i = 0; i < tokens.Count; i++)
         {
             var t = tokens[i];
-            if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; continue; }
-            if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; continue; }
-            if (depth == 0 && t.Type == TokenType.Keyword && t.Value == "RETURNING")
+            if (t.Type == TokenType.Symbol && t.Value == "(") depth++;
+            else if (t.Type == TokenType.Symbol && t.Value == ")") depth--;
+            else if (depth == 0 && t.Type == TokenType.Keyword && t.Value == "RETURNING")
             {
                 model.HasReturning = true;
                 // Slice the projection tokens up to (but excluding) a top-level
@@ -57,6 +57,7 @@ public static partial class SqlParser
                 {
                     var pt = tokens[j];
                     if (pt.Type == TokenType.End)
+                        // Stryker disable once Statement : the loop's own bound guarantees this is its last possible iteration (the tokenizer's End sentinel is always the final token), so whether this breaks or falls through to add the sentinel and let the for-loop's own condition end it next, ParseProjectionList's while-loop below stops at the first End it sees either way -- one harmless extra trailing End changes nothing observable
                         break;
                     if (pt.Type == TokenType.Symbol && pt.Value == "(") innerDepth++;
                     else if (pt.Type == TokenType.Symbol && pt.Value == ")") innerDepth--;
@@ -64,6 +65,7 @@ public static partial class SqlParser
                         break;
                     projTokens.Add(pt);
                 }
+                // Stryker disable once String : an End token's Value is never read anywhere downstream (every consumer of an End token checks only its Type) -- the placeholder text here is inert
                 projTokens.Add(new Token(TokenType.End, string.Empty));
                 ParseProjectionList(projTokens, 0, model, model.Returning);
                 return;
@@ -96,12 +98,15 @@ public static partial class SqlParser
         bool terminated = false;
         foreach (var t in tokens)
         {
-            if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; continue; }
-            if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; continue; }
-
+            // Parens still count as content after the terminator: "SELECT 1; ()"
+            // has a second statement, however malformed.
+            if (t.Type == TokenType.Symbol && t.Value == "(")
+                depth++;
+            else if (t.Type == TokenType.Symbol && t.Value == ")")
+                depth--;
             // A ';' below depth 0 is malformed rather than a terminator; leave
             // it to the ordinary parsers rather than claiming a new statement.
-            if (depth == 0 && t.Type == TokenType.Symbol && t.Value == ";")
+            else if (depth == 0 && t.Type == TokenType.Symbol && t.Value == ";")
             {
                 terminated = true;
                 continue;
@@ -112,8 +117,10 @@ public static partial class SqlParser
             if (t.Type == TokenType.End || t.Type == TokenType.Unterminated)
                 continue;
 
+            // Stryker disable once String : this guard's own copy of the literal is never independently observable -- the Add call's literal two lines below is the one that actually lands in the model and is tested for its exact text; this function returns immediately after its one and only Add, so the guard can never be re-checked against a value the Add itself put there
             if (!model.UnsupportedConstructs.Contains("MULTI_STATEMENT"))
                 model.UnsupportedConstructs.Add("MULTI_STATEMENT");
+            // Stryker disable once Statement : with the guard already true and no further "(" / ")" / ";" tokens able to un-terminate this loop, every remaining token merely re-runs the same already-true !Contains(guard)==false no-op down to the tokenizer's own trailing End token, which the check on the line above continues past anyway -- the final model state is identical whether this returns now or the loop runs to completion
             return;
         }
     }
@@ -187,16 +194,16 @@ public static partial class SqlParser
 
     /// <summary>
     /// True when the SELECT at <paramref name="selectIndex"/> is the argument of
-    /// an EXISTS (...) — the two preceding tokens are the EXISTS keyword and an
-    /// opening paren. Such an EXISTS in the projection list is an expression
-    /// projection (Feature A), never a standalone subquery.
+    /// an EXISTS (...). The caller has already checked that the preceding token
+    /// is an opening paren, so only the EXISTS keyword before it is checked here.
+    /// Such an EXISTS in the projection list is an expression projection
+    /// (Feature A), never a standalone subquery.
     /// </summary>
     private static bool IsExistsSubquery(List<Token> tokens, int selectIndex)
     {
         if (selectIndex < 2)
             return false;
-        return tokens[selectIndex - 1].Type == TokenType.Symbol && tokens[selectIndex - 1].Value == "(" &&
-               tokens[selectIndex - 2].Type == TokenType.Keyword && tokens[selectIndex - 2].Value == "EXISTS";
+        return tokens[selectIndex - 2].Type == TokenType.Keyword && tokens[selectIndex - 2].Value == "EXISTS";
     }
 
     /// <summary>

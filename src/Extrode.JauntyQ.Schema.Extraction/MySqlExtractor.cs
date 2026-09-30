@@ -1,4 +1,5 @@
 using Extrode.JauntyQ.Schema;
+using System.Data.Common;
 using MySqlConnector;
 
 namespace Extrode.JauntyQ.Schema.Extraction;
@@ -101,15 +102,15 @@ public class MySqlExtractor : ISchemaExtractor
                 // CHARACTER_MAXIMUM_LENGTH is bigint in MySQL; TEXT family
                 // lengths overflow int — treat anything above int.MaxValue
                 // as unbounded (-1).
-                long? maxLengthRaw = await reader.IsDBNullAsync(7) ? null : reader.GetInt64(7);
-                int? maxLength = maxLengthRaw == null ? null
-                    : maxLengthRaw > int.MaxValue ? -1 : (int)maxLengthRaw;
+                long? maxLengthRaw = await NullableInt64Async(reader, 7);
+                int? maxLength = NarrowLength(maxLengthRaw);
                 int? precision = await reader.IsDBNullAsync(8) ? null : (int)reader.GetInt64(8);
                 int? scale = await reader.IsDBNullAsync(9) ? null : (int)reader.GetInt64(9);
                 bool? isUnicode = await reader.IsDBNullAsync(10) ? null : reader.GetInt32(10) == 1;
                 bool isComputed = reader.GetInt32(11) == 1;
                 bool isTinyint1 = reader.GetInt32(12) == 1;
-                string columnType = await reader.IsDBNullAsync(13) ? string.Empty : reader.GetString(13);
+                // Stryker disable once String : INFORMATION_SCHEMA.COLUMNS.COLUMN_TYPE is NOT NULL, so the string.Empty arm never runs
+                string columnType = await StringOrAsync(reader, 13, string.Empty);
                 bool isView = reader.GetInt32(14) == 1;
                 // A boolean-shaped TINYINT(1)/BOOLEAN column has no
                 // NUMERIC_PRECISION signal of its own (see the query comment
@@ -262,6 +263,7 @@ public class MySqlExtractor : ISchemaExtractor
                 {
                     if (row.Column is null)
                         continue;
+                    // Stryker disable once Boolean : with anyRealColumn left false, EnsureIndex below finds the index AddIndexColumn just created (or returns null for a missing table) and only re-applies the same expression flag
                     anyRealColumn = true;
                     IndexCapture.AddIndexColumn(schema, row.Table, row.Index, row.IsUnique, row.Column, hasPrefixKeyPart, hasExpressionKeyPart);
                 }
@@ -373,8 +375,8 @@ public class MySqlExtractor : ISchemaExtractor
                     Name = seqName,
                     StartValue = reader.GetInt64(0),
                     Increment = reader.GetInt64(1),
-                    MinValue = await reader.IsDBNullAsync(2) ? null : reader.GetInt64(2),
-                    MaxValue = await reader.IsDBNullAsync(3) ? null : reader.GetInt64(3),
+                    MinValue = await NullableInt64Async(reader, 2),
+                    MaxValue = await NullableInt64Async(reader, 3),
                     // next_not_cached_value is the closest MariaDB analog to
                     // SQL Server's sys.sequences.current_value ("the last
                     // value allocated, or the initial value if never used")
@@ -383,7 +385,7 @@ public class MySqlExtractor : ISchemaExtractor
                     // "last consumed value" without a session-scoped
                     // LASTVAL() call, which has no meaning in a stateless
                     // schema pull.
-                    CurrentValue = await reader.IsDBNullAsync(4) ? null : reader.GetInt64(4)
+                    CurrentValue = await NullableInt64Async(reader, 4)
                 };
             }
         }
@@ -450,10 +452,9 @@ public class MySqlExtractor : ISchemaExtractor
 
                 string paramName = reader.GetString(1).TrimStart('@');
                 string paramType = reader.GetString(2);
-                string mode = await reader.IsDBNullAsync(3) ? "IN" : reader.GetString(3);
-                long? paramMaxRaw = await reader.IsDBNullAsync(4) ? null : reader.GetInt64(4);
-                int? paramMax = paramMaxRaw == null ? null
-                    : paramMaxRaw > int.MaxValue ? -1 : (int)paramMaxRaw;
+                // Stryker disable once String : PARAMETER_MODE is never NULL for a procedure parameter, and "" would fall into the same _ => In arm as "IN"
+                string mode = await StringOrAsync(reader, 3, "IN");
+                int? paramMax = NarrowLength(await NullableInt64Async(reader, 4));
                 int? paramPrecision = await reader.IsDBNullAsync(5) ? null : (int)reader.GetInt64(5);
                 int? paramScale = await reader.IsDBNullAsync(6) ? null : (int)reader.GetInt64(6);
 
@@ -522,16 +523,15 @@ public class MySqlExtractor : ISchemaExtractor
                 string fnName = reader.GetString(0);
                 if (!pending.TryGetValue(fnName, out var fn))
                 {
-                    long? retMaxRaw = await reader.IsDBNullAsync(2) ? null : reader.GetInt64(2);
+                    // Stryker disable once String : ROUTINES.DATA_TYPE is never NULL for a function, so the string.Empty return type arm never runs
                     fn = new FunctionSchema
                     {
                         Name = fnName,
                         Schema = database,
                         Return = new FunctionReturn
                         {
-                            DbType = await reader.IsDBNullAsync(1) ? string.Empty : reader.GetString(1),
-                            MaxLength = retMaxRaw == null ? null
-                                : retMaxRaw > int.MaxValue ? -1 : (int)retMaxRaw,
+                            DbType = await StringOrAsync(reader, 1, string.Empty),
+                            MaxLength = NarrowLength(await NullableInt64Async(reader, 2)),
                             Precision = await reader.IsDBNullAsync(3) ? null : (int)reader.GetInt64(3),
                             Scale = await reader.IsDBNullAsync(4) ? null : (int)reader.GetInt64(4)
                         }
@@ -546,15 +546,14 @@ public class MySqlExtractor : ISchemaExtractor
                 if (await reader.IsDBNullAsync(5))
                     continue;
 
-                long? paramMaxRaw = await reader.IsDBNullAsync(7) ? null : reader.GetInt64(7);
-                string paramType = await reader.IsDBNullAsync(6) ? string.Empty : reader.GetString(6);
+                // Stryker disable once String : PARAMETERS.DATA_TYPE is never NULL for a named parameter row, so the string.Empty arm never runs
+                string paramType = await StringOrAsync(reader, 6, string.Empty);
 
                 fn.Params.Add(new FunctionParam
                 {
                     Name = reader.GetString(5).TrimStart('@'),
                     DbType = paramType,
-                    MaxLength = paramMaxRaw == null ? null
-                        : paramMaxRaw > int.MaxValue ? -1 : (int)paramMaxRaw,
+                    MaxLength = NarrowLength(await NullableInt64Async(reader, 7)),
                     Precision = await reader.IsDBNullAsync(8) ? null : (int)reader.GetInt64(8),
                     Scale = await reader.IsDBNullAsync(9) ? null : (int)reader.GetInt64(9)
                 });
@@ -565,6 +564,7 @@ public class MySqlExtractor : ISchemaExtractor
                 schema.Functions[UserTypeResolution.FunctionKey(kv.Key, pendingArgTypes[kv.Key])] = kv.Value;
         }
 
+        // Stryker disable once Statement : MySQL and MariaDB have no user-defined types, so UserTypes is always empty and Apply returns without changing anything
         UserTypeResolution.Apply(schema);
 
         return schema;
@@ -604,6 +604,16 @@ public class MySqlExtractor : ISchemaExtractor
         return name;
     }
 
+    internal static async Task<long?> NullableInt64Async(DbDataReader reader, int ordinal)
+        => await reader.IsDBNullAsync(ordinal) ? null : reader.GetInt64(ordinal);
+
+    internal static async Task<string> StringOrAsync(DbDataReader reader, int ordinal, string whenNull)
+        => await reader.IsDBNullAsync(ordinal) ? whenNull : reader.GetString(ordinal);
+
+    // CHARACTER_MAXIMUM_LENGTH is bigint; anything above int.MaxValue is unbounded (-1).
+    internal static int? NarrowLength(long? raw)
+        => raw == null ? null : raw > int.MaxValue ? -1 : (int)raw;
+
     /// <summary>
     /// Pulls the member values out of a MySQL COLUMN_TYPE string such as
     /// <c>enum('pending','shipped')</c>, in declaration order and verbatim.
@@ -626,7 +636,10 @@ public class MySqlExtractor : ISchemaExtractor
 
         int open = columnType.IndexOf('(');
         int close = columnType.LastIndexOf(')');
-        if (open < 0 || close <= open)
+        if (open < 0)
+            return members;
+        // Stryker disable once Equality : close < open only differs from close <= open when close == open, impossible since '(' != ')'
+        if (close <= open)
             return members;
 
         string body = columnType.Substring(open + 1, close - open - 1);

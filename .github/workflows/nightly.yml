@@ -137,13 +137,67 @@ jobs:
   mutation:
     # Scores are the artifact, not a gate: no threshold fails the job, because a
     # score drop is a prompt to look rather than a defect on its own.
+    #
+    # Gated on CI_MUTATION_ENABLED (repo variable; unset or anything but
+    # "false" runs it) and hard-capped at 4 hours -- mirrors jaunty's
+    # mutation job. A GitHub Actions runner has no maximum job duration on its
+    # own, so a stuck Stryker run (a hung mutant, a runaway retry loop) burns
+    # the account's Actions minutes silently until someone notices, rather
+    # than failing loudly at a bound someone chose on purpose.
+    if: vars.CI_MUTATION_ENABLED != 'false'
     runs-on: ubuntu-latest
+    timeout-minutes: 240
     strategy:
       fail-fast: false
+      # `include`, not a flat `project` list, because entry pairs (Extrode.JauntyQ.Schema and
+      # Schema.Extraction; Cli and Cli.Core) share one test-project directory and need different config
+      # files and extra flags to disambiguate -- a flat list can't carry that. Widened
+      # 2026-09-20 from 2 to 6 of 8 src projects (docs/handoffs/2026-09-20-coverage-mutation-
+      # gaps-from-jaunty-probe.md), and 2026-09-24 to 7 by adding Extrode.JauntyQ.Cli (shares
+      # Cli.Tests with Cli.Core). Extrode.JauntyQ.Runtime is source-free (README only).
       matrix:
-        project:
-          - Extrode.JauntyQ.SqlParser.Tests
-          - Extrode.JauntyQ.Analysis.Tests
+        include:
+          - label: Extrode.JauntyQ.SqlParser.Tests
+            directory: Extrode.JauntyQ.SqlParser.Tests
+            configFile: ""
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Analysis.Tests
+            directory: Extrode.JauntyQ.Analysis.Tests
+            configFile: ""
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Generator
+            directory: Extrode.JauntyQ.Generator.Tests
+            configFile: ""
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Cli.Core
+            directory: Extrode.JauntyQ.Cli.Tests
+            configFile: ""
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Schema.Extraction
+            directory: Extrode.JauntyQ.Schema.Extraction.Tests
+            configFile: ""
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Schema
+            # Extrode.JauntyQ.Schema has no dedicated test project of its own. Run from
+            # Schema.Extraction.Tests's directory instead (its stryker config lives alongside
+            # Schema.Extraction's own, named to not collide) -- that project has a direct,
+            # non-aliased ProjectReference to Schema.csproj (263 tests resolve against it,
+            # verified 2026-09-20), so no --test-project/extra-test-project flag is needed here.
+            # Deliberately NOT mirroring jaunty's --test-project fix: that pattern fits when a
+            # sibling test project exercises the SAME real assembly under real coverage.
+            # Extrode.JauntyQ.Generator.Tests doesn't qualify -- Generator (a Roslyn analyzer)
+            # compile-includes Schema's sources into its own assembly (see Generator.csproj),
+            # so its ordinary tests exercise that embedded copy, not the mutated Schema.dll;
+            # only its two extern-alias live-round-trip tests touch the real assembly. Adding
+            # it as an extra test project would mostly add build/container cost for near-zero
+            # extra kills, not fix a NoCoverage gap that doesn't exist here.
+            directory: Extrode.JauntyQ.Schema.Extraction.Tests
+            configFile: stryker-config.schema.json
+            extraArgs: ""
+          - label: Extrode.JauntyQ.Cli
+            directory: Extrode.JauntyQ.Cli.Tests
+            configFile: stryker-config.cli.json
+            extraArgs: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -157,16 +211,25 @@ jobs:
       - name: Install Stryker.NET
         run: dotnet tool install --global dotnet-stryker
 
-      - name: Mutate ${{ matrix.project }}
-        working-directory: tests/${{ matrix.project }}
-        run: dotnet-stryker
+      # Stryker's own restore retry does not recover a never-restored multi-TFM test project
+      # (jaunty's Extrode.Jaunty.Tests failed analysis with "project.assets.json not found" on a fresh
+      # checkout, 2026-09-24), so restore the solution before it starts.
+      - name: Restore
+        run: dotnet restore JauntyQ.slnx
+
+      - name: Mutate ${{ matrix.label }}
+        working-directory: tests/${{ matrix.directory }}
+        run: >-
+          dotnet-stryker
+          ${{ matrix.configFile != '' && format('--config-file {0}', matrix.configFile) || '' }}
+          ${{ matrix.extraArgs }}
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: stryker-${{ matrix.project }}
-          path: tests/${{ matrix.project }}/StrykerOutput/
+          name: stryker-${{ matrix.label }}
+          path: tests/${{ matrix.directory }}/StrykerOutput/
           if-no-files-found: ignore
 
   benchmarks:

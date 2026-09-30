@@ -1,0 +1,9 @@
+{
+  "_comment": "break: 0 is deliberate: the nightly mutation job treats a score as a report to look at, never a gate. Added 2026-09-24 so every src project with code has a mutation config. Extrode.JauntyQ.Cli is only Program.Main forwarding to CliHost.Run; Cli.Tests (this project) references it directly and ProgramEntryTests drives Main. Named stryker-config.cli.json because stryker-config.json in this directory is Cli.Core's -- invoked via `dotnet stryker --config-file stryker-config.cli.json`.",
+  "stryker-config": {
+    "project": "Extrode.JauntyQ.Cli.csproj",
+    "reporters": ["progress", "json"],
+    "verbosity": "info",
+    "thresholds": { "high": 80, "low": 65, "break": 0 }
+  }
+}

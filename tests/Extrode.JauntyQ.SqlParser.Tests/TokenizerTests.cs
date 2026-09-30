@@ -253,7 +253,9 @@ select product_id /* inline comment */ from products");
         // Tokenizing stops immediately: nothing after the unterminated marker
         // except the End sentinel.
         int idx = tokens.FindIndex(t => t.Type == TokenType.Unterminated);
+        Assert.Equal("/* ... */", tokens[idx].Value);
         Assert.Equal(TokenType.End, tokens[idx + 1].Type);
+        Assert.Equal(string.Empty, tokens[idx + 1].Value);
         Assert.Equal(idx + 2, tokens.Count);
     }
 
@@ -271,7 +273,9 @@ select product_id /* inline comment */ from products");
 
         Assert.Contains(tokens, t => t.Type == TokenType.Unterminated);
         int idx = tokens.FindIndex(t => t.Type == TokenType.Unterminated);
+        Assert.Equal("[ ... ]", tokens[idx].Value);
         Assert.Equal(TokenType.End, tokens[idx + 1].Type);
+        Assert.Equal(string.Empty, tokens[idx + 1].Value);
         Assert.Equal(idx + 2, tokens.Count);
     }
 
@@ -289,7 +293,9 @@ select product_id /* inline comment */ from products");
 
         Assert.Contains(tokens, t => t.Type == TokenType.Unterminated);
         int idx = tokens.FindIndex(t => t.Type == TokenType.Unterminated);
+        Assert.Equal("' ... '", tokens[idx].Value);
         Assert.Equal(TokenType.End, tokens[idx + 1].Type);
+        Assert.Equal(string.Empty, tokens[idx + 1].Value);
         Assert.Equal(idx + 2, tokens.Count);
     }
 
@@ -350,7 +356,9 @@ select product_id /* inline comment */ from products");
 
         Assert.Contains(tokens, t => t.Type == TokenType.Unterminated);
         int idx = tokens.FindIndex(t => t.Type == TokenType.Unterminated);
+        Assert.Equal("\" ... \"", tokens[idx].Value);
         Assert.Equal(TokenType.End, tokens[idx + 1].Type);
+        Assert.Equal(string.Empty, tokens[idx + 1].Value);
         Assert.Equal(idx + 2, tokens.Count);
     }
 
@@ -359,6 +367,8 @@ select product_id /* inline comment */ from products");
     {
         var tokens = SqlTokenizer.Tokenize("select `Name from products");
         Assert.Contains(tokens, t => t.Type == TokenType.Unterminated);
+        int idx = tokens.FindIndex(t => t.Type == TokenType.Unterminated);
+        Assert.Equal("` ... `", tokens[idx].Value);
     }
 
     // ── Input size cap: refuse oversized input, don't crash or silently pass ──
@@ -372,6 +382,7 @@ select product_id /* inline comment */ from products");
         Assert.Contains(tokens, t => t.Type == TokenType.TooLarge);
         int idx = tokens.FindIndex(t => t.Type == TokenType.TooLarge);
         Assert.Equal(TokenType.End, tokens[idx + 1].Type);
+        Assert.Equal(string.Empty, tokens[idx + 1].Value);
         Assert.Equal(idx + 2, tokens.Count);
     }
 
@@ -598,6 +609,7 @@ select product_id /* inline comment */ from products");
         // O(n²) parser run on pathologically deep input.
         Assert.Contains(tokens, t => t.Type == TokenType.TooDeep);
         Assert.Equal(TokenType.End, tokens[^1].Type);
+        Assert.Equal(string.Empty, tokens[^1].Value);
     }
 
     [Fact]

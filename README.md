@@ -1,7 +1,7 @@
 # JauntyQ
 
 <p align="center">
-  <img src="docs/_assets/logo/jauntyq-mark.svg" alt="JauntyQ" width="160">
+  <img src="docs/assets/logo/jauntyq-mark.svg" alt="JauntyQ" width="160">
 </p>
 
 A compile-time SQL-to-C# generator. You write real `.sql` files; JauntyQ validates them at
@@ -90,8 +90,8 @@ jauntyq schema pull \
   <AdditionalFiles Include="db\schema\*.schema.json" />
 </ItemGroup>
 <ItemGroup>
-  <PackageReference Include="Extrode.JauntyQ.Generator" Version="0.5.0" PrivateAssets="all" />
-  <PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.5.0" />
+  <PackageReference Include="Extrode.JauntyQ.Generator" Version="0.6.0" PrivateAssets="all" />
+  <PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.6.0" />
 </ItemGroup>
 ```
 
@@ -337,8 +337,8 @@ dotnet tool install --global Extrode.JauntyQ.Cli
 ```
 
 ```xml
-<PackageReference Include="Extrode.JauntyQ.Generator" Version="0.5.0" PrivateAssets="all" />
-<PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.5.0" />
+<PackageReference Include="Extrode.JauntyQ.Generator" Version="0.6.0" PrivateAssets="all" />
+<PackageReference Include="Extrode.JauntyQ.Runtime" Version="0.6.0" />
 ```
 
 Targets `netstandard2.0`, `net8.0` and `net10.0`. The generator installs as a Roslyn analyzer automatically;

@@ -31,6 +31,7 @@ public static class UserTypeResolution
     public static void Apply(DatabaseSchema schema)
     {
         if (schema.UserTypes.Count == 0)
+            // Stryker disable once Statement : with no user types the resolvable map below stays empty and the Count == 0 return after it exits with nothing changed
             return;
 
         var resolvable = new Dictionary<string, UserTypeSchema>(StringComparer.OrdinalIgnoreCase);
@@ -48,6 +49,7 @@ public static class UserTypeResolution
         }
 
         if (resolvable.Count == 0)
+            // Stryker disable once Statement : with an empty map every TryGetValue below misses and both hop loops stop at 0 < 0, so falling through changes nothing
             return;
 
         foreach (var table in schema.Tables.Values)

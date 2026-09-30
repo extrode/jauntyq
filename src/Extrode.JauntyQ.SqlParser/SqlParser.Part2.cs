@@ -191,7 +191,8 @@ public static partial class SqlParser
     {
         if (model.Tables.Count < 2 || !(pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "("))
             return pos;
-        pos++; // skip (
+        // pos stays on the "(": the loop below steps over it like a ",",
+        // so a separate skip here would be unobservable.
 
         var right = model.Tables[model.Tables.Count - 1];
         var left = model.Tables[model.Tables.Count - 2];
@@ -201,10 +202,7 @@ public static partial class SqlParser
         while (pos < tokens.Count && tokens[pos].Type != TokenType.End)
         {
             if (tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")")
-            {
-                pos++;
-                break;
-            }
+                return pos + 1;
             if (tokens[pos].Type == TokenType.Identifier)
             {
                 string col = StripQualifier(tokens[pos].Value);
@@ -216,7 +214,7 @@ public static partial class SqlParser
                     RightColumn = col
                 });
             }
-            pos++; // identifier or ","
+            pos++; // "(", identifier or ","
         }
 
         return pos;
@@ -281,12 +279,22 @@ public static partial class SqlParser
     private static (string tableAlias, string columnName) SplitQualifiedName(string name)
     {
         int lastDot = name.LastIndexOf('.');
+        // Stryker disable once Equality : lastDot == 0 (name starting with a
+        // dot) is unreachable -- name is always an Identifier token's value,
+        // and the tokenizer's IsIdentifierStart only accepts a letter or
+        // underscore, so this boundary can never actually be hit
         if (lastDot < 0)
             return (string.Empty, name);
 
         string columnName = name.Substring(lastDot + 1);
         string prefix = name.Substring(0, lastDot);
         int prevDot = prefix.LastIndexOf('.');
+        // Stryker disable once Conditional,Equality : Conditional -- when
+        // prevDot < 0, prefix.Substring(prevDot + 1) == prefix.Substring(0)
+        // == prefix itself, identical to the false branch, so forcing the
+        // true branch is a no-op and indistinguishable by any input.
+        // Equality -- prevDot == 0 (prefix starting with a dot) is
+        // unreachable for the same identifier-grammar reason as lastDot above
         string tableAlias = prevDot >= 0 ? prefix.Substring(prevDot + 1) : prefix;
         return (tableAlias, columnName);
     }
@@ -309,6 +317,13 @@ public static partial class SqlParser
     private static string StripQualifier(string name)
     {
         int lastDot = name.LastIndexOf('.');
+        // Stryker disable once Conditional,Equality : Conditional -- when
+        // lastDot < 0, name.Substring(lastDot + 1) == name.Substring(0) ==
+        // name itself, identical to the false branch, so forcing the true
+        // branch is a no-op and indistinguishable by any input. Equality --
+        // lastDot == 0 (name starting with a dot) is unreachable: name is
+        // always an Identifier token's value, and the tokenizer only accepts
+        // a letter or underscore as an identifier's first character
         return lastDot >= 0 ? name.Substring(lastDot + 1) : name;
     }
 

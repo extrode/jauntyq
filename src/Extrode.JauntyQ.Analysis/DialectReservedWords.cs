@@ -209,6 +209,7 @@ public static class DialectReservedWords
     /// </summary>
     public static bool IsReservedInDialect(string name, string? dialect, SqlIdentifierPosition position)
     {
+        // Stryker disable once Logical : an empty `name` never matches any reserved-word set's Contains check, and an empty `dialect` never matches any of the string.Equals(dialect, ...) arms below, so either alone already falls through to `return false` at the method's end -- the `||`→`&&` guard mutation changes nothing observable
         if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(dialect))
             return false;
 

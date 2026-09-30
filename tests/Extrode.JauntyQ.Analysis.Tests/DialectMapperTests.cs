@@ -1,8 +1,7 @@
 using Extrode.JauntyQ.Analysis;
-using Extrode.JauntyQ.Generator;
 using Xunit;
 
-namespace Extrode.JauntyQ.Generator.Tests;
+namespace Extrode.JauntyQ.Analysis.Tests;
 
 /// <summary>
 /// Consumer-gaps-report gap #3: jsonb/json/inet/array Postgres types

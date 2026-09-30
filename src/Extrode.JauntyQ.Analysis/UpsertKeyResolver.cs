@@ -138,6 +138,7 @@ public static class UpsertKeyResolver
                 if (col == null || col.IsIdentity)
                 {
                     allResolved = false;
+                    // Stryker disable once Statement : no later iteration of this loop ever sets allResolved back to true, so dropping `break` and continuing to iterate yields the same final value
                     break;
                 }
                 keyCols.Add(col);
@@ -268,18 +269,8 @@ public static class UpsertKeyResolver
             if (index.Columns.Count == 0)
                 continue;
 
-            // The key itself, or a full-column restatement of it in another
-            // order: not a competitor. A PREFIX index over the same column set
-            // IS one -- UNIQUE (email(5)) fires on rows sharing five characters
-            // of a key of (email), rows the full-column constraint would never
-            // match. It can also never BE the key: Resolve skips prefix-flagged
-            // indexes (and refuses a PK enforced only by one), so an index
-            // reaching here flagged means the key is enforced in full elsewhere
-            // and this one genuinely competes.
-            if (!index.HasPrefixKeyPart && CoversKey(index.Columns, keyNames))
-                continue;
-
-            // A full-column UNIQUE over a strict SUPERSET of the key cannot
+            // A full-column UNIQUE over the key or a SUPERSET of it (an exact restatement
+            // in another order included) cannot
             // fire independently of it: violating (id, tenant) requires
             // duplicating id, and if id is the unique key the matched row is
             // the key's own match. A prefix superset can -- UNIQUE (id(3),
@@ -343,6 +334,7 @@ public static class UpsertKeyResolver
                 if (string.Equals(key, col, StringComparison.OrdinalIgnoreCase))
                 {
                     found = true;
+                    // Stryker disable once Statement : no later iteration of this loop ever sets found back to false, so dropping `break` and continuing to iterate yields the same final value
                     break;
                 }
             }

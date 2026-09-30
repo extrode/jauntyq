@@ -71,7 +71,8 @@ public class ImpactClassifierTests
 
         var entry = Assert.Single(report.Entries);
         Assert.Equal(Classification.Breaking, entry.Classification);
-        Assert.Contains(entry.Reasons, r => r.SchemaObject == "users.legacy_flag" && r.ChangeKind == "removed");
+        var reason = Assert.Single(entry.Reasons, r => r.SchemaObject == "users.legacy_flag" && r.ChangeKind == "removed");
+        Assert.Equal("column referenced by the query no longer exists", reason.Effect);
     }
 
     [Fact]
@@ -84,7 +85,8 @@ public class ImpactClassifierTests
 
         var entry = Assert.Single(report.Entries);
         Assert.Equal(Classification.Breaking, entry.Classification);
-        Assert.Contains(entry.Reasons, r => r.SchemaObject == "legacy" && r.ChangeKind == "removed");
+        var reason = Assert.Single(entry.Reasons, r => r.SchemaObject == "legacy" && r.ChangeKind == "removed");
+        Assert.Equal("table referenced by the query no longer exists", reason.Effect);
     }
 
     [Fact]
@@ -129,7 +131,10 @@ public class ImpactClassifierTests
 
         var entry = Assert.Single(report.Entries);
         Assert.Equal(Classification.Risky, entry.Classification);
-        Assert.Contains(entry.Reasons, r => r.ChangeKind == "unmodeled");
+        var reason = Assert.Single(entry.Reasons, r => r.ChangeKind == "unmodeled");
+        Assert.Equal(
+            "referenced table was changed by a statement the simulator could not model; effective schema may be incomplete",
+            reason.Effect);
     }
 
     [Fact]
@@ -480,6 +485,268 @@ public class ImpactClassifierTests
         var entry = Assert.Single(report.Entries);
         Assert.Equal(Classification.Risky, entry.Classification);
         Assert.Contains(entry.Reasons, r => r.SchemaObject == "orders.total" && r.ChangeKind == "precisionScale");
+    }
+
+    // ── WireKind / DescribeChange exhaustive coverage ──────────────────────
+    // Existing tests above exercise MaxLength, PrecisionScale and Computed as
+    // the FIRST (and only) Kinds entry, since that's what PrimaryKind reads
+    // (Kinds[0]) for the reported ChangeKind. Type, Nullability, Unicode,
+    // PrimaryKey, Identity and RowVersion were never exercised as a first
+    // kind at all, so WireKind's switch never saw those arms and
+    // DescribeChange's Type/Nullability/Unicode/PrimaryKey/Identity/
+    // RowVersion cases never ran either. Direct ColumnChange/SchemaDelta
+    // construction (as DescribeChange_UnrecognizedColumnChangeKind already
+    // does above) exercises ImpactClassifier's real code without needing
+    // StructuralSchemaDiff to actually produce each of these kinds.
+
+    private static ColumnSchema Named(string name, string dbType = "int", bool isNullable = false, int? maxLen = null,
+        int? precision = null, int? scale = null, bool isComputed = false) =>
+        new()
+        {
+            Name = name, DbType = dbType, IsNullable = isNullable, MaxLength = maxLen,
+            Precision = precision, Scale = scale, IsComputed = isComputed
+        };
+
+    private static ImpactEntry ClassifyChange(ColumnChange change, string table = "users", string column = "name")
+    {
+        var delta = new SchemaDelta(
+            new string[0], new string[0],
+            new[] { new TableDelta(table, new string[0], new string[0], new[] { change }) });
+        var report = Run(delta, Input($"{table}.Get", Select(table, column)));
+        return Assert.Single(report.Entries);
+    }
+
+    [Theory]
+    [InlineData(ColumnChangeKind.Type, "type")]
+    [InlineData(ColumnChangeKind.Nullability, "nullability")]
+    [InlineData(ColumnChangeKind.MaxLength, "maxLength")]
+    [InlineData(ColumnChangeKind.PrecisionScale, "precisionScale")]
+    [InlineData(ColumnChangeKind.Unicode, "unicode")]
+    [InlineData(ColumnChangeKind.PrimaryKey, "primaryKey")]
+    [InlineData(ColumnChangeKind.Identity, "identity")]
+    [InlineData(ColumnChangeKind.RowVersion, "rowVersion")]
+    [InlineData(ColumnChangeKind.Computed, "computed")]
+    public void WireKind_MapsEveryColumnChangeKindToItsWireName(ColumnChangeKind kind, string expectedWireKind)
+    {
+        var change = new ColumnChange("name", Named("name"), Named("name"), new[] { kind });
+
+        var entry = ClassifyChange(change);
+
+        var reason = Assert.Single(entry.Reasons);
+        Assert.Equal(expectedWireKind, reason.ChangeKind);
+    }
+
+    [Fact]
+    public void DescribeChange_Type_ShowsBaselineAndEffectiveDbType()
+    {
+        var change = new ColumnChange("name", Named("name", "int"), Named("name", "bigint"), new[] { ColumnChangeKind.Type });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("type int → bigint", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_Nullability_BecameNullable()
+    {
+        var change = new ColumnChange("name", Named("name", isNullable: false), Named("name", isNullable: true), new[] { ColumnChangeKind.Nullability });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("became nullable", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_Nullability_BecameNonNullable()
+    {
+        var change = new ColumnChange("name", Named("name", isNullable: true), Named("name", isNullable: false), new[] { ColumnChangeKind.Nullability });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("became non-nullable", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_MaxLength_ShowsExactArrowFormat()
+    {
+        var change = new ColumnChange("name", Named("name", maxLen: 100), Named("name", maxLen: 50), new[] { ColumnChangeKind.MaxLength });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("max length 100 → 50", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_MaxLength_NullValueFormatsAsDash()
+    {
+        var change = new ColumnChange("name", Named("name", maxLen: null), Named("name", maxLen: 100), new[] { ColumnChangeKind.MaxLength });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("max length - → 100", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_PrecisionScale_ShowsExactArrowFormat()
+    {
+        var change = new ColumnChange("name",
+            Named("name", precision: 10, scale: 2), Named("name", precision: 8, scale: 4),
+            new[] { ColumnChangeKind.PrecisionScale });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("precision/scale 10,2 → 8,4", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_PrecisionScale_NullValuesFormatAsDash()
+    {
+        var change = new ColumnChange("name",
+            Named("name", precision: null, scale: null), Named("name", precision: 8, scale: 2),
+            new[] { ColumnChangeKind.PrecisionScale });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("precision/scale -,- → 8,2", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_Unicode_ExactEffectText()
+    {
+        var change = new ColumnChange("name", Named("name"), Named("name"), new[] { ColumnChangeKind.Unicode });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("unicode changed", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_PrimaryKey_ExactEffectText()
+    {
+        var change = new ColumnChange("name", Named("name"), Named("name"), new[] { ColumnChangeKind.PrimaryKey });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("primary-key membership changed", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_Identity_ExactEffectText()
+    {
+        var change = new ColumnChange("name", Named("name"), Named("name"), new[] { ColumnChangeKind.Identity });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("identity changed", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_RowVersion_ExactEffectText()
+    {
+        var change = new ColumnChange("name", Named("name"), Named("name"), new[] { ColumnChangeKind.RowVersion });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("rowversion changed", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_Computed_BecameComputed_ExactEffectText()
+    {
+        var change = new ColumnChange("name", Named("name", isComputed: false), Named("name", isComputed: true), new[] { ColumnChangeKind.Computed });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("became a computed/generated column (writes will be rejected)", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_Computed_NoLongerComputed_ExactEffectText()
+    {
+        var change = new ColumnChange("name", Named("name", isComputed: true), Named("name", isComputed: false), new[] { ColumnChangeKind.Computed });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("no longer computed/generated", Assert.Single(entry.Reasons).Effect);
+    }
+
+    [Fact]
+    public void DescribeChange_MultipleKinds_JoinedWithSemicolonSpace()
+    {
+        var change = new ColumnChange("name", Named("name", isNullable: false, maxLen: 100), Named("name", isNullable: true, maxLen: 50),
+            new[] { ColumnChangeKind.Nullability, ColumnChangeKind.MaxLength });
+
+        var entry = ClassifyChange(change);
+
+        Assert.Equal("became nullable; max length 100 → 50", Assert.Single(entry.Reasons).Effect);
+    }
+
+    // ── ClassifyOne redundancy guards ───────────────────────────────────────
+    // These construct a deliberately inconsistent SchemaDelta -- a column
+    // whose table is in RemovedTables while ALSO carrying a ModifiedColumns
+    // entry for that exact column, something StructuralSchemaDiff itself
+    // never produces (a removed table's columns are never separately
+    // diffed) -- specifically to prove ClassifyOne's early `continue`s
+    // really do skip the redundant column-level check, not just that the
+    // final Classification happens to come out Breaking either way.
+
+    [Fact]
+    public void RemovedTableColumn_DoesNotAlsoReportARedundantColumnChange()
+    {
+        var change = new ColumnChange("id", Named("id"), Named("id"), new[] { ColumnChangeKind.Type });
+        var delta = new SchemaDelta(
+            new string[0], new[] { "legacy" },
+            new[] { new TableDelta("legacy", new string[0], new string[0], new[] { change }) });
+
+        var report = Run(delta, Input("Legacy.Get", Select("legacy", "id")));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Breaking, entry.Classification);
+        var reason = Assert.Single(entry.Reasons);
+        Assert.Equal("legacy", reason.SchemaObject);
+        Assert.Equal("removed", reason.ChangeKind);
+    }
+
+    [Fact]
+    public void RemovedColumn_DoesNotAlsoReportARedundantModifiedChange()
+    {
+        var change = new ColumnChange("total", Named("total"), Named("total"), new[] { ColumnChangeKind.Type });
+        var delta = new SchemaDelta(
+            new string[0], new string[0],
+            new[] { new TableDelta("orders", new string[0], new[] { "total" }, new[] { change }) });
+
+        var report = Run(delta, Input("Order.Get", Select("orders", "total")));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Breaking, entry.Classification);
+        var reason = Assert.Single(entry.Reasons);
+        Assert.Equal("orders.total", reason.SchemaObject);
+        Assert.Equal("removed", reason.ChangeKind);
+    }
+
+    [Fact]
+    public void Breaking_IncludesRiskyReasonsToo_BreakingFirst()
+    {
+        var baseline = Schema(
+            Table("legacy", Col("id")),
+            Table("users", Col("id"), Col("name", "varchar", 100)));
+        var effective = Schema(
+            Table("users", Col("id"), Col("name", "varchar", 50)));
+        var delta = Delta(baseline, effective);
+
+        var m = new QueryModel { Name = "q", StatementType = StatementType.Select };
+        m.Tables.Add(new TableRef { TableName = "legacy" });
+        m.Tables.Add(new TableRef { TableName = "users" });
+        m.Columns.Add(new ColumnRef { ColumnName = "id" });
+        m.Columns.Add(new ColumnRef { ColumnName = "name" });
+
+        var report = Run(delta, Input("Q.Get", m));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Breaking, entry.Classification);
+        Assert.Equal(2, entry.Reasons.Count);
+        Assert.Equal("removed", entry.Reasons[0].ChangeKind);
+        Assert.Equal("maxLength", entry.Reasons[1].ChangeKind);
     }
 
     [Fact]

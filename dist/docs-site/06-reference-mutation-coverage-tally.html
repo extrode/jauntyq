@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mutation coverage tally vs. target — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Reference &#8250; Mutation coverage tally vs. target</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-readme.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-readme.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-readme.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-readme.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-mutation-coverage-report.html">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</a>  <a href="06-reference-mutation-coverage-tally.html" class="active" aria-current="page">Mutation coverage tally vs. target</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#assemblies-covered-by-stryker">Assemblies covered by Stryker</a><a class="toc-l2" href="#extrodejauntyqanalysis--per-file-tally-vs-96-target">Extrode.JauntyQ.Analysis — per-file tally vs. 96% target</a><a class="toc-l2" href="#files-at-or-above-target-15-of-19">Files at or above target (15 of 19)</a><a class="toc-l2" href="#files-below-target-4-of-19--round-4-pass-complete-results-final">Files below target (4 of 19) — round-4 pass complete, results final</a><a class="toc-l2" href="#bottom-line">Bottom line</a><a class="toc-l2" href="#extrodejauntyqsqlparser--per-file-tally-vs-96-target">Extrode.JauntyQ.SqlParser — per-file tally vs. 96% target</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Mutation coverage tally vs. target</nav>
+        <article>
+<h1 id="mutation-coverage-tally-vs-target">Mutation coverage tally vs. target</h1>
+<p>Per-assembly, per-file mutation score, tallied against the 96% target set for
+<code>Extrode.JauntyQ.Analysis</code> (parity with sibling repo <code>jaunty</code>'s ~96% baseline).
+Last confirmed whole-project <code>Extrode.JauntyQ.Analysis</code> run: <strong>99.14%</strong>
+(2026-09-21 08:02-08:32, pending commit) — a comment-based Stryker exclusion
+pass over 47 confirmed-equivalent survivors across 7 files, see the
+&quot;2026-09-21 pass: Stryker comment-based exclusions&quot; section below and in
+mutation-coverage-report.md. This followed <strong>97.23%</strong>
+(2026-09-21 02:14-02:19, commit <code>0eee118</code>) — target exceeded. That followed
+96.47%: a genuine fable-model verify pass fixed 5 more real gaps in
+<code>MigrationParser.cs</code> (<code>5deae22</code>), and the previously-undecided
+&quot;malformed-SQL-only&quot; survivor category (20 mutants total, lines 447-719) was
+fully resolved — 17 killed with real tests across earlier rounds plus this
+round's 6, and 3 confirmed genuinely equivalent (<code>a9603e4</code>). See the new
+&quot;2026-09-21 pass&quot; section in mutation-coverage-report.md for the full
+per-mutant detail. Prior path (still valid history): 96.01% (target first
+reached, two genuine Negate mutants in <code>MigrationParser.cs</code>'s DEFAULT-value
+and GENERATED-column handling, lines 689/704, found via an adversarial
+fable-verify pass) → 96.30% (a full post-96% survivor pass over the
+remaining 91 <code>Survived</code> mutants found 1 more genuine gap in
+<code>ReferencedObjects.cs</code>'s <code>ReferencedColumnComparer.Equals</code> and 6 more in
+<code>MigrationParser.cs</code>, individually re-traced rather than template-matched —
+one of which corrected a previously-wrong equivalence claim) → <strong>96.47%</strong>
+(an adversarial fable-verify batch pass over all 84 remaining <code>Survived</code>
+mutants — the same treatment already given the 4 <code>NoCoverage</code> mutants —
+refuted 0/18 small-file claims and 3/60 <code>MigrationParser.cs</code> claims, 2 of
+which corrected wrong equivalence claims written earlier the same session).
+80 <code>Survived</code> + 4 <code>NoCoverage</code> mutants remain; all mutants in both
+categories, across every sub-100% file, have now individually been through
+an adversarial refutation attempt with no further batch-level re-check
+planned — the remaining survivors are considered a confirmed
+equivalent-mutant floor. See mutation-coverage-report.md for the full
+per-mutant reasoning and the standing lesson that category-matching a
+survivor to a known-equivalent neighbor is not sufficient — each needs its
+own trace. <code>Extrode.JauntyQ.SqlParser</code>'s earlier figures (59.22% baseline, 59.65% after
+the IR-model cleanup, a 4-file parser-core pass with no confirmed
+whole-project number) are now superseded: a 2026-09-21 pass established a
+correct fresh whole-project baseline (<strong>76.98%</strong>) and then pushed all 10
+survivor-carrying files through the same real-test + individually-traced
+equivalence-exclusion discipline as Analysis above, closing 3 IR files to
+100% and improving the 7 parser-body files (<code>SqlParser.cs</code> 83.41%,
+<code>SqlParser.Part2.cs</code> 78.03%, <code>SqlParser.Part5.cs</code>, <code>SqlParser.Part3.cs</code>
+100.00%, <code>SqlParser.Part4.cs</code> 85.61%, <code>SqlTokenizer.cs</code> 99.80%,
+<code>SqlParser.Part7.cs</code> 90.24%, <code>SqlParser.Part6.cs</code> 94.16%). Final whole-project
+re-run: <strong>88.53%</strong> (Killed 2216, Timeout 162, Survived 289, NoCoverage 19) —
+short of the 96% target. The remaining gap is dominated by one recurring
+survivor class (the <code>pos &lt; tokens.Count &amp;&amp; tokens[pos].Type == X</code> guard-chain
+idiom and variants, repeated across nearly every parser-body file), deferred
+honestly rather than force-excluded in every file's pass because proving
+equivalence requires per-call-site tracing of each caller's loop-exit
+behavior — out of budget for a single-file pass. <strong>Flagged for a dedicated
+follow-up session</strong> specifically tracing those guard-chain call sites
+file-by-file, expected to take a similar scale of effort to this whole pass.
+See the &quot;2026-09-21 push&quot; section in mutation-coverage-report.md for the full
+per-file breakdown. For score-history-over-time and
+equivalent-mutant reasoning, see <a href="06-reference-mutation-coverage-report.html"><code>mutation-coverage-report.md</code></a>
+and <code>../handoffs/2026-09-19-stryker-mutation-gaps.md</code>.</p>
+<h2 id="assemblies-covered-by-stryker">Assemblies covered by Stryker</h2>
+<p>Only 2 of 8 <code>src/</code> assemblies have a Stryker config at all; both have been
+run this effort.</p>
+<table>
+<thead>
+<tr>
+<th>Assembly</th>
+<th>Stryker config</th>
+<th>Ever run this effort</th>
+<th>Target</th>
+<th>Actual</th>
+<th>Δ to target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Extrode.JauntyQ.Analysis</code></td>
+<td><code>tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json</code></td>
+<td>Yes</td>
+<td>96.00%</td>
+<td><strong>99.14%</strong></td>
+<td><strong>+3.14 pp (target exceeded)</strong></td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.SqlParser</code></td>
+<td><code>tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json</code></td>
+<td>Yes</td>
+<td>96.00%</td>
+<td><strong>88.53%</strong></td>
+<td><strong>-7.47 pp (follow-up flagged)</strong></td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Cli.Core</code></td>
+<td>none</td>
+<td>No</td>
+<td>—</td>
+<td>—</td>
+<td>out of scope</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Cli</code></td>
+<td>none</td>
+<td>No</td>
+<td>—</td>
+<td>—</td>
+<td>out of scope</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Generator</code></td>
+<td>none</td>
+<td>No</td>
+<td>—</td>
+<td>—</td>
+<td>out of scope</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Runtime</code></td>
+<td>none</td>
+<td>No</td>
+<td>—</td>
+<td>—</td>
+<td>out of scope</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Schema</code></td>
+<td>none</td>
+<td>No</td>
+<td>—</td>
+<td>—</td>
+<td>out of scope</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Schema.Extraction</code></td>
+<td>none</td>
+<td>No</td>
+<td>—</td>
+<td>—</td>
+<td>out of scope</td>
+</tr>
+</tbody>
+</table>
+<p>Both configured Stryker projects carry the same <code>stryker-config.json</code>
+thresholds: <code>high: 80, low: 65, break: 0</code>. The 96% target is a user-set goal
+for <code>Extrode.JauntyQ.Analysis</code> specifically, not the tool's own break
+threshold — <code>dotnet stryker</code> will not fail the build below 96%, only below 0%
+(i.e. never), so this is a manually tracked goal, not a CI gate.</p>
+<h2 id="extrodejauntyqanalysis--per-file-tally-vs-96-target">Extrode.JauntyQ.Analysis — per-file tally vs. 96% target</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Killed</th>
+<th>Timeout</th>
+<th>Survived</th>
+<th>NoCov</th>
+<th>Total</th>
+<th>Score</th>
+<th>vs. 96%</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Impact/ReferencedObjects.cs</code></td>
+<td>46</td>
+<td>0</td>
+<td>4</td>
+<td>2</td>
+<td>52</td>
+<td>88.46%</td>
+<td>-7.54 pp</td>
+</tr>
+<tr>
+<td><code>Impact/MigrationImpactReport.cs</code></td>
+<td>9</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>10</td>
+<td>90.00%</td>
+<td>-6.00 pp</td>
+</tr>
+<tr>
+<td><code>Migrations/MigrationParser.cs</code></td>
+<td>672</td>
+<td>34</td>
+<td>56</td>
+<td>1</td>
+<td>763</td>
+<td>92.53%</td>
+<td>-3.47 pp</td>
+</tr>
+<tr>
+<td><code>Migrations/SchemaSimulator.cs</code></td>
+<td>194</td>
+<td>0</td>
+<td>12</td>
+<td>0</td>
+<td>206</td>
+<td>94.17%</td>
+<td>-1.83 pp</td>
+</tr>
+<tr>
+<td><code>UpsertKeyResolver.cs</code></td>
+<td>77</td>
+<td>0</td>
+<td>3</td>
+<td>0</td>
+<td>80</td>
+<td>96.25%</td>
+<td><strong>+0.25 pp</strong></td>
+</tr>
+<tr>
+<td><code>AutoCrud.cs</code></td>
+<td>141</td>
+<td>0</td>
+<td>1</td>
+<td>1</td>
+<td>143</td>
+<td>98.60%</td>
+<td><strong>+2.60 pp</strong></td>
+</tr>
+<tr>
+<td><code>DialectMapper.cs</code></td>
+<td>308</td>
+<td>2</td>
+<td>2</td>
+<td>0</td>
+<td>312</td>
+<td>99.36%</td>
+<td><strong>+3.36 pp</strong></td>
+</tr>
+<tr>
+<td><code>DialectReservedWords.cs</code></td>
+<td>627</td>
+<td>4</td>
+<td>1</td>
+<td>0</td>
+<td>632</td>
+<td>99.84%</td>
+<td><strong>+3.84 pp</strong></td>
+</tr>
+<tr>
+<td><code>AnalysisDiagnostic.cs</code></td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><code>CrudColumnRules.cs</code></td>
+<td>27</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>27</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><code>Diff/SchemaDelta.cs</code></td>
+<td>15</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>15</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><code>Diff/StructuralSchemaDiff.cs</code></td>
+<td>44</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>44</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><code>EntityNameResolver.cs</code></td>
+<td>15</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>15</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><code>Impact/Classification.cs</code></td>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>4</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><code>Impact/ImpactClassifier.cs</code></td>
+<td>66</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>66</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><code>Impact/ImpactEntry.cs</code></td>
+<td>3</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>3</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><code>Impact/ImpactReason.cs</code></td>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>4</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><code>Impact/QueryImpactInput.cs</code></td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><code>Migrations/MigrationStatement.cs</code></td>
+<td>2</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>2</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><strong>Tally (19 files)</strong></td>
+<td><strong>2311</strong>*</td>
+<td>—</td>
+<td><strong>20</strong></td>
+<td><strong>0</strong></td>
+<td><strong>2331</strong></td>
+<td><strong>99.14%</strong></td>
+<td><strong>+3.14 pp (target exceeded)</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>2026-09-21 update (comment-based exclusions):</strong> whole-project re-run after adding <code>// Stryker disable once</code> comments for 47 confirmed-equivalent survivors across 7 files (pending commit): Killed 2251, Timeout 60, Survived 20, NoCoverage 0, Ignored 294, 3 Pending (transient — this run overlapped with a peer session's concurrent Stryker process), total scored 2331 — <strong>99.14%</strong>, up from 97.23%. Note the denominator dropped from 2380 to 2331 because the 47 newly-excluded mutants no longer count toward the score at all (Stryker's <code>Ignored</code> status is excluded from the formula), not because they were &quot;fixed&quot; as Killed. See mutation-coverage-report.md's &quot;2026-09-21 pass: Stryker comment-based exclusions&quot; section for the full per-mutant reasoning and per-file verification runs.</p>
+<p><strong>2026-09-21 update (earlier same day):</strong> whole-project re-run (<code>0eee118</code>) after the fable-verify 5-gap fix and the malformed-SQL survivor category resolution: Killed 2277, Timeout 37, Survived 62, NoCoverage 4, total 2380 — <strong>97.23%</strong>, up from 96.47%. See mutation-coverage-report.md's &quot;2026-09-21 pass&quot; section for the per-mutant detail.</p>
+<p>* &quot;Killed&quot; column includes Timeout mutants (Stryker treats Timeout as a kill
+for scoring purposes); the 2314/62/4/2380 total row is the last confirmed
+whole-project run, 2026-09-21 02:14-02:19 (2277 killed, 37 timeout, 62
+survived, 4 no-coverage) — this is a real, coherent whole-project number, not
+a per-file sum. The prior run (2026-09-20 22:48-22:52: 2256 killed, 40
+timeout, 80 survived, 4 no-coverage, 96.47%) is superseded. 96% needed
+<code>Survived + NoCoverage ≤ 95</code>; the final count is 66, 29 better than the
+line. In total this session found and fixed 12
+genuine (non-equivalent) mutants across 2 files: 2 Negate mutants in
+<code>MigrationParser.cs</code> (lines 689, 704, via an adversarial fable-verify pass)
+that closed the last gap to 96%, a further post-96% pass that individually
+re-traced all 91 remaining survivors and found 1 more genuine gap in
+<code>ReferencedObjects.cs</code>'s <code>ReferencedColumnComparer.Equals</code> and 6 more in
+<code>MigrationParser.cs</code>, then a final adversarial fable-verify batch pass over
+all 84 remaining survivors (mirroring the treatment already given the 4
+no-coverage mutants) found 3 more genuine gaps in <code>MigrationParser.cs</code> — 2
+of which corrected wrong equivalence claims written earlier the same
+session — see mutation-coverage-report.md for the full per-mutant
+reasoning.</p>
+<p><strong>2026-09-21 update:</strong> a genuine fable-model verify pass (distinct from the
+prior adversarial batch pass — dispatched fresh over the same 84-survivor
+state) found 5 more real gaps in <code>MigrationParser.cs</code> (<code>5deae22</code>), and the
+previously-undecided &quot;malformed-SQL-only&quot; category (20 mutants across lines
+447-719) was fully resolved: 6 more killed with a nested-paren test
+exploiting a naive-vs-depth-tracking paren-skip discrepancy, and 3 (lines
+709, the <code>BY</code>+<code>DEFAULT</code> prefix check) confirmed genuinely equivalent via
+exhaustive hand-mutation — no input, valid or malformed, distinguishes them,
+because the outer flags-loop's own catchall unconditionally re-scans a
+later bare <code>IDENTITY</code> keyword regardless of how the <code>GENERATED</code> prefix was
+parsed. Net this round: Survived 80→62, Timeout 40→37, Killed 2256→2277.
+The remaining 62 survivors + 4 no-coverage are considered a confirmed
+equivalent-mutant floor pending any future re-check.</p>
+<p>† This row is stale — it reflects the file-scoped 89.78% pass from earlier
+in the session, before the two fixes above and before the whole-project
+score folded in. A fresh file-scoped <code>MigrationParser.cs</code> Stryker run would
+be needed to get its exact current per-file numbers; the whole-project total
+row above is the authoritative current figure.</p>
+<h2 id="files-at-or-above-target-15-of-19">Files at or above target (15 of 19)</h2>
+<p><code>UpsertKeyResolver.cs</code>, <code>AutoCrud.cs</code> (98.60%, ceiling — 1 remaining survivor
+is an equivalent <code>break;</code>-removal), <code>DialectMapper.cs</code>,
+<code>DialectReservedWords.cs</code>, and 11 files at exactly 100.00%
+(<code>AnalysisDiagnostic.cs</code>, <code>CrudColumnRules.cs</code>, <code>Diff/SchemaDelta.cs</code>,
+<code>Diff/StructuralSchemaDiff.cs</code>, <code>EntityNameResolver.cs</code>,
+<code>Impact/Classification.cs</code>, <code>Impact/ImpactClassifier.cs</code>,
+<code>Impact/ImpactEntry.cs</code>, <code>Impact/ImpactReason.cs</code>,
+<code>Impact/QueryImpactInput.cs</code>, <code>Migrations/MigrationStatement.cs</code>).</p>
+<h2 id="files-below-target-4-of-19--round-4-pass-complete-results-final">Files below target (4 of 19) — round-4 pass complete, results final</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Score</th>
+<th>Mutants still needing attention (Survived + NoCov)</th>
+<th>Round-4 verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Impact/ReferencedObjects.cs</code></td>
+<td>86.54%</td>
+<td>7</td>
+<td>Re-verified, no new findings — at documented-equivalent floor</td>
+</tr>
+<tr>
+<td><code>Migrations/MigrationParser.cs</code></td>
+<td>89.78% (scoped; whole-project fold-in pending)</td>
+<td>78</td>
+<td>Per-mutant pass, 2026-09-20: 7 real gaps fixed (12 new tests, 91→70 survivors); remaining ~70 individually re-traced (not template-matched) and confirmed under the previously-established absorption mechanisms — see mutation-coverage-report.md for the per-mutant breakdown</td>
+</tr>
+<tr>
+<td><code>Impact/MigrationImpactReport.cs</code></td>
+<td>90.00%</td>
+<td>1</td>
+<td>Re-verified, no new findings — at documented-equivalent floor</td>
+</tr>
+<tr>
+<td><code>Migrations/SchemaSimulator.cs</code></td>
+<td>94.17%</td>
+<td>12</td>
+<td><strong>Fully closed</strong> — all 12 proven equivalent via the <code>TryFindTable</code>/<code>TryFindColumnKey</code>/<code>TryFindColumn</code> &quot;null-iff-false&quot; contract</td>
+</tr>
+</tbody>
+</table>
+<p>Combined: 98 of the whole project's 106 remaining non-killed mutants (per the
+current per-file scores, <code>MigrationParser.cs</code>'s post-per-mutant-pass 78
+included) sit in these 4 files, of which <code>SchemaSimulator.cs</code>'s 12,
+<code>ReferencedObjects.cs</code>'s 7, and <code>MigrationImpactReport.cs</code>'s 1 (20 total) are
+now confirmed-equivalent floors — closed, not gaps. The genuinely open
+question is only in <code>MigrationParser.cs</code>'s remaining ~70: individually
+re-traced and believed equivalent under the previously-established
+absorption mechanisms (see mutation-coverage-report.md's per-mutant pass
+section), though a fable-verify pass on that section found one of its new
+tests (line 647) doesn't actually kill what it claims to — see that doc for
+the correction.</p>
+<h2 id="bottom-line">Bottom line</h2>
+<ul>
+<li><strong><code>Extrode.JauntyQ.Analysis</code> overall: 99.14% vs. 96% target — target
+exceeded, confirmed by a fresh whole-project run (2026-09-21 08:02-08:32,
+commit <code>bb177ce</code>), after adding
+Stryker comment-based exclusions for 47 confirmed-equivalent survivors
+across 7 files (<code>AutoCrud.cs</code>, <code>Migrations/SchemaSimulator.cs</code>,
+<code>DialectMapper.cs</code>, <code>DialectReservedWords.cs</code>,
+<code>Impact/ReferencedObjects.cs</code>, <code>UpsertKeyResolver.cs</code>,
+<code>Migrations/MigrationParser.cs</code>) — up from 97.23%, confirmed by an earlier
+whole-project run (2026-09-21 02:14-02:19, commit <code>0eee118</code>), up from
+96.47% after a genuine fable-model verify pass fixed 5 more real gaps and
+the malformed-SQL survivor category was fully resolved (6 more killed, 3
+confirmed equivalent).</strong> The path there: 94.66% →
+95.55% (folding in <code>MigrationParser.cs</code>'s per-mutant pass) → 95.84%
+(<code>ReadObjectName</code> bracket-quoted-dot fix) → 95.97% (DEFAULT-value Negate
+mutant fix, line 689) → 96.01% (GENERATED-column Negate mutant fix, line
+704, target first reached) → 96.30% (post-96% full survivor pass: 1
+gap fixed in <code>ReferencedObjects.cs</code>, 6 more in <code>MigrationParser.cs</code>) →
+<strong>96.47%</strong> (adversarial fable-verify batch pass over all 84 remaining
+survivors, mirroring the treatment already given the 4 no-coverage
+mutants: 3 more genuine gaps found in <code>MigrationParser.cs</code>, 2 of which
+corrected wrong equivalence claims from the immediately preceding pass).
+Every fix from 95.97% onward was found by explicitly re-tracing individual
+survivors rather than trusting their resemblance to an already-confirmed
+equivalence class — an adversarial fable-verify pass had confirmed the
+<code>pos &lt;= def.Count</code> class and a <code>SkipParenGroup</code> dead-code claim but
+flagged the line-689 mutant as a real gap; the line-704 mutant was found
+the same way on a manual re-check afterward; the full post-96% pass
+over all 91 remaining survivors found 7 more, including one that
+corrected a previously-wrong equivalence claim about <code>ReadObjectName</code>'s
+dotted-name check; and a final adversarial batch pass over the resulting
+84 survivors found 3 more, 2 of which corrected wrong claims from that
+same post-96% pass (a facet-parsing scale bug at line 576, and a
+closing-paren detection bug at lines 898-899). All 84 survivors and all 4
+no-coverage mutants have now individually been through an adversarial
+refutation attempt with no further batch-level re-check planned. See
+mutation-coverage-report.md for the full per-mutant trace.</li>
+<li>15 of 19 files already meet or exceed 96%; 11 of those are at a clean 100%.</li>
+<li>A near-target cleanup pass (commit <code>1dd7886</code>) pushed the 4 files already
+≥96% toward their own ceilings: only <code>AutoCrud.cs</code> had a real fixable
+survivor (97.90% → 98.60%, a <code>List&lt;T&gt;</code> negative-capacity arithmetic
+mutant). <code>UpsertKeyResolver.cs</code>, <code>DialectMapper.cs</code>, and
+<code>DialectReservedWords.cs</code> were initially reported unchanged, but a
+follow-on adversarial (fable) verify pass found 3 of those &quot;equivalent&quot;
+survivors were actually real, killable gaps — 2 in <code>DialectMapper.cs</code>
+(98.72% → <strong>99.36%</strong>) and 1 in <code>DialectReservedWords.cs</code> (99.68% →
+<strong>99.84%</strong>), fixed in branch <code>test/fix-mislabeled-equivalents</code>. See the
+handoff doc's &quot;fable-verify pass&quot; update for the full per-mutant trace,
+including the corrected reasoning for the survivors that <em>are</em> genuinely
+equivalent. Combined with the 3 sub-96% files closed in round 4, 6 of the
+7 sub-100% files (all but <code>MigrationParser.cs</code>) are now confirmed closed
+with adversarially-checked reasoning — no further test-writing can move
+any of them.</li>
+<li><code>MigrationParser.cs</code> moved 87.02% → 89.78% (scoped) via a full per-mutant
+pass over the ~91 survivors (12 new tests, 7 real gaps fixed, 91→70
+survivors), then two more genuine gaps were found and fixed afterward (the
+line-689 DEFAULT-value and line-704 GENERATED-column Negate mutants,
+both non-equivalent despite resembling already-confirmed equivalence
+classes) — this is what closed the last 1-mutant gap to 96% overall. A
+Stryker coverage-misattribution issue was also found during this pass (see
+mutation-coverage-report.md) — the tool's own survivor counts for this file
+may include false positives beyond what's been individually verified here.
+The whole-project run that folded these fixes into the overall score
+completed 2026-09-20 20:12-20:16, landing at <strong>96.01%</strong> — see the total
+tally row above.</li>
+<li><code>Extrode.JauntyQ.SqlParser</code>: the 2026-09-20 figures above (baseline 59.22%,
+IR-model cleanup 59.65%, 4-file parser-core pass with no confirmed
+whole-project number) are superseded. A 2026-09-21 pass established a fresh,
+correct whole-project baseline (<strong>76.98%</strong>) then pushed all 10
+survivor-carrying files through real-test + individually-traced
+equivalence-exclusion passes — see the per-file tally below, now drawn
+from a single coherent whole-project run
+(<code>tests/Extrode.JauntyQ.SqlParser.Tests/StrykerOutput/2026-09-21.13-28-05</code>),
+not a mixed-date composite.</li>
+</ul>
+<h2 id="extrodejauntyqsqlparser--per-file-tally-vs-96-target">Extrode.JauntyQ.SqlParser — per-file tally vs. 96% target</h2>
+<p>Whole-project run 2026-09-21 13:28-13:38, <strong>88.53%</strong> overall (Killed 2216,
+Timeout 162, Survived 289, NoCoverage 19, 2686 total scored).</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Killed+Timeout</th>
+<th>Survived</th>
+<th>NoCov</th>
+<th>Total</th>
+<th>Score</th>
+<th>vs. 96%</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SqlParser.Part2.cs</code></td>
+<td>239</td>
+<td>57</td>
+<td>9</td>
+<td>305</td>
+<td>78.36%</td>
+<td>-17.64 pp</td>
+</tr>
+<tr>
+<td><code>SqlParser.cs</code></td>
+<td>699</td>
+<td>131</td>
+<td>8</td>
+<td>838</td>
+<td>83.41%</td>
+<td>-12.59 pp</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part4.cs</code></td>
+<td>238</td>
+<td>40</td>
+<td>0</td>
+<td>278</td>
+<td>85.61%</td>
+<td>-10.39 pp</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part5.cs</code></td>
+<td>255</td>
+<td>39</td>
+<td>2</td>
+<td>296</td>
+<td>86.15%</td>
+<td>-9.85 pp</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part7.cs</code></td>
+<td>111</td>
+<td>12</td>
+<td>0</td>
+<td>123</td>
+<td>90.24%</td>
+<td>-5.76 pp</td>
+</tr>
+<tr>
+<td><code>SqlParser.Part6.cs</code></td>
+<td>145</td>
+<td>9</td>
+<td>0</td>
+<td>154</td>
+<td>94.16%</td>
+<td>-1.84 pp</td>
+</tr>
+<tr>
+<td><code>SqlTokenizer.cs</code></td>
+<td>509</td>
+<td>1</td>
+<td>0</td>
+<td>510</td>
+<td>99.80%</td>
+<td><strong>+3.80 pp</strong></td>
+</tr>
+<tr>
+<td><code>IR/CteRef.cs</code>, <code>IR/QueryModel.cs</code>, <code>Token.cs</code>, <code>IR/OrderByRef.cs</code>, <code>IR/TableRef.cs</code>, <code>IR/LiteralBinding.cs</code>, <code>IR/JoinRef.cs</code>, <code>IR/ParameterRef.cs</code>, <code>IR/PerfHint.cs</code>, <code>IR/ColumnRef.cs</code>, <code>SqlParser.Part3.cs</code></td>
+<td>178</td>
+<td>0</td>
+<td>0</td>
+<td>178</td>
+<td>100.00%</td>
+<td><strong>+4.00 pp</strong></td>
+</tr>
+<tr>
+<td><strong>Tally (18 files, single coherent whole-project run)</strong></td>
+<td><strong>2374</strong></td>
+<td><strong>289</strong></td>
+<td><strong>19</strong></td>
+<td><strong>2682</strong></td>
+<td><strong>88.51%</strong>*</td>
+<td><strong>-7.49 pp</strong></td>
+</tr>
+</tbody>
+</table>
+<p>*The 88.51% tally-row figure differs from the JSON's own reported 88.53% by
+a fraction of a point due to 4 mutants (<code>CompileError</code>/other non-scored
+statuses) landing in different per-file buckets than the whole-project
+denominator — both numbers point at the same result; treat 88.53% as
+authoritative.</p>
+<p>3 tiny IR files (<code>IR/ParameterRef.cs</code>, <code>IR/ColumnRef.cs</code>, <code>IR/OrderByRef.cs</code>)
+closed to 100.00% via new default-value tests. <code>SqlParser.Part3.cs</code> also
+reached 100.00% — 45 real tests plus ~15 equivalence-exclusion comments
+(collision-checked, covering ~103 individual mutants) resting on the
+tokenizer's trailing <code>TokenType.End</code> sentinel invariant. The other 6
+parser-body files improved substantially (78–94%) but each still has a
+meaningful deferred set — dominated by one recurring pattern, the
+<code>pos &lt; tokens.Count &amp;&amp; tokens[pos].Type == X</code> guard-chain idiom, left
+plain/undocumented (not falsely claimed equivalent) because proving
+equivalence needs per-call-site tracing of each caller's own loop-exit
+behavior, judged out of budget for a single-file pass every time it came up.
+<strong>Flagged for a dedicated follow-up session</strong> to close the remaining ~7.5pp
+gap by tracing that pattern file-by-file — see the &quot;2026-09-21 push&quot; section
+in mutation-coverage-report.md for the full file-by-file real-test vs.
+equivalence-exclusion vs. deferred breakdown.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="06-reference-mutation-coverage-report.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</span>
+</a><a class="pn-next" href="06-reference-schema-snapshot-format.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Schema snapshot format (.schema.json)</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

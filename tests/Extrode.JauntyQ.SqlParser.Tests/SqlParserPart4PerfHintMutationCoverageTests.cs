@@ -1,0 +1,297 @@
+using Extrode.JauntyQ.SqlParser;
+using Extrode.JauntyQ.SqlParser.IR;
+using Xunit;
+
+namespace Extrode.JauntyQ.SqlParser.Tests;
+
+/// <summary>
+/// Direct coverage for SqlParser.Part4.cs's ExtractPerfHints: the WHERE-region
+/// boundary (WHERE...GROUP/ORDER/HAVING), function-on-column detection in
+/// both operand positions, the leading-wildcard LIKE/NOT LIKE shapes, and
+/// column-compared-to-column back-references.
+/// </summary>
+[Trait("Category", "AuditRegression")]
+public class SqlParserPart4PerfHintMutationCoverageTests
+{
+    private static QueryModel ParseSql(string sql, string name = "TestQuery")
+        => SqlParser.Parse(SqlTokenizer.Tokenize(sql), name);
+
+    // ── WHERE-region boundary ────────────────────────────────────────
+
+    [Fact]
+    public void NoWhereClause_NoPerfHintsCaptured()
+    {
+        var model = ParseSql("SELECT id FROM products");
+
+        Assert.Empty(model.PerfHints);
+    }
+
+    [Fact]
+    public void FunctionOnColumn_AfterGroupBy_IsNotScanned()
+    {
+        // The WHERE region ends at GROUP; a function-wrapped column that only
+        // appears after GROUP BY must not be picked up as a WHERE-clause hint.
+        var model = ParseSql(
+            "SELECT category_id, COUNT(*) FROM products WHERE active = 1 " +
+            "GROUP BY category_id HAVING UPPER(category_id) = 'X'");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+    }
+
+    // The combined test above has both GROUP and HAVING present, so mutating
+    // either literal alone is shadowed by the other keyword still closing the
+    // region -- these three isolate each boundary keyword on its own, with a
+    // real comparison after the call so a mutant that lets the boundary miss
+    // would actually surface a hint.
+
+    [Fact]
+    public void FunctionOnColumn_AfterGroupBoundary_Alone_IsNotScanned()
+    {
+        var model = ParseSql(
+            "SELECT category_id FROM products WHERE active = 1 " +
+            "GROUP BY UPPER(category_id) = 'X'");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+    }
+
+    [Fact]
+    public void FunctionOnColumn_AfterOrderBoundary_Alone_IsNotScanned()
+    {
+        var model = ParseSql(
+            "SELECT category_id FROM products WHERE active = 1 " +
+            "ORDER BY UPPER(category_id) = 'X'");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+    }
+
+    [Fact]
+    public void FunctionOnColumn_AfterHavingBoundary_Alone_IsNotScanned()
+    {
+        var model = ParseSql(
+            "SELECT category_id FROM products WHERE active = 1 " +
+            "HAVING UPPER(category_id) = 'X'");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+    }
+
+    // ── FunctionOnColumn: compared after vs. before vs. not at all ──────
+
+    [Fact]
+    public void FunctionWrappingColumn_ComparedAfter_IsDetected()
+    {
+        var model = ParseSql("SELECT id FROM users WHERE UPPER(email) = 'X'");
+
+        Assert.Contains(model.PerfHints, h =>
+            h.Kind == PerfHintKind.FunctionOnColumn &&
+            h.FunctionName == "UPPER" &&
+            h.BoundColumnName == "email");
+    }
+
+    [Fact]
+    public void FunctionWrappingColumn_ComparedBefore_IsDetected()
+    {
+        var model = ParseSql("SELECT id FROM users WHERE 'X' = UPPER(email)");
+
+        Assert.Contains(model.PerfHints, h =>
+            h.Kind == PerfHintKind.FunctionOnColumn &&
+            h.FunctionName == "UPPER" &&
+            h.BoundColumnName == "email");
+    }
+
+    [Fact]
+    public void FunctionWrappingColumn_NotComparedEitherSide_IsNotDetected()
+    {
+        // COALESCE(UPPER(email), 'x') = 'X' is the wrong shape for this: COALESCE
+        // itself is the function head and IS compared after, so it still records
+        // a hint (just named COALESCE, not UPPER) -- asserting only "no UPPER
+        // hint" let that pass unnoticed. Use a head with no comparison on either
+        // side so neither branch can fire and no hint of any kind is recorded.
+        var model = ParseSql("SELECT id FROM users WHERE active = 1 AND LOWER(name) IN ('a', 'b')");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+    }
+
+    [Fact]
+    public void FunctionCallWithNoColumnArgument_RecordsNoHint()
+    {
+        // The inner scan for the first Identifier argument finds none (a
+        // literal-only argument), so no PerfHint is added even though the
+        // call itself is compared.
+        var model = ParseSql("SELECT id FROM users WHERE UPPER('literal') = 'X'");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+    }
+
+    // ── Leading-wildcard LIKE / NOT LIKE ─────────────────────────────
+
+    [Fact]
+    public void LikeWithLeadingPercent_IsDetected()
+    {
+        var model = ParseSql("SELECT id FROM users WHERE email LIKE '%example.com'");
+
+        Assert.Contains(model.PerfHints, h =>
+            h.Kind == PerfHintKind.LeadingWildcardLike && h.BoundColumnName == "email");
+    }
+
+    [Fact]
+    public void LikeWithLeadingUnderscore_IsDetected()
+    {
+        var model = ParseSql("SELECT id FROM users WHERE code LIKE '_ABC'");
+
+        Assert.Contains(model.PerfHints, h => h.Kind == PerfHintKind.LeadingWildcardLike);
+    }
+
+    [Fact]
+    public void NotLikeWithLeadingWildcard_IsAlsoDetected()
+    {
+        var model = ParseSql("SELECT id FROM users WHERE email NOT LIKE '%example.com'");
+
+        Assert.Contains(model.PerfHints, h =>
+            h.Kind == PerfHintKind.LeadingWildcardLike && h.BoundColumnName == "email");
+    }
+
+    [Fact]
+    public void LikeWithoutLeadingWildcard_IsNotDetected()
+    {
+        var model = ParseSql("SELECT id FROM users WHERE email LIKE 'example%'");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.LeadingWildcardLike);
+    }
+
+    [Fact]
+    public void LikeWithLeadingWildcard_RecordsPatternInDetail()
+    {
+        var model = ParseSql("SELECT id FROM users WHERE email LIKE '%example.com'");
+
+        var hint = Assert.Single(model.PerfHints, h => h.Kind == PerfHintKind.LeadingWildcardLike);
+        Assert.Equal("%example.com", hint.Detail);
+    }
+
+    [Fact]
+    public void LikeWithEmptyPattern_DoesNotThrow()
+    {
+        // The tokens[k+1].Value.Length > 0 guard prevents indexing [0] on an
+        // empty literal.
+        var model = ParseSql("SELECT id FROM users WHERE email LIKE ''");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.LeadingWildcardLike);
+    }
+
+    // ── Column compared to column ────────────────────────────────────
+
+    [Fact]
+    public void ColumnComparedToColumn_RecordsBothSides()
+    {
+        // WHERE-clause column=column shapes surface directly, without needing
+        // a subquery (an EXISTS(...) subquery's WHERE is lifted out before
+        // ExtractPerfHints ever runs -- that path is covered separately).
+        var model = ParseSql("SELECT a.id FROM articles a, article_tags atg WHERE atg.article_id = a.id");
+
+        Assert.Contains(model.PerfHints, h =>
+            h.Kind == PerfHintKind.ColumnComparedToColumn &&
+            h.BoundTableAlias == "atg" && h.BoundColumnName == "article_id");
+        Assert.Contains(model.PerfHints, h =>
+            h.Kind == PerfHintKind.ColumnComparedToColumn &&
+            h.BoundTableAlias == "a" && h.BoundColumnName == "id");
+    }
+
+    [Fact]
+    public void ColumnComparedToLiteral_IsNotColumnComparedToColumn()
+    {
+        var model = ParseSql("SELECT id FROM users WHERE status = 1");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.ColumnComparedToColumn);
+    }
+
+    // ── WHERE-region start must be exactly at WHERE, never earlier ─────
+
+    [Fact]
+    public void ContentBeforeWhereClause_IsNeverScannedForPerfHints()
+    {
+        // If the region start were set at the first keyword found rather than
+        // specifically at "WHERE" (or if the start<0-guard were relaxed to
+        // fire on any earlier keyword), the JOIN...ON column=column
+        // comparison here -- which sits entirely before WHERE -- would be
+        // wrongly swept into the scanned region.
+        var model = ParseSql(
+            "SELECT id FROM users u JOIN orders o ON u.id = o.user_id WHERE active = 1");
+
+        Assert.DoesNotContain(model.PerfHints, h =>
+            h.Kind == PerfHintKind.ColumnComparedToColumn &&
+            (h.BoundTableAlias == "u" || h.BoundTableAlias == "o"));
+    }
+
+    // ── Region end must stick to the FIRST GROUP/ORDER/HAVING found ────
+
+    [Fact]
+    public void FunctionOnColumn_BetweenGroupAndLaterOrderBy_IsNotScanned()
+    {
+        // The region must end at the first GROUP/ORDER/HAVING keyword and
+        // stop there -- if a later boundary keyword kept overwriting the
+        // end position, the region would wrongly widen to include the
+        // GROUP BY clause itself, exposing UPPER(name) to the scan.
+        var model = ParseSql(
+            "SELECT id FROM t WHERE active = 1 GROUP BY UPPER(name) ORDER BY name");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+    }
+
+    // ── Only a real FunctionKeywords member (or Identifier) is a function head ─
+
+    [Fact]
+    public void KeywordNotInFunctionKeywordsSet_IsNeverTreatedAsAFunctionHead()
+    {
+        // "IN" is a Keyword token immediately followed by "(", but it is not
+        // itself a function head -- only an Identifier or a member of
+        // FunctionKeywords (COUNT/SUM/CAST/etc.) qualifies. If the inner
+        // Keyword-type check were loosened to accept any Keyword regardless
+        // of FunctionKeywords membership, "IN (name)" here would be
+        // misread as a function call wrapping "name".
+        var model = ParseSql("SELECT id FROM t WHERE id IN (name) = 1");
+
+        Assert.DoesNotContain(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+    }
+
+    // ── A paren-shaped literal must never confuse FindMatchingParen ────
+
+    [Fact]
+    public void ParenLikeLiteralInsideFunctionCall_DoesNotConfuseParenMatching()
+    {
+        // A string literal whose content happens to be "(" must never be
+        // treated as an actual opening paren by FindMatchingParen's depth
+        // tracking -- only Symbol-typed tokens are real parens. If that
+        // guard were removed, the literal '(' here would desync the depth
+        // count and FindMatchingParen would never find the real closing
+        // paren, silently dropping the hint below.
+        var model = ParseSql("SELECT id FROM t WHERE CONCAT(name, '(') = 'X'");
+
+        Assert.Contains(model.PerfHints, h =>
+            h.Kind == PerfHintKind.FunctionOnColumn &&
+            h.FunctionName == "CONCAT" && h.BoundColumnName == "name");
+    }
+
+    // ── Only the FIRST identifier argument records a hint ───────────────
+
+    [Fact]
+    public void TwoIdentifierArgsInFunctionCall_OnlyFirstOneRecordsAHint()
+    {
+        // The inner scan breaks after the first identifier argument -- a
+        // function call with two column arguments must record exactly one
+        // hint (for the first), not one per argument.
+        var model = ParseSql("SELECT id FROM t WHERE CONCAT(first_name, last_name) = 'X'");
+
+        var hint = Assert.Single(model.PerfHints, h => h.Kind == PerfHintKind.FunctionOnColumn);
+        Assert.Equal("first_name", hint.BoundColumnName);
+    }
+
+    // ── A bare identifier not followed by "(" must still reach the LIKE check ─
+
+    [Fact]
+    public void BareIdentifierNotFollowedByParen_StillReachesTheLikeCheck()
+    {
+        var model = ParseSql("SELECT id FROM t WHERE phone LIKE '%555'");
+
+        Assert.Contains(model.PerfHints, h =>
+            h.Kind == PerfHintKind.LeadingWildcardLike && h.BoundColumnName == "phone");
+    }
+}

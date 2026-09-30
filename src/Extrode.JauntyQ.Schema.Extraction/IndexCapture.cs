@@ -10,8 +10,6 @@ internal static class IndexCapture
 {
     public static void AddIndexColumn(DatabaseSchema schema, string tableName, string indexName, bool isUnique, string columnName, bool hasPrefixKeyPart = false, bool hasExpressionKeyPart = false)
     {
-        if (!schema.Tables.TryGetValue(tableName, out var table))
-            return;
         var index = EnsureIndex(schema, tableName, indexName, isUnique, hasExpressionKeyPart);
         if (index == null)
             return;

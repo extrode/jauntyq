@@ -1,0 +1,134 @@
+# Directory-structure standardization, handoff from the jaunty session
+
+Handoff from a cross-repo initiative run out of the `jaunty` session. Owner's goal: standardize
+directory-structure conventions across all .NET projects under `C:/home/code/extrode.com/`,
+starting with jaunty and jauntyq specifically (as the two most similar/mature sibling repos), then
+extending the settled convention to the other ~17 .NET repos in that directory later.
+
+**Update, same day:** the owner approved the "quick fixes" batch and the jaunty session executed
+the jauntyq-specific ones directly in this repo (branch `chore/dirstruct-quick-fixes-2026-09-21`,
+merged to `dev`): added `.config/dotnet-tools.json` pinning `dotnet-stryker 4.16.0`; deleted the 3
+dead schema JSON files in `data/` (see the correction in the section below); moved
+`docs/assets/build-not-prod.svg` to `docs/_assets/`; renumbered `docs/06-reference` →
+`docs/04-reference` and `docs/07-roadmap` → `docs/09-roadmap` with all cross-file links updated.
+The rest of this doc is left as originally written (below) as the record of what was flagged and
+why — the "not yet actioned" framing in the next paragraph now only applies to the bigger,
+sign-off-gated items in the "What jaunty is not changing unilaterally" section near the bottom.
+
+**Update, same day (second batch):** owner approved moving on the "adopt from each other" item too
+(branch `chore/dirstruct-tests-shared`, merged to `dev`). Moved `test-infra/FixtureGate.cs` to
+`tests/Shared/FixtureGate.cs` (the `tests/Shared/` linked-sources convention from section 3 of
+`dirstruct-fable-recommendations-2026-09-21.md`), updated both `tests/Directory.Build.props` and
+`samples/Directory.Build.props`'s `<Compile Include>`/`Link` paths accordingly, and updated the two
+prose references in `.github/workflows/ci.yml` and `scripts/skip-audit.js`. Verified both a
+`tests/` project and a `samples/*.Tests` project still build clean against the new path. `data/`
+was already gone (deleted in the first batch, along with its 3 dead schema files), so that
+"empty `data/`" cleanup item is moot. `laws/` remains explicitly deferred — no invariant yet worth
+that pattern. The `tests/`-naming rename (section 3's `.Tests`-suffix rules) doesn't apply to
+jauntyq: every existing test project already ends in `.Tests` with no runner-split naming problem
+like jaunty's `UnitTests`, so there's nothing to rename here.
+
+**Update, same day (revert):** the `docs/` renumbering from the first batch is reverted —
+`docs/04-reference` → back to `docs/06-reference`, `docs/09-roadmap` → back to `docs/07-roadmap`,
+all cross-file links restored (branch `chore/revert-docs-numbering`, merged to `dev`). Reason: a
+later jaunty session disputed that the specific `00-overview`…`09-roadmap` numbered map from
+`dirstruct-fable-recommendations-2026-09-21.md` section 5 was ever actually agreed, stating that
+what was settled in *that* session was only a shape-axis rule (numbered folders are living pages,
+underscore folders are dated/append-only records or site infra) with no specific cross-repo number
+sequence, and that jauntyq renumbering to match the proposed map was done ahead of the intended
+sequencing (jaunty settles a convention first, jauntyq gets a handoff after — not the other way
+round). This directly contradicts what the first-batch update above (and commit `8cb3f37`) records
+as having happened — a jaunty session's own Fable consultation produced the specific numbered
+table, and a jaunty session's own commit message cited that table as the reason for renumbering
+jauntyq — but the owner chose to resolve the conflict between the two jaunty-session accounts in
+favor of the later one rather than adjudicate it further. `docs/06-reference` and
+`docs/07-roadmap` are jauntyq's own pre-existing numbers; they satisfy the shape-axis rule (both
+are numbered/living-page folders) without asserting any specific cross-repo sequence. No other
+item from either batch is affected — `tests/Shared/`, the `.config/dotnet-tools.json` pin, the dead
+schema JSON deletion and the `_assets/` move all stand.
+
+**Update, 2026-09-24:** jauntyq dropped the underscore prefix from unnumbered `docs/` folders
+(`_assets/` → `assets/`, `_decisions/` → `decisions/`, and so on; `_plans/` merged into `plans/`);
+jaunty's matching rename is on its `chore/docs-drop-underscore-prefixes` branch. The shape-axis rule above still holds, with the missing number rather than the
+underscore marking a folder outside the reading order. Paths below are left as originally written.
+
+## What's already been done (all in the jaunty repo, read/analysis only until noted)
+
+1. Generated full ASCII directory trees for both repos and wrote a comparison analysis, committed
+   to jaunty's `dev` at `docs/05-quality/reports/`:
+   - `dirstruct-jaunty-2026-09-21.txt`
+   - `dirstruct-jauntyq-2026-09-21.txt`
+   - `dirstruct-comparison-2026-09-21.md` — the original analysis (top-level diffs, docs/ numbering
+     mismatch, tests/ naming inconsistencies within jaunty itself, apparent fixture-data
+     philosophy split, dead folders found)
+2. Got an independent second opinion from Fable (given the same trees + a broader survey of the
+   other extrode.com .NET repos), also committed:
+   - `dirstruct-fable-recommendations-2026-09-21.md` — **this is the one to read first if you only
+     read one file.** It corrects several mistakes in the original comparison (the fixture-data
+     "philosophy split" turned out not to be a real conflict — jauntyq's per-sample `db/` folders
+     are consumer-facing schema-source-of-truth for the generator, not test fixtures, and jaunty's
+     `seed/` turned out to be dead/unused rather than an intentional alternative approach) and lays
+     out a concrete proposed top-level convention (section 2), a `tests/` naming rule (section 3),
+     a ruling on samples/fixture data (section 4 — **jauntyq's `db/` convention is confirmed
+     correct and stays as-is**), a `docs/` numbering map meant to apply identically to both repos
+     (section 5), and a short list of what to adopt from each other (section 6).
+3. Did the one trivial no-judgment-call fix in jaunty itself: deleted the dead
+   `docs/architecture/` folder (`.gitkeep` only, leftover from an earlier docs migration). Nothing
+   else has been changed in jaunty yet either — everything else needs a decision from the owner
+   before execution (the docs renumbering in particular touches 8 folders + all relative links in
+   jaunty).
+
+## Specifically flagged for jauntyq (from Fable's review, section 1 item 10 and section 6)
+
+These are the concrete, jauntyq-specific findings — not yet actioned here, listed so this session
+doesn't have to rediscover them:
+
+- **`.config/dotnet-tools.json` is missing.** Jaunty pins `dotnet-stryker 4.16.0` via a local tool
+  manifest; jauntyq's nightly workflow instead installs Stryker ad hoc in a workflow step. Flagged
+  as an actual oversight (not just an optional style difference) — an unpinned Stryker version in
+  CI can silently drift.
+- **`data/` held 3 unreferenced schema JSON files** (`edgecases.schema.json`,
+  `northwind.schema.json`, `relationships.schema.json`) from the repo's very first two commits,
+  predating the current `samples/*/db/schema/` convention. Correction: an earlier version of this
+  handoff wrongly described the directory as empty — it wasn't, it had these 3 files; that was my
+  own error during the original survey, not Fable's. Grepped `src/`, `tests/`, `samples/`, `docs/`,
+  `scripts/`, `.github/` for their filenames with nothing found referencing them, so treated as
+  dead by the same "nothing referenced it" bar used for jaunty's now-deleted `seed/`.
+- **`docs/assets/build-not-prod.svg` duplicates the `docs/_assets/` convention** — one stray file
+  outside the underscore-prefixed asset folder both repos otherwise use. Candidate to move into
+  `docs/_assets/`.
+- **`docs/` numbering**: under Fable's proposed map (section 5 of the recommendations doc),
+  jauntyq needs only two renames — `06-reference` → `04-reference`, `07-roadmap` → `09-roadmap` —
+  much cheaper than jaunty's 8-folder renumber. `00-overview`, `01-getting-started`, `02-learn`,
+  `03-guides` already land on the right numbers as-is.
+- **`test-infra/`** is confirmed to be doing the same job as jaunty's linked shared-test-sources
+  (`Extrode.Jaunty.Tests/Helpers`, `<Compile Include>`-linked into `UnitTests`) — Fable's proposal
+  is a shared `tests/Shared/` name in both repos, linked via `tests/Directory.Build.props` /
+  `samples/Directory.Build.props`. Not urgent, just noted as the target shape if/when this gets
+  standardized.
+- **`laws/` convention** (jaunty has `docs/laws/` + matching `tests/.../Unit/Laws/L00N*Tests.cs`
+  for stated invariants) — worth adopting here once jauntyq has an invariant worth documenting
+  that way. Not now, just flagged as a pattern to borrow later.
+- Your own `handoffs/` folder convention was called out favorably and is **not** proposed for
+  removal or change — jaunty doesn't have one and will likely add it only once it actually writes
+  a cross-session handoff of its own.
+
+## What jaunty is *not* changing unilaterally
+
+The docs-numbering rename and the `tests/`-naming rename (`Extrode.Jaunty.UnitTests` →
+`Extrode.Jaunty.Parallel.Tests` or similar, per section 3 of the recommendations) both touch CI
+YAML, `.slnx` files, and in jaunty's case relative doc links — these need the owner's sign-off
+before either repo executes them, and are called out as such in both the comparison and
+recommendations docs. Don't start those in jauntyq without confirming the plan still holds
+(particularly the `docs/` numbering map — Fable flagged in its own recommendations that if
+the shared Docs tool at `C:\home\code\beparey.com\docsgen` hardcodes prefix-to-section names,
+the map needs to follow the tool instead, and that wasn't verified).
+
+## Suggested next step for this session
+
+Read the three jaunty-repo files above (`dirstruct-jauntyq-2026-09-21.txt` for your own tree as
+jaunty's session saw it, plus both analysis docs), sanity-check the jauntyq-specific findings
+against the current tree (Fable's review of jauntyq was done via the semble index and the
+committed tree file only — no direct file reads — so worth a quick verification pass here), and
+hold on any renames until the owner has weighed in on the `docs/` numbering plan and the `tests/`
+rename cost across both repos.

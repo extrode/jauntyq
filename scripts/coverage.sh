@@ -95,8 +95,20 @@ done
 REPORTTYPES="TextSummary"
 [[ "$HTML" == 1 ]] && REPORTTYPES="TextSummary;Html"
 
+# reportgenerator is a native Windows exe under git-bash/MSYS. MSYS auto-translates a clean
+# absolute POSIX path arg (like -targetdir:$OUT/report) to its Windows form when invoking a
+# native exe, but -reports:$OUT/**/coverage.cobertura.xml isn't a clean path -- the embedded
+# ** defeats the heuristic -- so it reaches reportgenerator as a literal /c/... path it can't
+# glob, and the whole report silently comes back empty ("found no matching files", exit 1)
+# even though every suite above passed. Verified 2026-09-20 on this Windows dev box. Real
+# Linux (CI) has no cygpath, so this is a no-op there and $OUT is used as-is, unchanged.
+REPORTS_DIR="$OUT"
+if command -v cygpath >/dev/null 2>&1; then
+  REPORTS_DIR="$(cygpath -w "$OUT")"
+fi
+
 reportgenerator \
-  -reports:"$OUT/**/coverage.cobertura.xml" \
+  -reports:"$REPORTS_DIR/**/coverage.cobertura.xml" \
   -targetdir:"$OUT/report" \
   -reporttypes:"$REPORTTYPES"
 

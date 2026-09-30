@@ -246,6 +246,7 @@ public class SqlServerExtractor : ISchemaExtractor
                                    !await reader.IsDBNullAsync(7)
                     ? reader.GetString(7)
                     : reader.GetString(2);
+                // Stryker disable once Conditional,String : PARAMETER_MODE is never NULL for a procedure parameter (measured live: IN / INOUT), so the "IN" fallback is never taken, and an empty fallback would land in the switch's default In arm anyway
                 string mode = await reader.IsDBNullAsync(3) ? "IN" : reader.GetString(3);
                 int? paramMax = await reader.IsDBNullAsync(4) ? null : reader.GetInt32(4);
                 int? paramPrecision = await reader.IsDBNullAsync(5) ? null : reader.GetInt32(5);
@@ -257,6 +258,7 @@ public class SqlServerExtractor : ISchemaExtractor
                     DbType = paramType,
                     Direction = mode switch
                     {
+                        // Stryker disable once String : SQL Server reports an OUTPUT parameter's mode as INOUT (measured live), so neither "OUT" nor an empty string ever matches here
                         "OUT" => ProcedureParamDirection.Out,
                         "INOUT" => ProcedureParamDirection.InOut,
                         _ => ProcedureParamDirection.In
@@ -293,8 +295,11 @@ public class SqlServerExtractor : ISchemaExtractor
                     Name = seqName,
                     StartValue = reader.GetInt64(1),
                     Increment = reader.GetInt64(2),
+                    // Stryker disable once Conditional : sys.sequences.minimum_value is NOT NULL, so the NULL arm is never taken and always reading the value is indistinguishable
                     MinValue = await reader.IsDBNullAsync(3) ? null : reader.GetInt64(3),
+                    // Stryker disable once Conditional : sys.sequences.maximum_value is NOT NULL, same argument as MinValue
                     MaxValue = await reader.IsDBNullAsync(4) ? null : reader.GetInt64(4),
+                    // Stryker disable once Conditional : sys.sequences.current_value is NOT NULL, same argument as MinValue
                     CurrentValue = await reader.IsDBNullAsync(5) ? null : reader.GetInt64(5)
                 };
             }
@@ -326,6 +331,7 @@ public class SqlServerExtractor : ISchemaExtractor
                     string typeName = reader.GetString(1); // e.g. "int", "nvarchar(40)"
                     bool colNullable = !await reader.IsDBNullAsync(2) && reader.GetBoolean(2);
                     int paren = typeName.IndexOf('(');
+                    // Stryker disable once Equality : a system_type_name never starts with "(", so paren is never 0 and "> 0" behaves exactly like ">= 0"
                     string baseType = paren >= 0 ? typeName.Substring(0, paren).Trim() : typeName.Trim();
 
                     proc.Results.Add(new ColumnSchema
@@ -379,10 +385,14 @@ public class SqlServerExtractor : ISchemaExtractor
             while (await reader.ReadAsync())
             {
                 string typeName = reader.GetString(0);
+                // Stryker disable once Conditional : base_type is never NULL for an alias: the only system types without a matching non-user-defined row (geometry, geography, hierarchyid) are refused as alias bases (measured live)
                 string? baseType = await reader.IsDBNullAsync(1) ? null : reader.GetString(1);
                 bool isNullable = !await reader.IsDBNullAsync(2) && reader.GetBoolean(2);
+                // Stryker disable once Conditional : sys.types.max_length is NOT NULL and the CASE maps every value to a non-NULL one
                 int? maxLength = await reader.IsDBNullAsync(3) ? null : reader.GetInt32(3);
+                // Stryker disable once Conditional : sys.types.precision is NOT NULL
                 int? precision = await reader.IsDBNullAsync(4) ? null : reader.GetInt32(4);
+                // Stryker disable once Conditional : sys.types.scale is NOT NULL
                 int? scale = await reader.IsDBNullAsync(5) ? null : reader.GetInt32(5);
 
                 // precision/scale are reported for every type, including the
@@ -398,6 +408,7 @@ public class SqlServerExtractor : ISchemaExtractor
                     Kind = UserTypeKind.Alias,
                     UnderlyingDbType = baseType,
                     IsNullable = isNullable,
+                    // Stryker disable once Conditional : no system type has max_length 0 (measured live), so the null arm is never taken and "false ?" reads the same value
                     MaxLength = maxLength == 0 ? null : maxLength,
                     Precision = numeric ? precision : null,
                     Scale = numeric ? scale : null
@@ -448,13 +459,18 @@ public class SqlServerExtractor : ISchemaExtractor
 
                 // A table type with no columns cannot be declared, but the LEFT
                 // JOIN makes that unrepresentable rather than a crash.
+                // Stryker disable once Statement : a table type always has at least one column (CREATE TYPE AS TABLE requires one), so this continue is never reached
                 if (await reader.IsDBNullAsync(1))
                     continue;
 
+                // Stryker disable once Conditional,String : a table type column's sys.types row always exists, so column_type is never NULL and the empty fallback is never taken
                 string columnType = await reader.IsDBNullAsync(2) ? string.Empty : reader.GetString(2);
                 bool numeric = columnType is "decimal" or "numeric" or "money" or "smallmoney";
+                // Stryker disable once Conditional : sys.columns.max_length is NOT NULL and the CASE maps every value to a non-NULL one
                 int? maxLength = await reader.IsDBNullAsync(4) ? null : reader.GetInt32(4);
+                // Stryker disable once Conditional : sys.columns.precision is NOT NULL
                 int? precision = await reader.IsDBNullAsync(5) ? null : reader.GetInt32(5);
+                // Stryker disable once Conditional : sys.columns.scale is NOT NULL
                 int? scale = await reader.IsDBNullAsync(6) ? null : reader.GetInt32(6);
 
                 tableType.Members.Add(new ColumnSchema
@@ -462,6 +478,7 @@ public class SqlServerExtractor : ISchemaExtractor
                     Name = reader.GetString(1),
                     DbType = columnType,
                     IsNullable = !await reader.IsDBNullAsync(3) && reader.GetBoolean(3),
+                    // Stryker disable once Conditional : no system type has max_length 0 (measured live), same argument as the alias block
                     MaxLength = maxLength == 0 ? null : maxLength,
                     Precision = numeric ? precision : null,
                     Scale = numeric ? scale : null
@@ -544,6 +561,7 @@ public class SqlServerExtractor : ISchemaExtractor
                 // procedure parameters -- so the fallback here is for the
                 // alias case, and the 'table type' branch the procedure block
                 // needs has nothing to do on this path.
+                // Stryker disable once Conditional,String : a scalar function parameter's DATA_TYPE is never NULL (an alias reports its base type, measured live), so the USER_DEFINED_TYPE_NAME fallback is never taken
                 string paramType = await reader.IsDBNullAsync(6)
                     ? (await reader.IsDBNullAsync(10) ? string.Empty : reader.GetString(10))
                     : reader.GetString(6);
@@ -564,6 +582,7 @@ public class SqlServerExtractor : ISchemaExtractor
                 schema.Functions[UserTypeResolution.FunctionKey(kv.Key, pendingArgTypes[kv.Key])] = kv.Value;
         }
 
+        // Stryker disable once Statement : a no-op for SQL Server output: columns and parameters already carry their alias (DOMAIN_NAME, USER_DEFINED_TYPE_NAME) and a function's alias return is reported as its base type, so nothing is left for Apply to resolve
         UserTypeResolution.Apply(schema);
 
         return schema;

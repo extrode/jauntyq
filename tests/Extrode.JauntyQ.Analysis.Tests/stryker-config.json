@@ -1,4 +1,5 @@
 {
+  "_comment": "break: 0 is deliberate, not an oversight: the nightly mutation job (.github/workflows/nightly.yml) treats a score as a report to look at, never a gate that fails the run. If you're reading this because the config moved somewhere that comment doesn't apply, re-check whether break:0 is still what you want. No `mutate` glob here on purpose (2026-09-20): at 4,124 LOC, whole-project mutation of Analysis already runs in minutes, and survivor-fixing work has used its full-project results productively (see docs/handoffs/2026-09-19-stryker-mutation-gaps.md). Narrow this only if the run time becomes a real problem, not preemptively -- Generator's config narrows because 13K LOC actually is expensive by default.",
   "stryker-config": {
     "project": "Extrode.JauntyQ.Analysis.csproj",
     "reporters": ["progress", "json"],

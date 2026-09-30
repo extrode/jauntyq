@@ -8,7 +8,7 @@ public class LicenceLinkPinTests
     private static readonly Regex PinnedLink =
         new(@"^https://islamiclicense\.org/isl-[a-z-]+/\d+\.\d+/[A-Z]+\.md$", RegexOptions.Compiled);
 
-    private static readonly string[] SkippedDirectories = ["bin", "obj", ".git", "tmp", "TestResults", "artifacts", "dist", "out"];
+    private static readonly string[] SkippedDirectories = ["bin", "obj", ".git", "tmp", "TestResults", "artifacts", "dist", "out", "StrykerOutput"];
 
     private static readonly string[] TextExtensions = [".md", ".cs", ".props", ".targets", ".csproj", ".yml", ".json", ".txt", ".sh"];
 

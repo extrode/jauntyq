@@ -27,6 +27,7 @@ public static partial class SqlParser
         var insertColumns = new List<string>();
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == "(")
         {
+            // Stryker disable once Statement : the loop below already skips any non-Identifier token (including this "(" itself) via its own pos++, so this explicit skip is a redundant no-op with identical final state either way
             pos++; // skip (
             while (pos < tokens.Count && !(tokens[pos].Type == TokenType.Symbol && tokens[pos].Value == ")"))
             {
@@ -34,7 +35,10 @@ public static partial class SqlParser
                     insertColumns.Add(tokens[pos].Value);
                 pos++;
             }
-            if (pos < tokens.Count) pos++; // skip )
+            // Skip ")". When the list was unterminated the loop stopped at
+            // tokens.Count and this steps one past it, which every later
+            // "pos < tokens.Count" guard rejects exactly as it rejects Count.
+            pos++;
         }
 
         // INSERT ... SELECT: the source rows come from a SELECT rather than a
@@ -71,6 +75,7 @@ public static partial class SqlParser
                 if (t.Type == TokenType.Symbol && t.Value == "(")
                 {
                     depth++;
+                    // Stryker disable once Statement : BindInsertSlot only inspects slot.Count and slot[0]/[1]'s own Type/Value for its Count==1 (Parameter/Literal) and Count==2 (negative-number) shapes, neither of which a bare "(" can ever form part of, so whether it's physically present in a multi-token slot is unobservable
                     slot.Add(t);
                 }
                 else if (t.Type == TokenType.Symbol && t.Value == ")")
@@ -78,9 +83,11 @@ public static partial class SqlParser
                     if (depth == 0)
                     {
                         BindInsertSlot(slot, insertColumns, colIndex, model);
+                        // Stryker disable once Statement : without this break the loop just keeps absorbing trailing tokens (e.g. RETURNING) into further no-op slots -- BindInsertSlot's slot.Count==1-Parameter/Literal guard never matches multi-token leftovers, and ExtractReturning re-scans the full token list independently of this loop's pos, so no observable state differs either way
                         break;
                     }
                     depth--;
+                    // Stryker disable once Statement : same argument as the "(" branch above -- a bare ")" can never form part of BindInsertSlot's Count==1 or Count==2 shape checks, so its presence in a multi-token slot is unobservable
                     slot.Add(t);
                 }
                 else if (t.Type == TokenType.Symbol && t.Value == "," && depth == 0)
@@ -111,6 +118,7 @@ public static partial class SqlParser
     /// </summary>
     private static void ParseInsertSelect(List<Token> tokens, int selectPos, List<string> insertColumns, QueryModel model)
     {
+        // Stryker disable once Initializer : selectModel is discarded after this method except for its Tables/Joins, which are merged below -- Name only ever affects nested subquery/CTE naming inside selectModel's own (never-merged) Subqueries/Ctes, so it has no observable effect through the parser's public API
         var selectModel = new QueryModel { Name = model.Name };
         int pos = ParseSelect(tokens, selectPos + 1, selectModel);
 
@@ -189,15 +197,17 @@ public static partial class SqlParser
             var t = tokens[pos];
             if (depth == 0 && t.Type == TokenType.Keyword && IsClauseKeyword(t.Value))
                 break; // reached FROM/etc — end of select list
-            if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; slot.Add(t); continue; }
-            if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; slot.Add(t); continue; }
-            if (depth == 0 && t.Type == TokenType.Symbol && t.Value == ",")
+            if (t.Type == TokenType.Symbol && t.Value == "(") { depth++; slot.Add(t); }
+            else if (t.Type == TokenType.Symbol && t.Value == ")") { depth--; slot.Add(t); }
+            else if (depth == 0 && t.Type == TokenType.Symbol && t.Value == ",")
             {
                 Flush();
                 colIndex++;
-                continue;
             }
-            slot.Add(t);
+            else
+            {
+                slot.Add(t);
+            }
         }
         Flush();
     }
@@ -221,10 +231,8 @@ public static partial class SqlParser
                 paramRef.BoundColumnName = insertColumns[colIndex];
                 paramRef.IsWriteTarget = true;
             }
-            return;
         }
-
-        if (slot.Count == 1 && (slot[0].Type == TokenType.Literal || slot[0].Type == TokenType.Number))
+        else if (slot.Count == 1 && (slot[0].Type == TokenType.Literal || slot[0].Type == TokenType.Number))
         {
             model.Literals.Add(new LiteralBinding
             {
@@ -232,11 +240,9 @@ public static partial class SqlParser
                 Value = slot[0].Value,
                 BoundColumnName = insertColumns[colIndex]
             });
-            return;
         }
-
         // Negative numeric literal: '-' Number
-        if (slot.Count == 2 &&
+        else if (slot.Count == 2 &&
             slot[0].Type == TokenType.Symbol && slot[0].Value == "-" &&
             slot[1].Type == TokenType.Number)
         {
@@ -260,7 +266,6 @@ public static partial class SqlParser
             string tableName = StripQualifier(tokens[pos].Value);
             model.TargetTable = tableName;
             model.Tables.Add(new TableRef { TableName = tableName, Alias = string.Empty });
-            pos++;
         }
 
         // Parameter bindings handled by ExtractParameterBindings (col = @param pattern)
@@ -283,19 +288,26 @@ public static partial class SqlParser
         int depth = 0;
         for (int i = 0; i < tokens.Count; i++)
         {
-            if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == "(") { depth++; continue; }
-            if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ")") { if (depth > 0) depth--; continue; }
-            if (tokens[i].Type == TokenType.Keyword)
+            if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == "(")
             {
-                if (tokens[i].Value == "SET" && depth == 0)
-                {
-                    inSet = true;
-                    continue;
-                }
-                if (tokens[i].Value == "WHERE" && depth == 0)
-                    break;
+                depth++;
             }
-            if (inSet && depth == 0 && i >= 2 &&
+            else if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ")")
+            {
+                if (depth > 0) depth--;
+            }
+            else if (tokens[i].Type == TokenType.Keyword && tokens[i].Value == "SET" && depth == 0)
+            {
+                inSet = true;
+            }
+            else if (tokens[i].Type == TokenType.Keyword && tokens[i].Value == "WHERE" && depth == 0)
+            {
+                break;
+            }
+            // No i >= 2 guard needed: inSet means SET sat at some index s < i,
+            // so tokens[i - 1] is in range, and tokens[i - 2] is only read once
+            // tokens[i - 1] matched "=" -- which SET is not -- so i - 2 >= s.
+            else if (inSet && depth == 0 &&
                 tokens[i].Type == TokenType.Parameter &&
                 tokens[i - 1].Type == TokenType.Symbol && tokens[i - 1].Value == "=" &&
                 tokens[i - 2].Type == TokenType.Identifier)

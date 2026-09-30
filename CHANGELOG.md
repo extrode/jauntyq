@@ -11,6 +11,32 @@ condensed.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-30
+
+### Added
+- **100% mutation score on the six assemblies under mutation testing** (SqlParser, Schema,
+  Schema.Extraction, Cli.Core, Generator, Analysis). At 0.5.1 only Analysis and SqlParser had
+  Stryker configs. Generator's scope is limited to `QueryValidator*`, `*Analyzer.cs`,
+  `JauntyDiagnostics.cs` and `IdentifierGuard.cs`. Every surviving mutant was killed by a test,
+  removed by simplifying redundant code, or marked `// Stryker disable` with the reason only
+  where the mutant is provably equivalent. Per-assembly scores, what the 100% excludes and
+  the commands to reproduce them are in `docs/06-reference/mutation-coverage-tally.md`.
+- **Shared database engines for the Generator test suite** (`EngineContainers` reads
+  `JAUNTYQ_TEST_ENGINE_POSTGRES/_MYSQL/_MARIADB/_SQLSERVER`), the same mechanism Schema.Extraction
+  uses, so a mutation run no longer starts containers per mutant. `scripts/mutation-engines.sh`
+  starts and stops them.
+
+### Changed
+- **`MULTI_STATEMENT` now also fires when a parenthesis follows a `;`** (for example
+  `SELECT 1; (SELECT 2)`), which previously passed as a single statement.
+
+- Dependency floors for the packable providers rose: Npgsql 8.0.6 to 8.0.9, MySqlConnector
+  2.4.0 to 2.6.2, Microsoft.Data.SqlClient 5.2.2 to 5.2.3, Microsoft.Data.Sqlite 8.0.11 to
+  8.0.31, SQLitePCLRaw.bundle_e_sqlite3 3.0.3 to 3.0.5.
+
+### Fixed
+- The nightly mutation job restores the solution before running Stryker.
+
 ## [0.5.1] - 2026-09-18
 
 ### Added

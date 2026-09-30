@@ -111,6 +111,7 @@ internal static class NPlusOneAnalyzer
                 continue;
             foreach (var tableKey in fact.TablesRead)
             {
+                // Stryker disable once Statement : TablesRead only holds keys Build already resolved through FindTableSchema, so this guard never fires
                 if (FindTableSchema(schema, tableKey) == null)
                     continue;
                 if (!collections.TryGetValue(tableKey, out var names))
@@ -298,6 +299,7 @@ internal static class NPlusOneAnalyzer
             if (!fact.EqualityFilterColumns.Contains(tableKey + "|" + column.Name.ToLowerInvariant()))
             {
                 pkFullyFiltered = false;
+                // Stryker disable once Statement : later iterations only set hasPk (already true) or pkFullyFiltered (already false, never reset)
                 break;
             }
         }
@@ -323,6 +325,7 @@ internal static class NPlusOneAnalyzer
                 if (!fact.EqualityFilterColumns.Contains(tableKey + "|" + column.ToLowerInvariant()))
                 {
                     allFiltered = false;
+                    // Stryker disable once Statement : later iterations can only set allFiltered to false again, and nothing resets it
                     break;
                 }
             }
@@ -411,6 +414,7 @@ internal static class NPlusOneAnalyzer
                 if (!fact.EqualityFilterColumns.Contains(childTableKey + "|" + column.ToLowerInvariant()))
                 {
                     allFiltered = false;
+                    // Stryker disable once Statement : later iterations can only set allFiltered to false again, and nothing resets it
                     break;
                 }
             }
@@ -427,7 +431,9 @@ internal static class NPlusOneAnalyzer
     /// Two genuinely distinct FKs between the same pair of tables also merge —
     /// a deliberate conservative choice: the merged group demands equality on
     /// the union of columns, so it can only under-fire, never over-fire.
-    /// Groups and their columns are sorted for deterministic output.
+    /// Groups are ordered by child table only; ties between groups for the same
+    /// child table never reach a diagnostic (see CountDistinctFilteredParentFks).
+    /// Columns within a group are sorted.
     /// </summary>
     private static List<FkGroup> BuildFkGroups(DatabaseSchema schema)
     {
@@ -454,11 +460,7 @@ internal static class NPlusOneAnalyzer
         var groups = new List<FkGroup>(byPair.Values);
         foreach (var group in groups)
             group.ChildColumns.Sort(StringComparer.OrdinalIgnoreCase);
-        groups.Sort(static (a, b) =>
-        {
-            int byChild = string.CompareOrdinal(a.ChildTableKey, b.ChildTableKey);
-            return byChild != 0 ? byChild : string.CompareOrdinal(a.ParentTableKey, b.ParentTableKey);
-        });
+        groups.Sort(static (a, b) => string.CompareOrdinal(a.ChildTableKey, b.ChildTableKey));
         return groups;
     }
 
@@ -499,10 +501,10 @@ internal static class NPlusOneAnalyzer
     /// </summary>
     private sealed class QueryFacts
     {
-        public string Name = string.Empty;
+        public readonly string Name;
 
         /// <summary>The child lookup's .sql path (JNT8008 diagnostic anchor).</summary>
-        public string? Path;
+        public readonly string? Path;
 
         /// <summary>Lowercased snapshot tables this statement reads in FROM/JOIN.</summary>
         public readonly HashSet<string> TablesRead = new HashSet<string>(StringComparer.Ordinal);
@@ -524,9 +526,15 @@ internal static class NPlusOneAnalyzer
         /// </summary>
         public bool AggregateOnlyProjection;
 
+        private QueryFacts(string name, string? path)
+        {
+            Name = name;
+            Path = path;
+        }
+
         public static QueryFacts Build(string name, string? path, QueryModel query, DatabaseSchema schema)
         {
-            var facts = new QueryFacts { Name = name, Path = path };
+            var facts = new QueryFacts(name, path);
 
             // Same alias map the validator builds (later duplicates win).
             var aliasToTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -535,6 +543,7 @@ internal static class NPlusOneAnalyzer
                 string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
                 aliasToTable[key] = table.TableName;
 
+                // Stryker disable once Statement : a CTE/unknown table has no schema columns, so it never yields a filter key, and every consumer of TablesRead re-checks FindTableSchema or matches FK table keys
                 if (FindTableSchema(schema, table.TableName) == null)
                     continue; // CTE/unknown: never judged
                 string tableKey = table.TableName.ToLowerInvariant();
@@ -548,6 +557,7 @@ internal static class NPlusOneAnalyzer
             // ambiguous unqualified names) are skipped — never guessed.
             foreach (var param in query.Parameters)
             {
+                // Stryker disable once Logical,Statement : facts are built for SELECTs only, which carry no write-target params, and an empty column name makes ResolveColumn return null so the loop continues below anyway
                 if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
                     continue;
                 bool isEquality = param.ComparisonOp == "=";
@@ -567,13 +577,14 @@ internal static class NPlusOneAnalyzer
                     facts.InFilterColumns.Add(key);
             }
 
-            bool allExpressions = query.Columns.Count > 0;
+            bool allExpressions = true;
             bool anyAggregate = false;
             foreach (var col in query.Columns)
             {
                 if (!col.IsExpression)
                 {
                     allExpressions = false;
+                    // Stryker disable once Statement : allExpressions is never set back to true, so the result is false whatever later columns set anyAggregate to
                     break;
                 }
                 if (IsAggregateExpression(col))

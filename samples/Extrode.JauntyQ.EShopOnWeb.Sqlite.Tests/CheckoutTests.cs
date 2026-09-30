@@ -58,6 +58,13 @@ public class CheckoutTests : IClassFixture<EShopOnWebSqliteFixture>
         Assert.NotNull(_fx.Db.Basket.GetById(basketId));
     }
 
+    private void SetCatalogItemName(string name)
+    {
+        using var cmd = _fx.Db.Connection.CreateCommand();
+        cmd.CommandText = $"update catalog_item set name = '{name}' where id = 2";
+        cmd.ExecuteNonQuery();
+    }
+
     [SkippableFact]
     public void CreateOrder_SnapshotImmune_ToLaterCatalogItemEdits()
     {
@@ -69,16 +76,18 @@ public class CheckoutTests : IClassFixture<EShopOnWebSqliteFixture>
 
         var orderId = checkout.CreateOrder(basketId, "buyer-checkout-2", address);
 
-        using (var cmd = _fx.Db.Connection.CreateCommand())
+        SetCatalogItemName("Renamed After Checkout");
+        try
         {
-            cmd.CommandText = "update catalog_item set name = 'Renamed After Checkout' where id = 2";
-            cmd.ExecuteNonQuery();
+            var orderRepository = new OrderRepository(_fx.Db);
+            var order = orderRepository.GetById(orderId);
+            Assert.NotNull(order);
+            Assert.Equal(".NET Black & White Mug", order!.OrderItems[0].ItemOrdered.ProductName);
         }
-
-        var orderRepository = new OrderRepository(_fx.Db);
-        var order = orderRepository.GetById(orderId);
-        Assert.NotNull(order);
-        Assert.Equal(".NET Black & White Mug", order!.OrderItems[0].ItemOrdered.ProductName);
+        finally
+        {
+            SetCatalogItemName(".NET Black & White Mug");
+        }
     }
 
     [SkippableFact]
