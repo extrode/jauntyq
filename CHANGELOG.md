@@ -14,7 +14,7 @@ condensed.
 ## [0.6.0] - 2026-09-30
 
 ### Added
-- **100% mutation score on all seven core assemblies** (SqlParser, Schema, Schema.Extraction,
+- **100% mutation score on all six assemblies under mutation testing** (SqlParser, Schema, Schema.Extraction,
   Cli.Core, Generator, Analysis), up from 97 to 99% at 0.5.1. Every surviving mutant was killed
   by a test, removed by simplifying redundant code, or marked `// Stryker disable` with the
   reason only where the mutant is provably equivalent. Per-assembly scores and the commands
@@ -29,12 +29,7 @@ condensed.
   `SELECT 1; (SELECT 2)`), which previously passed as a single statement.
 
 ### Fixed
-- **`<>` is a recognised comparison operator in the SqlParser again**; an earlier
-  simplification had dropped it from `ComparisonOperators`.
-- **`ReferencedColumnComparer.GetHashCode` states its integer wrap-around explicitly** with
-  `unchecked(expr)`, so it cannot throw if a build turns on overflow checking.
 - The nightly mutation job restores the solution before running Stryker.
-- `SkipParenGroup` stops at the matching close paren (pinned by a new test).
 
 ## [0.5.1] - 2026-09-18
 
