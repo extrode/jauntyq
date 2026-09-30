@@ -458,11 +458,7 @@ internal static class NPlusOneAnalyzer
         var groups = new List<FkGroup>(byPair.Values);
         foreach (var group in groups)
             group.ChildColumns.Sort(StringComparer.OrdinalIgnoreCase);
-        groups.Sort(static (a, b) =>
-        {
-            int byChild = string.CompareOrdinal(a.ChildTableKey, b.ChildTableKey);
-            return byChild != 0 ? byChild : string.CompareOrdinal(a.ParentTableKey, b.ParentTableKey);
-        });
+        groups.Sort(static (a, b) => string.CompareOrdinal(a.ChildTableKey, b.ChildTableKey));
         return groups;
     }
 
@@ -579,7 +575,7 @@ internal static class NPlusOneAnalyzer
                     facts.InFilterColumns.Add(key);
             }
 
-            bool allExpressions = query.Columns.Count > 0;
+            bool allExpressions = true;
             bool anyAggregate = false;
             foreach (var col in query.Columns)
             {
