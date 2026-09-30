@@ -27,10 +27,14 @@ methods 83.6% (975 of 1166).
   90.2% line figure exposes.
 - Coverage tells you a line ran, not that a test would notice it changing; the mutation
   score covers that.
-- Five suites had one failing test on this run, so their coverage is merged from a run
-  with a failure: `Generator.Tests` (`LicenceLinkPinTests.EveryLicenceLink_IsPinnedToAVersionAndAFile`)
-  and the four `EShopOnWeb.*` sample suites (Postgres `CatalogTests.GetByName_ExactMatch`,
-  plus one test each in MySql, MariaDb and SqlServer). Not yet triaged.
+- Five suites had one failing test on the run above; both causes are fixed on dev and
+  the suites pass on mb1 (coverage numbers were merged from those failing runs, and the
+  failures did not change which lines ran):
+  - `LicenceLinkPinTests` scanned the gitignored `StrykerOutput/` reports, whose JSON
+    escapes the quote after a link. The scan now skips `StrykerOutput`.
+  - `CreateOrder_SnapshotImmune_ToLaterCatalogItemEdits` renamed catalog row 2 and never
+    restored it, so `CatalogTests.GetByName_ExactMatch` failed whenever it ran later on a
+    shared Postgres/MySQL/MariaDB/SQL Server database. It now restores the name.
 
 ## Reproduce
 
