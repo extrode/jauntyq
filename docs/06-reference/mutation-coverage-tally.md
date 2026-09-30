@@ -59,17 +59,17 @@ and [`../handoffs/2026-09-19-stryker-mutation-gaps.md`](../handoffs/2026-09-19-s
 
 ## Assemblies covered by Stryker
 
-Latest whole-assembly runs (2026-09-24/25, all on mb1). This table supersedes
+Latest whole-assembly runs (2026-09-24 to 2026-09-30, all on mb1). This table supersedes
 the per-assembly figures in the history below it.
 
 | Assembly | Stryker config | Score | Killed | Timeout | Survived | NoCov | Notes |
 |---|---|---|---|---|---|---|---|
 | `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | **100%** | 2464 | 158 | 0 | 0 | `additional-timeout` 2000; timeouts are mutants that turn a parser loop infinite |
 | `Extrode.JauntyQ.Schema` | none (run ad hoc) | **100%** | | | 0 | 0 | |
-| `Extrode.JauntyQ.Cli.Core` | `tests/Extrode.JauntyQ.Cli.Tests/stryker-config.json` | **99.59%** | | | | | |
-| `Extrode.JauntyQ.Generator` | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.json` | **99.43%** | 1573 | 5 | 9 | 0 | 382 CompileError (excluded from score, left as is) |
+| `Extrode.JauntyQ.Cli.Core` | `tests/Extrode.JauntyQ.Cli.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 1m08s |
+| `Extrode.JauntyQ.Generator` | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 1h34m with shared engines (`eval "$(scripts/mutation-engines.sh --quiet)"`, concurrency 4); CompileError mutants excluded from score |
 | `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | **99.14%** | | | 20 | 0 | unchanged since 2026-09-21 |
-| `Extrode.JauntyQ.Schema.Extraction` | `tests/Extrode.JauntyQ.Schema.Extraction.Tests/stryker-config.json` | **97.47%** | 691 | 3 | 17 | 1 | survivors are MySql/Sqlite equivalents; NoCov is dead code at `IndexCapture.cs:18` |
+| `Extrode.JauntyQ.Schema.Extraction` | `tests/Extrode.JauntyQ.Schema.Extraction.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 22 min with shared engines |
 | `Extrode.JauntyQ.Cli` | — | — | | | | | no testable mutants |
 | `Extrode.JauntyQ.Runtime` | — | — | | | | | no source |
 
