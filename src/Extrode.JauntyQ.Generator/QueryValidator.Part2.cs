@@ -166,9 +166,9 @@ public static partial class QueryValidator
             var column = ResolveColumn(query, orderBy.BoundTableAlias, orderBy.BoundColumnName, aliasToTable, schema, out string? tableName);
             if (column == null || tableName == null)
                 continue;
-            // Stryker disable once Statement : unreachable -- ResolveColumn returned a column only after SchemaLookup.TryGetTable found this same tableName, so this lookup cannot fail
-            if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
-                continue;
+            // Cannot fail: ResolveColumn returned a column only after
+            // SchemaLookup.TryGetTable found this same tableName.
+            SchemaLookup.TryGetTable(schema, tableName, out var tableSchema);
             // Same reasoning as CheckIndexed's view gate: a view declares no
             // indexes, so "no supporting index" is true of every view column
             // and proves nothing about whether the engine sorts. This block
@@ -268,9 +268,9 @@ public static partial class QueryValidator
         var column = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
         if (column == null || tableName == null)
             return;
-        // Stryker disable once Statement : unreachable -- ResolveColumn returned a column only after SchemaLookup.TryGetTable found this same tableName, so this lookup cannot fail
-        if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
-            return;
+        // Cannot fail: ResolveColumn returned a column only after
+        // SchemaLookup.TryGetTable found this same tableName.
+        SchemaLookup.TryGetTable(schema, tableName, out var tableSchema);
 
         // A view carries no indexes of its own, so "no index covers this
         // column" is true of every view column and says nothing about whether
