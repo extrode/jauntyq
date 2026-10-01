@@ -42,6 +42,7 @@ internal sealed class FileSummaryArrayComparer : System.Collections.Generic.IEqu
         {
             int hash = array.Length;
             foreach (var summary in array)
+                // Stryker disable once Arithmetic : GetHashCode's only contract is equal arrays => equal hashes, which holds under any fixed combining transform
                 hash = hash * 31 + summary.GetHashCode();
             return hash;
         }

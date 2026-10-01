@@ -109,6 +109,42 @@ public class GeneratorInternalErrorTests
     }
 
     [Fact]
+    public void TheMessageIsExactlyTheDocumentedSentence()
+    {
+        string message = Assert.Single(
+            RunWithOneUnreadableFile().Diagnostics, d => d.Id == "JNT0001").GetMessage();
+
+        Assert.Equal(
+            "JauntyQ's source generator threw while processing 'db/Widgets/Unreadable.sql'. Its generated output may be "
+            + "incomplete or entirely missing, so any CS0246 'type or namespace not found' errors on "
+            + "JauntyDb, an entity or a row POCO are consequences of this one failure rather than "
+            + "separate problems. This is a bug in JauntyQ, not in your SQL or schema -- please report "
+            + "it with this message: System.IO.IOException: the test made this file unreadable",
+            message);
+    }
+
+    private sealed class CancellingAdditionalText : AdditionalText
+    {
+        public CancellingAdditionalText(string path) => Path = path;
+
+        public override string Path { get; }
+
+        public override SourceText? GetText(CancellationToken cancellationToken = default)
+            => throw new OperationCanceledException();
+    }
+
+    [Fact]
+    public void ACancellationOutOfOneFile_IsRethrownRatherThanReportedAsJNT0001()
+    {
+        var result = Run(
+            new InMemoryAdditionalText("db/schema/jaunty.schema.json", SchemaJson),
+            new CancellingAdditionalText("db/Widgets/Cancelled.sql"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT0001");
+        Assert.NotNull(Assert.Single(result.Results).Exception);
+    }
+
+    [Fact]
     public void TheOtherSqlFilesStillGenerate_SoOneBadFileCostsOneFile()
     {
         var result = RunWithOneUnreadableFile();

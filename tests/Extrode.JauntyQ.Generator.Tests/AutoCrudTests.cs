@@ -186,6 +186,38 @@ public class AutoCrudTests
         return (driver.GetRunResult(), outputCompilation);
     }
 
+    [Theory]
+    [InlineData("-- @result CategoryCard\n")]
+    [InlineData("-- @result (int CategoryId, string CategoryName)\n")]
+    [InlineData("-- @result void\n")]
+    public void FullRowQuery_WithAnyResultDirective_DoesNotUseTheCanonicalRowType(string directive)
+    {
+        var (result, _) = RunAutoCrud(autoCrud: false,
+            ("db/Categories/Listing.sql", directive + "select category_id, category_name from categories"));
+
+        string? source = TryGetSource(result, "Categories.Listing.g.cs");
+        Assert.NotNull(source);
+        Assert.DoesNotContain("<Category>", source);
+    }
+
+    [Fact]
+    public void FullRowQuery_WithoutAResultDirective_UsesTheCanonicalRowType()
+    {
+        var (result, _) = RunAutoCrud(autoCrud: false,
+            ("db/Categories/Listing.sql", "select category_id, category_name from categories"));
+
+        Assert.Contains("<Category>", TryGetSource(result, "Categories.Listing.g.cs"));
+    }
+
+    [Fact]
+    public void FullRowQuery_AliasedToTheColumnNames_StillMatchesTheCanonicalRowType()
+    {
+        var (result, _) = RunAutoCrud(autoCrud: false,
+            ("db/Categories/Listing.sql", "select c.category_id as category_id, c.category_name as CATEGORY_NAME from categories c"));
+
+        Assert.Contains("<Category>", TryGetSource(result, "Categories.Listing.g.cs"));
+    }
+
     private static string? TryGetSource(GeneratorDriverRunResult result, string hintSuffix)
     {
         foreach (var tree in result.GeneratedTrees)
