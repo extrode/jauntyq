@@ -65,6 +65,7 @@ public static partial class SqlParser
             var bodyTokens = new List<Token>();
             for (int i = bodyOpen + 1; i < bodyClose; i++)
                 bodyTokens.Add(tokens[i]);
+            // Stryker disable once Statement : every body-parser loop also stops at "pos < tokens.Count" and the Part3 scans are bounded to reach the last real token, so a body without the sentinel parses identically (an empty "AS ()" body included); kept so the sliced list matches the tokenizer's shape
             bodyTokens.Add(Token.End);
 
             cte.Body = Parse(bodyTokens, model.Name + "_" + cte.Name);
