@@ -213,7 +213,7 @@ public static partial class QueryValidator
             var col = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
             if (col != null && tableName != null)
             {
-                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
+                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : InstanceOf(query, tableName);
                 seekColumns.Add(instanceKey + "|" + col.Name);
             }
         }
@@ -232,6 +232,21 @@ public static partial class QueryValidator
         }
 
         return seekColumns;
+    }
+
+    /// <summary>
+    /// The name a table instance is keyed by: its alias when the FROM clause
+    /// gave one, else the table name. An unqualified column resolves to a
+    /// table name, but the same table is keyed by its alias everywhere else.
+    /// </summary>
+    private static string InstanceOf(QueryModel query, string tableName)
+    {
+        foreach (var table in query.Tables)
+        {
+            if (string.Equals(table.TableName, tableName, StringComparison.OrdinalIgnoreCase))
+                return !string.IsNullOrEmpty(table.Alias) ? table.Alias : tableName;
+        }
+        return tableName;
     }
 
     /// <summary>
