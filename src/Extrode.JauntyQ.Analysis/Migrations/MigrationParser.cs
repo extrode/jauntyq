@@ -696,14 +696,9 @@ public static class MigrationParser
                 if (Is(def, pos, "AS"))
                 {
                     pos++;
-                    if (Is(def, pos, "IDENTITY"))
-                    {
-                        column.IsIdentity = true;
-                        pos++;
-                        if (IsSymbol(def, pos, "("))
-                            SkipParenGroup(def, ref pos);
-                    }
-                    else if (IsSymbol(def, pos, "("))
+                    // "AS IDENTITY [(seq options)]" falls through to the
+                    // IDENTITY flag above on the next pass of the loop.
+                    if (IsSymbol(def, pos, "("))
                     {
                         column.IsComputed = true;
                         // A trailing STORED/VIRTUAL is left to the outer
