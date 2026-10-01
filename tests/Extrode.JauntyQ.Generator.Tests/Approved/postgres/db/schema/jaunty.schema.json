@@ -1,0 +1,397 @@
+{
+  "dialect": "postgres",
+  "tables": {
+    "customers": {
+      "name": "customers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
+        },
+        "code": {
+          "name": "code",
+          "dbType": "character",
+          "isNullable": false,
+          "maxLength": 5
+        },
+        "name": {
+          "name": "name",
+          "dbType": "character varying",
+          "isNullable": false,
+          "maxLength": 100
+        },
+        "email": {
+          "name": "email",
+          "dbType": "varchar",
+          "isNullable": true,
+          "maxLength": 200
+        },
+        "balance": {
+          "name": "balance",
+          "dbType": "numeric",
+          "isNullable": false,
+          "precision": 12,
+          "scale": 2
+        },
+        "photo": {
+          "name": "photo",
+          "dbType": "bytea",
+          "isNullable": true
+        },
+        "is_active": {
+          "name": "is_active",
+          "dbType": "boolean",
+          "isNullable": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "dbType": "timestamp",
+          "isNullable": false
+        },
+        "birthday": {
+          "name": "birthday",
+          "dbType": "date",
+          "isNullable": true
+        },
+        "rating": {
+          "name": "rating",
+          "dbType": "double precision",
+          "isNullable": true
+        },
+        "visits": {
+          "name": "visits",
+          "dbType": "smallint",
+          "isNullable": false
+        },
+        "external_id": {
+          "name": "external_id",
+          "dbType": "uuid",
+          "isNullable": true
+        },
+        "opens_at": {
+          "name": "opens_at",
+          "dbType": "time",
+          "isNullable": true
+        },
+        "last_seen": {
+          "name": "last_seen",
+          "dbType": "timestamp with time zone",
+          "isNullable": true
+        },
+        "prefs": {
+          "name": "prefs",
+          "dbType": "jsonb",
+          "isNullable": true
+        },
+        "status": {
+          "name": "status",
+          "dbType": "customer_status",
+          "isNullable": false,
+          "enumName": "customer_status"
+        },
+        "prior_status": {
+          "name": "prior_status",
+          "dbType": "customer_status",
+          "isNullable": true,
+          "enumName": "customer_status"
+        }
+      },
+      "indexes": [
+        {
+          "name": "pk_customers",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "ux_customers_code",
+          "columns": [
+            "code"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "ix_customers_name",
+          "columns": [
+            "name"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "ix_customers_active",
+          "columns": [
+            "is_active"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "ix_customers_balance",
+          "columns": [
+            "balance"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "ix_customers_created",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      ]
+    },
+    "orders": {
+      "name": "orders",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "bigint",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false
+        },
+        "placed_on": {
+          "name": "placed_on",
+          "dbType": "date",
+          "isNullable": false
+        },
+        "total": {
+          "name": "total",
+          "dbType": "numeric",
+          "isNullable": false,
+          "precision": 10,
+          "scale": 2
+        },
+        "note": {
+          "name": "note",
+          "dbType": "text",
+          "isNullable": true
+        }
+      },
+      "indexes": [
+        {
+          "name": "pk_orders",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "ix_orders_customer",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false
+        }
+      ]
+    },
+    "order_tags": {
+      "name": "order_tags",
+      "columns": {
+        "order_id": {
+          "name": "order_id",
+          "dbType": "bigint",
+          "isNullable": false,
+          "isPrimaryKey": true
+        },
+        "tag": {
+          "name": "tag",
+          "dbType": "character varying",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "maxLength": 40
+        },
+        "weight": {
+          "name": "weight",
+          "dbType": "integer",
+          "isNullable": true
+        }
+      },
+      "indexes": [
+        {
+          "name": "pk_order_tags",
+          "columns": [
+            "order_id",
+            "tag"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "active_customers": {
+      "name": "active_customers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "integer",
+          "isNullable": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "character varying",
+          "isNullable": false,
+          "maxLength": 100
+        }
+      },
+      "isView": true
+    }
+  },
+  "foreignKeys": [
+    {
+      "fromTable": "orders",
+      "fromColumn": "customer_id",
+      "toTable": "customers",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "order_tags",
+      "fromColumn": "order_id",
+      "toTable": "orders",
+      "toColumn": "id"
+    }
+  ],
+  "procedures": {
+    "GetOrdersByCustomer": {
+      "name": "GetOrdersByCustomer",
+      "params": [
+        {
+          "name": "CustomerId",
+          "dbType": "integer",
+          "direction": "In",
+          "isNullable": false
+        }
+      ],
+      "results": [
+        {
+          "name": "Id",
+          "dbType": "bigint",
+          "isNullable": false
+        },
+        {
+          "name": "Total",
+          "dbType": "numeric",
+          "isNullable": true
+        }
+      ]
+    },
+    "ArchiveCustomer": {
+      "name": "ArchiveCustomer",
+      "params": [
+        {
+          "name": "CustomerCode",
+          "dbType": "character",
+          "direction": "In",
+          "isNullable": false,
+          "maxLength": 5
+        },
+        {
+          "name": "Amount",
+          "dbType": "numeric",
+          "direction": "InOut",
+          "isNullable": true,
+          "precision": 12,
+          "scale": 2
+        },
+        {
+          "name": "ArchivedCount",
+          "dbType": "integer",
+          "direction": "Out",
+          "isNullable": false
+        }
+      ],
+      "results": []
+    }
+  },
+  "functions": {
+    "calc_tax(decimal,decimal)": {
+      "name": "calc_tax",
+      "schema": "public",
+      "params": [
+        {
+          "name": "amount",
+          "dbType": "numeric",
+          "isNullable": false,
+          "precision": 12,
+          "scale": 2
+        },
+        {
+          "name": "rate",
+          "dbType": "numeric",
+          "isNullable": true
+        }
+      ],
+      "returnType": {
+        "dbType": "numeric",
+        "isNullable": true
+      }
+    },
+    "initials(varchar)": {
+      "name": "initials",
+      "schema": "public",
+      "params": [
+        {
+          "name": "full_name",
+          "dbType": "varchar",
+          "isNullable": false,
+          "maxLength": 200
+        }
+      ],
+      "returnType": {
+        "dbType": "varchar",
+        "isNullable": false,
+        "maxLength": 10
+      }
+    },
+    "now_utc()": {
+      "name": "now_utc",
+      "schema": "public",
+      "params": [],
+      "returnType": {
+        "dbType": "timestamp",
+        "isNullable": false
+      }
+    }
+  },
+  "sequences": {
+    "order_number": {
+      "name": "order_number",
+      "startValue": 100,
+      "increment": 5
+    },
+    "invoice_seq": {
+      "name": "invoice_seq",
+      "startValue": 1,
+      "increment": 1,
+      "minValue": 1,
+      "maxValue": 99999
+    }
+  },
+  "enums": {
+    "customer_status": {
+      "name": "customer_status",
+      "members": [
+        {
+          "value": "active",
+          "csharpName": "Active"
+        },
+        {
+          "value": "on hold",
+          "csharpName": "OnHold"
+        },
+        {
+          "value": "closed",
+          "csharpName": "Closed"
+        }
+      ]
+    }
+  }
+}
