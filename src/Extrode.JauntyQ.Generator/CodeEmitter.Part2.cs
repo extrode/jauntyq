@@ -60,7 +60,7 @@ public static partial class CodeEmitter
             return new EmittedParam(name, csharpType, isNullable, isEach: isEach);
         return new EmittedParam(name, csharpType, isNullable,
             column.MaxLength, column.Precision, column.Scale, isWriteTarget,
-            tableName != null ? $"{tableName}.{column.Name}" : column.Name, isEach);
+            $"{tableName}.{column.Name}", isEach);
     }
 
     /// <summary>
@@ -135,7 +135,7 @@ public static partial class CodeEmitter
     /// is the only one reachable from that caller; the write-target branch
     /// exists for the plain single-value overload above.
     /// </summary>
-    private static void EmitParameterSizing(
+    internal static void EmitParameterSizing(
         System.Text.StringBuilder sb, string csharpType, int? maxLength, int? precision, int? scale,
         bool isWriteTarget, string varName, string valueExpr, string indent = "                ")
     {
@@ -167,7 +167,7 @@ public static partial class CodeEmitter
         }
     }
 
-    private static void EmitColumnNames(System.Text.StringBuilder sb, string methodName, ProjectionModel projection)
+    internal static void EmitColumnNames(System.Text.StringBuilder sb, string methodName, ProjectionModel projection)
     {
         sb.Append($"        private static readonly string[] __{methodName}Columns = {{ ");
         for (int i = 0; i < projection.Columns.Count; i++)

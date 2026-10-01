@@ -27,6 +27,7 @@ public static partial class CodeEmitter
             var column = ResolveBoundColumn(param, query, schema, out string? boundTable);
             bool isEach = directives?.EachParams != null &&
                 directives.EachParams.Exists(n => string.Equals(n, param.Name, StringComparison.OrdinalIgnoreCase));
+            // Stryker disable once Boolean : query-method signatures never take trailing defaults (BuildParamList runs without trailingNullableDefaults here), so IsNullable is never read on this path
             paramInfos.Add(CreateEmittedParam(param.Name, paramType, isNullable: false, column, boundTable, isWriteTarget: false, isEach: isEach));
         }
 
@@ -275,6 +276,7 @@ public static partial class CodeEmitter
         "postgres" => 65_000,
         "mysql" => 65_000,
         "sqlite" => 32_000,
+        // Stryker disable once String : SQL Server's budget equals the unknown-dialect fallback, so the arm cannot be told apart; CodeEmitterDialectParityTests requires it to be named
         "sqlserver" => 2_000,
         _ => 2_000,
     };
@@ -306,7 +308,7 @@ public static partial class CodeEmitter
             sb.AppendLine("                }");
         }
 
-        var segments = SplitSqlForEach(sql, eachParams);
+        var segments = SplitSqlForEach(sql, eachParams.ConvertAll(p => p.Name));
         sb.Append("                __cmd.CommandText = ");
         for (int i = 0; i < segments.Count; i++)
         {
@@ -325,7 +327,7 @@ public static partial class CodeEmitter
     /// string literals, quoted/bracketed identifiers, and comments so text
     /// like <c>'ops@Ids'</c> is never expanded (it is not a parameter there).
     /// </summary>
-    private static System.Collections.Generic.List<(bool IsEachRef, string Value)> SplitSqlForEach(string sql, System.Collections.Generic.List<EmittedParam> eachParams)
+    internal static System.Collections.Generic.List<(bool IsEachRef, string Value)> SplitSqlForEach(string sql, System.Collections.Generic.List<string> eachNames)
     {
         var segments = new System.Collections.Generic.List<(bool, string)>();
         var literal = new System.Text.StringBuilder();
@@ -348,7 +350,6 @@ public static partial class CodeEmitter
                 int end = i + 1;
                 while (end < sql.Length && sql[end] != ']')
                     end++;
-                if (end < sql.Length) end++; // include the closing ]
                 literal.Append(sql, i, end - i);
                 i = end;
                 continue;
@@ -380,15 +381,15 @@ public static partial class CodeEmitter
                 while (j < sql.Length && (char.IsLetterOrDigit(sql[j]) || sql[j] == '_'))
                     j++;
                 string token = sql.Substring(start, j - start);
-                var matched = eachParams.Find(p => string.Equals(p.Name, token, StringComparison.OrdinalIgnoreCase));
-                if (token.Length > 0 && matched.Name != null)
+                string? matched = eachNames.Find(n => string.Equals(n, token, StringComparison.OrdinalIgnoreCase));
+                if (matched != null)
                 {
                     if (literal.Length > 0)
                     {
                         segments.Add((false, literal.ToString()));
                         literal.Clear();
                     }
-                    segments.Add((true, matched.Name));
+                    segments.Add((true, matched));
                     i = j;
                     continue;
                 }
@@ -403,28 +404,17 @@ public static partial class CodeEmitter
 
     /// <summary>
     /// Returns the index just past a quoted run starting at <paramref name="start"/>
-    /// (which holds the opening <paramref name="quote"/>). A doubled delimiter is
-    /// an escape in every supported dialect ('' / "" / ``). An unterminated run
-    /// extends to end-of-input — by emission time the tokenizer has already
-    /// rejected unterminated constructs, so this is defensive only.
+    /// (which holds the opening <paramref name="quote"/>). A doubled delimiter
+    /// ('' / "" / ``) needs no special case: it closes this run and the caller
+    /// immediately opens the next one, so the text is copied through unchanged
+    /// either way. An unterminated run extends to end-of-input — by emission
+    /// time the tokenizer has already rejected unterminated constructs, so this
+    /// is defensive only.
     /// </summary>
     private static int SkipQuotedRun(string sql, int start, char quote)
     {
-        int i = start + 1;
-        while (i < sql.Length)
-        {
-            if (sql[i] == quote)
-            {
-                if (i + 1 < sql.Length && sql[i + 1] == quote)
-                {
-                    i += 2; // escaped delimiter
-                    continue;
-                }
-                return i + 1; // past the closing quote
-            }
-            i++;
-        }
-        return sql.Length;
+        int end = sql.IndexOf(quote, start + 1);
+        return end == -1 ? sql.Length : end + 1;
     }
 
 }

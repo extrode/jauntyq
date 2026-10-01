@@ -32,13 +32,15 @@ public class GeneratedOutputApprovalTests
         }
     }
 
-    private static string Generate(string fixtureDir)
+    internal static string Generate(string fixtureDir, Func<string, string, string>? edit = null,
+        params (string Path, string Text)[] extra)
     {
         var texts = Directory.GetFiles(Path.Combine(fixtureDir, "db"), "*.*", SearchOption.AllDirectories)
             .OrderBy(p => p, StringComparer.Ordinal)
             .Select(p => (AdditionalText)new InMemoryAdditionalText(
                 Path.GetRelativePath(fixtureDir, p).Replace('\\', '/'),
-                File.ReadAllText(p)))
+                edit == null ? File.ReadAllText(p) : edit(Path.GetFileName(p), File.ReadAllText(p))))
+            .Concat(extra.Select(e => (AdditionalText)new InMemoryAdditionalText(e.Path, e.Text)))
             .ToImmutableArray();
 
         var compilation = CSharpCompilation.Create("ApprovalAssembly",
@@ -60,7 +62,7 @@ public class GeneratedOutputApprovalTests
         return sb.ToString();
     }
 
-    private static string ApprovedDir()
+    internal static string ApprovedDir()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir != null && !File.Exists(Path.Combine(dir.FullName, ".git")) &&

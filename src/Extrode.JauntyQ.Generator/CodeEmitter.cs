@@ -201,7 +201,8 @@ public static partial class CodeEmitter
         if (procName != null)
         {
             sb.AppendLine();
-            EmitProcScript(sb, procName, query.Name, originalSql, query, projection, schema, directives, isCrud: false);
+            EmitProcScript(sb, procName, query.Name, originalSql, query,
+                p => InferParameterType(p.Name, query, projection, schema, directives), schema, directives);
         }
 
         sb.AppendLine("    }");
@@ -263,7 +264,8 @@ public static partial class CodeEmitter
         if (procName != null)
         {
             sb.AppendLine();
-            EmitProcScript(sb, procName, query.Name, originalSql, query, null, schema, directives, isCrud: true);
+            EmitProcScript(sb, procName, query.Name, originalSql, query,
+                p => InferCrudParameterType(p, query, schema, directives), schema, directives);
         }
 
         sb.AppendLine("    }");
