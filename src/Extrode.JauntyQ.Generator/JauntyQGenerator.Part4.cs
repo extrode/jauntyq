@@ -712,8 +712,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // rely on it: gate every emitted member on IsValidIdentifier so
                 // a malicious snapshot cannot inject code if the transform ever
                 // changes. Skip the table and report rather than emit.
-                // Stryker disable Statement,String,Boolean : unreachable while ToPascalCase maps every non-empty name to a legal identifier, AutoCrud refuses a table with an empty one, and a query selecting it fails JNT2004 before its row type resolves
                 bool rowNameOk = true;
+                // Stryker disable Statement,String,Boolean : unreachable while ToPascalCase maps every non-empty name to a legal identifier, AutoCrud refuses a table with an empty one, and a query selecting it fails JNT2004 before its row type resolves
                 foreach (var rcol in tableSchema.Columns.Values)
                 {
                     if (!IdentifierGuard.IsValidIdentifier(DialectMapper.ToPascalCase(rcol.Name)))
