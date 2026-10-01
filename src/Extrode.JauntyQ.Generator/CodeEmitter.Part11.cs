@@ -235,7 +235,7 @@ public static partial class CodeEmitter
         sb.AppendLine("                __cmd.CommandType = CommandType.StoredProcedure;");
 
         // Bind parameters. Track OUT/INOUT parameter variable names for readback.
-        var outReadback = new System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType, bool Nullable)>();
+        var outReadback = new System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType)>();
         int idx = 0;
         foreach (var p in procedure.Params)
         {
@@ -270,7 +270,7 @@ public static partial class CodeEmitter
                         sb.AppendLine($"                {varName}.Precision = {prec};");
                     if (p.Scale is int scl)
                         sb.AppendLine($"                {varName}.Scale = {scl};");
-                    outReadback.Add((varName, pname, ct, p.IsNullable || !IsNonNullableValueType(ct)));
+                    outReadback.Add((varName, pname, ct));
                     break;
                 case Extrode.JauntyQ.Schema.ProcedureParamDirection.InOut:
                     sb.AppendLine($"                {varName}.Direction = ParameterDirection.InputOutput;");
@@ -283,7 +283,7 @@ public static partial class CodeEmitter
                     sb.AppendLine(IsNonNullableValueType(ct)
                         ? $"                {varName}.Value = {pname};"
                         : $"                {varName}.Value = (object?){pname} ?? DBNull.Value;");
-                    outReadback.Add((varName, pname, ct, p.IsNullable || !IsNonNullableValueType(ct)));
+                    outReadback.Add((varName, pname, ct));
                     break;
                 case Extrode.JauntyQ.Schema.ProcedureParamDirection.ReturnValue:
                     // A procedure's return status carries no value inward and
@@ -292,7 +292,7 @@ public static partial class CodeEmitter
                     // direction and nothing more. Everything after it is the
                     // same readback OUT gets.
                     sb.AppendLine($"                {varName}.Direction = ParameterDirection.ReturnValue;");
-                    outReadback.Add((varName, pname, ct, p.IsNullable || !IsNonNullableValueType(ct)));
+                    outReadback.Add((varName, pname, ct));
                     break;
                 default:
                     sb.AppendLine(IsNonNullableValueType(ct)
@@ -416,13 +416,13 @@ public static partial class CodeEmitter
     /// </summary>
     private static System.Collections.Generic.List<string> EmitProcOutReadback(
         System.Text.StringBuilder sb,
-        System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType, bool Nullable)> outParams,
+        System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType)> outParams,
         string indent,
         bool declareLocals,
         DatabaseSchema? schema = null)
     {
         var targetNames = new System.Collections.Generic.List<string>();
-        foreach (var (paramVar, csName, rawCsType, nullable) in outParams)
+        foreach (var (paramVar, csName, rawCsType) in outParams)
         {
             string csType = ShortenValueTypeName(schema, rawCsType);
             string baseType = csType.EndsWith("?") ? csType.Substring(0, csType.Length - 1) : csType;
