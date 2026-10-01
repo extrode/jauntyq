@@ -10,13 +10,19 @@ public static partial class CodeEmitter
     /// </summary>
     internal sealed class EmittableFunction
     {
-        // Stryker disable String : TryMapFunction assigns all three before the instance escapes, so these initial values are never read
-        public string Method = "";
-        public string Sql = "";
-        public string ReturnType = "";
-        // Stryker restore String
-        public System.Collections.Generic.List<(string CsType, string CsName, string SqlName)> Params =
-            new System.Collections.Generic.List<(string, string, string)>();
+        public readonly string Method;
+        public readonly string Sql;
+        public readonly string ReturnType;
+        public readonly System.Collections.Generic.List<(string CsType, string CsName, string SqlName)> Params;
+
+        public EmittableFunction(string method, string sql, string returnType,
+            System.Collections.Generic.List<(string CsType, string CsName, string SqlName)> parameters)
+        {
+            Method = method;
+            Sql = sql;
+            ReturnType = returnType;
+            Params = parameters;
+        }
     }
 
     /// <summary>
@@ -177,7 +183,7 @@ public static partial class CodeEmitter
             return null;
         }
 
-        var result = new EmittableFunction { Method = method, ReturnType = returnType };
+        var parameters = new System.Collections.Generic.List<(string CsType, string CsName, string SqlName)>();
 
         // The three formal parameters the emitted signatures introduce
         // themselves. A function parameter named any of them produces a
@@ -229,7 +235,7 @@ public static partial class CodeEmitter
                 }
             }
 
-            result.Params.Add((ShortenValueTypeName(schema, csType), csName, p.Name));
+            parameters.Add((ShortenValueTypeName(schema, csType), csName, p.Name));
         }
 
         // MySQL's "schema" IS the database the connection is already on, so
@@ -243,11 +249,11 @@ public static partial class CodeEmitter
             : fn.Schema + "." + fn.Name;
 
         var placeholders = new System.Collections.Generic.List<string>();
-        foreach (var p in result.Params)
+        foreach (var p in parameters)
             placeholders.Add("@" + p.SqlName);
 
-        result.Sql = "SELECT " + qualified + "(" + string.Join(", ", placeholders) + ")";
-        return result;
+        string sql = "SELECT " + qualified + "(" + string.Join(", ", placeholders) + ")";
+        return new EmittableFunction(method, sql, returnType, parameters);
     }
 
     /// <summary>

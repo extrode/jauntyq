@@ -11,18 +11,15 @@ public static partial class CodeEmitter
         string methodName,
         string originalSql,
         QueryModel query,
-        ProjectionModel? projection,
+        System.Func<ParameterRef, string> inferType,
         DatabaseSchema? schema,
-        Directives.DirectiveModel? directives,
-        bool isCrud)
+        Directives.DirectiveModel? directives)
     {
         // Build parameter list for CREATE PROCEDURE
         var procParams = new System.Collections.Generic.List<string>();
         foreach (var param in OrderedParameters(query, directives))
         {
-            string csharpType = isCrud
-                ? InferCrudParameterType(param, query, schema, directives)
-                : InferParameterType(param.Name, query, projection!, schema, directives);
+            string csharpType = inferType(param);
 
             var sqlType = CSharpToSqlTypeMapper.Map(csharpType);
             // AUD-R4-17: the C# type alone carries no numeric precision, so the
