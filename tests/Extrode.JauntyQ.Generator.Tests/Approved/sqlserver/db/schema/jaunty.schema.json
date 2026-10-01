@@ -358,6 +358,15 @@
         "isNullable": false,
         "maxLength": 10
       }
+    },
+    "now_utc()": {
+      "name": "now_utc",
+      "schema": "dbo",
+      "params": [],
+      "returnType": {
+        "dbType": "datetime2",
+        "isNullable": false
+      }
     }
   },
   "sequences": {

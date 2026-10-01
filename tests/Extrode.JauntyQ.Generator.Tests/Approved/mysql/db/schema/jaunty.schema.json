@@ -83,6 +83,12 @@
           "dbType": "enum",
           "isNullable": false,
           "enumName": "CustomersStatus"
+        },
+        "prior_status": {
+          "name": "prior_status",
+          "dbType": "enum",
+          "isNullable": true,
+          "enumName": "CustomersPriorStatus"
         }
       },
       "indexes": [
@@ -161,6 +167,21 @@
           "name": "note",
           "dbType": "text",
           "isNullable": true
+        },
+        "qty": {
+          "name": "qty",
+          "dbType": "int unsigned",
+          "isNullable": false
+        },
+        "views": {
+          "name": "views",
+          "dbType": "bigint unsigned",
+          "isNullable": true
+        },
+        "stock": {
+          "name": "stock",
+          "dbType": "smallint unsigned",
+          "isNullable": false
         }
       },
       "indexes": [
@@ -334,6 +355,14 @@
         "isNullable": false,
         "maxLength": 10
       }
+    },
+    "now_utc()": {
+      "name": "now_utc",
+      "params": [],
+      "returnType": {
+        "dbType": "datetime",
+        "isNullable": false
+      }
     }
   },
   "enums": {
@@ -347,6 +376,19 @@
         {
           "value": "on-hold",
           "csharpName": "OnHold"
+        }
+      ]
+    },
+    "CustomersPriorStatus": {
+      "name": "CustomersPriorStatus",
+      "members": [
+        {
+          "value": "new",
+          "csharpName": "New"
+        },
+        {
+          "value": "lapsed",
+          "csharpName": "Lapsed"
         }
       ]
     }

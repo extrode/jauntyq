@@ -91,6 +91,12 @@
           "dbType": "customer_status",
           "isNullable": false,
           "enumName": "customer_status"
+        },
+        "prior_status": {
+          "name": "prior_status",
+          "dbType": "customer_status",
+          "isNullable": true,
+          "enumName": "customer_status"
         }
       },
       "indexes": [
@@ -343,6 +349,15 @@
         "dbType": "varchar",
         "isNullable": false,
         "maxLength": 10
+      }
+    },
+    "now_utc()": {
+      "name": "now_utc",
+      "schema": "public",
+      "params": [],
+      "returnType": {
+        "dbType": "timestamp",
+        "isNullable": false
       }
     }
   },
