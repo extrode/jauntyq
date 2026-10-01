@@ -11,6 +11,11 @@ condensed.
 
 ## [Unreleased]
 
+### Added
+- `JNT2027` (Warning): an auto-CRUD method whose generated SQL fails JauntyQ's own validation is
+  now reported, naming the method, the table and each error. The method was always skipped; the
+  skip used to be silent, which is how the `lateral` table bug below went unnoticed.
+
 ### Fixed
 - `JNT8004` no longer fires on a residual filter or a later composite-index column when the
   table is aliased and one reference is qualified while the other is not
