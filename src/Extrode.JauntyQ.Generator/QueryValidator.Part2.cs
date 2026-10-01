@@ -110,7 +110,7 @@ public static partial class QueryValidator
             var col = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
             if (col != null && tableName != null)
             {
-                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
+                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : InstanceOf(query, tableName);
                 filterColumns.Add(instanceKey + "|" + col.Name);
             }
         }
@@ -285,7 +285,7 @@ public static partial class QueryValidator
         if (tableSchema!.IsView)
             return;
 
-        string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
+        string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : InstanceOf(query, tableName);
         if (IsColumnIndexSupported(column, instanceKey, tableSchema!, filterColumns))
             return;
 

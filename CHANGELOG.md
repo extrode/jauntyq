@@ -9,6 +9,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 before 0.5.0 were released from the original repository; their entries below are
 condensed.
 
+## [Unreleased]
+
+### Fixed
+- `JNT8004` no longer fires on a residual filter or a later composite-index column when the
+  table is aliased and one reference is qualified while the other is not
+  (`from t x join s y on ... where x.u = @u and d = @d`, or `where x.a = @a and b = @b` on an
+  index over `(a, b)`). The unqualified column was keyed by table name, the qualified one by alias.
+
 ## [0.6.1] - 2026-10-01
 
 ### Fixed
