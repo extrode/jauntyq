@@ -273,7 +273,7 @@ public static partial class SqlParser
 
             int open = i + 1;
             int close = FindMatchingParen(tokens, open, tokens.Count);
-            if (close < 0)
+            if (close == -1)
                 continue; // malformed; leave for the generic detector
 
             // Slice the inner statement (between the parens) and parse it with a
@@ -282,7 +282,7 @@ public static partial class SqlParser
             var innerTokens = new List<Token>();
             for (int j = open + 1; j < close; j++)
                 innerTokens.Add(tokens[j]);
-            innerTokens.Add(new Token(TokenType.End, string.Empty));
+            innerTokens.Add(Token.End);
 
             var body = Parse(innerTokens, model.Name + "_sub" + model.Subqueries.Count);
             model.Subqueries.Add(new SubqueryRef { Kind = kind, Body = body });

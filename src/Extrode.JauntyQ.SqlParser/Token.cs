@@ -13,5 +13,8 @@ public readonly struct Token
         Value = value;
     }
 
+    /// <summary>The sentinel that ends every token list, including the sub-lists sliced for CTE and subquery bodies.</summary>
+    internal static Token End => new(TokenType.End, string.Empty);
+
     public override string ToString() => $"{Type}({Value})";
 }
