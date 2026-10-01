@@ -1,0 +1,230 @@
+{
+  "dialect": "sqlite",
+  "tables": {
+    "customers": {
+      "name": "customers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
+        },
+        "code": {
+          "name": "code",
+          "dbType": "text",
+          "isNullable": false,
+          "maxLength": 5
+        },
+        "name": {
+          "name": "name",
+          "dbType": "text",
+          "isNullable": false,
+          "maxLength": 100
+        },
+        "email": {
+          "name": "email",
+          "dbType": "text",
+          "isNullable": true,
+          "maxLength": 200
+        },
+        "balance": {
+          "name": "balance",
+          "dbType": "numeric",
+          "isNullable": false,
+          "precision": 12,
+          "scale": 2
+        },
+        "photo": {
+          "name": "photo",
+          "dbType": "blob",
+          "isNullable": true
+        },
+        "is_active": {
+          "name": "is_active",
+          "dbType": "boolean",
+          "isNullable": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "dbType": "datetime",
+          "isNullable": false
+        },
+        "birthday": {
+          "name": "birthday",
+          "dbType": "date",
+          "isNullable": true
+        },
+        "rating": {
+          "name": "rating",
+          "dbType": "real",
+          "isNullable": true
+        },
+        "visits": {
+          "name": "visits",
+          "dbType": "integer",
+          "isNullable": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "pk_customers",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "ux_customers_code",
+          "columns": [
+            "code"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "ix_customers_name",
+          "columns": [
+            "name"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "ix_customers_active",
+          "columns": [
+            "is_active"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "ix_customers_balance",
+          "columns": [
+            "balance"
+          ],
+          "isUnique": false
+        },
+        {
+          "name": "ix_customers_created",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      ]
+    },
+    "orders": {
+      "name": "orders",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "dbType": "integer",
+          "isNullable": false
+        },
+        "placed_on": {
+          "name": "placed_on",
+          "dbType": "date",
+          "isNullable": false
+        },
+        "total": {
+          "name": "total",
+          "dbType": "numeric",
+          "isNullable": false,
+          "precision": 10,
+          "scale": 2
+        },
+        "note": {
+          "name": "note",
+          "dbType": "text",
+          "isNullable": true
+        }
+      },
+      "indexes": [
+        {
+          "name": "pk_orders",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true
+        },
+        {
+          "name": "ix_orders_customer",
+          "columns": [
+            "customer_id"
+          ],
+          "isUnique": false
+        }
+      ]
+    },
+    "order_tags": {
+      "name": "order_tags",
+      "columns": {
+        "order_id": {
+          "name": "order_id",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": true
+        },
+        "tag": {
+          "name": "tag",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "maxLength": 40
+        },
+        "weight": {
+          "name": "weight",
+          "dbType": "integer",
+          "isNullable": true
+        }
+      },
+      "indexes": [
+        {
+          "name": "pk_order_tags",
+          "columns": [
+            "order_id",
+            "tag"
+          ],
+          "isUnique": true
+        }
+      ]
+    },
+    "active_customers": {
+      "name": "active_customers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "integer",
+          "isNullable": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "text",
+          "isNullable": false,
+          "maxLength": 100
+        }
+      },
+      "isView": true
+    }
+  },
+  "foreignKeys": [
+    {
+      "fromTable": "orders",
+      "fromColumn": "customer_id",
+      "toTable": "customers",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "order_tags",
+      "fromColumn": "order_id",
+      "toTable": "orders",
+      "toColumn": "id"
+    }
+  ]
+}
