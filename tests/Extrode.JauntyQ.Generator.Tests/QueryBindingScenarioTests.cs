@@ -74,4 +74,12 @@ public class QueryBindingScenarioTests
         Assert.Contains(" PurgeByEmail(string? Email = default)", output);
         Assert.Contains(" PurgeByEmail(DbConnection conn, string? Email = default, DbTransaction? transaction = null)", output);
     }
+
+    [Fact]
+    public void FirstRowEachQuery_ReturnsNullForAnEmptyList()
+    {
+        string output = Generate("sqlite", ("db/tables/Customers/FirstOfIds.sql", "-- @each Ids\n-- @first\nselect id, name from customers where id in (@Ids)"));
+
+        Assert.Contains("            if (Ids.Count == 0)\n                return null;\n", output);
+    }
 }

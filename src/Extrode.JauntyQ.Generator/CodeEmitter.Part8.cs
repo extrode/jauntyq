@@ -27,6 +27,7 @@ public static partial class CodeEmitter
             var column = ResolveBoundColumn(param, query, schema, out string? boundTable);
             bool isEach = directives?.EachParams != null &&
                 directives.EachParams.Exists(n => string.Equals(n, param.Name, StringComparison.OrdinalIgnoreCase));
+            // Stryker disable once Boolean : query-method signatures never take trailing defaults (BuildParamList runs without trailingNullableDefaults here), so IsNullable is never read on this path
             paramInfos.Add(CreateEmittedParam(param.Name, paramType, isNullable: false, column, boundTable, isWriteTarget: false, isEach: isEach));
         }
 
