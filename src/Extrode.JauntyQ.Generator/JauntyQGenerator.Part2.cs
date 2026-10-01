@@ -61,6 +61,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // always overrides the auto-CRUD synthetic of the same name, even
         // when it currently fails validation.
         if (schemaState.ParseFailed)
+            // Stryker disable once Boolean : with no parsed schema there are no synthetics for a claim to suppress
             return FileResult.None(entityName, methodName, claims: true); // JNT6001 comes from the aggregate step
 
         var schema = schemaState.Schema;
@@ -78,20 +79,14 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // one silently. Both are collected before the -- @call short-circuit
         // below, so a file that binds a procedure still reports its directive
         // hygiene.
-        var directiveWarnings = ImmutableArray<DiagnosticInfo>.Empty;
-        var suspicious = directives.SuspiciousDirectives;
-        var duplicates = directives.DuplicateDirectives;
-        if (suspicious is { Count: > 0 } || duplicates is { Count: > 0 })
-        {
-            var warnBuilder = ImmutableArray.CreateBuilder<DiagnosticInfo>();
-            if (suspicious != null)
-                foreach (var message in suspicious)
-                    warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3008, message));
-            if (duplicates != null)
-                foreach (var message in duplicates)
-                    warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3011, message));
-            directiveWarnings = warnBuilder.ToImmutable();
-        }
+        var warnBuilder = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+        if (directives.SuspiciousDirectives != null)
+            foreach (var message in directives.SuspiciousDirectives)
+                warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3008, message));
+        if (directives.DuplicateDirectives != null)
+            foreach (var message in directives.DuplicateDirectives)
+                warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3011, message));
+        var directiveWarnings = warnBuilder.ToImmutable();
 
         // -- @call binds to an existing stored procedure. The file has no SQL
         // body of its own; the callable contract (params + result columns)
@@ -439,7 +434,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // statement, the directive would be SILENTLY ignored (the parameter
         // stays scalar and the SQL is never expanded) — fail the file with a
         // clear message instead.
-        if (directives.EachParams is { Count: > 0 })
+        // EachParams is null until a name is added, so non-null means non-empty.
+        if (directives.EachParams != null)
         {
             string? eachProblem = null;
             if (queryModel.StatementType != StatementType.Select)
@@ -651,6 +647,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // what fails the build.
         if (schemaState.MigrationDelta != null)
         {
+            // Stryker disable once String : ClassifySingle copies EntityMethod into its result and the JNT9004 text below builds its own
             var impactInput = new QueryImpactInput(sqlFile.Path, $"{entityName}.{methodName}",
                 ReferencedObjects.Resolve(queryModel));
             var impact = ImpactClassifier.ClassifySingle(schemaState.MigrationDelta, impactInput);
