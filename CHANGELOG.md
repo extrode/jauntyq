@@ -20,6 +20,10 @@ condensed.
   Migration simulation copied tables, procedures, sequences and enums but not functions or user
   types, so `db.Functions` disappeared from the generated code with no diagnostic as soon as one
   migration existed. Present since 0.5.0.
+- A SQL Server or SQLite table named `lateral` gets its auto-CRUD `GetAll` and `GetById` again,
+  and a hand-written `select ... from lateral` no longer fails with JNT1009. The parser read any
+  `lateral` in a table position as the LATERAL keyword; it now does so only before `(` or a
+  function call. The two read methods were dropped with no diagnostic.
 
 ### Changed
 - MySQL schema extraction reads function rows through `MySqlExtractor.ReadFunctionsAsync`, so a
