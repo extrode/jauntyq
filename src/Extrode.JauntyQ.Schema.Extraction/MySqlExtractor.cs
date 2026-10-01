@@ -509,58 +509,61 @@ public class MySqlExtractor : ISchemaExtractor
             fnParam.Value = database;
             cmd.Parameters.Add(fnParam);
 
-            var pending = new Dictionary<string, FunctionSchema>(StringComparer.Ordinal);
-            var pendingArgTypes = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-
             await using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                string fnName = reader.GetString(0);
-                if (!pending.TryGetValue(fnName, out var fn))
-                {
-                    // Stryker disable once String : ROUTINES.DATA_TYPE is NULL-able in the MySQL 8.0 catalog (NOT NULL on MariaDB 11) but was non-NULL on every function row observed live, so the string.Empty return type arm was never reached
-                    string returnType = await StringOrAsync(reader, 1, string.Empty);
-                    fn = new FunctionSchema
-                    {
-                        Name = fnName,
-                        Schema = database,
-                        Return = new FunctionReturn
-                        {
-                            DbType = returnType,
-                            MaxLength = NarrowLength(await NullableInt64Async(reader, 2)),
-                            Precision = await reader.IsDBNullAsync(3) ? null : (int)reader.GetInt64(3),
-                            Scale = await reader.IsDBNullAsync(4) ? null : (int)reader.GetInt64(4)
-                        }
-                    };
-                    pending[fnName] = fn;
-                    pendingArgTypes[fnName] = new List<string>();
-                }
-
-                // The function's RETURN row carries a null PARAMETER_NAME, and
-                // so does the single row a zero-argument function yields. Both
-                // mean "not an argument", so one guard covers them.
-                if (await reader.IsDBNullAsync(5))
-                    continue;
-
-                // Stryker disable once String : PARAMETERS.DATA_TYPE is NULL-able in the MySQL 8.0 catalog (NOT NULL on MariaDB 11) but was non-NULL on every named parameter row observed live, so the string.Empty arm was never reached
-                string paramType = await StringOrAsync(reader, 6, string.Empty);
-
-                fn.Params.Add(new FunctionParam
-                {
-                    Name = reader.GetString(5).TrimStart('@'),
-                    DbType = paramType,
-                    MaxLength = NarrowLength(await NullableInt64Async(reader, 7)),
-                    Precision = await reader.IsDBNullAsync(8) ? null : (int)reader.GetInt64(8),
-                    Scale = await reader.IsDBNullAsync(9) ? null : (int)reader.GetInt64(9)
-                });
-                pendingArgTypes[fnName].Add(paramType);
-            }
-
-            foreach (var kv in pending)
-                schema.Functions[UserTypeResolution.FunctionKey(kv.Key, pendingArgTypes[kv.Key])] = kv.Value;
+            await ReadFunctionsAsync(reader, database, schema);
         }
 
         return schema;
+    }
+
+    internal static async Task ReadFunctionsAsync(DbDataReader reader, string database, DatabaseSchema schema)
+    {
+        var pending = new Dictionary<string, FunctionSchema>(StringComparer.Ordinal);
+        var pendingArgTypes = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
+        while (await reader.ReadAsync())
+        {
+            string fnName = reader.GetString(0);
+            if (!pending.TryGetValue(fnName, out var fn))
+            {
+                string returnType = await StringOrAsync(reader, 1, string.Empty);
+                fn = new FunctionSchema
+                {
+                    Name = fnName,
+                    Schema = database,
+                    Return = new FunctionReturn
+                    {
+                        DbType = returnType,
+                        MaxLength = NarrowLength(await NullableInt64Async(reader, 2)),
+                        Precision = await reader.IsDBNullAsync(3) ? null : (int)reader.GetInt64(3),
+                        Scale = await reader.IsDBNullAsync(4) ? null : (int)reader.GetInt64(4)
+                    }
+                };
+                pending[fnName] = fn;
+                pendingArgTypes[fnName] = new List<string>();
+            }
+
+            // The function's RETURN row carries a null PARAMETER_NAME, and
+            // so does the single row a zero-argument function yields. Both
+            // mean "not an argument", so one guard covers them.
+            if (await reader.IsDBNullAsync(5))
+                continue;
+
+            string paramType = await StringOrAsync(reader, 6, string.Empty);
+
+            fn.Params.Add(new FunctionParam
+            {
+                Name = reader.GetString(5).TrimStart('@'),
+                DbType = paramType,
+                MaxLength = NarrowLength(await NullableInt64Async(reader, 7)),
+                Precision = await reader.IsDBNullAsync(8) ? null : (int)reader.GetInt64(8),
+                Scale = await reader.IsDBNullAsync(9) ? null : (int)reader.GetInt64(9)
+            });
+            pendingArgTypes[fnName].Add(paramType);
+        }
+
+        foreach (var kv in pending)
+            schema.Functions[UserTypeResolution.FunctionKey(kv.Key, pendingArgTypes[kv.Key])] = kv.Value;
     }
 
     /// <summary>

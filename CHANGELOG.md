@@ -21,6 +21,11 @@ condensed.
   types, so `db.Functions` disappeared from the generated code with no diagnostic as soon as one
   migration existed. Present since 0.5.0.
 
+### Changed
+- MySQL schema extraction reads function rows through `MySqlExtractor.ReadFunctionsAsync`, so a
+  NULL return or parameter `DATA_TYPE` is now covered by a test instead of a mutation-testing
+  exclusion. No behaviour change.
+
 ## [0.6.1] - 2026-10-01
 
 ### Fixed
