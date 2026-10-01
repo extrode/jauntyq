@@ -596,6 +596,59 @@ public static class SchemaSimulator
                 cloneEnum.Members.Add(new EnumMember { Value = m.Value, CSharpName = m.CSharpName });
             clone.Enums[en.Name] = cloneEnum;
         }
+        // Keyed by the source key, not fn.Name: an overload's key carries its
+        // argument types (UserTypeResolution.FunctionKey), so re-keying by name
+        // would collapse overloads into one entry.
+        foreach (var pair in source.Functions)
+        {
+            var fn = pair.Value;
+            var cloneFn = new FunctionSchema
+            {
+                Name = fn.Name,
+                Schema = fn.Schema,
+                Return = new FunctionReturn
+                {
+                    DbType = fn.Return.DbType,
+                    IsNullable = fn.Return.IsNullable,
+                    MaxLength = fn.Return.MaxLength,
+                    Precision = fn.Return.Precision,
+                    Scale = fn.Return.Scale,
+                    ResolvedFromUserType = fn.Return.ResolvedFromUserType
+                }
+            };
+            foreach (var p in fn.Params)
+            {
+                cloneFn.Params.Add(new FunctionParam
+                {
+                    Name = p.Name,
+                    DbType = p.DbType,
+                    IsNullable = p.IsNullable,
+                    MaxLength = p.MaxLength,
+                    Precision = p.Precision,
+                    Scale = p.Scale,
+                    ResolvedFromUserType = p.ResolvedFromUserType
+                });
+            }
+            clone.Functions[pair.Key] = cloneFn;
+        }
+        foreach (var pair in source.UserTypes)
+        {
+            var ut = pair.Value;
+            var cloneType = new UserTypeSchema
+            {
+                Name = ut.Name,
+                Schema = ut.Schema,
+                Kind = ut.Kind,
+                UnderlyingDbType = ut.UnderlyingDbType,
+                IsNullable = ut.IsNullable,
+                MaxLength = ut.MaxLength,
+                Precision = ut.Precision,
+                Scale = ut.Scale
+            };
+            foreach (var m in ut.Members)
+                cloneType.Members.Add(CloneColumn(m));
+            clone.UserTypes[pair.Key] = cloneType;
+        }
         return clone;
     }
 
