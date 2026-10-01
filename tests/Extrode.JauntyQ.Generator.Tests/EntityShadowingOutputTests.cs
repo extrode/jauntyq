@@ -22,7 +22,8 @@ public class EntityShadowingOutputTests
     {
         string output = GeneratedOutputApprovalTests.Generate(
             Path.Combine(GeneratedOutputApprovalTests.ApprovedDir(), dialect),
-            (file, text) => file == "jaunty.schema.json" ? AddShadowingTables(text) : text);
+            (file, text) => file == "jaunty.schema.json" ? AddShadowingTables(text) : text,
+            dialect is "postgres" or "mysql" ? QueryBindingScenarioTests.EnumEachQueries : Array.Empty<(string, string)>());
 
         Assert.Contains("global::System.Threading.Tasks.Task", output);
         foreach (string name in ShadowedNames)

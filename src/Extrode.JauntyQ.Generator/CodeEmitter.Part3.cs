@@ -177,11 +177,9 @@ public static partial class CodeEmitter
             if (i >= firstDefault) sb.Append(" = default");
         }
 
+        // Static only, so the connection parameter is already written.
         if (HasStaticTransactionParam(paramInfos, isStatic))
-        {
-            if (sb.Length > 0) sb.Append(", ");
-            sb.Append("DbTransaction? transaction = null");
-        }
+            sb.Append(", DbTransaction? transaction = null");
 
         if (isAsync)
         {
