@@ -302,6 +302,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             {
                 var (entries, schema) = pair;
                 if (schema.Schema == null)
+                    // Stryker disable once Statement : with no schema every file is FileResult.WithDiagnostics, so no entry has a Query and Analyze reads nothing from the schema
                     return;
                 foreach (var diag in PredicateDriftAnalyzer.Analyze(entries, schema.Schema))
                     ctx.ReportDiagnostic(diag);
