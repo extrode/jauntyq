@@ -25,6 +25,13 @@ public class InflectorTests
     public void Singularize_LeavesNonPluralsAlone(string name)
         => Assert.Equal(name, Inflector.Singularize(name));
 
+    [Theory]
+    [InlineData("ies", "ie")]
+    [InlineData("ches", "che")]
+    [InlineData("s", "s")]
+    public void Singularize_ASuffixThatIsTheWholeNameFallsToTheNextRule(string name, string expected)
+        => Assert.Equal(expected, Inflector.Singularize(name));
+
     [Fact]
     public void RowTypeName_UsesSingular_WhenDistinct()
         => Assert.Equal("Shipper", Inflector.RowTypeName("Shippers"));
