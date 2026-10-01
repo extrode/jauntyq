@@ -16,10 +16,22 @@ public static partial class SqlParser
     /// "lateral" — the exact "JNT2001 points at your schema for a table the
     /// parser invented" failure 015 set out to remove. Guarding one position
     /// made the fix depend on where the consumer happened to write it.
+    ///
+    /// LATERAL is reserved on postgres and mysql but not on sqlserver or
+    /// sqlite, where a table may be named "lateral". Only a LATERAL that
+    /// introduces something, a derived table <c>(...)</c> or a function call
+    /// <c>f(...)</c>, is the keyword; a bare one is a table name.
     /// </summary>
-    private static bool IsLateralKeyword(Token token) =>
-        token.Type == TokenType.Identifier &&
-        string.Equals(token.Value, "LATERAL", StringComparison.OrdinalIgnoreCase);
+    private static bool IsLateralKeyword(List<Token> tokens, int pos)
+    {
+        if (tokens[pos].Type != TokenType.Identifier ||
+            !string.Equals(tokens[pos].Value, "LATERAL", StringComparison.OrdinalIgnoreCase))
+            return false;
+        int next = pos + 1;
+        if (next < tokens.Count && tokens[next].Type == TokenType.Identifier)
+            next++;
+        return next < tokens.Count && tokens[next].Type == TokenType.Symbol && tokens[next].Value == "(";
+    }
 
     /// <summary>
     /// NATURAL is not a tokenizer keyword, so in "FROM t NATURAL JOIN u" it
@@ -49,7 +61,7 @@ public static partial class SqlParser
         // one from model.Tables, breaking any qualified reference to it.
         while (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
         {
-            if (IsLateralKeyword(tokens[pos]))
+            if (IsLateralKeyword(tokens, pos))
                 return RecordUnmodeledRelation("LATERAL", pos, model);
 
             string tableName = StripQualifier(tokens[pos].Value);
@@ -118,7 +130,7 @@ public static partial class SqlParser
         // derived table that follows LATERAL also raises SUBQUERY, and a
         // consumer reading "unsupported subquery" for a join form learns the
         // wrong thing about what to change.
-        if (pos < tokens.Count && IsLateralKeyword(tokens[pos]))
+        if (pos < tokens.Count && IsLateralKeyword(tokens, pos))
             return RecordUnmodeledRelation("LATERAL", pos, model);
 
         // T-SQL's CROSS APPLY / OUTER APPLY is the same construct under

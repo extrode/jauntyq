@@ -71,6 +71,33 @@ public class UnmodeledRelationTests
             string.Equals(t.TableName, "apply", System.StringComparison.OrdinalIgnoreCase));
     }
 
+    [Theory]
+    [InlineData("select lateral.id from lateral")]
+    [InlineData("select lateral.id from lateral where lateral.id = @id")]
+    [InlineData("select l.id from lateral l where l.id = @id")]
+    [InlineData("select t.id from t, lateral")]
+    [InlineData("select t.id from t join lateral on lateral.id = t.id")]
+    public void ATableActuallyNamedLateral_StillParsesAsATable(string sql)
+    {
+        var model = Parse(sql);
+
+        Assert.DoesNotContain("LATERAL", model.UnsupportedConstructs);
+        Assert.Contains(model.Tables, t =>
+            string.Equals(t.TableName, "lateral", System.StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData("select g.n from lateral generate_series(1, 3) g")]
+    [InlineData("select t.id from t cross join lateral generate_series(1, 3) g")]
+    [InlineData("select t.id from t, lateral generate_series(1, 3) g")]
+    public void LateralBeforeAFunctionCall_IsStillGrammar(string sql)
+    {
+        var model = Parse(sql);
+
+        Assert.Contains("LATERAL", model.UnsupportedConstructs);
+        AssertNoInventedRelation(model, "lateral");
+    }
+
     /// <summary>
     /// INTERSECT and EXCEPT were in the state the reference page calls the
     /// worst of the three: neither supported nor refused. Neither was a
