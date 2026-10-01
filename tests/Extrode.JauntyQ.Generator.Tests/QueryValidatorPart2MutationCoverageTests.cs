@@ -182,6 +182,7 @@ public class QueryValidatorPart2MutationCoverageTests
     [InlineData("select x.id from t x join s y on y.id = x.a where x.b = @b")]
     [InlineData("select x.id from t x join s y on y.c = x.c where x.a = @a and b = @b")]
     [InlineData("select x.id from t x join s y on y.c = x.c where a = @a and x.b = @b")]
+    [InlineData("select y.id from t y join t x on y.c = x.c where x.a = @a and x.b = @b")]
     public void SecondCompositeColumn_CoveredWhenLeadingColumnFilteredOnSameInstance(string sql)
     {
         var errors = Validate(sql, IndexedSchema());
