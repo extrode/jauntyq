@@ -101,4 +101,27 @@ public class GeneratorDisableAuditTests
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
     }
+
+    [Theory]
+    [InlineData("select id\nfrom items x\nwhere id = @id\nlimit 1")]
+    [InlineData("select id\nfrom items x\nwhere x.id = @id\nlimit 1")]
+    [InlineData("select id\nfrom items\nwhere id = @id\nlimit 1")]
+    public void PrimaryKeyFilterWithLimit_IsNotReportedAsUnorderedPagination(string sql)
+    {
+        var result = Run(
+            Schema(new[] { Table("items", Col("id", pk: true)) }),
+            ("db/Items/GetOne.sql", sql));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8010");
+    }
+
+    [Fact]
+    public void UnorderedLimitOnAliasedTable_IsStillReported()
+    {
+        var result = Run(
+            Schema(new[] { Table("items", Col("id", pk: true), Col("name", type: "text")) }),
+            ("db/Items/GetPage.sql", "select id\nfrom items x\nwhere name = @name\nlimit 10"));
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8010");
+    }
 }
