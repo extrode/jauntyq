@@ -16,6 +16,10 @@ condensed.
   table is aliased and one reference is qualified while the other is not
   (`from t x join s y on ... where x.u = @u and d = @d`, or `where x.a = @a and b = @b` on an
   index over `(a, b)`). The unqualified column was keyed by table name, the qualified one by alias.
+- A pending file under `db/migrations/` no longer erases the snapshot's functions and user types.
+  Migration simulation copied tables, procedures, sequences and enums but not functions or user
+  types, so `db.Functions` disappeared from the generated code with no diagnostic as soon as one
+  migration existed. Present since 0.5.0.
 
 ## [0.6.1] - 2026-10-01
 
