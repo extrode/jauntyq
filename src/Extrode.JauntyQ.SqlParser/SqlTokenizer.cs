@@ -89,7 +89,7 @@ public static class SqlTokenizer
             return new List<Token>
             {
                 new Token(TokenType.TooLarge, sql.Length.ToString()),
-                new Token(TokenType.End, string.Empty)
+                Token.End
             };
         }
 
@@ -129,7 +129,7 @@ public static class SqlTokenizer
                 // instead of silently swallowing the rest of the file as
                 // comment text.
                 tokens.Add(new Token(TokenType.Unterminated, "/* ... */"));
-                tokens.Add(new Token(TokenType.End, string.Empty));
+                tokens.Add(Token.End);
                 return tokens;
             }
 
@@ -184,7 +184,7 @@ public static class SqlTokenizer
                     // instead of silently treating the rest of the file as
                     // one giant identifier.
                     tokens.Add(new Token(TokenType.Unterminated, "[ ... ]"));
-                    tokens.Add(new Token(TokenType.End, string.Empty));
+                    tokens.Add(Token.End);
                     return tokens;
                 }
                 tokens.Add(new Token(TokenType.Identifier, sql.Substring(start, pos - start)));
@@ -225,7 +225,7 @@ public static class SqlTokenizer
                 {
                     // Same end-of-input contract as brackets and block comments.
                     tokens.Add(new Token(TokenType.Unterminated, quote == '"' ? "\" ... \"" : "` ... `"));
-                    tokens.Add(new Token(TokenType.End, string.Empty));
+                    tokens.Add(Token.End);
                     return tokens;
                 }
                 tokens.Add(new Token(TokenType.Identifier, name.ToString()));
@@ -271,7 +271,7 @@ public static class SqlTokenizer
                     // literal text (same contract as block comments and
                     // quoted identifiers).
                     tokens.Add(new Token(TokenType.Unterminated, "' ... '"));
-                    tokens.Add(new Token(TokenType.End, string.Empty));
+                    tokens.Add(Token.End);
                     return tokens;
                 }
                 tokens.Add(new Token(TokenType.Literal, sql.Substring(start, pos - start)));
@@ -400,7 +400,7 @@ public static class SqlTokenizer
                     return new List<Token>
                     {
                         new Token(TokenType.TooDeep, depth.ToString()),
-                        new Token(TokenType.End, string.Empty)
+                        Token.End
                     };
             }
             else if (t.Value == ")" && depth > 0)
@@ -410,7 +410,7 @@ public static class SqlTokenizer
         }
 
         MergeQualifiedIdentifiers(tokens);
-        tokens.Add(new Token(TokenType.End, string.Empty));
+        tokens.Add(Token.End);
         return tokens;
     }
 
