@@ -251,7 +251,7 @@ public static partial class CodeEmitter
         };
     }
 
-    private static bool IsBoundColumnNullable(ParameterRef param, QueryModel query, DatabaseSchema? schema)
+    internal static bool IsBoundColumnNullable(ParameterRef param, QueryModel query, DatabaseSchema? schema)
         => ResolveBoundColumn(param, query, schema, out _)?.IsNullable ?? false;
 
     internal static string InferCrudParameterType(ParameterRef param, QueryModel query, DatabaseSchema? schema, Directives.DirectiveModel? directives = null)

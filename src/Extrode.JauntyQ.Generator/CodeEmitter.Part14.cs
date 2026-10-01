@@ -110,6 +110,7 @@ public static partial class CodeEmitter
     /// <see cref="EnumWireCall"/> produces.
     /// </summary>
     internal static bool IsEnumParameterType(string csharpType, DatabaseSchema? schema)
+        // Stryker disable once String : only null-or-not is read here, and EnumWireCall's null test never looks at the value expression
         => EnumWireCall(csharpType, schema, "x") != null;
 
     /// <summary>

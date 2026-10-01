@@ -453,7 +453,7 @@ public static partial class CodeEmitter
             // keeps the double-underscore collision-safety argument intact
             // (the result still starts with "__", which no schema-derived
             // name can ever produce).
-            string bareCsName = csName.Length > 0 && csName[0] == '@' ? csName.Substring(1) : csName;
+            string bareCsName = csName.TrimStart('@');
             string target = declareLocals ? $"__{bareCsName}Out" : csName;
             string declKeyword = declareLocals ? $"{csType} " : "";
             // DBNull -> default; otherwise unbox to the declared type.

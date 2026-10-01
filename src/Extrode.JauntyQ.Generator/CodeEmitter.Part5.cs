@@ -200,7 +200,7 @@ public static partial class CodeEmitter
     /// identifiers are skipped and the SQL side is emitted through
     /// <see cref="IdentifierGuard.ToStringLiteral"/>.
     /// </summary>
-    private static void EmitSequenceAccessor(System.Text.StringBuilder sb, DatabaseSchema? schema)
+    internal static void EmitSequenceAccessor(System.Text.StringBuilder sb, DatabaseSchema? schema)
     {
         if (schema == null || schema.Sequences.Count == 0)
             return;

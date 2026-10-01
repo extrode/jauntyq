@@ -32,13 +32,15 @@ public class GeneratedOutputApprovalTests
         }
     }
 
-    internal static string Generate(string fixtureDir, Func<string, string, string>? edit = null)
+    internal static string Generate(string fixtureDir, Func<string, string, string>? edit = null,
+        params (string Path, string Text)[] extra)
     {
         var texts = Directory.GetFiles(Path.Combine(fixtureDir, "db"), "*.*", SearchOption.AllDirectories)
             .OrderBy(p => p, StringComparer.Ordinal)
             .Select(p => (AdditionalText)new InMemoryAdditionalText(
                 Path.GetRelativePath(fixtureDir, p).Replace('\\', '/'),
                 edit == null ? File.ReadAllText(p) : edit(Path.GetFileName(p), File.ReadAllText(p))))
+            .Concat(extra.Select(e => (AdditionalText)new InMemoryAdditionalText(e.Path, e.Text)))
             .ToImmutableArray();
 
         var compilation = CSharpCompilation.Create("ApprovalAssembly",

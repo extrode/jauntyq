@@ -11,8 +11,6 @@ public static partial class CodeEmitter
     /// </summary>
     private static string JoinColumns(List<ColumnSchema> cols, string separator, System.Func<ColumnSchema, string> selector)
     {
-        if (cols.Count == 0)
-            return "";
         var parts = new List<string>(cols.Count);
         foreach (var c in cols)
             parts.Add(selector(c));

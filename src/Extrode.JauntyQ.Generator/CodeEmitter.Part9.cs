@@ -37,11 +37,11 @@ public static partial class CodeEmitter
     // no column named is useless on a wide row. Null (the default) for every
     // path that cannot carry an enum -- proc results, identity read-back --
     // where nothing is emitted that could use it.
-    private static string GetReaderCall(string csharpType, int ordinal, DatabaseSchema? schema = null, string readerVar = "reader", string? columnIdentity = null)
+    internal static string GetReaderCall(string csharpType, int ordinal, DatabaseSchema? schema = null, string readerVar = "reader", string? columnIdentity = null)
     {
         // Handle nullable types
         bool isNullable = csharpType.EndsWith("?");
-        string baseType = isNullable ? csharpType.TrimEnd('?') : csharpType;
+        string baseType = csharpType.TrimEnd('?');
 
         // Spec 013: a captured enum arrives as text on the wire in both
         // dialects and is converted by its own emitted companion. Checked
@@ -102,7 +102,6 @@ public static partial class CodeEmitter
             "uint" => $"(uint){readerVar}.GetValue({ordinal})",
             "ulong" => $"(ulong){readerVar}.GetValue({ordinal})",
             "ushort" => $"(ushort){readerVar}.GetValue({ordinal})",
-            "byte[]" => $"(byte[]){readerVar}.GetValue({ordinal})",
             _ when baseType.EndsWith("[]") => $"({baseType}){readerVar}.GetValue({ordinal})",
             _ => $"{readerVar}.GetValue({ordinal})"
         };
@@ -144,7 +143,7 @@ public static partial class CodeEmitter
         return isEach ? $"System.Collections.Generic.IReadOnlyList<{elementType}>" : elementType;
     }
 
-    private static string InferScalarParameterType(string paramName, QueryModel query, ProjectionModel projection, DatabaseSchema? schema)
+    internal static string InferScalarParameterType(string paramName, QueryModel query, ProjectionModel projection, DatabaseSchema? schema)
     {
         // 1. Try binding-based inference (col = @param parsed by ExtractParameterBindings)
         var paramRef = query.Parameters.Find(p => p.Name == paramName);

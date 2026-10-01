@@ -127,6 +127,7 @@ public static partial class CodeEmitter
                 // nullable value type, unwrap to the underlying value so the
                 // importer's generic Write<T> sees the concrete T (e.g. int),
                 // not Nullable<int>.
+                // Stryker disable once String : with "" every type passes EndsWith, but a type with no trailing '?' then has its last letter cut off, and no value type name minus its last letter is a value type
                 bool nullableValueType = ct.EndsWith("?") && IsNonNullableValueType(ct.Substring(0, ct.Length - 1), schema);
                 string writeExpr = nullableValueType ? $"row.{prop}.Value" : $"row.{prop}";
                 sb.AppendLine($"                        if (row.{prop} is null)");

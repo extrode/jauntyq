@@ -10,9 +10,11 @@ public static partial class CodeEmitter
     /// </summary>
     internal sealed class EmittableFunction
     {
+        // Stryker disable String : TryMapFunction assigns all three before the instance escapes, so these initial values are never read
         public string Method = "";
         public string Sql = "";
         public string ReturnType = "";
+        // Stryker restore String
         public System.Collections.Generic.List<(string CsType, string CsName, string SqlName)> Params =
             new System.Collections.Generic.List<(string, string, string)>();
     }

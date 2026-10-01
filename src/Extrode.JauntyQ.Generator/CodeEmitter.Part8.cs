@@ -275,6 +275,7 @@ public static partial class CodeEmitter
         "postgres" => 65_000,
         "mysql" => 65_000,
         "sqlite" => 32_000,
+        // Stryker disable once String : SQL Server's budget equals the unknown-dialect fallback, so the arm cannot be told apart; CodeEmitterDialectParityTests requires it to be named
         "sqlserver" => 2_000,
         _ => 2_000,
     };
