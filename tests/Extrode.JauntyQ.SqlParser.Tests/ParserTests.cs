@@ -901,6 +901,17 @@ where p.category_id = @categoryId and p.unit_price > @minPrice";
     }
 
     [Fact]
+    public void EmptyCteBody_ParsesToAnEmptyCteRatherThanThrowing()
+    {
+        var model = ParseSql("with c as () select 1 from c");
+
+        var cte = Assert.Single(model.Ctes);
+        Assert.Equal("c", cte.Name);
+        Assert.Empty(cte.VirtualColumns);
+        Assert.Equal(StatementType.Select, model.StatementType);
+    }
+
+    [Fact]
     public void ChainedCtes_LaterMayReferenceEarlier()
     {
         var model = ParseSql(
