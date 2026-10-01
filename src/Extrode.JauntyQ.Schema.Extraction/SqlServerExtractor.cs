@@ -498,12 +498,25 @@ public class SqlServerExtractor : ISchemaExtractor
                             THEN CAST(p.NUMERIC_PRECISION AS int) END AS param_precision,
                        CASE WHEN p.DATA_TYPE IN ('decimal','numeric','money','smallmoney')
                             THEN CAST(p.NUMERIC_SCALE AS int) END AS param_scale,
-                       CASE WHEN p.USER_DEFINED_TYPE_SCHEMA = r.SPECIFIC_SCHEMA THEN p.USER_DEFINED_TYPE_NAME END AS param_udt
+                       CASE WHEN p.USER_DEFINED_TYPE_SCHEMA = r.SPECIFIC_SCHEMA THEN p.USER_DEFINED_TYPE_NAME END AS param_udt,
+                       -- The ROUTINES view reports an alias return as its base
+                       -- type and drops the alias name; parameter_id 0 in
+                       -- sys.parameters is the return value. CLR types are left
+                       -- out (they have no base type to resolve to), as are
+                       -- types from another schema, since UserTypes holds only
+                       -- the extracted schema's types.
+                       CASE WHEN rt.schema_id = SCHEMA_ID(r.SPECIFIC_SCHEMA) AND rt.is_assembly_type = 0
+                            THEN rt.name END AS return_udt
                 FROM INFORMATION_SCHEMA.ROUTINES r
                 LEFT JOIN INFORMATION_SCHEMA.PARAMETERS p
                     ON r.SPECIFIC_NAME = p.SPECIFIC_NAME
                    AND r.SPECIFIC_SCHEMA = p.SPECIFIC_SCHEMA
                    AND p.IS_RESULT = 'NO'
+                LEFT JOIN sys.parameters rp
+                    ON rp.object_id = OBJECT_ID(QUOTENAME(r.SPECIFIC_SCHEMA) + '.' + QUOTENAME(r.SPECIFIC_NAME))
+                   AND rp.parameter_id = 0
+                LEFT JOIN sys.types rt
+                    ON rt.user_type_id = rp.user_type_id AND rt.is_user_defined = 1
                 WHERE r.ROUTINE_TYPE = 'FUNCTION'
                   AND r.SPECIFIC_SCHEMA = @schema
                   AND r.DATA_TYPE IS NOT NULL
@@ -529,7 +542,8 @@ public class SqlServerExtractor : ISchemaExtractor
                             DbType = reader.GetString(1),
                             MaxLength = await reader.IsDBNullAsync(2) ? null : reader.GetInt32(2),
                             Precision = await reader.IsDBNullAsync(3) ? null : reader.GetInt32(3),
-                            Scale = await reader.IsDBNullAsync(4) ? null : reader.GetInt32(4)
+                            Scale = await reader.IsDBNullAsync(4) ? null : reader.GetInt32(4),
+                            ResolvedFromUserType = await reader.IsDBNullAsync(11) ? null : reader.GetString(11)
                         }
                     };
                     pending[fnName] = fn;

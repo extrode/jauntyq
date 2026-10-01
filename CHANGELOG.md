@@ -13,6 +13,7 @@ condensed.
 
 ### Fixed
 - `JNT8010` no longer fires on a primary-key-filtered `LIMIT` query when the table is aliased and the filter column is unqualified (`from t x where id = @id limit 1`).
+- SQL Server extraction keeps the alias name of a scalar function's return type (`Return.ResolvedFromUserType`); the ROUTINES view reports only the base type.
 
 ## [0.6.1] - 2026-10-01
 
