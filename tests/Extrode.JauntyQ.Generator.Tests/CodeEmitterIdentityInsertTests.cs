@@ -71,6 +71,7 @@ public class CodeEmitterIdentityInsertTests
     [InlineData("insert into t (a) /* a*b/c values */ values (1)", "insert into t (a) /* a*b/c values */ |values (1)")]
     [InlineData("insert into t ([a values], \"b values\", 'c values') values (1)", "insert into t ([a values], \"b values\", 'c values') |values (1)")]
     [InlineData("insert into t (xvalues, x_values, @values) values (1)", "insert into t (xvalues, x_values, @values) |values (1)")]
+    [InlineData("insert into t ([ab values], [abc values], \"values\", 'values') values (1)", "insert into t ([ab values], [abc values], \"values\", 'values') |values (1)")]
     [InlineData("insert into t (a,      valuesx,      values_) values (1)", "insert into t (a,      valuesx,      values_) |values (1)")]
     public void SqlServer_SplicesOutputBeforeTheValuesKeywordOnly(string sql, string expected)
     {
@@ -83,6 +84,7 @@ public class CodeEmitterIdentityInsertTests
     [InlineData("insert into t select 1")]
     [InlineData("insert into t select 1 -- no values here")]
     [InlineData("insert into t select 1 /* no values here")]
+    [InlineData("insert into t select 1 /* no values *")]
     [InlineData("insert into t select 1 -")]
     [InlineData("insert into t select 1 /")]
     [InlineData("insert into t select 'no values here")]

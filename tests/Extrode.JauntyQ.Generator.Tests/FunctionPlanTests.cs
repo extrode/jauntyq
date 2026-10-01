@@ -28,7 +28,7 @@ public class FunctionPlanTests
     public void Plan_IsSortedByMethodAndSkipsUnusableNamesAndSchemas()
     {
         var schema = Schema("postgres",
-            Fn("b_fn", "public"), Fn("a_fn", "public"), Fn("c_fn", "bad schema"), Fn("select", "public"));
+            Fn("b_fn", "public"), Fn("a_fn", "public"), Fn("c_fn", "bad schema"), Fn("select", "public"), Fn("d_Fn", "public"));
 
         var plan = CodeEmitter.PlanFunctionEmission(schema);
 

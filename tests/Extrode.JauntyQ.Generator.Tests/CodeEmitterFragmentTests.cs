@@ -58,6 +58,7 @@ public class CodeEmitterFragmentTests
     [Theory]
     [InlineData("-- a\r\n\r\nselect 1\r\nfrom t", "select 1\nfrom t")]
     [InlineData("-- only\n\n", "")]
+    [InlineData("-- a\n  -- b\nselect 1", "select 1")]
     public void StripLeadingSqlComments_DropsLeadingCommentLinesAndNormalisesLineEnds(string sql, string expected)
     {
         Assert.Equal(expected, CodeEmitter.StripLeadingSqlComments(sql));

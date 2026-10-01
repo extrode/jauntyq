@@ -36,6 +36,22 @@ public class SequenceAccessorEmissionTests
     }
 
     [Fact]
+    public void ReservedAndCaseFoldingSequenceNames_AreSkipped()
+    {
+        string code = Emit("postgres", "select", "Big_Seq", "order_seq");
+
+        Assert.Contains("NextOrderSeq", code);
+        Assert.DoesNotContain("NextSelect", code);
+        Assert.DoesNotContain("NextBigSeq", code);
+    }
+
+    [Fact]
+    public void EverySequenceSkipped_EmitsNothing()
+    {
+        Assert.Equal("", Emit("postgres", "select", "Big_Seq"));
+    }
+
+    [Fact]
     public void RowPoco_NonNullBlobColumn_IsRequired()
     {
         var table = new TableSchema { Name = "files" };

@@ -17,6 +17,9 @@ public class CodeEmitterSqlScanTests
         { "in ('a''@Ids', \"b\"\"@Ids\", `c@Ids`, @Ids)", new[] { "in ('a''@Ids', \"b\"\"@Ids\", `c@Ids`, ", "@Ids", ")" } },
         { "in (@ids", new[] { "in (", "@Ids" } },
         { "@IdsX @Id @ @_Ids", new[] { "@IdsX @Id @ @_Ids" } },
+        { "in (@Ids) -- x", new[] { "in (", "@Ids", ") -- x" } },
+        { "in (@Ids) /", new[] { "in (", "@Ids", ") /" } },
+        { "in (@Ids) /* x *", new[] { "in (", "@Ids", ") /* x *" } },
     };
 
     [Theory]
@@ -37,6 +40,7 @@ public class CodeEmitterSqlScanTests
     [InlineData("/* a * b\n */ 'x\ny'\nz", "/* a * b\n   */ 'x\ny'\n  z")]
     [InlineData("\n/* x *", "\n  /* x *")]
     [InlineData("\nx -", "\n  x -")]
+    [InlineData("\nx /", "\n  x /")]
     [InlineData("x - 'a\nb'", "x - 'a\nb'")]
     [InlineData("x / 'a\nb'", "x / 'a\nb'")]
     [InlineData("[a]]\nb]\nc", "[a]]\nb]\n  c")]

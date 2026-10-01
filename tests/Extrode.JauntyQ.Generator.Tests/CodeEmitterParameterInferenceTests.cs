@@ -43,6 +43,18 @@ public class CodeEmitterParameterInferenceTests
     }
 
     [Fact]
+    public void EmitCrud_NullSchema_EmitsBoundParametersAsObject()
+    {
+        var query = Query(StatementType.Update, "t", ("t", ""));
+        query.Name = "Touch";
+        query.Parameters.Add(new ParameterRef { Name = "a", BoundColumnName = "a" });
+
+        string code = CodeEmitter.EmitCrud(query, "update t set a = @a", "T");
+
+        Assert.Contains("public int Touch(object a)", code);
+    }
+
+    [Fact]
     public void InferCrudParameterType_TargetTableColumnWinsOverAnEarlierSourceTable()
     {
         var param = new ParameterRef { Name = "a", BoundColumnName = "a" };

@@ -20,6 +20,14 @@ public class ProcScriptEmissionTests
     }
 
     [Fact]
+    public void QueryParameterUnboundToAColumn_TakesTheTypeOfTheSameNamedProjectionColumn()
+    {
+        string output = Generate(null, ("db/tables/Customers/ProcPositive.sql", "-- @proc\nselect id from customers where @Id > 0"));
+
+        Assert.Contains("[Customers_ProcPositive]\n    @Id int\nAS", output);
+    }
+
+    [Fact]
     public void DecimalColumnWithoutRecordedPrecision_KeepsTheMapperDefault()
     {
         string output = Generate(
