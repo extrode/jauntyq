@@ -524,6 +524,20 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    // An auto-CRUD query that fails JauntyQ's own validation is a generator
+    // bug, not a schema error, so it is not raised as the validator's Error:
+    // the method is skipped and the build goes on. Until this existed the skip
+    // was silent, and a SQL Server table named "lateral" lost GetAll and
+    // GetById with nothing in the build output (fixed 2026-10-02). Warning,
+    // matching JNT2015's "a member is missing from the API" precedent.
+    public static readonly DiagnosticDescriptor JNT2027 = new(
+        "JNT2027",
+        "Auto-CRUD Method Skipped",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(

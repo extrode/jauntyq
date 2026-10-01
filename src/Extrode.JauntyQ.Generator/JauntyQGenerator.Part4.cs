@@ -75,6 +75,29 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     }
 
     /// <summary>
+    /// JNT2027 for an auto-CRUD query that failed validation. Kept apart from
+    /// the loop because no known schema reaches that branch, so this is the
+    /// only part of it a test can run.
+    /// </summary>
+    internal static Diagnostic SyntheticSkipDiagnostic(
+        AutoCrud.SyntheticQuery synth, List<ValidationError> errors, string commonPrefix)
+    {
+        var reasons = new List<string>(errors.Count);
+        foreach (var e in errors)
+            reasons.Add($"{e.Code}: {e.Message}");
+
+        string where = commonPrefix.Length > 0
+            ? $"'{commonPrefix.TrimEnd('/')}/{synth.EntityName}/{synth.MethodName}.sql'"
+            : $"'{synth.EntityName}/{synth.MethodName}.sql' under your SQL query root";
+
+        return Diagnostic.Create(JauntyDiagnostics.JNT2027, Location.None,
+            $"No auto-CRUD '{synth.EntityName}.{synth.MethodName}' is generated for table '{synth.TableName}': " +
+            $"the SQL JauntyQ generated for it fails JauntyQ's own validation ({string.Join("; ", reasons)}). " +
+            "This is a JauntyQ bug, not a problem with your schema; please report it with the table's definition. " +
+            $"To get the method meanwhile, write the query by hand as {where}, quoting any identifier the error names.");
+    }
+
+    /// <summary>
     /// One validated entry from jaunty.accept.json, plus whether any synthetic
     /// actually used it. Spec 016. A class rather than a struct because
     /// <see cref="Used"/> is set through the reference held in the list while
@@ -592,17 +615,18 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
                 // Synthesized SQL is derived from the schema itself; validation
                 // errors here indicate a synthesis bug, not a user error, so
-                // emission is skipped rather than surfaced as a build error.
+                // the method is skipped with JNT2027 (a Warning) rather than
+                // surfaced as the validator's build error.
                 // Warnings (JNT8xxx performance advice) are real findings
                 // about the user's own schema/indexes, so they ARE reported —
                 // unlike errors, they were previously computed and discarded.
                 var errors = QueryValidator.Validate(queryModel, schema);
-                bool hasSynthError = false;
+                var synthErrors = new List<ValidationError>();
                 foreach (var error in errors)
                 {
                     if (error.Severity == ValidationSeverity.Error)
-                        // Stryker disable once Boolean : synthesized SQL is built from the snapshot it validates against, so no known schema yields an error here
-                        hasSynthError = true;
+                        // Stryker disable once Statement : no known schema yields an error here; a 2026-10-02 probe of every repo snapshot and of every parser keyword as a table or column name found only "lateral", since fixed. SyntheticSkipDiagnostic is tested directly
+                        synthErrors.Add(error);
                     else if (error.Code == "JNT8004")
                     {
                         // Spec 016: the acceptance sidecar answers exactly this
@@ -622,9 +646,13 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         // Stryker disable once Statement : JNT8004 is the only warning a synthesized query is known to raise
                         context.ReportDiagnostic(DiagnosticInfo.ForValidation(error).ToDiagnostic());
                 }
-                // Stryker disable once Statement : see hasSynthError above
-                if (hasSynthError)
+                // Stryker disable Statement,Block : see synthErrors above
+                if (synthErrors.Count > 0)
+                {
+                    context.ReportDiagnostic(SyntheticSkipDiagnostic(synth, synthErrors, commonPrefix));
                     continue;
+                }
+                // Stryker restore all
 
                 string source;
                 if (queryModel.StatementType != StatementType.Select)
