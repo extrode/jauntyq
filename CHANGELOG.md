@@ -17,6 +17,11 @@ condensed.
   (`from t x join s y on ... where x.u = @u and d = @d`, or `where x.a = @a and b = @b` on an
   index over `(a, b)`). The unqualified column was keyed by table name, the qualified one by alias.
 
+### Changed
+- MySQL schema extraction reads function rows through `MySqlExtractor.ReadFunctionsAsync`, so a
+  NULL return or parameter `DATA_TYPE` is now covered by a test instead of a mutation-testing
+  exclusion. No behaviour change.
+
 ## [0.6.1] - 2026-10-01
 
 ### Fixed
