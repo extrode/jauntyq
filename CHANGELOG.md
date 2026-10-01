@@ -11,6 +11,8 @@ condensed.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-01
+
 ### Fixed
 - `JNT8008` (N+1) no longer misses a parent table whose lowercase form is not case-insensitively
   equal to its written form (for example a name containing U+212A, the Kelvin sign). Found by the
