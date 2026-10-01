@@ -177,17 +177,12 @@ public class SqliteExtractor : ISchemaExtractor
                     else
                         cols.Add(reader.GetString(2));
                 }
-                if (!hasExpressionColumn && cols.Count == 0)
-                    // Stryker disable once Statement : with no expression column and no cols, the expression branch below is skipped and the foreach over the empty cols adds nothing
-                    continue;
-                if (hasExpressionColumn && cols.Count == 0)
+                if (hasExpressionColumn)
                 {
-                    // ALL-expression index: no column rows, but the entry must
+                    // Expression index (an all-expression one has no column rows): the entry must
                     // exist so a unique one is visible as a competing
                     // constraint.
                     IndexCapture.EnsureIndex(schema, tableName, indexName, isUnique && !isPartial, hasExpressionKeyPart: true);
-                    // Stryker disable once Statement : cols is empty here, so falling through to the foreach below adds nothing
-                    continue;
                 }
                 foreach (var col in cols)
                     IndexCapture.AddIndexColumn(schema, tableName, indexName, isUnique && !isPartial, col,
@@ -226,10 +221,9 @@ public class SqliteExtractor : ISchemaExtractor
         int close = declaredType.IndexOf(')');
         if (open < 0)
             return (null, null);
-        // Stryker disable once Arithmetic,Equality : open - 1 and close < open + 1 only differ from the original when close is open or open + 1; the first is impossible since '(' != ')' and the second is "()", whose empty inner text parses to (null, null) anyway
-        if (close <= open + 1)
-            return (null, null);
-        var parts = declaredType.Substring(open + 1, close - open - 1).Split(',');
+        // A missing ')', one before the '(' or "()" leaves empty inner text,
+        // which parses to (null, null).
+        var parts = declaredType.Substring(open + 1, Math.Max(0, close - open - 1)).Split(',');
         int? first = int.TryParse(parts[0].Trim(), out int f) ? f : null;
         int? second = parts.Length > 1 && int.TryParse(parts[1].Trim(), out int sec) ? sec : null;
         return (first, second);

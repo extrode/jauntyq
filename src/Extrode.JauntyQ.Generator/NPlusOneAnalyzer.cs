@@ -111,9 +111,6 @@ internal static class NPlusOneAnalyzer
                 continue;
             foreach (var tableKey in fact.TablesRead)
             {
-                // Stryker disable once Statement : TablesRead only holds keys Build already resolved through FindTableSchema, so this guard never fires
-                if (FindTableSchema(schema, tableKey) == null)
-                    continue;
                 if (!collections.TryGetValue(tableKey, out var names))
                 {
                     names = new List<string>();
@@ -296,12 +293,7 @@ internal static class NPlusOneAnalyzer
             if (!column.IsPrimaryKey)
                 continue;
             hasPk = true;
-            if (!fact.EqualityFilterColumns.Contains(tableKey + "|" + column.Name.ToLowerInvariant()))
-            {
-                pkFullyFiltered = false;
-                // Stryker disable once Statement : later iterations only set hasPk (already true) or pkFullyFiltered (already false, never reset)
-                break;
-            }
+            pkFullyFiltered &= fact.EqualityFilterColumns.Contains(tableKey + "|" + column.Name.ToLowerInvariant());
         }
         if (hasPk && pkFullyFiltered)
             return true;
@@ -321,14 +313,7 @@ internal static class NPlusOneAnalyzer
                 continue;
             bool allFiltered = true;
             foreach (var column in index.Columns)
-            {
-                if (!fact.EqualityFilterColumns.Contains(tableKey + "|" + column.ToLowerInvariant()))
-                {
-                    allFiltered = false;
-                    // Stryker disable once Statement : later iterations can only set allFiltered to false again, and nothing resets it
-                    break;
-                }
-            }
+                allFiltered &= fact.EqualityFilterColumns.Contains(tableKey + "|" + column.ToLowerInvariant());
             if (allFiltered)
                 return true;
         }
@@ -410,14 +395,7 @@ internal static class NPlusOneAnalyzer
                 continue;
             bool allFiltered = true;
             foreach (var column in group.ChildColumns)
-            {
-                if (!fact.EqualityFilterColumns.Contains(childTableKey + "|" + column.ToLowerInvariant()))
-                {
-                    allFiltered = false;
-                    // Stryker disable once Statement : later iterations can only set allFiltered to false again, and nothing resets it
-                    break;
-                }
-            }
+                allFiltered &= fact.EqualityFilterColumns.Contains(childTableKey + "|" + column.ToLowerInvariant());
             if (allFiltered)
                 parents.Add(group.ParentTableKey);
         }
@@ -543,7 +521,6 @@ internal static class NPlusOneAnalyzer
                 string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
                 aliasToTable[key] = table.TableName;
 
-                // Stryker disable once Statement : a CTE/unknown table has no schema columns, so it never yields a filter key, and every consumer of TablesRead re-checks FindTableSchema or matches FK table keys
                 if (FindTableSchema(schema, table.TableName) == null)
                     continue; // CTE/unknown: never judged
                 string tableKey = table.TableName.ToLowerInvariant();
@@ -557,8 +534,10 @@ internal static class NPlusOneAnalyzer
             // ambiguous unqualified names) are skipped — never guessed.
             foreach (var param in query.Parameters)
             {
-                // Stryker disable once Logical,Statement : facts are built for SELECTs only, which carry no write-target params, and an empty column name makes ResolveColumn return null so the loop continues below anyway
-                if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
+                // A writable CTE's SET params are copied up into the outer
+                // SELECT, so write targets do reach here. An empty column name
+                // needs no check: ResolveColumn returns null for it below.
+                if (param.IsWriteTarget)
                     continue;
                 bool isEquality = param.ComparisonOp == "=";
                 bool isInList = string.Equals(param.ComparisonOp, "IN", StringComparison.OrdinalIgnoreCase);
@@ -581,12 +560,7 @@ internal static class NPlusOneAnalyzer
             bool anyAggregate = false;
             foreach (var col in query.Columns)
             {
-                if (!col.IsExpression)
-                {
-                    allExpressions = false;
-                    // Stryker disable once Statement : allExpressions is never set back to true, so the result is false whatever later columns set anyAggregate to
-                    break;
-                }
+                allExpressions &= col.IsExpression;
                 if (IsAggregateExpression(col))
                     anyAggregate = true;
             }

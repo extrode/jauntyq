@@ -18,8 +18,8 @@ public class ParameterRef
     /// <summary>
     /// The predicate operator that bound this parameter to its column: "=",
     /// "!=", "&lt;&gt;", "&lt;", "&gt;", "&lt;=", "&gt;=", "IN", "LIKE" or
-    /// "BETWEEN". Empty when the parameter is unbound or is a write target
-    /// (INSERT/UPDATE value slot). Lets analyzers distinguish an equality
+    /// "BETWEEN". Empty when the parameter is unbound or is an INSERT value slot;
+    /// an UPDATE SET parameter carries "=". Lets analyzers distinguish an equality
     /// point lookup from a range/set predicate on the same column (JNT8008).
     /// </summary>
     public string ComparisonOp { get; set; } = string.Empty;

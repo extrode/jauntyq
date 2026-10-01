@@ -580,16 +580,10 @@ public static partial class SqlParser
                     else if (tokens[pos + 1].Type == TokenType.Identifier &&
                              !IsClauseKeyword(tokens[pos + 1].Value))
                     {
-                        if (pos + 2 < tokens.Count)
+                        if (pos + 2 >= tokens.Count || EndsAnAliasedItem(tokens[pos + 2]))
                         {
-                            var afterAlias = tokens[pos + 2];
-                            if ((afterAlias.Type == TokenType.Symbol && afterAlias.Value == ",") ||
-                                (afterAlias.Type == TokenType.Keyword && EndsASelectListItem(afterAlias.Value)) ||
-                                afterAlias.Type == TokenType.End)
-                            {
-                                outputAlias = tokens[pos + 1].Value;
-                                pos++;
-                            }
+                            outputAlias = tokens[pos + 1].Value;
+                            pos++;
                         }
                     }
                 }
@@ -633,6 +627,11 @@ public static partial class SqlParser
     /// 2026-08-31: with the refusal in place but this helper absent, the
     /// aliased form was refused and the unaliased form was not.</para>
     /// </summary>
+    private static bool EndsAnAliasedItem(Token token) =>
+        (token.Type == TokenType.Symbol && token.Value == ",") ||
+        (token.Type == TokenType.Keyword && EndsASelectListItem(token.Value)) ||
+        token.Type == TokenType.End;
+
     private static bool EndsASelectListItem(string keyword) =>
         IsClauseKeyword(keyword) || string.Equals(keyword, "INTO", StringComparison.OrdinalIgnoreCase);
 
@@ -823,13 +822,14 @@ public static partial class SqlParser
         // predicates (e.g. a WHERE clause's "=") as if they were top-level
         // comparisons on the outer expression.
         int lo = 0, hi = count;
-        // Stryker disable once Equality,Arithmetic : "> 2" differs only on a bare "( )", and stopping there instead of unwrapping it to empty changes nothing below (no comparison, count needs span >= 3, EXISTS/SUM need their head token); "hi + lo" differs only once lo == hi after an unwrap, where run[hi - 1] is the "(" just stripped, so the ")" check fails either way
-        while (hi - lo >= 2 &&
-               run[lo].Type == TokenType.Symbol && run[lo].Value == "(" &&
-               run[hi - 1].Type == TokenType.Symbol && run[hi - 1].Value == ")" &&
-               EnclosesWholeRun(run, lo, hi))
+        while (true)
         {
-            // The loop condition already guarantees hi - lo >= 2, so lo + 1 is in range.
+            if (!(run[lo].Type == TokenType.Symbol && run[lo].Value == "(" &&
+                  run[hi - 1].Type == TokenType.Symbol && run[hi - 1].Value == ")" &&
+                  EnclosesWholeRun(run, lo, hi)))
+                break;
+
+            // The check above guarantees hi - lo >= 2, so lo + 1 is in range.
             if (run[lo + 1].Type == TokenType.Keyword && run[lo + 1].Value == "SELECT")
                 break;
 
@@ -859,12 +859,10 @@ public static partial class SqlParser
             }
             else if (t.Type == TokenType.Keyword && t.Value == "CASE")
             {
-                // Stryker disable once Update : caseDepth is only ever compared against zero; swapping ++/-- here negates every partial sum in the running total, and negation preserves both -0==0 and every zero/nonzero crossing position, so the mutant is indistinguishable from any input
                 caseDepth++;
             }
             else if (t.Type == TokenType.Keyword && t.Value == "END")
             {
-                // Stryker disable once Update : same negation-invariance argument as the CASE arm above applies symmetrically to END's decrement
                 caseDepth--;
             }
             else
@@ -923,8 +921,6 @@ public static partial class SqlParser
         {
             col.InferredDbType = "bigint";
             col.InferredNotNull = true;
-            // Stryker disable once Statement : falling through reaches only the EXISTS and SUM checks, and run[lo] here is a count head, which is neither the EXISTS keyword nor a SUM/AVG head
-            return;
         }
 
         // EXISTS(...) as the head -> boolean NOT NULL.
@@ -934,8 +930,6 @@ public static partial class SqlParser
         {
             col.InferredDbType = "boolean";
             col.InferredNotNull = true;
-            // Stryker disable once Statement : falling through reaches only the SUM check, and run[lo] here is the EXISTS keyword, not a SUM/AVG head
-            return;
         }
 
         // sum(<col>) / avg(<col>) as the *entire* expression body, with a

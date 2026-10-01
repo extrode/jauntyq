@@ -96,7 +96,7 @@ public sealed class CliHost
         foreach (var name in names)
         {
             string[] words = name.Split(' ');
-            // Stryker disable once Equality : "<" differs only for a name with as many words as the current best, and two distinct names of equal length cannot both match the same leading arguments
+            // Stryker disable once Equality : "<" differs only for a name with as many words as the current best, and two distinct names with the same word count cannot both match the same leading arguments (`>` is also hidden by this disable; existing tests kill it)
             if (words.Length <= consumed)
                 continue;
             if (args.Length < words.Length)

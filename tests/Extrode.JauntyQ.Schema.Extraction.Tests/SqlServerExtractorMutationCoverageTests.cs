@@ -287,5 +287,11 @@ public class SqlServerExtractorMutationCoverageTests : IClassFixture<SqlServerMu
         Assert.Equal("f_noargs", noargs.Name);
         Assert.Empty(noargs.Params);
         Assert.Equal(("int", (int?)null, (int?)null, (int?)null), (noargs.Return.DbType, noargs.Return.MaxLength, noargs.Return.Precision, noargs.Return.Scale));
+        Assert.Null(noargs.Return.ResolvedFromUserType);
+        Assert.Null(dec.Return.ResolvedFromUserType);
+
+        var alias = fns["f_alias"];
+        Assert.Equal("varchar", alias.Return.DbType);
+        Assert.Equal("code_t", alias.Return.ResolvedFromUserType);
     }
 }

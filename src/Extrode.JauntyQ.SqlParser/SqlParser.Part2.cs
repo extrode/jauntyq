@@ -22,6 +22,14 @@ public static partial class SqlParser
         string.Equals(token.Value, "LATERAL", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// NATURAL is not a tokenizer keyword, so in "FROM t NATURAL JOIN u" it
+    /// arrives as an Identifier in the alias position and would be recorded as
+    /// t's alias, like USING before it.
+    /// </summary>
+    private static bool IsNaturalKeyword(Token token) =>
+        string.Equals(token.Value, "NATURAL", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Records an unmodeled relation construct and consumes its keyword,
     /// deliberately without adding a TableRef: inventing one is the bug.
     /// </summary>
@@ -49,7 +57,7 @@ public static partial class SqlParser
             pos++;
 
             // Check for alias
-            if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
+            if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier && !IsNaturalKeyword(tokens[pos]))
             {
                 alias = tokens[pos].Value;
                 pos++;
@@ -146,6 +154,7 @@ public static partial class SqlParser
             // skipped token-by-token by ParseStatement's main loop with no
             // join key ever recorded.
             if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
+                !IsNaturalKeyword(tokens[pos]) &&
                 !string.Equals(tokens[pos].Value, "USING", StringComparison.OrdinalIgnoreCase))
             {
                 alias = tokens[pos].Value;
@@ -279,23 +288,13 @@ public static partial class SqlParser
     private static (string tableAlias, string columnName) SplitQualifiedName(string name)
     {
         int lastDot = name.LastIndexOf('.');
-        // Stryker disable once Equality : lastDot == 0 (name starting with a
-        // dot) is unreachable -- name is always an Identifier token's value,
-        // and the tokenizer's IsIdentifierStart only accepts a letter or
-        // underscore, so this boundary can never actually be hit
-        if (lastDot < 0)
+        if (lastDot == -1)
             return (string.Empty, name);
 
         string columnName = name.Substring(lastDot + 1);
         string prefix = name.Substring(0, lastDot);
         int prevDot = prefix.LastIndexOf('.');
-        // Stryker disable once Conditional,Equality : Conditional -- when
-        // prevDot < 0, prefix.Substring(prevDot + 1) == prefix.Substring(0)
-        // == prefix itself, identical to the false branch, so forcing the
-        // true branch is a no-op and indistinguishable by any input.
-        // Equality -- prevDot == 0 (prefix starting with a dot) is
-        // unreachable for the same identifier-grammar reason as lastDot above
-        string tableAlias = prevDot >= 0 ? prefix.Substring(prevDot + 1) : prefix;
+        string tableAlias = prefix.Substring(prevDot + 1);
         return (tableAlias, columnName);
     }
 
@@ -317,14 +316,7 @@ public static partial class SqlParser
     private static string StripQualifier(string name)
     {
         int lastDot = name.LastIndexOf('.');
-        // Stryker disable once Conditional,Equality : Conditional -- when
-        // lastDot < 0, name.Substring(lastDot + 1) == name.Substring(0) ==
-        // name itself, identical to the false branch, so forcing the true
-        // branch is a no-op and indistinguishable by any input. Equality --
-        // lastDot == 0 (name starting with a dot) is unreachable: name is
-        // always an Identifier token's value, and the tokenizer only accepts
-        // a letter or underscore as an identifier's first character
-        return lastDot >= 0 ? name.Substring(lastDot + 1) : name;
+        return name.Substring(lastDot + 1);
     }
 
     private static bool IsClauseKeyword(string value) =>

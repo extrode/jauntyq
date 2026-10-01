@@ -114,8 +114,7 @@ public static class SchemaSimulator
 
     private static void ApplyAddColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        // Stryker disable once Logical : TryFindTable's null-iff-false contract makes the `|| table == null` clause equivalent to the bare `!TryFindTable(...)` check for every caller
-        if (!TryFindTable(schema, stmt.TableName, out var table) || table == null)
+        if (!TryFindTable(schema, stmt.TableName, out var table))
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot add column to '{stmt.TableName}': table does not exist in the effective schema."));
@@ -135,8 +134,7 @@ public static class SchemaSimulator
 
     private static void ApplyDropColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        // Stryker disable once Logical : TryFindTable's null-iff-false contract makes the `|| table == null` clause equivalent to the bare `!TryFindTable(...)` check for every caller
-        if (!TryFindTable(schema, stmt.TableName, out var table) || table == null)
+        if (!TryFindTable(schema, stmt.TableName, out var table))
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot drop column from '{stmt.TableName}': table does not exist in the effective schema."));
@@ -145,12 +143,10 @@ public static class SchemaSimulator
 
         foreach (var name in stmt.ColumnNames)
         {
-            // Stryker disable once Logical : TryFindColumnKey's null-iff-false contract makes `|| actualKey == null` equivalent to the bare `!TryFindColumnKey(...)` check
-            if (!TryFindColumnKey(table, name, out var actualKey) || actualKey == null)
+            if (!TryFindColumnKey(table, name, out var actualKey))
             {
                 errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: cannot drop column '{stmt.TableName}.{name}': it does not exist in the effective schema."));
-                // Stryker disable once Statement : this is the loop's last statement, so dropping `continue` here falls through to the loop's own end with no further statement to wrongly execute -- observably identical
                 continue;
             }
 
@@ -178,8 +174,7 @@ public static class SchemaSimulator
 
     private static void ApplyAlterColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        // Stryker disable once Logical : TryFindTable's null-iff-false contract makes the `|| table == null` clause equivalent to the bare `!TryFindTable(...)` check for every caller
-        if (!TryFindTable(schema, stmt.TableName, out var table) || table == null)
+        if (!TryFindTable(schema, stmt.TableName, out var table))
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot alter column on '{stmt.TableName}': table does not exist in the effective schema."));
@@ -188,8 +183,7 @@ public static class SchemaSimulator
 
         foreach (var col in stmt.Columns)
         {
-            // Stryker disable once Logical : TryFindColumnKey's null-iff-false contract makes `|| actualKey == null` equivalent to the bare `!TryFindColumnKey(...)` check
-            if (!TryFindColumnKey(table, col.Name, out var actualKey) || actualKey == null)
+            if (!TryFindColumnKey(table, col.Name, out var actualKey))
             {
                 errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: cannot alter column '{stmt.TableName}.{col.Name}': it does not exist in the effective schema."));
@@ -233,8 +227,7 @@ public static class SchemaSimulator
     /// </summary>
     private static void ApplyAlterColumnNullability(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        // Stryker disable once Logical : TryFindTable's null-iff-false contract makes the `|| table == null` clause equivalent to the bare `!TryFindTable(...)` check for every caller
-        if (!TryFindTable(schema, stmt.TableName, out var table) || table == null)
+        if (!TryFindTable(schema, stmt.TableName, out var table))
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot alter column on '{stmt.TableName}': table does not exist in the effective schema."));
@@ -242,8 +235,7 @@ public static class SchemaSimulator
         }
 
         string colName = stmt.ColumnNames.Count > 0 ? stmt.ColumnNames[0] : string.Empty;
-        // Stryker disable once Logical : TryFindColumn's null-iff-false contract makes `|| existing == null` equivalent to the bare `!TryFindColumn(...)` check
-        if (!TryFindColumn(table, colName, out var existing) || existing == null)
+        if (!TryFindColumn(table, colName, out var existing))
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot alter column '{stmt.TableName}.{colName}': it does not exist in the effective schema."));
@@ -255,8 +247,7 @@ public static class SchemaSimulator
 
     private static void ApplyAddPrimaryKey(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        // Stryker disable once Logical : TryFindTable's null-iff-false contract makes the `|| table == null` clause equivalent to the bare `!TryFindTable(...)` check for every caller
-        if (!TryFindTable(schema, stmt.TableName, out var table) || table == null)
+        if (!TryFindTable(schema, stmt.TableName, out var table))
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: cannot add a primary key to '{stmt.TableName}': table does not exist in the effective schema."));
@@ -265,8 +256,7 @@ public static class SchemaSimulator
 
         foreach (var name in stmt.ColumnNames)
         {
-            // Stryker disable once Logical : TryFindColumn's null-iff-false contract makes `|| existing == null` equivalent to the bare `!TryFindColumn(...)` check
-            if (!TryFindColumn(table, name, out var existing) || existing == null)
+            if (!TryFindColumn(table, name, out var existing))
             {
                 errors.Add(AnalysisDiagnostic.Error("JNT9002",
                     $"{fileName}: cannot add a primary key on '{stmt.TableName}.{name}': it does not exist in the effective schema."));
@@ -340,10 +330,13 @@ public static class SchemaSimulator
     /// helper would need to live in Extrode.JauntyQ.Schema instead -- out of scope
     /// for this fix.
     /// </summary>
-    private static bool TryFindTable(DatabaseSchema schema, string name, out TableSchema? table)
+    private static bool TryFindTable(DatabaseSchema schema, string name, out TableSchema table)
     {
-        if (schema.Tables.TryGetValue(name, out table))
+        if (schema.Tables.TryGetValue(name, out var exact))
+        {
+            table = exact;
             return true;
+        }
         foreach (var kvp in schema.Tables)
         {
             if (string.Equals(kvp.Key, name, StringComparison.OrdinalIgnoreCase))
@@ -352,7 +345,7 @@ public static class SchemaSimulator
                 return true;
             }
         }
-        table = null;
+        table = null!;
         return false;
     }
 
@@ -376,7 +369,7 @@ public static class SchemaSimulator
     /// <summary>Case-insensitive column lookup; returns the actual stored key
     /// (not <paramref name="name"/>'s casing) so a caller that needs to
     /// reassign or remove by key does so under the real one.</summary>
-    private static bool TryFindColumnKey(TableSchema table, string name, out string? actualKey)
+    private static bool TryFindColumnKey(TableSchema table, string name, out string actualKey)
     {
         if (table.Columns.ContainsKey(name))
         {
@@ -391,20 +384,18 @@ public static class SchemaSimulator
                 return true;
             }
         }
-        actualKey = null;
+        actualKey = null!;
         return false;
     }
 
-    private static bool TryFindColumn(TableSchema table, string name, out ColumnSchema? column)
+    private static bool TryFindColumn(TableSchema table, string name, out ColumnSchema column)
     {
-        // Stryker disable once Logical : TryFindColumnKey's null-iff-false contract makes `&& key != null` equivalent to the bare TryFindColumnKey(...) result
-        if (TryFindColumnKey(table, name, out var key) && key != null)
+        if (TryFindColumnKey(table, name, out var key))
         {
             column = table.Columns[key];
             return true;
         }
-        column = null;
-        // Stryker disable once Boolean : the only caller pattern is `if (!TryFindColumn(...) || result == null)`, so a `true` here still fails that check since `column` is null either way
+        column = null!;
         return false;
     }
 

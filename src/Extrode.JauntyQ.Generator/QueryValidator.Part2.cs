@@ -89,14 +89,7 @@ public static partial class QueryValidator
         // snapshot carries index metadata at all (older snapshots do not).
         bool hasIndexMetadata = false;
         foreach (var table in schema.Tables.Values)
-        {
-            if (table.Indexes.Count > 0)
-            {
-                hasIndexMetadata = true;
-                // Stryker disable once Statement : without the break the loop only visits the remaining tables, and nothing in it can set the flag back to false
-                break;
-            }
-        }
+            hasIndexMetadata |= table.Indexes.Count > 0;
         if (!hasIndexMetadata)
             return;
 
@@ -220,7 +213,7 @@ public static partial class QueryValidator
             var col = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
             if (col != null && tableName != null)
             {
-                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
+                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : InstanceOf(query, tableName);
                 seekColumns.Add(instanceKey + "|" + col.Name);
             }
         }
@@ -239,6 +232,21 @@ public static partial class QueryValidator
         }
 
         return seekColumns;
+    }
+
+    /// <summary>
+    /// The name a table instance is keyed by: its alias when the FROM clause
+    /// gave one, else the table name. An unqualified column resolves to a
+    /// table name, but the same table is keyed by its alias everywhere else.
+    /// </summary>
+    private static string InstanceOf(QueryModel query, string tableName)
+    {
+        foreach (var table in query.Tables)
+        {
+            if (string.Equals(table.TableName, tableName, StringComparison.OrdinalIgnoreCase))
+                return !string.IsNullOrEmpty(table.Alias) ? table.Alias : tableName;
+        }
+        return tableName;
     }
 
     /// <summary>
@@ -332,14 +340,7 @@ public static partial class QueryValidator
 
             bool coveredUpToHere = true;
             for (int i = 0; i < pos; i++)
-            {
-                if (!filterColumns.Contains(instanceKey + "|" + index.Columns[i]))
-                {
-                    coveredUpToHere = false;
-                    // Stryker disable once Statement : without the break the loop only checks later columns, and nothing in it can set the flag back to true
-                    break;
-                }
-            }
+                coveredUpToHere &= filterColumns.Contains(instanceKey + "|" + index.Columns[i]);
             if (coveredUpToHere)
                 return true;
         }
@@ -373,12 +374,7 @@ public static partial class QueryValidator
             if (!col.IsPrimaryKey)
                 continue;
             hasPkColumn = true;
-            if (!equalitySeekColumns.Contains(instanceKey + "|" + col.Name))
-            {
-                allPkColumnsFiltered = false;
-                // Stryker disable once Statement : hasPkColumn is already true here, and without the break the loop can only set allPkColumnsFiltered to false again
-                break;
-            }
+            allPkColumnsFiltered &= equalitySeekColumns.Contains(instanceKey + "|" + col.Name);
         }
         if (hasPkColumn && allPkColumnsFiltered)
             return true;
@@ -392,14 +388,7 @@ public static partial class QueryValidator
 
             bool allFiltered = true;
             foreach (var keyColumn in index.Columns)
-            {
-                if (!equalitySeekColumns.Contains(instanceKey + "|" + keyColumn))
-                {
-                    allFiltered = false;
-                    // Stryker disable once Statement : without the break the loop only checks later key columns, and nothing in it can set the flag back to true
-                    break;
-                }
-            }
+                allFiltered &= equalitySeekColumns.Contains(instanceKey + "|" + keyColumn);
             if (allFiltered)
                 return true;
         }
@@ -483,17 +472,13 @@ public static partial class QueryValidator
         bool allItemsArePlainColumns = true;
         foreach (var item in query.OrderBy)
         {
-            if (item.Kind != OrderByItemKind.PlainColumn)
-            {
-                allItemsArePlainColumns = false;
-                // Stryker disable once Statement : falling through can only add this item to orderByColumns/orderedNames, and with allItemsArePlainColumns already false every path after the loop returns without reporting
-                continue;
-            }
-
-            var column = ResolveColumn(query, item.BoundTableAlias, item.BoundColumnName, aliasToTable, schema, out _);
+            ColumnSchema? column = null;
+            if (item.Kind == OrderByItemKind.PlainColumn)
+                column = ResolveColumn(query, item.BoundTableAlias, item.BoundColumnName, aliasToTable, schema, out _);
             if (column == null)
             {
-                // An item we cannot resolve might be the unique one.
+                // A non-plain item, or one we cannot resolve, might be the
+                // unique one.
                 allItemsArePlainColumns = false;
                 continue;
             }
