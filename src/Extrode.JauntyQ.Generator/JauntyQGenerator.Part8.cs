@@ -52,9 +52,11 @@ internal sealed class FileSummary : IEquatable<FileSummary>
         unchecked
         {
             int hash = EntityName.GetHashCode();
+            // Stryker disable Arithmetic,NullCoalescing,Conditional : GetHashCode's only contract is equal objects => equal hashes, which holds under any fixed combining transform of fields Equals compares
             hash = hash * 31 + MethodName.GetHashCode();
             hash = hash * 31 + (CanonicalTable?.GetHashCode() ?? 0);
             hash = hash * 31 + (Claims ? 2 : 0) + (Emitted ? 1 : 0);
+            // Stryker restore all
             return hash;
         }
     }

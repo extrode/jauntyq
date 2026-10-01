@@ -54,8 +54,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // Single-line: build output is line-oriented and the synthesized FK
         // loader is one SELECT, so it stays paste-able. Never truncated -- a
         // shortened column list pasted into the file is a silently different
-        // query, which is worse than a long warning.
-        string oneLineSql = cleanedSql.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ').Trim();
+        // query, which is worse than a long warning. AutoCrud joins its
+        // clauses with '\n' alone, so there is no '\r' to fold.
+        string oneLineSql = cleanedSql.Replace('\n', ' ').Trim();
 
         string where = commonPrefix.Length > 0
             ? $"'{commonPrefix.TrimEnd('/')}/{synth.EntityName}/{synth.MethodName}.sql'"
@@ -81,10 +82,17 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// </summary>
     private sealed class AcceptedColumn
     {
-        public string Table = "";
-        public string Column = "";
-        public string Reason = "";
+        public readonly string Table;
+        public readonly string Column;
+        public readonly string Reason;
         public bool Used;
+
+        public AcceptedColumn(string table, string column, string reason)
+        {
+            Table = table;
+            Column = column;
+            Reason = reason;
+        }
     }
 
     /// <summary>
@@ -112,7 +120,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         if (string.IsNullOrWhiteSpace(acceptJson) || schema == null)
             return accepted;
 
-        string where = acceptPath ?? "the acceptance file";
+        // The path and the text come from the same AdditionalText, so text
+        // without a path cannot arrive.
+        string where = acceptPath!;
 
         AcceptanceFile parsed;
         try
@@ -187,12 +197,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 continue;
             }
 
-            accepted.Add(new AcceptedColumn
-            {
-                Table = tableSchema.Name,
-                Column = column,
-                Reason = reason.Trim(),
-            });
+            accepted.Add(new AcceptedColumn(tableSchema.Name, column, reason.Trim()));
         }
 
         return accepted;
@@ -231,10 +236,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         string? acceptPath = null,
         string? acceptJson = null)
     {
-        // A schema snapshot alone is enough: auto-CRUD generates without any .sql files
-        if (files.IsEmpty && !schemaState.HasJson)
-            return;
-
+        // A schema snapshot alone is enough: auto-CRUD generates without any
+        // .sql files. With neither, the schema is null and nothing below emits.
         foreach (var diag in schemaState.MigrationDiagnostics)
             context.ReportDiagnostic(diag.ToDiagnostic());
 
@@ -242,6 +245,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 JauntyDiagnostics.JNT6001, Location.None));
+            // Stryker disable once Statement : the schema is null here and no file emitted without one, so everything below emits nothing
             return;
         }
 
@@ -534,6 +538,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             foreach (var synth in AutoCrud.Synthesize(schema))
             {
+                // Stryker disable once Statement : only an in-flight cancellation observes it, and a cancelled run's output is discarded
                 context.CancellationToken.ThrowIfCancellationRequested();
 
                 if (!claimedMethods.Add($"{synth.EntityName}.{synth.MethodName}"))
@@ -596,6 +601,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 foreach (var error in errors)
                 {
                     if (error.Severity == ValidationSeverity.Error)
+                        // Stryker disable once Boolean : synthesized SQL is built from the snapshot it validates against, so no known schema yields an error here
                         hasSynthError = true;
                     else if (error.Code == "JNT8004")
                     {
@@ -613,8 +619,10 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                                 error.Message + SyntheticOverrideHint(synth, cleanedSql, commonPrefix)));
                     }
                     else
+                        // Stryker disable once Statement : JNT8004 is the only warning a synthesized query is known to raise
                         context.ReportDiagnostic(DiagnosticInfo.ForValidation(error).ToDiagnostic());
                 }
+                // Stryker disable once Statement : see hasSynthError above
                 if (hasSynthError)
                     continue;
 
@@ -655,7 +663,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     continue;
                 context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT8012, Location.None,
                     $"'{entry.Table}.{entry.Column}' is accepted as an unindexed scan in " +
-                    $"'{acceptPath ?? "the acceptance file"}', but no generated query scans it, so the entry " +
+                    $"'{acceptPath}', but no generated query scans it, so the entry " +
                     "suppresses nothing. Either an index covers it now -- remove the entry -- or a hand-written " +
                     $".sql file has claimed '{entry.Table}'s loader for that column, in which case the acceptance " +
                     "belongs in that file as '-- @allow-unindexed <reason>' instead. " +
@@ -668,9 +676,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             foreach (var kvp in syntheticWrites)
             {
-                if (!SchemaLookup.TryGetTable(schema, kvp.Key, out var tableSchema))
-                    continue;
-                var table = tableSchema!;
+                // Keyed by synth.TableName, which AutoCrud took from schema.Tables.
+                var table = schema.Tables[kvp.Key];
                 var info = kvp.Value;
                 string rowType = Inflector.RowTypeName(DialectMapper.ToPascalCase(table.Name));
                 string overloadSource = CodeEmitter.EmitPocoOverloads(
@@ -695,6 +702,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             foreach (var tableName in neededRowTables)
             {
                 if (!SchemaLookup.TryGetTable(schema, tableName, out var resolvedTableSchema))
+                    // Stryker disable once Statement : every name in neededRowTables was resolved against this schema before it was added
                     continue;
                 var tableSchema = resolvedTableSchema!;
 
@@ -704,6 +712,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // rely on it: gate every emitted member on IsValidIdentifier so
                 // a malicious snapshot cannot inject code if the transform ever
                 // changes. Skip the table and report rather than emit.
+                // Stryker disable Statement,String,Boolean : unreachable while ToPascalCase maps every non-empty name to a legal identifier, AutoCrud refuses a table with an empty one, and a query selecting it fails JNT2004 before its row type resolves
                 bool rowNameOk = true;
                 foreach (var rcol in tableSchema.Columns.Values)
                 {
@@ -730,6 +739,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // covered the table's own full column set feeding the
                 // canonical row POCO. Skip the table and report, matching the
                 // JNT2004 (C2) precedent immediately above.
+                // Stryker disable Statement,String : Part5's ResolveCanonicalRowType and AutoCrud both refuse such a table, so it never reaches neededRowTables; JNT2014 reports it instead
                 string? dupRowCol = FindDuplicateColumnPropertyName(tableSchema.Columns.Values);
                 if (dupRowCol != null)
                 {
@@ -738,6 +748,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         $"The row type cannot declare '{dupRowCol}' twice; rename one column or exclude it from full-row queries."));
                     continue;
                 }
+                // Stryker restore all
 
                 // JNT2007: a column whose db type has no case in
                 // DialectMapper.MapDbTypeToCSharp silently degrades to
@@ -863,7 +874,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // JNT2006/JNT3009 already enforce for row POCOs and result columns.
         // CodeEmitter.EmitSequenceAccessor keeps only the first on collision
         // regardless; this reports it so the drop isn't silent.
-        if (schema != null && schema.Sequences.Count > 0)
+        // An empty collection reports nothing in each of the three blocks below.
+        if (schema != null)
         {
             var byMethodName = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>(StringComparer.Ordinal);
             foreach (var seq in schema.Sequences.Values)
@@ -899,7 +911,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // is: a refusal the user cannot see is worse on the hand-written-query
         // path, not better, since nothing else there hints that db.Functions is
         // missing a method it should have.
-        if (schema != null && schema.Functions.Count > 0)
+        if (schema != null)
         {
             var functionCollisions = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>(StringComparer.Ordinal);
             var functionUnmappable = new System.Collections.Generic.List<(string Function, string Reason)>();
@@ -939,7 +951,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // through any query that selects an enum column, not just through
         // auto-CRUD, so gating this on autoCrud would let the collision
         // through on exactly the hand-written-queries path.
-        if (schema != null && schema.Enums.Count > 0)
+        if (schema != null)
         {
             ReportEnumDiagnostics(context, schema);
 
@@ -1034,8 +1046,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 conflict = $"the generated enum type '{typeName}' collides with {owner}";
             else if (claimed.TryGetValue(companion, out string? companionOwner))
                 conflict = $"its generated companion class '{companion}' collides with {companionOwner}";
-            else if (string.Equals(typeName, EnumValueExceptionTypeName, StringComparison.Ordinal) ||
-                     string.Equals(companion, EnumValueExceptionTypeName, StringComparison.Ordinal))
+            // The companion ends in "Values", so only the type itself can be the exception's name.
+            else if (string.Equals(typeName, EnumValueExceptionTypeName, StringComparison.Ordinal))
                 conflict = $"it collides with the generated exception type '{EnumValueExceptionTypeName}'";
 
             if (conflict != null)

@@ -186,7 +186,7 @@ internal sealed class SchemaState
     /// and fixed-width date-prefixed ("20230101_") names are unaffected --
     /// digit runs of equal length compare identically either way.
     /// </summary>
-    private static int NaturalCompare(string a, string b)
+    internal static int NaturalCompare(string a, string b)
     {
         int ia = 0, ib = 0;
         while (ia < a.Length && ib < b.Length)
@@ -229,7 +229,6 @@ internal sealed class SchemaState
     private static DiagnosticDescriptor MigrationDescriptor(string code) => code switch
     {
         "JNT9001" => JauntyDiagnostics.JNT9001,
-        "JNT9002" => JauntyDiagnostics.JNT9002,
         _ => JauntyDiagnostics.JNT9002,
     };
 }

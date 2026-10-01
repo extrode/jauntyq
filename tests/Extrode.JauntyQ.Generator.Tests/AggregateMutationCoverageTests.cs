@@ -1,0 +1,550 @@
+using System.Collections.Immutable;
+using System.Linq;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Xunit;
+
+namespace Extrode.JauntyQ.Generator.Tests;
+
+public class AggregateMutationCoverageTests
+{
+    private const string FkSchema = @"{
+  ""dialect"": ""sqlite"",
+  ""tables"": {
+    ""orders"": {
+      ""name"": ""orders"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""placed_on"": { ""name"": ""placed_on"", ""dbType"": ""varchar"", ""isNullable"": false }
+      },
+      ""indexes"": [ { ""name"": ""pk_orders"", ""columns"": [""id""], ""isUnique"": true } ]
+    },
+    ""order_lines"": {
+      ""name"": ""order_lines"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""order_id"": { ""name"": ""order_id"", ""dbType"": ""int"", ""isNullable"": false },
+        ""region_id"": { ""name"": ""region_id"", ""dbType"": ""int"", ""isNullable"": false }
+      },
+      ""indexes"": [
+        { ""name"": ""pk_order_lines"", ""columns"": [""id""], ""isUnique"": true },
+        { ""name"": ""ix_order_lines_region"", ""columns"": [""region_id""], ""isUnique"": false }
+      ]
+    }
+  },
+  ""foreignKeys"": [
+    { ""fromTable"": ""order_lines"", ""fromColumn"": ""order_id"", ""toTable"": ""orders"", ""toColumn"": ""id"" },
+    { ""fromTable"": ""order_lines"", ""fromColumn"": ""region_id"", ""toTable"": ""orders"", ""toColumn"": ""id"" }
+  ]
+}";
+
+    private const string WidgetSchema = @"{
+  ""dialect"": ""sqlite"",
+  ""tables"": {
+    ""widgets"": {
+      ""name"": ""widgets"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""integer"", ""isNullable"": false, ""isPrimaryKey"": true },
+        ""name"": { ""name"": ""name"", ""dbType"": ""text"", ""isNullable"": false },
+        ""qty"": { ""name"": ""qty"", ""dbType"": ""integer"", ""isNullable"": false }
+      }
+    }
+  }
+}";
+
+    private const string AcceptPath = "db/schema/jaunty.accept.json";
+
+    private static GeneratorDriverRunResult Run(string? schemaJson, bool autoCrud, params (string Path, string Text)[] files)
+    {
+        var compilation = CSharpCompilation.Create("AggregateTestAssembly",
+            new[] { CSharpSyntaxTree.ParseText("") },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var texts = files.Select(f => (AdditionalText)new InMemoryAdditionalText(f.Path, f.Text)).ToList();
+        if (schemaJson != null)
+            texts.Add(new InMemoryAdditionalText("db/schema/jaunty.schema.json", schemaJson));
+
+        var driver = CSharpGeneratorDriver.Create(new JauntyQGenerator())
+            .AddAdditionalTexts(texts.ToImmutableArray())
+            .WithUpdatedAnalyzerConfigOptions(new TestAnalyzerConfigOptionsProvider(autoCrud));
+
+        return driver.RunGenerators(compilation).GetRunResult();
+    }
+
+    private static string[] Messages(GeneratorDriverRunResult result, string id) =>
+        result.Diagnostics.Where(d => d.Id == id).Select(d => d.GetMessage()).ToArray();
+
+    private static string? Source(GeneratorDriverRunResult result, string hintName) =>
+        result.Results.Single().GeneratedSources.Where(s => s.HintName == hintName)
+            .Select(s => s.SourceText.ToString()).SingleOrDefault();
+
+    private static string Table(string name, string columns) =>
+        $@"""{name}"": {{ ""name"": ""{name}"", ""columns"": {{ ""id"": {{ ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true }}{columns} }} }}";
+
+    private static string Column(string name, string dbType, string extra = "") =>
+        $@", ""{name}"": {{ ""name"": ""{name}"", ""dbType"": ""{dbType}"", ""isNullable"": false{extra} }}";
+
+    private static string Schema(string dialect, string tables, string extra = "") =>
+        $@"{{ ""dialect"": ""{dialect}"", ""tables"": {{ {tables} }}, ""foreignKeys"": []{extra} }}";
+
+    private static GeneratorDriverRunResult WithAcceptance(string json) =>
+        Run(FkSchema, true, (AcceptPath, json));
+
+    private static string Entry(string table, string column, string reason) =>
+        $"{{ \"table\": \"{table}\", \"column\": \"{column}\", \"reason\": \"{reason}\" }}";
+
+    private static string Accepts(params string[] entries) =>
+        "{ \"allowUnindexed\": [" + string.Join(", ", entries) + "] }";
+
+    [Fact]
+    public void SyntheticUnindexedLoader_JNT8004CarriesTheFullOverrideHint()
+    {
+        var result = Run(FkSchema, true);
+
+        Assert.Equal(
+            "No index covers order_lines.order_id used as a filter/join key: this query scans. "
+            + "Add an index or filter on an indexed column. "
+            + "'OrderLines.GetByOrderId' is generated by auto-CRUD, so there is no file carrying it to annotate. "
+            + "To accept this scan deliberately, create 'OrderLines/GetByOrderId.sql' under your SQL query root containing '-- @allow-unindexed <reason>' followed by: SELECT id, order_id, region_id FROM order_lines WHERE order_lines.order_id = @order_id -- a hand-written file always overrides the generated method of the same name. "
+            + "That file is then yours: it no longer tracks schema changes, so a column added upstream will not appear in it and no diagnostic will say so. "
+            + "To keep the generated loader and its schema tracking, add {\"table\": \"order_lines\", \"column\": \"order_id\", \"reason\": \"...\"} to the allowUnindexed list in a 'jaunty.accept.json' AdditionalFile instead; JauntyQ reports that entry as unnecessary once an index covers the column. "
+            + "To drop the generated loader instead, set <JauntyQAutoCrud>false</JauntyQAutoCrud>, which removes auto-CRUD for every table.",
+            Assert.Single(Messages(result, "JNT8004")));
+    }
+
+    [Fact]
+    public void UnreadableAcceptanceFile_JNT6003WrapsTheParserMessage()
+    {
+        string message = Assert.Single(Messages(WithAcceptance("{ not json"), "JNT6003"));
+
+        Assert.StartsWith($"'{AcceptPath}' is not a readable acceptance file (", message);
+        Assert.EndsWith("). Nothing in it is applied, so every unindexed scan it was meant to accept is reported as usual. "
+            + "Expected shape: {\"allowUnindexed\": [{\"table\": \"...\", \"column\": \"...\", \"reason\": \"...\"}]}", message);
+    }
+
+    [Theory]
+    [InlineData("An entry in '{0}' is missing its 'table' (table: '', column: 'order_id'). The entry is ignored and accepts nothing.", "{ \"table\": \"\", \"column\": \"order_id\", \"reason\": \"r\" }")]
+    [InlineData("An entry in '{0}' is missing its 'column' (table: 'order_lines', column: ''). The entry is ignored and accepts nothing.", "{ \"table\": \"order_lines\", \"reason\": \"r\" }")]
+    [InlineData("The entry for 'order_lines.order_id' in '{0}' has no 'reason'. A reason is mandatory here for the same purpose it is mandatory on '-- @allow-unindexed': an acceptance whose justification is not written down is a NoWarn entry with extra steps. The entry is ignored and accepts nothing.", "{ \"table\": \"order_lines\", \"column\": \"order_id\" }")]
+    [InlineData("The entry for 'nope.order_id' in '{0}' names table 'nope', which is not in the schema snapshot. Either the name is a typo, or the table has been dropped and the entry outlived it. The entry is ignored and accepts nothing.", "{ \"table\": \"nope\", \"column\": \"order_id\", \"reason\": \"r\" }")]
+    [InlineData("The entry for 'order_lines.nope' in '{0}' names column 'nope', which table 'order_lines' does not have. Either the name is a typo, or the column has been dropped and the entry outlived it. The entry is ignored and accepts nothing.", "{ \"table\": \"order_lines\", \"column\": \"nope\", \"reason\": \"r\" }")]
+    public void AnInvalidEntry_GetsOneJNT6003AndIsNotTreatedAsDead(string expected, string entry)
+    {
+        var result = WithAcceptance(Accepts(entry));
+
+        Assert.Equal(string.Format(expected, AcceptPath), Assert.Single(Messages(result, "JNT6003")));
+        Assert.Empty(Messages(result, "JNT8012"));
+    }
+
+    [Fact]
+    public void ADuplicateEntry_JNT6003Message()
+    {
+        var result = WithAcceptance(Accepts(Entry("order_lines", "order_id", "a"), Entry("ORDER_LINES", "order_id", "b")));
+
+        Assert.Equal(
+            "'ORDER_LINES.order_id' is accepted more than once in 'db/schema/jaunty.accept.json'. "
+            + "The first entry is the one in force, so the later reasons are recorded but never acted on. Keep one.",
+            Assert.Single(Messages(result, "JNT6003")));
+    }
+
+    [Fact]
+    public void AnEntryOnAnIndexedColumn_JNT8012Message()
+    {
+        var result = WithAcceptance(Accepts(Entry("order_lines", "region_id", "covered now")));
+
+        Assert.Equal(
+            "'order_lines.region_id' is accepted as an unindexed scan in 'db/schema/jaunty.accept.json', but no generated query scans it, so the entry suppresses nothing. "
+            + "Either an index covers it now -- remove the entry -- or a hand-written .sql file has claimed 'order_lines's loader for that column, in which case the acceptance belongs in that file as '-- @allow-unindexed <reason>' instead. "
+            + "(Stated reason: covered now)",
+            Assert.Single(Messages(result, "JNT8012")));
+    }
+
+    [Fact]
+    public void AMalformedSnapshot_ReportsJNT6001AndEmitsNoFacade()
+    {
+        var result = Run("{ not json", true, ("db/Widgets/GetAll.sql", "select id from widgets"));
+
+        Assert.Single(Messages(result, "JNT6001"));
+        Assert.Null(Source(result, "JauntyDb.g.cs"));
+    }
+
+    [Fact]
+    public void CaseCollidingTables_JNT2010Message()
+    {
+        var result = Run(Schema("sqlserver", Table("widgets", "") + ", " + Table("Widgets", "")), true);
+
+        Assert.Equal(
+            "Tables widgets, Widgets all generate the same entity accessor 'db.Widgets'. "
+            + "Only the first table's auto-CRUD is emitted; the others are silently invisible in the generated API. "
+            + "Rename the tables so their PascalCased names no longer collide, or write their queries by hand.",
+            Assert.Single(Messages(result, "JNT2010")));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CollidingColumns_JNT2014Message(bool handWritten)
+    {
+        string schema = Schema("sqlserver", Table("widgets", Column("order_number", "int") + Column("OrderNumber", "int")));
+        var result = handWritten
+            ? Run(schema, true, ("db/Widgets/GetIds.sql", "select w.id from widgets w"))
+            : Run(schema, true);
+
+        Assert.Equal(
+            "Table 'widgets' has two columns, 'order_number' and 'OrderNumber', that both map to the generated property 'OrderNumber'. "
+            + (handWritten
+                ? "No row type or auto-CRUD can be emitted for it, so 'db.Widgets' carries only the queries you wrote by hand. "
+                : "No row type or auto-CRUD can be emitted for it, so 'db.Widgets' is absent from the generated API. ")
+            + "Rename one of the columns, or alias it distinctly in a hand-written query.",
+            Assert.Single(Messages(result, "JNT2014")));
+    }
+
+    [Fact]
+    public void NonAsciiNames_JNT2022Messages()
+    {
+        var result = Run(Schema("postgres", Table("bäckerei", Column("größe", "varchar"))), true);
+
+        Assert.Equal(new[]
+        {
+            "Table 'bäckerei' generates the entity 'db.BCkerei': the character(s) 'ä' are dropped because generated names keep "
+                + "ASCII letters and digits only. The name still works, but it is not the name you wrote — rename the table if that matters.",
+            "Column 'bäckerei.größe' generates the property 'GrE': the character(s) 'öß' are dropped because generated names keep "
+                + "ASCII letters and digits only. Rename the column, or alias it to an ASCII name in a hand-written query.",
+        }, Messages(result, "JNT2022"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UnquotableTable_JNT2015Message(bool handWritten)
+    {
+        string schema = Schema("sqlserver", Table("audits", Column("backup", "nvarchar")));
+        var result = handWritten
+            ? Run(schema, true, ("db/Audits/GetIds.sql", "select a.id from audits a"))
+            : Run(schema, true);
+
+        Assert.Equal(
+            "No auto-CRUD is generated for table 'audits' because its column 'backup' is reserved by sqlserver as a column name "
+            + "(verified against a live engine), so the synthesized statement would be rejected. "
+            + (handWritten
+                ? "'db.Audits' carries only the queries you wrote by hand. Rename the table or column to get auto-CRUD as well."
+                : "'db.Audits' is absent from the generated API. Rename the table or column, or write its queries by hand with the identifier quoted."),
+            Assert.Single(Messages(result, "JNT2015")));
+    }
+
+    [Fact]
+    public void PrefixOnlyUpsertKey_JNT2019Message()
+    {
+        var result = Run(Schema("mysql", Table("users", Column("email", "varchar") + Column("bio", "varchar"))
+            .Replace("} } }", @"} }, ""indexes"": [ { ""name"": ""ux_email"", ""columns"": [""email""], ""isUnique"": true, ""hasPrefixKeyPart"": true } ] }")), true);
+
+        Assert.Equal(
+            "No Upsert is generated for table 'users': the only constraint that could serve as its upsert key is 'ux_email' (email), a UNIQUE over a column PREFIX, which the engine matches on rows sharing only the prefix -- not the full value the method's signature would imply. "
+            + "Add a full-column UNIQUE constraint (or a bindable primary key), or write the upsert by hand.",
+            Assert.Single(Messages(result, "JNT2019")));
+    }
+
+    [Fact]
+    public void ExpressionOnlyUpsertKey_JNT2020Message()
+    {
+        var result = Run(Schema("mysql", Table("users", Column("email", "varchar") + Column("bio", "varchar"))
+            .Replace("} } }", @"} }, ""indexes"": [ { ""name"": ""ux_lower_email"", ""columns"": [], ""isUnique"": true, ""hasExpressionKeyPart"": true } ] }")), true);
+
+        Assert.Equal(
+            "No Upsert is generated for table 'users': the only constraint that could serve as its upsert key is 'ux_lower_email', a UNIQUE with an EXPRESSION key part -- the schema snapshot carries only its real columns, and no generated method can bind a parameter to the expression's value the engine actually matches on. "
+            + "Add a full-column UNIQUE constraint (or a bindable primary key), or write the upsert by hand.",
+            Assert.Single(Messages(result, "JNT2020")));
+    }
+
+    [Fact]
+    public void MySqlCompetingUnique_JNT2018Message()
+    {
+        string table = @"""tenants"": { ""name"": ""tenants"", ""columns"": {
+            ""tenant_id"": { ""name"": ""tenant_id"", ""dbType"": ""varchar"", ""isNullable"": false, ""isPrimaryKey"": true },
+            ""slug"": { ""name"": ""slug"", ""dbType"": ""varchar"", ""isNullable"": false },
+            ""label"": { ""name"": ""label"", ""dbType"": ""varchar"", ""isNullable"": false } },
+          ""indexes"": [ { ""name"": ""ux_slug"", ""columns"": [""slug""], ""isUnique"": true } ] }";
+
+        Assert.Equal(
+            "'Tenants.Upsert' targets table 'tenants' on (tenant_id), but the table carries another UNIQUE constraint. "
+            + "MySQL's ON DUPLICATE KEY UPDATE names no conflict target and would match whichever UNIQUE the insert violates, so JauntyQ emits a key-targeted UPDATE-then-INSERT instead, matching what postgres, sqlite and sqlserver already do. "
+            + "Those two statements are not atomic, and wrapping them in a transaction does not make them so. "
+            + "Concurrent upserts of the same new key can fail with duplicate-key error 1062 (both pass the existence check), deadlock with error 1213 (one session's insert-intention lock meets the other's gap lock from the UPDATE), or silently write nothing (another session commits the row between this call's UPDATE and its INSERT, so neither statement applies the caller's values). "
+            + "Retry the call on 1062 and 1213 — it is idempotent — or drop the competing UNIQUE constraint so the atomic ON DUPLICATE KEY UPDATE form is emitted instead. "
+            + "A 0 return is not by itself evidence of the lost write: under UseAffectedRows=true an unchanged re-run also returns 0.",
+            Assert.Single(Messages(Run(Schema("mysql", table), true), "JNT2018")));
+    }
+
+    [Theory]
+    [InlineData("jaunty_db", "JauntyDb")]
+    [InlineData("jaunty_q_shape_guard", "JauntyQShapeGuard")]
+    [InlineData("db_command", "DbCommand")]
+    [InlineData("db_parameter", "DbParameter")]
+    [InlineData("db_data_reader", "DbDataReader")]
+    [InlineData("db_connection", "DbConnection")]
+    [InlineData("db_transaction", "DbTransaction")]
+    [InlineData("cancellation_token", "CancellationToken")]
+    [InlineData("string_builder", "StringBuilder")]
+    [InlineData("d_b_null", "DBNull")]
+    [InlineData("connection_state", "ConnectionState")]
+    [InlineData("command_type", "CommandType")]
+    [InlineData("command_behavior", "CommandBehavior")]
+    [InlineData("parameter_direction", "ParameterDirection")]
+    public void AnEntityNamedLikeAReservedType_ReportsJNT2006(string table, string entity)
+    {
+        var result = Run(Schema("sqlite", Table(table, Column("label", "text"))), true);
+
+        Assert.Contains(
+            $"Generated entity accessor '{entity}' (db.{entity}) has the same name as a JauntyQ-reserved generated type ('{entity}'). "
+            + "Rename the table (or its db/tables/ folder) so its PascalCase form no longer collides with a reserved name.",
+            Messages(result, "JNT2006"));
+    }
+
+    [Fact]
+    public void ARowTypeNamedLikeAReservedType_JNT2006Message()
+    {
+        var result = Run(Schema("sqlite", Table("jaunty_dbs", Column("label", "text"))), true);
+
+        Assert.Contains(
+            "Generated row type 'JauntyDb' for table 'jaunty_dbs' has the same name as a JauntyQ-reserved generated type ('JauntyDb'). "
+            + "Rename the table (or its db/tables/ folder) so its PascalCase form no longer collides with a reserved name.",
+            Messages(result, "JNT2006"));
+    }
+
+    [Fact]
+    public void AClrUdtColumn_JNT2007Message()
+    {
+        var result = Run(Schema("sqlserver", Table("employee", Column("node", "hierarchyid"))), true);
+
+        Assert.Equal(
+            "Column 'employee.node' has db type 'hierarchyid', a SQL Server CLR user-defined type with no mapping in DialectMapper. "
+            + "It degrades to 'object', but reading it at RUNTIME will THROW System.IO.FileNotFoundException for 'Microsoft.SqlServer.Types' (intentionally not referenced, to keep JauntyQ's core zero-dependency/NativeAOT) — this is not merely a lost-type-fidelity warning, the query will crash. "
+            + "Cast the column to a mapped type in the SQL text instead (e.g. "
+            + "CAST(node AS varbinary(892)) or CAST(node AS nvarchar(4000))) before selecting it.",
+            Assert.Single(Messages(result, "JNT2007")));
+    }
+
+    [Theory]
+    [InlineData(@", ""precision"": 1, ""maxLength"": 8", false)]
+    [InlineData(@", ""maxLength"": 8", true)]
+    [InlineData(@", ""maxLength"": 1", false)]
+    public void ABitColumnsWidth_IsReadFromPrecisionFirst(string widths, bool unmapped)
+    {
+        var result = Run(Schema("mysql", Table("flags", Column("bits", "bit", widths))), true);
+
+        Assert.Equal(unmapped, result.Diagnostics.Any(d => d.Id == "JNT2007"));
+    }
+
+    [Fact]
+    public void CollidingSequences_JNT2009Message()
+    {
+        var result = Run(Schema("sqlserver", Table("products", ""),
+            @", ""sequences"": { ""order_number"": { ""name"": ""order_number"", ""startValue"": 1, ""increment"": 1 }, ""OrderNumber"": { ""name"": ""OrderNumber"", ""startValue"": 1, ""increment"": 1 } }"), true);
+
+        Assert.Equal(
+            "Sequences order_number, OrderNumber all generate the same accessor method 'NextOrderNumber()'. "
+            + "Only the first is emitted; rename the others so their PascalCased names no longer collide.",
+            Assert.Single(Messages(result, "JNT2009")));
+    }
+
+    [Fact]
+    public void ASingleSequenceAndAnInvalidlyNamedOne_ReportNoCollision()
+    {
+        var result = Run(Schema("sqlserver", Table("products", ""),
+            @", ""sequences"": { ""order number"": { ""name"": ""order number"", ""startValue"": 1, ""increment"": 1 }, ""order_number"": { ""name"": ""order_number"", ""startValue"": 1, ""increment"": 1 } }"), true);
+
+        Assert.Empty(Messages(result, "JNT2009"));
+        Assert.Contains("NextOrderNumber()", Source(result, "JauntyDb.g.cs"));
+    }
+
+    private const string Function = @"""{0}"": {{ ""name"": ""{1}"", ""schema"": ""{4}"", ""params"": [ {2} ], ""returnType"": {{ ""dbType"": ""{3}"", ""isNullable"": true }} }}";
+
+    private static string Param(string name, string dbType) =>
+        $@"{{ ""name"": ""{name}"", ""dbType"": ""{dbType}"", ""isNullable"": false }}";
+
+    [Fact]
+    public void FunctionDiagnostics_Messages()
+    {
+        string functions = ", \"functions\": { "
+            + string.Format(Function, "calc_tax(numeric)", "calc_tax", Param("amount", "numeric"), "numeric", "public") + ", "
+            + string.Format(Function, "calc_tax(numeric,numeric)", "calc_tax", Param("amount", "numeric") + ", " + Param("rate", "numeric"), "numeric", "public") + ", "
+            + string.Format(Function, "shape_of(int)", "shape_of", Param("id", "int"), "some_unmapped_thing", "public")
+            + " }";
+        var result = Run(Schema("postgres", Table("products", ""), functions), true);
+
+        Assert.Equal(
+            "Functions calc_tax(numeric), calc_tax(numeric, numeric) all generate the same accessor method 'db.Functions.CalcTax()'. "
+            + "None is emitted — unlike colliding sequences, overloads differ in their parameters, so keeping the first would bind every call site to one arbitrary signature. "
+            + "Rename them, or expose one through a wrapper function with a distinct name.",
+            Assert.Single(Messages(result, "JNT2023")));
+        Assert.Equal(
+            "Function shape_of(int) is not emitted because its return type 'some_unmapped_thing' has no C# mapping. "
+            + "Call it through a hand-written query, or wrap it in a function whose signature uses mapped types.",
+            Assert.Single(Messages(result, "JNT2024")));
+    }
+
+    [Fact]
+    public void TableValuedParameter_JNT2025Message()
+    {
+        string extra = @", ""userTypes"": { ""IdList"": { ""name"": ""IdList"", ""schema"": ""dbo"", ""kind"": ""TableType"", ""members"": [ { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false } ] } }, ""functions"": { "
+            + string.Format(Function, "sum_ids(IdList)", "sum_ids", Param("ids", "IdList"), "int", "dbo") + " }";
+        var result = Run(Schema("sqlserver", Table("products", ""), extra), true);
+
+        Assert.Equal(
+            "Function sum_ids(IdList) takes a table-valued parameter of type 'IdList' (id int). "
+            + "Table-valued parameters are not supported in this release: binding one needs a provider-specific parameter type, which would make the generated call unusable from a DbProviderFactory-abstracted consumer. "
+            + "No method is emitted; pass the rows through a temporary table or a JSON parameter instead.",
+            Assert.Single(Messages(result, "JNT2025")));
+    }
+
+    private static string Enums(params (string Name, string Members)[] enums) =>
+        ", \"enums\": { " + string.Join(", ", enums.Select(e => $@"""{e.Name}"": {{ ""name"": ""{e.Name}"", ""members"": [ {e.Members} ] }}")) + " }";
+
+    private static string EnumColumn(string column, string enumName) =>
+        Column(column, enumName, $@", ""enumName"": ""{enumName}""");
+
+    private static string Member(string value, string? csharpName) =>
+        csharpName == null ? $@"{{ ""value"": ""{value}"" }}" : $@"{{ ""value"": ""{value}"", ""csharpName"": ""{csharpName}"" }}";
+
+    private static GeneratorDriverRunResult RunEnums(string tables, params (string Name, string Members)[] enums) =>
+        Run(Schema("postgres", tables, Enums(enums)), true);
+
+    [Theory]
+    [InlineData("a", "First", "a", "Second")]
+    [InlineData("alpha", "", "beta", "")]
+    [InlineData("alpha", null, "beta", null)]
+    public void DistinctGeneratedMembers_ReportNoJNT2016(string value1, string? name1, string value2, string? name2)
+    {
+        var result = RunEnums(Table("orders", EnumColumn("status", "status")),
+            ("status", Member(value1, name1) + ", " + Member(value2, name2)));
+
+        Assert.Empty(Messages(result, "JNT2016"));
+        Assert.NotNull(Source(result, "Enums.g.cs"));
+    }
+
+    [Fact]
+    public void ThreeMembersFoldingToOneName_ReportOneJNT2016()
+    {
+        var result = RunEnums(Table("orders", EnumColumn("status", "status")),
+            ("status", Member("x", "Dup") + ", " + Member("y", "Dup") + ", " + Member("z", "Dup")));
+
+        Assert.Equal(
+            "Enum 'status' has two members, 'x' and 'y', that both map to the generated member 'Dup'. "
+            + "The generated enum cannot declare 'Dup' twice; rename one of the database values.",
+            Assert.Single(Messages(result, "JNT2016")));
+    }
+
+    [Fact]
+    public void AnEnumNamedLikeTheExceptionType_JNT2017Message()
+    {
+        var result = RunEnums(Table("orders", EnumColumn("status", "jaunty_q_enum_value_exception")),
+            ("jaunty_q_enum_value_exception", Member("a", "A")));
+
+        Assert.Equal(
+            "Enum 'jaunty_q_enum_value_exception' cannot be generated: it collides with the generated exception type 'JauntyQEnumValueException'. "
+            + "Rename the database type, the table, or the column so the generated names no longer collide.",
+            Assert.Single(Messages(result, "JNT2017")));
+    }
+
+    [Fact]
+    public void TwoEnumsCollidingWithOneEntity_BothNameTheEntity()
+    {
+        var result = RunEnums(
+            Table("order_status", "") + ", " + Table("orders", EnumColumn("s1", "order_status") + EnumColumn("s2", "orderStatus")),
+            ("order_status", Member("a", "A")), ("orderStatus", Member("a", "A")));
+
+        Assert.Equal(new[]
+        {
+            "Enum 'order_status' cannot be generated: the generated enum type 'OrderStatus' collides with the entity accessor for table 'order_status'. "
+                + "Rename the database type, the table, or the column so the generated names no longer collide.",
+            "Enum 'orderStatus' cannot be generated: the generated enum type 'OrderStatus' collides with the entity accessor for table 'order_status'. "
+                + "Rename the database type, the table, or the column so the generated names no longer collide.",
+        }, Messages(result, "JNT2017"));
+    }
+
+    [Fact]
+    public void EnumsCollidingWithEachOther_NameTheEarlierEnum()
+    {
+        var result = RunEnums(
+            Table("orders", EnumColumn("s1", "color") + EnumColumn("s2", "Color") + EnumColumn("s3", "color_values")),
+            ("color", Member("a", "A")), ("Color", Member("a", "A")), ("color_values", Member("a", "A")));
+
+        Assert.Equal(new[]
+        {
+            "Enum 'Color' cannot be generated: the generated enum type 'Color' collides with the generated enum type for 'color'. "
+                + "Rename the database type, the table, or the column so the generated names no longer collide.",
+            "Enum 'color_values' cannot be generated: the generated enum type 'ColorValues' collides with the generated companion class for enum 'color'. "
+                + "Rename the database type, the table, or the column so the generated names no longer collide.",
+        }, Messages(result, "JNT2017"));
+    }
+
+    [Fact]
+    public void AnEnumCollidingWithARowType_NamesTheRowType()
+    {
+        var result = RunEnums(Table("colors", "") + ", " + Table("orders", EnumColumn("s", "color")),
+            ("color", Member("a", "A")));
+
+        Assert.Equal(
+            "Enum 'color' cannot be generated: the generated enum type 'Color' collides with the row type for table 'colors'. "
+            + "Rename the database type, the table, or the column so the generated names no longer collide.",
+            Assert.Single(Messages(result, "JNT2017")));
+    }
+
+    [Fact]
+    public void ATableNamedLikeTheExceptionType_IsReportedOnlyWhenAnEnumIsReferenced()
+    {
+        string table = Table("jaunty_q_enum_value_exception", "");
+
+        Assert.Empty(Messages(RunEnums(table, ("status", Member("a", "A"))), "JNT2017"));
+        Assert.Equal(
+            "The generated exception type 'JauntyQEnumValueException' collides with the entity accessor for table 'jaunty_q_enum_value_exception'. "
+            + "Rename the table so the generated names no longer collide.",
+            Assert.Single(Messages(RunEnums(table + ", " + Table("orders", EnumColumn("s", "status")), ("status", Member("a", "A"))), "JNT2017")));
+    }
+
+    [Fact]
+    public void JauntyDbListsEntitiesInOrdinalOrder()
+    {
+        var result = Run(WidgetSchema.Replace("\"widgets\"", "\"zeta\""), false,
+            ("db/Zeta/GetAll.sql", "select id from zeta"),
+            ("db/Alpha/GetAll.sql", "select id from zeta"));
+
+        string db = Source(result, "JauntyDb.g.cs")!;
+        Assert.True(db.IndexOf("Alpha", System.StringComparison.Ordinal) < db.IndexOf("Zeta", System.StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AnUpsertAloneStillPutsItsEntityOnTheFacade()
+    {
+        var result = Run(WidgetSchema, true,
+            ("db/Widgets/GetAll.sql", "select nope from widgets"),
+            ("db/Widgets/GetById.sql", "select nope from widgets"),
+            ("db/Widgets/Insert.sql", "select nope from widgets"),
+            ("db/Widgets/Update.sql", "select nope from widgets"),
+            ("db/Widgets/Delete.sql", "select nope from widgets"));
+
+        Assert.NotNull(Source(result, "Widgets.Upsert.auto.g.cs"));
+        Assert.Contains("Widgets", Source(result, "JauntyDb.g.cs"));
+    }
+
+    [Fact]
+    public void SyntheticWritesAloneStillEmitTheRowType()
+    {
+        var result = Run(WidgetSchema, true,
+            ("db/Widgets/GetAll.sql", "select id from widgets"),
+            ("db/Widgets/GetById.sql", "select name from widgets where id = @id"));
+
+        Assert.NotNull(Source(result, "Widgets.Row.g.cs"));
+    }
+
+    [Fact]
+    public void AHandWrittenInsert_SuppressesBulkInsert()
+    {
+        var result = Run(WidgetSchema, true,
+            ("db/Widgets/Insert.sql", "insert into widgets (id, name, qty) values (@id, @name, @qty)"));
+
+        Assert.NotNull(Source(result, "Widgets.Poco.auto.g.cs"));
+        Assert.Null(Source(result, "Widgets.BulkInsert.auto.g.cs"));
+    }
+}

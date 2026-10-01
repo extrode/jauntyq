@@ -69,13 +69,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             if (files.IsEmpty)
                 return null;
-            AdditionalText winner = files[0];
-            for (int i = 1; i < files.Length; i++)
-            {
-                if (StringComparer.Ordinal.Compare(files[i].Path, winner.Path) < 0)
-                    winner = files[i];
-            }
-            return winner.GetText(ct)?.ToString();
+            return OrdinalLowestPath(files).GetText(ct)?.ToString();
         });
 
         // Dialect override for DDL-as-schema-source mode: with no JSON snapshot
@@ -83,7 +77,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // it via <JauntyQDialect>sqlserver</JauntyQDialect> (or postgres/mysql/
         // sqlite). Absent/empty when not set; only consulted in DDL mode.
         var dialectOverride = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) =>
-            provider.GlobalOptions.TryGetValue("build_property.JauntyQDialect", out var value) ? value : "");
+            provider.GlobalOptions.TryGetValue("build_property.JauntyQDialect", out var value) ? value : null);
 
         // Parse the snapshot once and apply pending migrations to produce
         // the EFFECTIVE schema that validation and emission run against.
@@ -101,6 +95,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 {
                     return SchemaState.Load(json, migrations, ddl, dialect);
                 }
+                // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
                 catch (OperationCanceledException)
                 {
                     throw;
@@ -110,6 +105,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     return SchemaState.Failed(InternalErrorMessage(
                         "loading the schema snapshot and applying pending migrations", ex));
                 }
+                // Stryker restore all
             });
 
         // The one report site for a throw out of SchemaState.Load. Its own output
@@ -117,12 +113,14 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // is one of the things that would not run if the schema node had thrown
         // uncaught -- a report that only fires when the rest of the pipeline is
         // healthy is no use for the failure it exists to describe.
+        // Stryker disable Statement : InternalError is set only by the catch above, which no known input reaches
         context.RegisterSourceOutput(schemaState, static (ctx, state) =>
         {
             if (state.InternalError != null)
                 ctx.ReportDiagnostic(Diagnostic.Create(
                     JauntyDiagnostics.JNT0001, Location.None, state.InternalError));
         });
+        // Stryker restore all
 
         // Auto-CRUD is on unless the consumer sets <JauntyQAutoCrud>false</JauntyQAutoCrud>
         var autoCrudEnabled = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) =>
@@ -169,6 +167,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             {
                 EmitOneFile(ctx, pair.Left, pair.Right);
             }
+            // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
             catch (OperationCanceledException)
             {
                 throw;
@@ -177,6 +176,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             {
                 ReportInternalError(ctx, "emitting generated code for one .sql file", ex);
             }
+            // Stryker restore all
         });
 
         static void EmitOneFile(SourceProductionContext ctx, FileResult result,
@@ -184,7 +184,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             foreach (var diag in result.Diagnostics)
                 ctx.ReportDiagnostic(diag.ToDiagnostic());
-            if (result.HintName == null || result.Source == null)
+            // HintName and Source are only ever set together (FileResult's
+            // two emitting constructions), so either one tells.
+            if (result.Source == null)
                 return;
 
             if (result.Path != null)
@@ -200,7 +202,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 }
             }
 
-            ctx.AddSource(result.HintName, SourceText.From(result.Source, Encoding.UTF8));
+            ctx.AddSource(result.HintName!, SourceText.From(result.Source, Encoding.UTF8));
         }
 
         // Duplicate-query detection (JNT8005): plain string comparison in its
@@ -239,6 +241,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         $"Queries {string.Join(", ", memberNames)} compile to identical SQL; consolidate them to keep one plan and one maintenance point."));
                 }
             }
+            // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
             catch (OperationCanceledException)
             {
                 throw;
@@ -247,6 +250,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             {
                 ReportInternalError(ctx, "checking for duplicate queries (JNT8005)", ex);
             }
+            // Stryker restore all
         });
 
         // N+1 heuristic (JNT8008): cross-query, so it runs here at the
@@ -269,6 +273,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 foreach (var diag in NPlusOneAnalyzer.Analyze(entries, schema.Schema))
                     ctx.ReportDiagnostic(diag);
             }
+            // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
             catch (OperationCanceledException)
             {
                 throw;
@@ -277,6 +282,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             {
                 ReportInternalError(ctx, "running the N+1 analysis (JNT8008)", ex);
             }
+            // Stryker restore all
         });
 
         // Predicate drift (JNT8011) and un-comparable pairings (JNT3010): also
@@ -296,10 +302,12 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             {
                 var (entries, schema) = pair;
                 if (schema.Schema == null)
+                    // Stryker disable once Statement : with no schema every file is FileResult.WithDiagnostics, so no entry has a Query and Analyze reads nothing from the schema
                     return;
                 foreach (var diag in PredicateDriftAnalyzer.Analyze(entries, schema.Schema))
                     ctx.ReportDiagnostic(diag);
             }
+            // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
             catch (OperationCanceledException)
             {
                 throw;
@@ -308,6 +316,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             {
                 ReportInternalError(ctx, "running the predicate-drift analysis (JNT8011/JNT3010)", ex);
             }
+            // Stryker restore all
         });
 
         // Aggregated outputs (synthetics, POCO overloads, row POCOs, entity
@@ -354,12 +363,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             if (files.IsEmpty)
                 return ((string?)null, (string?)null);
-            AdditionalText winner = files[0];
-            for (int i = 1; i < files.Length; i++)
-            {
-                if (StringComparer.Ordinal.Compare(files[i].Path, winner.Path) < 0)
-                    winner = files[i];
-            }
+            AdditionalText winner = OrdinalLowestPath(files);
             return ((string?)winner.Path, (string?)(winner.GetText(ct)?.ToString()));
         });
 
@@ -398,6 +402,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 var ((((fileSummaries, schema), autoCrud), prefix), accept) = pair;
                 EmitAggregates(ctx, fileSummaries, schema, autoCrud, prefix, accept.Item1, accept.Item2);
             }
+            // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
             catch (OperationCanceledException)
             {
                 throw;
@@ -410,6 +415,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // their per-query files still exist.
                 ReportInternalError(ctx, "emitting the aggregate types (JauntyDb, entity accessors, row POCOs)", ex);
             }
+            // Stryker restore all
         });
     }
 
@@ -421,7 +427,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// (ImmutableArray of tuples), so it stays cached across body edits that
     /// leave every hint name unchanged.
     /// </summary>
-    private static ImmutableArray<(string Path, string Message)> ComputeHintCollisions(
+    internal static ImmutableArray<(string Path, string Message)> ComputeHintCollisions(
         ImmutableArray<(string? Hint, string? Path)> entries)
     {
         var groups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<(string Hint, string Path)>>(StringComparer.OrdinalIgnoreCase);
@@ -451,6 +457,21 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         }
         builder.Sort(static (a, b) => string.CompareOrdinal(a.Item1, b.Item1));
         return builder.ToImmutable();
+    }
+
+    /// <summary>
+    /// The candidate with the ordinal-lowest path; the first of any that tie.
+    /// AdditionalTexts order is not guaranteed, so the path decides.
+    /// </summary>
+    private static AdditionalText OrdinalLowestPath(ImmutableArray<AdditionalText> files)
+    {
+        AdditionalText winner = files[0];
+        for (int i = 1; i < files.Length; i++)
+        {
+            if (StringComparer.Ordinal.Compare(files[i].Path, winner.Path) < 0)
+                winner = files[i];
+        }
+        return winner;
     }
 
     /// <summary>

@@ -38,9 +38,9 @@ internal sealed class DiagnosticInfo : IEquatable<DiagnosticInfo>
             descriptor.Category, descriptor.DefaultSeverity, arg);
 
     /// <summary>
-    /// Title and category come from the real descriptor when the error carries
-    /// one, which every JauntyDiagnostics-constructed ValidationError does
-    /// (ValidationError.cs:12-16 sets Descriptor and derives Code from it).
+    /// Title and category come from the error's descriptor, which every
+    /// ValidationError carries (its only constructor takes one and derives
+    /// Code from it).
     ///
     /// This used to hard-code category "JauntyQ" and use the code string as the
     /// title, discarding the descriptor the error was already holding. That
@@ -63,9 +63,9 @@ internal sealed class DiagnosticInfo : IEquatable<DiagnosticInfo>
     public static DiagnosticInfo ForValidation(ValidationError error) =>
         new DiagnosticInfo(
             error.Code,
-            error.Descriptor?.Title.ToString() ?? error.Code,
+            error.Descriptor.Title.ToString(),
             error.Message,
-            error.Descriptor?.Category ?? "JauntyQ",
+            error.Descriptor.Category,
             error.Severity == ValidationSeverity.Warning ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
             arg: null);
 
@@ -90,12 +90,7 @@ internal sealed class DiagnosticInfo : IEquatable<DiagnosticInfo>
 
     public override int GetHashCode()
     {
-        unchecked
-        {
-            int hash = _id.GetHashCode();
-            hash = hash * 31 + _messageFormat.GetHashCode();
-            hash = hash * 31 + (_arg?.GetHashCode() ?? 0);
-            return hash;
-        }
+        // Stryker disable once Arithmetic,NullCoalescing : GetHashCode's only contract is equal objects => equal hashes, which holds under any fixed combining transform of fields Equals compares
+        return unchecked((_id.GetHashCode() * 31 + _messageFormat.GetHashCode()) * 31 + (_arg?.GetHashCode() ?? 0));
     }
 }
