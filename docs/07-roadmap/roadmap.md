@@ -79,6 +79,34 @@ Under consideration (future, not now — no commitment):
     spec'ing: a live web search to confirm/refresh the landscape survey above,
     and a demand check with prospects/customers.
 
+  **Live research (2026-10-01): don't build now, revisit around 2027-04.**
+  - *Gap confirmed*: no VS extension gives schema-aware `.sql` IntelliSense
+    or live validation for any of the three dialects. Oracle's MySQL for
+    Visual Studio has been in Sustaining Support since 2022-12-08, and both
+    Microsoft and Oracle now point users to VS Code. Microsoft's PostgreSQL
+    extension (IntelliSense, Object Explorer, query plans) is VS Code only.
+  - *Scoping corrections*:
+    - The free Npgsql PostgreSQL Integration extension exists but covers
+      only Server Explorer and EF6.
+    - SQLite Toolbox also scripts, imports and exports, and supports VS 2026,
+      but has no IntelliSense.
+    - `Microsoft.Build.Sql` (SDK-style SQL projects) is SQL Server only and
+      not supported in VS 2026.
+    - The 2-4 month estimate is unverified.
+  - *Platform*: VisualStudio.Extensibility's out-of-process
+    `LanguageServerProvider` is documented. Out-of-process extensions are
+    reported to lack Error List and tagger parity, which a live-validation
+    product needs. That report is unverified as fixed.
+  - *Demand*: unproven. A 2026-05 Visual Studio Magazine poll on more DB
+    tooling in VS split 44% for and 41% against (34 votes). No Developer
+    Community request for Postgres or MySQL IntelliSense in VS was found.
+    Rider (bundled DataGrip) and VS Code cover these dialects well and for
+    free. JauntyQ's generator already validates at build time in VS, so an
+    extension would add editor-time polish, not coverage.
+  - *Revisit when* a Developer Community request for these dialects gains
+    traction, Microsoft closes the out-of-process Error List gap, or
+    JauntyQ users ask for it.
+
 ## Shipped
 - **Migration Impact Analysis (003).** Reuses the migration simulator + query
   validator to report which queries a pending migration set affects, classified
