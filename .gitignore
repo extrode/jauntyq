@@ -57,3 +57,10 @@ out/
 # Private audit tracking. This repo is public; unfixed findings don't belong in its
 # history. `audit/` is an NTFS junction into the sibling jauntyq-audit repo.
 audit/
+
+# tools/html/build.js hub and theme output (review pages); regenerated, never committed
+/docs/index.html
+/docs/assets/LICENSE-fonts.txt
+/docs/assets/artifact.css
+/docs/assets/artifact.js
+/docs/assets/fonts/
