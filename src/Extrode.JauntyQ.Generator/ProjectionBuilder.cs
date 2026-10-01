@@ -35,7 +35,7 @@ public static class ProjectionBuilder
         var keysSoFar = new List<string>();
         foreach (var table in query.Tables)
         {
-            string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+            string key = KeyOf(table);
             aliasToTable[key] = table.TableName;
 
             if (table.Join == JoinKind.Left || table.Join == JoinKind.Full)
@@ -66,7 +66,7 @@ public static class ProjectionBuilder
                 {
                     if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema))
                     {
-                        string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+                        string key = KeyOf(table);
                         bool starForceNullable = outerJoinedKeys.Contains(key);
                         foreach (var schemaCol in tableSchema!.Columns.Values)
                         {
@@ -157,7 +157,7 @@ public static class ProjectionBuilder
             if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema) &&
                 SchemaLookup.TryGetColumn(tableSchema!, columnName, out var schemaColumn))
             {
-                resolvedTableKey = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+                resolvedTableKey = KeyOf(table);
                 return schemaColumn;
             }
         }
@@ -172,13 +172,20 @@ public static class ProjectionBuilder
             var viaCte2 = ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
             if (viaCte2 != null)
             {
-                resolvedTableKey = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+                resolvedTableKey = KeyOf(table);
                 return viaCte2;
             }
         }
 
         return null;
     }
+
+    /// <summary>
+    /// The name a table instance is known by in this query: its alias when it
+    /// has one, else its table name. The parser leaves Alias empty, never null.
+    /// </summary>
+    private static string KeyOf(TableRef table) =>
+        table.Alias.Length > 0 ? table.Alias : table.TableName;
 
     /// <summary>
     /// Maps a resolved column's C# type for projection, forcing nullable when
@@ -285,7 +292,7 @@ public static class ProjectionBuilder
             {
                 if (!string.IsNullOrEmpty(source.TableAlias))
                 {
-                    string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+                    string key = KeyOf(table);
                     if (!string.Equals(key, source.TableAlias, StringComparison.OrdinalIgnoreCase))
                         continue;
                 }
@@ -365,7 +372,9 @@ public static class ProjectionBuilder
         if (dbType == null && !string.IsNullOrEmpty(col.InferredDbType))
             dbType = col.InferredDbType;
 
-        if (dbType == null && !fromTypeDirective && !string.IsNullOrEmpty(col.AggregateFunction))
+        // A matching -- @type always sets a non-empty dbType, so a null one
+        // here means no directive applied.
+        if (dbType == null && !string.IsNullOrEmpty(col.AggregateFunction))
         {
             var argColumn = ResolveColumn(col.AggregateArgTableAlias, col.AggregateArgColumnName, query, schema, aliasToTable);
             if (argColumn != null)
