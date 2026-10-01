@@ -245,6 +245,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 JauntyDiagnostics.JNT6001, Location.None));
+            // Stryker disable once Statement : the schema is null here and no file emitted without one, so everything below emits nothing
             return;
         }
 
