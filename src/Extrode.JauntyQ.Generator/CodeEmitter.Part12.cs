@@ -150,7 +150,7 @@ public static partial class CodeEmitter
     /// terminated by the newline itself, and extra interior whitespace in a
     /// block comment is semantically inert.
     /// </summary>
-    private static string IndentSqlContinuationLines(string sql, int column)
+    internal static string IndentSqlContinuationLines(string sql, int column)
     {
         if (sql.IndexOf('\n') < 0)
             return sql;
