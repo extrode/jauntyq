@@ -20,13 +20,9 @@ public static partial class CodeEmitter
         var procParams = new System.Collections.Generic.List<string>();
         foreach (var param in OrderedParameters(query, directives))
         {
-            string csharpType;
-            if (isCrud)
-                csharpType = InferCrudParameterType(param, query, schema, directives);
-            else if (projection != null)
-                csharpType = InferParameterType(param.Name, query, projection, schema, directives);
-            else
-                csharpType = "object";
+            string csharpType = isCrud
+                ? InferCrudParameterType(param, query, schema, directives)
+                : InferParameterType(param.Name, query, projection!, schema, directives);
 
             var sqlType = CSharpToSqlTypeMapper.Map(csharpType);
             // AUD-R4-17: the C# type alone carries no numeric precision, so the
