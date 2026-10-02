@@ -39,28 +39,25 @@ public class SchemaStateMutationCoverageTests
 
         Assert.Null(state.Schema);
         Assert.False(state.ParseFailed);
-        Assert.False(state.HasJson);
         Assert.Equal("boom", state.InternalError);
     }
 
     [Fact]
-    public void Load_MalformedJson_IsParseFailedWithJson()
+    public void Load_MalformedJson_IsParseFailed()
     {
         var state = SchemaState.Load("{ not json", None, None, null);
 
         Assert.Null(state.Schema);
         Assert.True(state.ParseFailed);
-        Assert.True(state.HasJson);
     }
 
     [Fact]
-    public void Load_NothingAtAll_HasNoJsonAndDidNotFail()
+    public void Load_NothingAtAll_HasNoSchemaAndDidNotFail()
     {
         var state = SchemaState.Load(null, None, None, null);
 
         Assert.Null(state.Schema);
         Assert.False(state.ParseFailed);
-        Assert.False(state.HasJson);
         Assert.Null(state.InternalError);
     }
 
@@ -74,7 +71,6 @@ public class SchemaStateMutationCoverageTests
 
         Assert.Null(state.Schema);
         Assert.False(state.ParseFailed);
-        Assert.True(state.HasJson);
         var diagnostic = Assert.Single(state.MigrationDiagnostics).ToDiagnostic();
         Assert.Equal("JNT9003", diagnostic.Id);
         Assert.Equal(
@@ -93,7 +89,6 @@ public class SchemaStateMutationCoverageTests
         Assert.Equal("sqlite", state.Schema!.Dialect);
         Assert.Contains("t", state.Schema.Tables.Keys);
         Assert.False(state.ParseFailed);
-        Assert.True(state.HasJson);
         Assert.Null(state.MigrationDelta);
     }
 
@@ -133,24 +128,22 @@ public class SchemaStateMutationCoverageTests
 }";
 
     [Fact]
-    public void Load_JsonWithoutMigrations_HasJsonAndNoDelta()
+    public void Load_JsonWithoutMigrations_LoadsTheSnapshotWithNoDelta()
     {
         var state = SchemaState.Load(SnapshotJson, None, None, null);
 
         Assert.NotNull(state.Schema);
         Assert.False(state.ParseFailed);
-        Assert.True(state.HasJson);
         Assert.Null(state.MigrationDelta);
     }
 
     [Fact]
-    public void Load_JsonWithMigrations_HasJsonAndAppliesThem()
+    public void Load_JsonWithMigrations_AppliesThem()
     {
         var state = SchemaState.Load(SnapshotJson, Files(("V1__add.sql", "alter table t add extra int")), None, null);
 
         Assert.Contains("extra", state.Schema!.Tables["t"].Columns.Keys);
         Assert.False(state.ParseFailed);
-        Assert.True(state.HasJson);
         Assert.NotNull(state.MigrationDelta);
     }
 }

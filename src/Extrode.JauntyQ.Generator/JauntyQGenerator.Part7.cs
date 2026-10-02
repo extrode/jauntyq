@@ -18,7 +18,6 @@ internal sealed class SchemaState
 {
     public DatabaseSchema? Schema { get; }
     public bool ParseFailed { get; }
-    public bool HasJson { get; }
 
     /// <summary>
     /// JNT0001 text when <see cref="Load"/> itself threw, else null. Distinct from
@@ -46,16 +45,15 @@ internal sealed class SchemaState
     /// "run jaunty schema pull" that would not help.
     /// </summary>
     public static SchemaState Failed(string internalError) =>
-        new SchemaState(null, parseFailed: false, hasJson: false, internalError: internalError);
+        new SchemaState(null, parseFailed: false, internalError: internalError);
 
-    private SchemaState(DatabaseSchema? schema, bool parseFailed, bool hasJson,
+    private SchemaState(DatabaseSchema? schema, bool parseFailed,
         ImmutableArray<DiagnosticInfo> migrationDiagnostics = default,
         SchemaDelta? migrationDelta = null,
         string? internalError = null)
     {
         Schema = schema;
         ParseFailed = parseFailed;
-        HasJson = hasJson;
         InternalError = internalError;
         MigrationDiagnostics = migrationDiagnostics.IsDefault
             ? ImmutableArray<DiagnosticInfo>.Empty
@@ -82,11 +80,11 @@ internal sealed class SchemaState
             }
             catch
             {
-                return new SchemaState(null, parseFailed: true, hasJson: true);
+                return new SchemaState(null, parseFailed: true);
             }
 
             if (migrations.IsDefaultOrEmpty)
-                return new SchemaState(snapshot, parseFailed: false, hasJson: true);
+                return new SchemaState(snapshot, parseFailed: false);
 
             // Pending migrations are applied to a clone of the snapshot in
             // filename order; the generator validates and emits against the
@@ -97,20 +95,19 @@ internal sealed class SchemaState
             // SchemaSimulator.Apply works on a clone, so `snapshot` is still the
             // pre-migration baseline for the impact delta.
             var jsonDelta = StructuralSchemaDiff.Compute(snapshot, effectiveFromJson);
-            return new SchemaState(effectiveFromJson, parseFailed: false, hasJson: true,
+            return new SchemaState(effectiveFromJson, parseFailed: false,
                 snapshotDiagnostics.ToImmutable(), jsonDelta);
         }
 
         // No JSON snapshot. If db/ddl/*.sql files exist, they DEFINE the base
         // schema (DDL-as-schema-source mode); otherwise there is no schema.
         if (ddlFiles.IsDefaultOrEmpty)
-            return new SchemaState(null, parseFailed: false, hasJson: false);
+            return new SchemaState(null, parseFailed: false);
 
         // DDL mode needs an explicit dialect: with no snapshot there is nothing
         // to infer it from. An unknown/empty dialect is a hard error (JNT9003)
         // and yields Schema: null so the pipeline degrades exactly as the
-        // no-schema case does — but hasJson: true so the aggregate step still
-        // reports the diagnostic even when there are no query files.
+        // no-schema case does; the aggregate step still reports the diagnostic.
         //
         // KNOWN LIMITATION: the MigrationParser does not populate
         // TableSchema.Indexes — inline UNIQUE column constraints and
@@ -127,7 +124,7 @@ internal sealed class SchemaState
                 "db/ddl/*.sql schema source found but no valid dialect is set. With no JSON snapshot there is " +
                 "nothing to infer the dialect from; declare it in the consuming project's .csproj, e.g. " +
                 "<JauntyQDialect>sqlserver</JauntyQDialect> (or postgres, mysql, sqlite)."));
-            return new SchemaState(null, parseFailed: false, hasJson: true, diag);
+            return new SchemaState(null, parseFailed: false, diag);
         }
 
         // Build the base schema by simulating the ddl files onto an empty
@@ -145,7 +142,7 @@ internal sealed class SchemaState
             ? null
             : StructuralSchemaDiff.Compute(ddlBuilt, effective);
 
-        return new SchemaState(effective, parseFailed: false, hasJson: true, ddlDiagnostics.ToImmutable(), ddlDelta);
+        return new SchemaState(effective, parseFailed: false, ddlDiagnostics.ToImmutable(), ddlDelta);
     }
 
     /// <summary>
