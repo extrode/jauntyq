@@ -90,6 +90,7 @@ public class CodeEmitterIdentityInsertTests
     [InlineData("insert into t select 1 -")]
     [InlineData("insert into t select 1 /")]
     [InlineData("insert into t select 'no values here")]
+    [InlineData("insert into t select [a]")]
     public void SqlServer_NoValuesKeyword_ReturnsSqlUnchanged(string sql)
     {
         Assert.Equal(sql, CodeEmitter.BuildIdentityInsertSql(sql, "sqlserver", "id"));

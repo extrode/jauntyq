@@ -41,20 +41,11 @@ public static class SchemaLoader
     /// </summary>
     private static Dictionary<string, T> Rekey<T>(Dictionary<string, T> source, Func<T, string> getName, Action<T, string> setName, string what)
     {
-        bool aligned = true;
+        var rekeyed = new Dictionary<string, T>(source.Count);
         foreach (var pair in source)
         {
             if (string.IsNullOrEmpty(getName(pair.Value)))
                 setName(pair.Value, pair.Key);
-            if (!string.Equals(pair.Key, getName(pair.Value), StringComparison.Ordinal))
-                aligned = false;
-        }
-        if (aligned)
-            return source;
-
-        var rekeyed = new Dictionary<string, T>(source.Count);
-        foreach (var pair in source)
-        {
             string name = getName(pair.Value);
             if (rekeyed.ContainsKey(name))
                 throw new JsonException("schema snapshot has two entries named '" + name + "' (" + what + ")");
