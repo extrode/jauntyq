@@ -130,6 +130,8 @@ class Extrode.JauntyQ.Analysis.Impact.ReferencedObjects
     method Resolve(QueryModel):ReferencedObjects
     prop Columns:IReadOnlyCollection<ReferencedColumn>
     prop Tables:IReadOnlyCollection<String>
+class Extrode.JauntyQ.Analysis.Migrations.MigrationOrder
+    method Compare(String,String):Int32
 class Extrode.JauntyQ.Analysis.Migrations.MigrationParser
     method Parse(String):List<MigrationStatement>
 class Extrode.JauntyQ.Analysis.Migrations.MigrationStatement
