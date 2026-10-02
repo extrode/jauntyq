@@ -91,7 +91,19 @@ jobs:
       - name: Test
         # The full suite, live dialect suites included: SQLite runs natively and
         # the rest boot their own containers on the runner's Docker.
-        run: dotnet test JauntyQ.slnx -c Release
+        run: |
+          dotnet test JauntyQ.slnx -c Release \
+            --logger trx --results-directory artifacts/test-results
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+
+      - name: Skip audit
+        # Same gate as ci.yml: a release must not ship on a run that skipped
+        # tests for a reason the repo has not sanctioned.
+        run: |
+          deno run -A scripts/skip-audit.js \
+            --results artifacts/test-results --docker-reachable true
 
       - name: Pack
         run: dotnet pack JauntyQ.slnx -c Release -o dist/packages

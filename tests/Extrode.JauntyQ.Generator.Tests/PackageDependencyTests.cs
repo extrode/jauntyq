@@ -121,6 +121,14 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
 
     [Theory]
     [MemberData(nameof(AllPackages))]
+    public void EveryPackage_DeclaresAndCarriesTheIcon(string packageId)
+    {
+        Assert.Equal("jauntyq-icon-128.png", _packed.IconElement(packageId));
+        Assert.Contains("jauntyq-icon-128.png", _packed.RootFiles(packageId));
+    }
+
+    [Theory]
+    [MemberData(nameof(AllPackages))]
     public void EveryPackage_DeclaresLicenseMdAsItsLicenceFile(string packageId)
     {
         Assert.Equal("LICENSE.md", _packed.LicenseElement(packageId));
@@ -270,6 +278,13 @@ public class PackageDependencyTests : IClassFixture<PackageDependencyTests.Packe
             var doc = Nuspec(packageId);
             XNamespace ns = doc.Root!.Name.Namespace;
             return doc.Descendants(ns + "readme").SingleOrDefault()?.Value;
+        }
+
+        public string? IconElement(string packageId)
+        {
+            var doc = Nuspec(packageId);
+            XNamespace ns = doc.Root!.Name.Namespace;
+            return doc.Descendants(ns + "icon").SingleOrDefault()?.Value;
         }
 
         public string[] RootFiles(string packageId)
