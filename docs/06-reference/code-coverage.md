@@ -33,8 +33,9 @@ methods 95.3% (847 of 888).
 - The nine methods no test runs on 2026-10-02: the `AcceptanceFile`/`AcceptanceEntry`
   getters in the Schema assembly (the Generator's copy runs them), `SyntheticQuery.EntityName`
   and `ImpactClassifier.ClassifySingle` in Analysis, `CliHost.Verbs` (no caller), and
-  `UserTypeSchema.Precision`/`Scale` in the Generator's Schema copy. Each has a test since
-  `06e577f`, after this run; the next full run should show method coverage at 888 of 888.
+  `UserTypeSchema.Precision`/`Scale` in the Generator's Schema copy. After this run,
+  `CliHost.Verbs` was deleted (no reader in core or premium) and the other eight got tests
+  in `06e577f`; the next full run should show no method that no test runs.
 - Mutation 100% on Generator covers `QueryValidator*`, `*Analyzer.cs`, `JauntyDiagnostics.cs`,
   `IdentifierGuard.cs`, and the emitter files (`CodeEmitter*.cs`, `JauntyQGenerator*.cs`)
   through `mutation-emitter.yml`; other Generator files are not mutated.
