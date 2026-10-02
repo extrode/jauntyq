@@ -69,13 +69,19 @@ public sealed class MigrateStatusVerb : IVerb
             return 1;
 
         var files = new List<string>();
-        foreach (var path in Directory.GetFiles(migrationsDir, "*.sql"))
-            files.Add(Path.GetFileName(path));
+        foreach (var path in Directory.GetFiles(migrationsDir, "*", SearchOption.AllDirectories))
+            if (path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase))
+                files.Add(Path.GetFileName(path));
 
         IReadOnlyList<string>? applied;
         try
         {
             applied = await AppliedMigrations.ReadAsync(dialect, connection);
+        }
+        catch (InvalidDataException ex)
+        {
+            Console.Error.WriteLine($"Error: migrate status: {ex.Message}");
+            return 1;
         }
         catch (Exception ex)
         {

@@ -185,10 +185,14 @@ It prints three groups, each only when it is non-empty:
   migration. A runner applies them after migrations they come before, so the
   database is built in a different order from the one the build simulates.
 
-A database with no `schema_migrations` table is reported as having nothing
-applied, not as an error. Connection flags and their resolution order are the
-same as `schema pull`: `--provider`, `--connection-env`, `--connection`, then
-`JAUNTYQ_CONNECTION` (see [Options](#options)).
+A database with no `schema_migrations` table (or view) is reported as having
+nothing applied, not as an error. A row whose `version` is not a file name
+ending in `.sql` is an error (exit `1`): dbmate and golang-migrate keep a table
+with the same name that holds version numbers, which this contract does not
+cover. A MySQL connection string must name a database. A SQLite database is
+opened read-only, so a mistyped path fails instead of creating an empty file.
+Connection flags resolve the same way as for `schema pull` (see
+[Options](#options)).
 
 **Options**
 
@@ -197,7 +201,7 @@ same as `schema pull`: `--provider`, `--connection-env`, `--connection`, then
 | `--provider <provider>` |, | Database provider, as for `schema pull`. Required. |
 | `--connection-env <VAR>` |, | Environment variable holding the connection string. Preferred. |
 | `--connection <connstr>` |, | Inline connection string. Avoid. |
-| `--migrations <dir>` | `db/migrations` | Directory of migration files; only `*.sql` at its top level count. |
+| `--migrations <dir>` | `db/migrations` | Directory of migration files. Every `.sql` file under it counts, in any subfolder and whatever the extension's case, matching what the build applies. |
 | `--fail-on pending` | off | Also exit `2` when any file is pending, for a deploy gate. |
 
 - Exit `0`, no drift (pending files alone do not fail without `--fail-on pending`).

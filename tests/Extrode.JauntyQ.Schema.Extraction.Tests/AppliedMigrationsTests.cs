@@ -112,6 +112,68 @@ public class AppliedMigrationsTests
         }
     }
 
+    [SkippableTheory]
+    [MemberData(nameof(Engines))]
+    public async Task AViewNamedSchemaMigrations_IsRead(EngineKind kind)
+    {
+        var engine = await Engine(kind);
+        Skip.IfNot(engine.Available, engine.SkipReason);
+        string connection = await EngineContainers.CreateDatabaseAsync(engine, "fx_applied_view");
+        await using (var conn = Connect(kind, connection))
+        {
+            await conn.OpenAsync();
+            await ExecuteAsync(conn, "CREATE TABLE runner_log (version varchar(255) NOT NULL)");
+            await ExecuteAsync(conn, "INSERT INTO runner_log (version) VALUES ('0001_init.sql')");
+            await ExecuteAsync(conn, "CREATE VIEW schema_migrations AS SELECT version FROM runner_log");
+        }
+
+        Assert.Equal(new[] { "0001_init.sql" }, await AppliedMigrations.ReadAsync(Dialect(kind), connection));
+    }
+
+    [SkippableTheory]
+    [InlineData(EngineKind.MySql)]
+    [InlineData(EngineKind.MariaDb)]
+    public async Task AMySqlConnectionWithNoDatabase_IsRefused(EngineKind kind)
+    {
+        var engine = await Engine(kind);
+        Skip.IfNot(engine.Available, engine.SkipReason);
+        string connection = await EngineContainers.CreateDatabaseAsync(engine, "fx_applied_nodb");
+        var builder = new MySqlConnectionStringBuilder(connection) { Database = "" };
+
+        var ex = await Assert.ThrowsAsync<InvalidDataException>(() => AppliedMigrations.ReadAsync("mysql", builder.ConnectionString));
+
+        Assert.Equal("the connection string names no database.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Sqlite_MatchesTheTableNameWithoutRegardToCase()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "jq-applied-" + Guid.NewGuid().ToString("N") + ".db");
+        string connection = $"Data Source={path}";
+        try
+        {
+            await using (var conn = new SqliteConnection(connection))
+            {
+                await conn.OpenAsync();
+                await ExecuteAsync(conn, "CREATE TABLE Schema_Migrations (version TEXT NOT NULL)");
+                await ExecuteAsync(conn, "INSERT INTO Schema_Migrations (version) VALUES ('V1__a.sql')");
+            }
+
+            Assert.Equal(new[] { "V1__a.sql" }, await AppliedMigrations.ReadAsync("sqlite", connection));
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Sqlite_AnInMemoryDatabaseOpens()
+    {
+        Assert.Null(await AppliedMigrations.ReadAsync("sqlite", "Data Source=:memory:"));
+    }
+
     [Fact]
     public async Task AnUnknownDialect_Throws()
     {

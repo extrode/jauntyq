@@ -1,7 +1,7 @@
 # Migration tracking contract
 
 JauntyQ reads your migrations but never runs them. You apply them with your own
-runner (a script, Flyway, DbUp, dbmate, anything). This page is what that runner
+runner (a script, Flyway, DbUp, anything). This page is what that runner
 has to do so that it and JauntyQ agree about which migrations exist, in what
 order, and which have been applied.
 
@@ -51,6 +51,10 @@ hand-written runners most often get wrong.
 
 Two columns. `version` is the file name exactly as it appears in
 `db/migrations/`, including `.sql`.
+
+dbmate and golang-migrate also name their table `schema_migrations`, but they
+store a version number rather than the file name, so they do not meet this
+contract and `jauntyq migrate status` refuses to read their table.
 
 ```sql
 -- PostgreSQL

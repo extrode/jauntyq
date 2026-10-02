@@ -18,7 +18,7 @@ namespace Extrode.JauntyQ.Cli;
 /// from the one the generator simulates.
 /// </param>
 /// <param name="LatestApplied">The recorded version that sorts last, or null when none is recorded.</param>
-/// <param name="RecordedCount">Rows in <c>schema_migrations</c>; 0 when the table is missing.</param>
+/// <param name="RecordedCount">Rows in <c>schema_migrations</c>, duplicates included; 0 when the table is missing.</param>
 /// <param name="TableExists">False when the database has no <c>schema_migrations</c> table.</param>
 public sealed record MigrationStatus(
     IReadOnlyList<string> Pending,
@@ -63,7 +63,7 @@ public sealed record MigrationStatus(
                 outOfOrder.Add(file);
         }
 
-        return new MigrationStatus(pending, stillPresent, outOfOrder, latest, recorded.Count, applied != null);
+        return new MigrationStatus(pending, stillPresent, outOfOrder, latest, applied?.Count ?? 0, applied != null);
     }
 
     /// <summary>The report <c>migrate status</c> prints, one line per entry.</summary>

@@ -166,6 +166,81 @@ public class MigrateStatusVerbTests : IDisposable
     }
 
     [Fact]
+    public async Task AMistypedSqlitePath_FailsWithoutCreatingAFile()
+    {
+        string typo = Path.Combine(_dir, "app.dbb");
+
+        var (code, output, _) = await RunAsync("--connection", $"Data Source={typo}");
+
+        Assert.Equal(1, code);
+        Assert.Empty(output);
+        Assert.False(File.Exists(typo));
+    }
+
+    [Fact]
+    public async Task FilesInSubfolders_AndAnUppercaseExtension_Count()
+    {
+        Record("0001_a.sql");
+        Directory.CreateDirectory(Path.Combine(_migrations, "2026"));
+        File.WriteAllText(Path.Combine(_migrations, "2026", "0002_b.SQL"), "select 1;");
+
+        var (code, output, _) = await RunAsync();
+
+        Assert.Equal(0, code);
+        Assert.Contains("Migration files in " + _migrations + ": 1", output);
+        Assert.Contains("Pending, in apply order (1):" + Environment.NewLine + "  0002_b.SQL", output);
+    }
+
+    [Fact]
+    public async Task ADuplicatedRow_IsCountedTwice()
+    {
+        Execute("CREATE TABLE schema_migrations (version TEXT NOT NULL)");
+        Execute("INSERT INTO schema_migrations (version) VALUES ('0001_a.sql'), ('0001_a.sql')");
+
+        var (_, output, _) = await RunAsync();
+
+        Assert.Contains("Recorded in schema_migrations: 2", output);
+    }
+
+    [Fact]
+    public async Task AVersionNumberTable_IsRefusedByName()
+    {
+        Execute("CREATE TABLE schema_migrations (version INTEGER NOT NULL, dirty INTEGER NOT NULL)");
+        Execute("INSERT INTO schema_migrations (version, dirty) VALUES (20260101120000, 0)");
+
+        var (code, output, err) = await RunAsync();
+
+        Assert.Equal(1, code);
+        Assert.Empty(output);
+        Assert.Equal("Error: migrate status: schema_migrations holds version '20260101120000', not a migration file name. This table belongs to a runner that does not follow the migration tracking contract.", err.TrimEnd());
+    }
+
+    [Fact]
+    public async Task TheConnectionCanComeFromANamedVariable()
+    {
+        Record("0001_a.sql");
+        const string variable = "JQ_MIGRATE_STATUS_TEST_CONN";
+        Environment.SetEnvironmentVariable(variable, Connection);
+        try
+        {
+            var args = new List<string> { "migrate", "status", "--provider", "sqlite", "--connection-env", variable, "--migrations", _migrations };
+            TextWriter savedOut = Console.Out;
+            var o = new StringWriter();
+            Console.SetOut(o);
+            int code;
+            try { code = await Program.Main(args.ToArray()); }
+            finally { Console.SetOut(savedOut); }
+
+            Assert.Equal(0, code);
+            Assert.Contains("Recorded in schema_migrations: 1", o.ToString());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    [Fact]
     public async Task NoProvider_IsTheSharedUsageError()
     {
         var (code, _, err) = await RunAsync("--provider", "");
