@@ -537,7 +537,7 @@ internal static class NPlusOneAnalyzer
                 // A writable CTE's SET params are copied up into the outer
                 // SELECT, so write targets do reach here. An empty column name
                 // needs no check: ResolveColumn returns null for it below.
-                if (param.IsWriteTarget)
+                if (param.IsWriteTarget || param.BoundScope != null)
                     continue;
                 bool isEquality = param.ComparisonOp == "=";
                 bool isInList = string.Equals(param.ComparisonOp, "IN", StringComparison.OrdinalIgnoreCase);

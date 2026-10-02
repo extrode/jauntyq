@@ -347,9 +347,10 @@ public static partial class CodeEmitter
             }
             if (c == '[')
             {
+                // ']]' is an escaped ']' inside the identifier, not its end.
                 int end = i + 1;
-                while (end < sql.Length && sql[end] != ']')
-                    end++;
+                while (end < sql.Length && (sql[end] != ']' || end + 1 < sql.Length && sql[end + 1] == ']'))
+                    end += sql[end] == ']' ? 2 : 1;
                 literal.Append(sql, i, end - i);
                 i = end;
                 continue;

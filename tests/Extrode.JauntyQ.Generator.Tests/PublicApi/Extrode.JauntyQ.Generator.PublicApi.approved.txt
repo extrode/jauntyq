@@ -522,6 +522,7 @@ class Extrode.JauntyQ.SqlParser.IR.OrderByRef
 class Extrode.JauntyQ.SqlParser.IR.ParameterRef
     ctor .ctor()
     prop BoundColumnName:String
+    prop BoundScope:QueryModel
     prop BoundTableAlias:String
     prop ComparisonOp:String
     prop IsWriteTarget:Boolean

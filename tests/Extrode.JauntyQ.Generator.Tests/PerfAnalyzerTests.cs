@@ -659,6 +659,17 @@ public class PerfAnalyzerTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8007");
     }
 
+    [Theory]
+    [InlineData("select p.product_id\nfrom products p\nwhere p.launched_at = @launched_at\norder by product_name\n-- @params launched_at:System.DateTime")]
+    [InlineData("select p.product_id\nfrom products p\nwhere launched_at = @launched_at\norder by p.product_name\n-- @params launched_at:System.DateTime")]
+    [InlineData("select p.product_id\nfrom products p\nwhere launched_at = @launched_at\norder by product_name\n-- @params launched_at:System.DateTime")]
+    public void OrderByCompositeNonLeading_AliasedTable_MixedQualification_NoWarning(string sql)
+    {
+        var result = RunOne(sql);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8007");
+    }
+
     [Fact]
     public void SelfJoin_OrderByOtherAliasUnfiltered_StillWarns()
     {

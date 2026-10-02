@@ -117,9 +117,11 @@ public static partial class QueryValidator
 
         var equalitySeekColumns = CollectEqualitySeekColumns(query, aliasToTable, schema);
 
+        // A binding carried up from a subquery or CTE body names that body's
+        // table, not one of this statement's, and its own scope checks it.
         foreach (var param in query.Parameters)
         {
-            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || param.BoundScope != null)
                 continue;
             CollectFilterColumn(param.BoundTableAlias, param.BoundColumnName);
         }
@@ -136,7 +138,7 @@ public static partial class QueryValidator
 
         foreach (var param in query.Parameters)
         {
-            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || param.BoundScope != null)
                 continue;
             CheckIndexed(query, param.BoundTableAlias, param.BoundColumnName, aliasToTable, schema, filterColumns, equalitySeekColumns, errors);
         }
@@ -176,7 +178,7 @@ public static partial class QueryValidator
             // CheckIndexed, so it needs its own gate.
             if (tableSchema!.IsView)
                 continue;
-            string orderByInstanceKey = !string.IsNullOrEmpty(orderBy.BoundTableAlias) ? orderBy.BoundTableAlias : tableName;
+            string orderByInstanceKey = !string.IsNullOrEmpty(orderBy.BoundTableAlias) ? orderBy.BoundTableAlias : InstanceOf(query, tableName);
             if (IsColumnIndexSupported(column, orderByInstanceKey, tableSchema!, filterColumns))
                 continue;
 
@@ -220,7 +222,7 @@ public static partial class QueryValidator
 
         foreach (var param in query.Parameters)
         {
-            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || param.BoundScope != null)
                 continue;
             if (param.ComparisonOp == "=")
                 Collect(param.BoundTableAlias, param.BoundColumnName);

@@ -21,6 +21,10 @@ condensed.
   table is aliased and one reference is qualified while the other is not
   (`from t x join s y on ... where x.u = @u and d = @d`, or `where x.a = @a and b = @b` on an
   index over `(a, b)`). The unqualified column was keyed by table name, the qualified one by alias.
+- `JNT8007` no longer fires on an unqualified ORDER BY column of an aliased table whose leading
+  index column is filtered (`from products p where p.launched_at = @d order by product_name` on an
+  index over `(launched_at, product_name)`). Same alias-versus-table-name keying as the JNT8004
+  fix above.
 - A pending file under `db/migrations/` no longer erases the snapshot's functions and user types.
   Migration simulation copied tables, procedures, sequences and enums but not functions or user
   types, so `db.Functions` disappeared from the generated code with no diagnostic as soon as one
@@ -29,6 +33,27 @@ condensed.
   and a hand-written `select ... from lateral` no longer fails with JNT1009. The parser read any
   `lateral` in a table position as the LATERAL keyword; it now does so only before `(` or a
   function call. The two read methods were dropped with no diagnostic.
+- A SQL Server bracketed identifier containing the `]]` escape (`[a]]b]`) is now read as one
+  identifier by the `@each` expander and the `@identity` `OUTPUT INSERTED` splicer. Before, the
+  first `]` ended it, so an `@each` name or the word `values` later inside the identifier was
+  treated as live SQL.
+- A schema snapshot whose table, column, procedure, sequence or enum key differs from the entry's
+  `name` (`"Customers": { "name": "customers" }`, typically after a hand edit) no longer crashes
+  auto-CRUD emission with JNT0001. The loader now keys each entry by its `name`; an entry with no
+  `name` takes its key, and two entries with the same `name` fail the load like any malformed
+  snapshot.
+- A SQL Server computed column written without parentheses (`Total AS Qty * Price [PERSISTED]`)
+  in a DDL or migration file now enters the schema. It used to be dropped silently, so a later
+  query selecting it failed with a false JNT2002.
+- A parameter compared inside an `IN`/`EXISTS` subquery or a CTE body now takes its type, length
+  and nullability from the column SQL binds it to, the subquery's own table. Before,
+  `delete from orders where customer_id in (select id from customers where id = @id)` typed `@id`
+  from `orders.id`. An INSERT...SELECT's `WHERE` parameters likewise no longer resolve against
+  the insert target, which is not in scope there.
+- The same subquery parameters no longer count as filters on the outer statement's same-named
+  column. They had suppressed JNT8004 and JNT8009/JNT8010 on the outer table, raised JNT8004
+  against it, made JNT8008 report an N+1 child lookup, and added the outer column to migration
+  impact analysis.
 
 ### Changed
 - MySQL schema extraction reads function rows through `MySqlExtractor.ReadFunctionsAsync`, so a

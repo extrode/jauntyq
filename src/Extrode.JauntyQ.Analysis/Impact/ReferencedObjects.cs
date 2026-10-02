@@ -125,8 +125,13 @@ public sealed class ReferencedObjects
         // WHERE-bound predicate parameters and literals, and SET/VALUES write
         // targets: a query that only compares/writes a column (never
         // projects, joins or returns it) still depends on that column's shape.
+        // A binding carried up from a subquery or CTE body is added when that
+        // scope is walked below, against its own tables.
         foreach (var p in model.Parameters)
-            AddColumn(p.BoundTableAlias, p.BoundColumnName);
+        {
+            if (p.BoundScope == null)
+                AddColumn(p.BoundTableAlias, p.BoundColumnName);
+        }
 
         foreach (var l in model.Literals)
             AddColumn(l.BoundTableAlias, l.BoundColumnName);
