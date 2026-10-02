@@ -119,7 +119,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Guides</span>
   </div>
-  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  <a href="03-guides-tenant-scoping.html">Tenant scoping</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -514,6 +514,24 @@ query/table; a <strong>Warning</strong> still emits code.</p>
 <td>Error</td>
 <td>The same <code>@name</code> appears twice in a <code>-- @params</code> directive.</td>
 </tr>
+<tr>
+<td>JNT4005</td>
+<td>Scoped Table Reached Without Its Scope Parameter</td>
+<td>Error</td>
+<td>A table declared in <code>jaunty.scope.json</code> is reached without a proof that it is filtered by its scope column (spec 021). A proof is a top-level AND condition of exactly <code>&lt;ref&gt;.&lt;column&gt; = @param</code>, in the place SQL applies it: WHERE or an inner join's ON for a table read in FROM or an inner JOIN; the table's own ON (or a later RIGHT JOIN's ON) on the nullable side of an outer join; WHERE only in a FULL JOIN; WHERE for an UPDATE or DELETE target; a parameter in the column list for an INSERT target. OR, NOT, a literal, another column, <code>IS NULL</code> and <code>IN (@ids)</code> are not proof. CTE bodies and WHERE subqueries need their own. One error per unproven reach, naming it and the fix. The query is never rewritten; <code>-- @unscoped &lt;reason&gt;</code> accepts it.</td>
+</tr>
+<tr>
+<td>JNT4006</td>
+<td>Unnecessary Unscoped Acceptance</td>
+<td>Warning</td>
+<td>A query declares <code>-- @unscoped &lt;reason&gt;</code> but reaches every scoped table with its scope parameter, so the directive accepts nothing: remove it. The message repeats the stated reason. Silent when the analysis reached no verdict: no scope file, a scope file with no usable entry, or a query that already failed validation. Warning, not Error, for the same reason as JNT8012.</td>
+</tr>
+<tr>
+<td>JNT4007</td>
+<td>Scoped Upsert Not Generated</td>
+<td>Info</td>
+<td>Auto-CRUD generates no <code>Upsert</code> for a MySQL table that the scope file scopes. <code>ON DUPLICATE KEY UPDATE</code> has no <code>WHERE</code>, so a key collision with another scope's row would overwrite that row. Use <code>Insert</code> and <code>Update</code>, or write the upsert by hand and prove the scope in it. PostgreSQL, SQLite and SQL Server get a scoped <code>Upsert</code> instead.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="5xxx-value-safety">5xxx, Value Safety</h2>
@@ -588,6 +606,12 @@ query/table; a <strong>Warning</strong> still emits code.</p>
 <td>Invalid Acceptance File</td>
 <td>Warning</td>
 <td>A structural problem in <code>jaunty.accept.json</code>, the sidecar that accepts an unindexed auto-CRUD scan per column (spec 016): the file is not valid JSON, more than one <code>*.accept.json</code> was passed as AdditionalFiles (ordinal-lowest wins, the message names every candidate, and the others are <strong>not</strong> merged), an entry is missing its <code>table</code>, <code>column</code> or <code>reason</code>, an entry names a table or column the snapshot does not have (a typo, or an entry that outlived a dropped column), or the same column is accepted twice (the first entry is the one in force). A rejected entry accepts nothing, so the JNT8004 it was meant to cover is still reported, a half-read entry quietening a warning would make a typo cheaper than getting it right. An entry that is well-formed but no longer needed is JNT8012, not this. Warning rather than Error: a mistake in the file written to quieten the build must not be louder than the warnings it was written to quieten.</td>
+</tr>
+<tr>
+<td>JNT6004</td>
+<td>Invalid Scope File</td>
+<td>Warning</td>
+<td>A problem in <code>jaunty.scope.json</code>, the sidecar that declares tables scoped by a column (spec 021): the file is not valid JSON or is the literal <code>null</code>, more than one <code>*.scope.json</code> was passed as AdditionalFiles (ordinal-lowest wins, the others are <strong>not</strong> merged), an entry is missing its <code>table</code> or <code>column</code>, names a table or column the schema does not have, names a column that cannot be bound from a parameter (part of the primary key, identity, computed or rowversion), or repeats an earlier entry. Every dropped entry leaves its table <strong>unscoped</strong>, and the message says so. Warning rather than Error, as for JNT6003.</td>
 </tr>
 <tr>
 <td>JNT7001</td>

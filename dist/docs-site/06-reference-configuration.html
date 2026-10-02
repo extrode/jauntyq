@@ -119,7 +119,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Guides</span>
   </div>
-  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  <a href="03-guides-tenant-scoping.html">Tenant scoping</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -142,7 +142,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#msbuild-properties">MSBuild properties</a><a class="toc-l2" href="#additionalfiles">AdditionalFiles</a><a class="toc-l2" href="#how-files-are-classified">How files are classified</a><a class="toc-l2" href="#schema-source-precedence">Schema-source precedence</a><a class="toc-l2" href="#the-acceptance-sidecar-acceptjson">The acceptance sidecar (*.accept.json)</a><a class="toc-l2" href="#entity-and-method-naming">Entity and method naming</a><a class="toc-l2" href="#consumer-project-template">Consumer project template</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#msbuild-properties">MSBuild properties</a><a class="toc-l2" href="#additionalfiles">AdditionalFiles</a><a class="toc-l2" href="#how-files-are-classified">How files are classified</a><a class="toc-l2" href="#schema-source-precedence">Schema-source precedence</a><a class="toc-l2" href="#the-acceptance-sidecar-acceptjson">The acceptance sidecar (*.accept.json)</a><a class="toc-l2" href="#the-scope-sidecar-scopejson">The scope sidecar (*.scope.json)</a><a class="toc-l2" href="#entity-and-method-naming">Entity and method naming</a><a class="toc-l2" href="#consumer-project-template">Consumer project template</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Configuration reference (MSBuild &amp; file conventions)</nav>
         <article>
@@ -206,12 +206,14 @@ individual <code>JNTxxxx</code> diagnostics.</p>
   <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\**\*.sql&quot;</span> <span class="tok-punc">/&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\schema\*.schema.json&quot;</span> <span class="tok-punc">/&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\schema\*.accept.json&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\schema\*.scope.json&quot;</span> <span class="tok-punc">/&gt;</span>
 <span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
 </code></pre>
 </div>
 <p>The single <code>db\**\*.sql</code> glob covers queries, migrations, and DDL, they are
-distinguished by folder, not by separate globs. The third glob is optional and
-only needed if you use <a href="#the-acceptance-sidecar-acceptjson">the acceptance
+distinguished by folder, not by separate globs. The last two globs are optional,
+needed only if you use <a href="#the-acceptance-sidecar-acceptjson">the acceptance
+sidecar</a> or <a href="#the-scope-sidecar-scopejson">the scope
 sidecar</a>.</p>
 <h2 id="how-files-are-classified">How files are classified</h2>
 <p>Classification is by <strong>path segment</strong> (case-insensitive, <code>/</code> and <code>\</code> both
@@ -234,6 +236,11 @@ match):</p>
 <td><strong>Acceptance sidecar</strong></td>
 <td>file ends in <code>.accept.json</code> (convention <code>db/schema/jaunty.accept.json</code>)</td>
 <td>Accepts unindexed scans in <strong>generated</strong> queries. Optional.</td>
+</tr>
+<tr>
+<td><strong>Scope sidecar</strong></td>
+<td>file ends in <code>.scope.json</code> (convention <code>db/schema/jaunty.scope.json</code>)</td>
+<td>Declares tables scoped by a column (tenant scoping). Optional.</td>
 </tr>
 <tr>
 <td><strong>DDL</strong></td>
@@ -333,6 +340,70 @@ over it.</p>
 <p><code>samples/Extrode.JauntyQ.Sakila.Sqlite.Tests/db/schema/jaunty.accept.json</code> is a worked
 example: the SQLite port of Pagila declares its foreign keys without secondary
 indexes, and its 17 entries take the resulting <code>JNT8004</code> count to zero.</p>
+<h2 id="the-scope-sidecar-scopejson">The scope sidecar (<code>*.scope.json</code>)</h2>
+<p>Declares the tables that belong to a tenant (or any other owner) and the
+column that says which. With it, a hand-written query that reaches one of
+those tables without filtering on that column is refused, and auto-CRUD for
+those tables takes the value first. The <a href="03-guides-tenant-scoping.html">tenant scoping
+guide</a> covers what is checked and what is not.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">JSON</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="json"><code class="language-json"><span class="tok-punc">{</span>
+  <span class="tok-key">&quot;scopes&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span>
+    <span class="tok-punc">{</span> <span class="tok-key">&quot;table&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;orders&quot;</span><span class="tok-punc">,</span> <span class="tok-key">&quot;column&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;tenant_id&quot;</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
+    <span class="tok-punc">{</span> <span class="tok-key">&quot;table&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;order_lines&quot;</span><span class="tok-punc">,</span> <span class="tok-key">&quot;column&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;tenant_id&quot;</span> <span class="tok-punc">}</span>
+  <span class="tok-punc">]</span>
+<span class="tok-punc">}</span>
+</code></pre>
+</div>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Explicit entries only</strong></td>
+<td>Each entry names one table and one column. There is no wildcard and no &quot;every table with a <code>tenant_id</code>&quot; form.</td>
+</tr>
+<tr>
+<td><strong>Several entries per table</strong></td>
+<td>A table may be scoped by more than one column; each must be proven.</td>
+</tr>
+<tr>
+<td><strong>Bindable columns only</strong></td>
+<td>A column that is part of the primary key, an identity, computed, or a rowversion cannot be bound from a parameter. The entry is <code>JNT6004</code> and dropped.</td>
+</tr>
+<tr>
+<td><strong>One file</strong></td>
+<td>More than one <code>*.scope.json</code> is <code>JNT6004</code>; the ordinal-lowest path wins and the others are ignored entirely, they are not merged.</td>
+</tr>
+<tr>
+<td><strong>Structural problems are <code>JNT6004</code></strong></td>
+<td>Unparseable JSON, the literal <code>null</code>, a missing <code>table</code> or <code>column</code>, a table or column the snapshot does not have, or a repeated entry (the first stays in force). Each is a warning, the entry is dropped, and the message says the table is now unscoped by it.</td>
+</tr>
+<tr>
+<td><strong>Independent of auto-CRUD</strong></td>
+<td>Hand-written queries are checked whether or not <code>&lt;JauntyQAutoCrud&gt;</code> is on.</td>
+</tr>
+<tr>
+<td><strong>Absent or empty</strong></td>
+<td>Nothing is checked, and generated code is byte-identical to a project without the sidecar.</td>
+</tr>
+</tbody>
+</table>
+<p>Tables and columns are matched case-insensitively. Like the acceptance
+sidecar, it is a separate hand-maintained file because <code>jauntyq schema pull</code>
+rewrites the snapshot wholesale.</p>
+<p>Diagnostics: <code>JNT4005</code> (a reach without its scope parameter, Error),
+<code>JNT4006</code> (an <code>-- @unscoped</code> that accepts nothing), <code>JNT4007</code> (no scoped
+Upsert on MySQL), <code>JNT6004</code> (problems in the file). See
+<a href="06-reference-diagnostics.html">diagnostics</a>.</p>
 <h2 id="entity-and-method-naming">Entity and method naming</h2>
 <p>This mapping is a <strong>stable contract</strong>. Other tools (a scaffolder, a code
 reviewer, a doc generator) may depend on it. Changing it would be a breaking

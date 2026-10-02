@@ -38,13 +38,15 @@ The generator consumes these `AdditionalFiles` globs:
   <AdditionalFiles Include="db\**\*.sql" />
   <AdditionalFiles Include="db\schema\*.schema.json" />
   <AdditionalFiles Include="db\schema\*.accept.json" />
+  <AdditionalFiles Include="db\schema\*.scope.json" />
 </ItemGroup>
 ```
 
 The single `db\**\*.sql` glob covers queries, migrations, and DDL, they are
-distinguished by folder, not by separate globs. The third glob is optional and
-only needed if you use [the acceptance
-sidecar](#the-acceptance-sidecar-acceptjson).
+distinguished by folder, not by separate globs. The last two globs are optional,
+needed only if you use [the acceptance
+sidecar](#the-acceptance-sidecar-acceptjson) or [the scope
+sidecar](#the-scope-sidecar-scopejson).
 
 ## How files are classified
 
@@ -55,6 +57,7 @@ match):
 |---|---|---|
 | **Schema snapshot** | file ends in `.schema.json` (convention `db/schema/*.schema.json`) | Authoritative schema when present. |
 | **Acceptance sidecar** | file ends in `.accept.json` (convention `db/schema/jaunty.accept.json`) | Accepts unindexed scans in **generated** queries. Optional. |
+| **Scope sidecar** | file ends in `.scope.json` (convention `db/schema/jaunty.scope.json`) | Declares tables scoped by a column (tenant scoping). Optional. |
 | **DDL** | a `ddl` path segment (convention `db/ddl/*.sql`) | Builds the base schema **only when no snapshot exists**. Requires `JauntyQDialect`. |
 | **Migration** | a `migrations` path segment (convention `db/migrations/*.sql`) | Applied on top of the base schema, in filename order. |
 | **Query** | any other `.sql` under `db/` (convention `db/tables/<Entity>/<Method>.sql`) | Parsed, validated, and emitted as a typed method. |
@@ -116,6 +119,42 @@ over it.
 `samples/Extrode.JauntyQ.Sakila.Sqlite.Tests/db/schema/jaunty.accept.json` is a worked
 example: the SQLite port of Pagila declares its foreign keys without secondary
 indexes, and its 17 entries take the resulting `JNT8004` count to zero.
+
+## The scope sidecar (`*.scope.json`)
+
+Declares the tables that belong to a tenant (or any other owner) and the
+column that says which. With it, a hand-written query that reaches one of
+those tables without filtering on that column is refused, and auto-CRUD for
+those tables takes the value first. The [tenant scoping
+guide](../03-guides/tenant-scoping.md) covers what is checked and what is not.
+
+```json
+{
+  "scopes": [
+    { "table": "orders", "column": "tenant_id" },
+    { "table": "order_lines", "column": "tenant_id" }
+  ]
+}
+```
+
+| Rule | Detail |
+|---|---|
+| **Explicit entries only** | Each entry names one table and one column. There is no wildcard and no "every table with a `tenant_id`" form. |
+| **Several entries per table** | A table may be scoped by more than one column; each must be proven. |
+| **Bindable columns only** | A column that is part of the primary key, an identity, computed, or a rowversion cannot be bound from a parameter. The entry is `JNT6004` and dropped. |
+| **One file** | More than one `*.scope.json` is `JNT6004`; the ordinal-lowest path wins and the others are ignored entirely, they are not merged. |
+| **Structural problems are `JNT6004`** | Unparseable JSON, the literal `null`, a missing `table` or `column`, a table or column the snapshot does not have, or a repeated entry (the first stays in force). Each is a warning, the entry is dropped, and the message says the table is now unscoped by it. |
+| **Independent of auto-CRUD** | Hand-written queries are checked whether or not `<JauntyQAutoCrud>` is on. |
+| **Absent or empty** | Nothing is checked, and generated code is byte-identical to a project without the sidecar. |
+
+Tables and columns are matched case-insensitively. Like the acceptance
+sidecar, it is a separate hand-maintained file because `jauntyq schema pull`
+rewrites the snapshot wholesale.
+
+Diagnostics: `JNT4005` (a reach without its scope parameter, Error),
+`JNT4006` (an `-- @unscoped` that accepts nothing), `JNT4007` (no scoped
+Upsert on MySQL), `JNT6004` (problems in the file). See
+[diagnostics](diagnostics.md).
 
 ## Entity and method naming
 

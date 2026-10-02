@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tenant scoping — jauntyq docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">jauntyq</span>
+      <span class="brand-crumb">Guides &#8250; Tenant scoping</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-overview-readme.html">JauntyQ Documentation</a>  <a href="00-overview-pricing.html">Pricing</a>  <a href="00-overview-why-jauntyq.html">Why JauntyQ (and Why Not)</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Getting started</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-getting-started-readme.html">Getting started</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Learn</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-learn-readme.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Guides</span>
+  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  <a href="03-guides-tenant-scoping.html" class="active" aria-current="page">Tenant scoping</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="06-reference-readme.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-code-coverage.html">Code coverage</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-migration-tracking-contract.html">Migration tracking contract</a>  <a href="06-reference-mutation-coverage-report.html">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</a>  <a href="06-reference-mutation-coverage-tally.html">Mutation coverage tally vs. target</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Roadmap</span>
+  </div>
+  <div class="nav-group-items">  <a href="07-roadmap-roadmap.html">JauntyQ Roadmap</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#declare-the-scoped-tables">Declare the scoped tables</a><a class="toc-l2" href="#hand-written-queries">Hand-written queries</a><a class="toc-l3" href="#queries-that-must-cross-tenants">Queries that must cross tenants</a><a class="toc-l2" href="#auto-crud-on-a-scoped-table">Auto-CRUD on a scoped table</a><a class="toc-l3" href="#upsert">Upsert</a><a class="toc-l2" href="#what-is-not-checked">What is not checked</a><a class="toc-l3" href="#views">Views</a><a class="toc-l3" href="#procedures-and-functions">Procedures and functions</a><a class="toc-l3" href="#the-value">The value</a><a class="toc-l2" href="#row-level-security">Row-level security</a><a class="toc-l2" href="#turning-the-check-off">Turning the check off</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Guides &#8250; Tenant scoping</nav>
+        <article>
+<h1 id="tenant-scoping">Tenant scoping</h1>
+<p>In a multi-tenant database one missing <code>WHERE tenant_id = @tenantId</code> returns
+another customer's rows. JauntyQ can check at build time that every query
+filters each tenant-owned table by its tenant column, and can generate
+auto-CRUD methods that take the tenant value first and filter on it.</p>
+<p>It checks the SQL's shape. It cannot check that the value you pass is the
+right tenant: that comes from your authentication, not from the query.</p>
+<h2 id="declare-the-scoped-tables">Declare the scoped tables</h2>
+<p>Add a <code>jaunty.scope.json</code> next to the snapshot, and include it in the
+project's <code>AdditionalFiles</code>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">JSON</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="json"><code class="language-json"><span class="tok-punc">{</span>
+  <span class="tok-key">&quot;scopes&quot;</span><span class="tok-punc">:</span> <span class="tok-punc">[</span>
+    <span class="tok-punc">{</span> <span class="tok-key">&quot;table&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;orders&quot;</span><span class="tok-punc">,</span> <span class="tok-key">&quot;column&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;tenant_id&quot;</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
+    <span class="tok-punc">{</span> <span class="tok-key">&quot;table&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;order_lines&quot;</span><span class="tok-punc">,</span> <span class="tok-key">&quot;column&quot;</span><span class="tok-punc">:</span> <span class="tok-str">&quot;tenant_id&quot;</span> <span class="tok-punc">}</span>
+  <span class="tok-punc">]</span>
+<span class="tok-punc">}</span>
+</code></pre>
+</div>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;db\schema\*.scope.json&quot;</span> <span class="tok-punc">/&gt;</span>
+</code></pre>
+</div>
+<p>Each entry names one table and the column that scopes it. A table can have
+more than one entry; every one of them must be proven. Mistakes in the file
+are <code>JNT6004</code> warnings, and a dropped entry leaves its table unscoped, so read
+those warnings. The <a href="06-reference-configuration.html#the-scope-sidecar-scopejson">configuration reference</a>
+lists the rules.</p>
+<p>With no scope file, or an empty one, nothing is checked and the generated code
+is byte-identical to a project without the feature.</p>
+<h2 id="hand-written-queries">Hand-written queries</h2>
+<p>A query that reaches a scoped table without proving the filter is refused
+with <code>JNT4005</code> (Error), and no method is generated for it:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- refused: orders is read without its scope column</span>
+<span class="tok-kw">SELECT</span> o.id, o.note <span class="tok-kw">FROM</span> orders o <span class="tok-kw">WHERE</span> o.note = <span class="tok-var">@note</span>
+
+<span class="tok-com">-- accepted</span>
+<span class="tok-kw">SELECT</span> o.id, o.note <span class="tok-kw">FROM</span> orders o <span class="tok-kw">WHERE</span> o.tenant_id = <span class="tok-var">@tenantId</span> <span class="tok-kw">AND</span> o.note = <span class="tok-var">@note</span>
+</code></pre>
+</div>
+<p>A proof is a top-level <code>AND</code> condition of exactly <code>&lt;ref&gt;.&lt;column&gt; = @param</code>,
+where <code>&lt;ref&gt;</code> is the alias that table has in that query. The parameter may
+have any name. Where the proof has to be depends on how the table is reached:</p>
+<table>
+<thead>
+<tr>
+<th>Reached as</th>
+<th>Proof goes in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FROM</code>, or an inner <code>JOIN</code></td>
+<td><code>WHERE</code>, or the <code>ON</code> of any inner join</td>
+</tr>
+<tr>
+<td>the nullable side of a <code>LEFT</code> join</td>
+<td>that join's own <code>ON</code></td>
+</tr>
+<tr>
+<td>a table kept by a later <code>RIGHT</code> join</td>
+<td>that <code>RIGHT</code> join's <code>ON</code></td>
+</tr>
+<tr>
+<td>any side of a <code>FULL</code> join</td>
+<td><code>WHERE</code> only: a <code>FULL</code> join keeps unmatched rows from both sides, so an <code>ON</code> condition filters nothing</td>
+</tr>
+<tr>
+<td>inside a CTE body, or a <code>WHERE</code> <code>IN</code>/<code>EXISTS</code> subquery</td>
+<td>inside that body. A proof in the outer query does not cover it</td>
+</tr>
+<tr>
+<td><code>UPDATE</code> or <code>DELETE</code> target</td>
+<td>the statement's <code>WHERE</code></td>
+</tr>
+<tr>
+<td><code>INSERT</code> target</td>
+<td>the column list, bound to a parameter</td>
+</tr>
+</tbody>
+</table>
+<p>These are not proof: a condition under <code>OR</code> or <code>NOT</code>, a literal
+(<code>tenant_id = 42</code>), another column (<code>o.tenant_id = c.tenant_id</code>), <code>IS NULL</code>,
+and <code>IN (@ids)</code> under <code>-- @each</code>, which allows more than one tenant.</p>
+<p>Each unproven reach is its own error, and the message names the table, where
+it was reached, and the condition to add. JauntyQ never adds the condition
+for you: a query that silently means something other than what you wrote is
+worse than one that fails to build.</p>
+<h3 id="queries-that-must-cross-tenants">Queries that must cross tenants</h3>
+<p>Billing roll-ups, admin consoles and data fixes read every tenant on purpose.
+Mark them with a reason:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @unscoped nightly billing totals every tenant's orders</span>
+<span class="tok-kw">SELECT</span> tenant_id, <span class="tok-fn">SUM</span>(total) <span class="tok-kw">AS</span> total <span class="tok-kw">FROM</span> orders <span class="tok-kw">GROUP</span> <span class="tok-kw">BY</span> tenant_id
+</code></pre>
+</div>
+<p>The reason is required. A directive on a query that already proves every
+scope accepts nothing and is reported as <code>JNT4006</code>. See
+<a href="06-reference-directives.html#-unscoped"><code>-- @unscoped</code></a>.</p>
+<h2 id="auto-crud-on-a-scoped-table">Auto-CRUD on a scoped table</h2>
+<p>Every generated method of a scoped table takes the scope value before its
+other parameters, and filters or writes with it:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Scoped form</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GetAll(tenant_id)</code></td>
+<td><code>WHERE orders.tenant_id = @tenant_id</code></td>
+</tr>
+<tr>
+<td><code>GetById(tenant_id, id)</code></td>
+<td>the scope, then the key</td>
+</tr>
+<tr>
+<td><code>GetBy&lt;Fk&gt;(tenant_id, fk)</code></td>
+<td>the scope, then the foreign key. No loader is generated for a foreign key on the scope column itself: <code>GetAll</code> is that query</td>
+</tr>
+<tr>
+<td><code>Insert(tenant_id, row)</code></td>
+<td>the scope column comes from the argument. The row's own value is ignored</td>
+</tr>
+<tr>
+<td><code>Update(tenant_id, row)</code></td>
+<td>the scope column is never in <code>SET</code>, so a row cannot move to another tenant, and <code>WHERE</code> filters on it</td>
+</tr>
+<tr>
+<td><code>Delete(tenant_id, row)</code></td>
+<td><code>WHERE</code> filters on the scope</td>
+</tr>
+<tr>
+<td><code>BulkInsert(tenant_id, rows)</code></td>
+<td>each row's scope property is set to the argument as the row is read. Your row objects are changed</td>
+</tr>
+<tr>
+<td><code>Upsert(tenant_id, row)</code></td>
+<td>see below</td>
+</tr>
+</tbody>
+</table>
+<p>The parameter is named after the column, as every auto-CRUD parameter is.</p>
+<p>A row whose key belongs to another tenant is out of reach: <code>GetById</code> returns
+null, and <code>Update</code> and <code>Delete</code> return 0.</p>
+<h3 id="upsert">Upsert</h3>
+<p>An upsert that collides with another tenant's key must not overwrite that row:</p>
+<table>
+<thead>
+<tr>
+<th>Dialect</th>
+<th>Scoped form</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PostgreSQL, SQLite</td>
+<td><code>ON CONFLICT (key) DO UPDATE ... WHERE orders.tenant_id = EXCLUDED.tenant_id</code>. A collision with another tenant's row updates nothing and returns 0</td>
+</tr>
+<tr>
+<td>SQL Server</td>
+<td>the <code>MERGE</code> matches on the key and the scope. A collision with another tenant's key falls through to the insert, which the primary key rejects with an error</td>
+</tr>
+<tr>
+<td>MySQL</td>
+<td>not generated. <code>ON DUPLICATE KEY UPDATE</code> has no <code>WHERE</code>, so it cannot leave another tenant's row alone. <code>JNT4007</code> (Info) says so; use <code>Insert</code> and <code>Update</code>, or write the upsert by hand</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-is-not-checked">What is not checked</h2>
+<h3 id="views">Views</h3>
+<p>The snapshot records that a view exists, not which tables it reads. A view
+over <code>orders</code> that is not in the scope file is not checked. A view that
+exposes the scope column can be listed in the scope file itself, and is then
+checked like a table.</p>
+<h3 id="procedures-and-functions">Procedures and functions</h3>
+<p><code>-- @call</code>, <code>-- @proc</code>, and scalar and table-valued functions are opaque:
+JauntyQ cannot see their bodies, so it cannot check them.</p>
+<h3 id="the-value">The value</h3>
+<p>The check proves that a scope parameter is there, not that the caller passed
+the right tenant. Take the tenant from the authenticated request, never from
+the request body.</p>
+<h2 id="row-level-security">Row-level security</h2>
+<p>Where the database has row-level security (PostgreSQL, SQL Server), use it as
+well. JauntyQ catches the missing filter at build time, in the queries it
+generates; row-level security catches what JauntyQ cannot see: views,
+procedures, and SQL run outside JauntyQ.</p>
+<h2 id="turning-the-check-off">Turning the check off</h2>
+<p>Remove the scope file. For a single query, use <code>-- @unscoped &lt;reason&gt;</code>: it is
+narrower, and the reason stays next to the SQL.</p>
+<p>Setting <code>dotnet_diagnostic.JNT4005.severity = none</code> hides the error but does
+not bring the method back, so the query silently has no generated method.
+Do not use it as an off switch.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="03-guides-startup-verification.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Runtime startup schema verification</span>
+</a><a class="pn-next" href="06-reference-readme.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Reference</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; jauntyq docs</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>
