@@ -495,6 +495,21 @@ public static class SchemaSimulator
             col.IsNullable = false;
         }
 
+        // The parser marks a text column Unicode only for an n-prefixed type,
+        // which is SQL Server's rule. The other extractors report every text
+        // column Unicode: Postgres text under its UTF-8 encoding, MySQL under
+        // a utf8* charset (the utf8mb4 default; an explicit non-UTF charset is
+        // not modelled), SQLite for every text affinity. Left as false, any
+        // ALTER/MODIFY of a text column there showed a "unicode changed" the
+        // migration never made.
+        if (col.IsUnicode.HasValue &&
+            (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(dialect, "sqlite", StringComparison.OrdinalIgnoreCase)))
+        {
+            col.IsUnicode = true;
+        }
+
         return col;
     }
 
