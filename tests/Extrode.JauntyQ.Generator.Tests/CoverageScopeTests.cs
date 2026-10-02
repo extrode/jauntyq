@@ -19,23 +19,34 @@ public class CoverageScopeTests
         return dir!.FullName;
     }
 
+    private static string[] SharedProjectsWithTheirOwnTests() =>
+        SharedProjects
+            .Where(p => Directory.Exists(Path.Combine(RepoRoot(), "tests", "Extrode.JauntyQ." + p + ".Tests")))
+            .ToArray();
+
     [Fact]
-    public void TheGeneratorsCopyOfEachSharedProject_IsLeftOutOfCoverage()
+    public void TheSharedProjectsWithTheirOwnTests_AreSqlParserAndAnalysis()
+    {
+        Assert.Equal(new[] { "SqlParser", "Analysis" }, SharedProjectsWithTheirOwnTests());
+    }
+
+    [Fact]
+    public void TheGeneratorsCopyOfEachSharedProjectWithItsOwnTests_IsLeftOutOfCoverage()
     {
         string settings = File.ReadAllText(Path.Combine(RepoRoot(), "coverage.runsettings"));
         string exclude = Regex.Match(settings, "<Exclude>([^<]*)</Exclude>").Groups[1].Value;
 
         Assert.Equal(
-            SharedProjects.Select(p => "[Extrode.JauntyQ.Generator]Extrode.JauntyQ." + p + ".*"),
+            SharedProjectsWithTheirOwnTests().Select(p => "[Extrode.JauntyQ.Generator]Extrode.JauntyQ." + p + ".*"),
             exclude.Split(','));
     }
 
     [Fact]
-    public void NoGeneratorOwnedFile_DeclaresASharedProjectsNamespace()
+    public void NoGeneratorOwnedFile_DeclaresAnExcludedNamespace()
     {
         string generatorDir = Path.Combine(RepoRoot(), "src", "Extrode.JauntyQ.Generator");
         string objDir = Path.Combine(generatorDir, "obj") + Path.DirectorySeparatorChar;
-        var pattern = new Regex(@"^namespace Extrode\.JauntyQ\.(" + string.Join("|", SharedProjects) + @")\b", RegexOptions.Multiline);
+        var pattern = new Regex(@"^namespace Extrode\.JauntyQ\.(" + string.Join("|", SharedProjectsWithTheirOwnTests()) + @")\b", RegexOptions.Multiline);
 
         string[] offenders = Directory.GetFiles(generatorDir, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.StartsWith(objDir, StringComparison.Ordinal))

@@ -21,11 +21,13 @@
                alone does that; this one was blinding the report instead. -->
           <!-- The Generator compiles every SqlParser/Schema/Analysis file into itself
                (its csproj's Compile Include wildcards), including ones the generator
-               never calls, such as MigrationImpactReport. Each of those files is
-               measured in its own assembly; counting the Generator's copy as well
-               reported the same code twice, and 45 of the 54 uncovered methods on
-               2026-09-30 were such copies. -->
-          <Exclude>[Extrode.JauntyQ.Generator]Extrode.JauntyQ.SqlParser.*,[Extrode.JauntyQ.Generator]Extrode.JauntyQ.Schema.*,[Extrode.JauntyQ.Generator]Extrode.JauntyQ.Analysis.*</Exclude>
+               never calls, such as MigrationImpactReport. SqlParser and Analysis each
+               have their own test project, so their files are measured there and the
+               Generator's copies are left out; counting both reported the same code
+               twice, and 45 of the 54 uncovered methods on 2026-09-30 were such copies.
+               Schema has no test project: its loaders run only through the Generator's
+               copy, so that copy stays in. -->
+          <Exclude>[Extrode.JauntyQ.Generator]Extrode.JauntyQ.SqlParser.*,[Extrode.JauntyQ.Generator]Extrode.JauntyQ.Analysis.*</Exclude>
           <ExcludeByAttribute>GeneratedCodeAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
         </Configuration>
       </DataCollector>
