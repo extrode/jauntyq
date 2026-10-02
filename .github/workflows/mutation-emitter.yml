@@ -20,7 +20,8 @@ name: Mutation (emitter)
 #   git push origin dev:run/mutation-emitter
 # A push run mutates only code changed since the branch's previous tip (Stryker --since), so a
 # confirming run after a fix costs minutes, not the full run. The first push of the branch, the
-# schedule and workflow_dispatch run everything.
+# schedule and workflow_dispatch run everything. So does a push that changes any non-C# file in
+# the test project (a stryker-config.emitter-*.json, for one): Stryker then retests every mutant.
 on:
   schedule:
     - cron: '0 6 * * 0'
