@@ -646,7 +646,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         // Stryker disable once Statement : JNT8004 is the only warning a synthesized query is known to raise
                         context.ReportDiagnostic(DiagnosticInfo.ForValidation(error).ToDiagnostic());
                 }
-                // Stryker disable Statement,Block : see synthErrors above
+                // Stryker disable Statement,Block,Equality : see synthErrors above
                 if (synthErrors.Count > 0)
                 {
                     context.ReportDiagnostic(SyntheticSkipDiagnostic(synth, synthErrors, commonPrefix));
@@ -741,7 +741,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // a malicious snapshot cannot inject code if the transform ever
                 // changes. Skip the table and report rather than emit.
                 bool rowNameOk = true;
-                // Stryker disable Statement,String,Boolean : unreachable while ToPascalCase maps every non-empty name to a legal identifier, AutoCrud refuses a table with an empty one, and a query selecting it fails JNT2004 before its row type resolves
+                // Stryker disable Statement,String,Boolean,Block : unreachable while ToPascalCase maps every non-empty name to a legal identifier, AutoCrud refuses a table with an empty one, and a query selecting it fails JNT2004 before its row type resolves
                 foreach (var rcol in tableSchema.Columns.Values)
                 {
                     if (!IdentifierGuard.IsValidIdentifier(DialectMapper.ToPascalCase(rcol.Name)))
@@ -767,7 +767,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // covered the table's own full column set feeding the
                 // canonical row POCO. Skip the table and report, matching the
                 // JNT2004 (C2) precedent immediately above.
-                // Stryker disable Statement,String : Part5's ResolveCanonicalRowType and AutoCrud both refuse such a table, so it never reaches neededRowTables; JNT2014 reports it instead
+                // Stryker disable Statement,String,Block : Part5's ResolveCanonicalRowType and AutoCrud both refuse such a table, so it never reaches neededRowTables; JNT2014 reports it instead
                 string? dupRowCol = FindDuplicateColumnPropertyName(tableSchema.Columns.Values);
                 if (dupRowCol != null)
                 {

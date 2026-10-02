@@ -95,7 +95,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 {
                     return SchemaState.Load(json, migrations, ddl, dialect);
                 }
-                // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
+                // Stryker disable Statement,String,Block : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
                 catch (OperationCanceledException)
                 {
                     throw;
@@ -167,7 +167,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             {
                 EmitOneFile(ctx, pair.Left, pair.Right);
             }
-            // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
+            // Stryker disable Statement,String,Block : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
             catch (OperationCanceledException)
             {
                 throw;
@@ -241,7 +241,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         $"Queries {string.Join(", ", memberNames)} compile to identical SQL; consolidate them to keep one plan and one maintenance point."));
                 }
             }
-            // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
+            // Stryker disable Statement,String,Block : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
             catch (OperationCanceledException)
             {
                 throw;
@@ -273,7 +273,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 foreach (var diag in NPlusOneAnalyzer.Analyze(entries, schema.Schema))
                     ctx.ReportDiagnostic(diag);
             }
-            // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
+            // Stryker disable Statement,String,Block : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
             catch (OperationCanceledException)
             {
                 throw;
@@ -307,7 +307,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 foreach (var diag in PredicateDriftAnalyzer.Analyze(entries, schema.Schema))
                     ctx.ReportDiagnostic(diag);
             }
-            // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
+            // Stryker disable Statement,String,Block : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
             catch (OperationCanceledException)
             {
                 throw;
@@ -402,7 +402,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 var ((((fileSummaries, schema), autoCrud), prefix), accept) = pair;
                 EmitAggregates(ctx, fileSummaries, schema, autoCrud, prefix, accept.Item1, accept.Item2);
             }
-            // Stryker disable Statement,String : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
+            // Stryker disable Statement,String,Block : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
             catch (OperationCanceledException)
             {
                 throw;
