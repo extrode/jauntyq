@@ -121,6 +121,37 @@ public class ImpactClassifierTests
     }
 
     [Fact]
+    public void Risky_WhenReferencedEnumColumnLosesAMember()
+    {
+        var baseline = Schema(Table("orders", Col("id"), new ColumnSchema { Name = "status", DbType = "enum", EnumName = "OrdersStatus" }));
+        var effective = Schema(Table("orders", Col("id"), new ColumnSchema { Name = "status", DbType = "enum", EnumName = "OrdersStatus" }));
+        baseline.Enums["OrdersStatus"] = new EnumSchema { Name = "OrdersStatus", Members = { new EnumMember { Value = "a" }, new EnumMember { Value = "b" } } };
+        effective.Enums["OrdersStatus"] = new EnumSchema { Name = "OrdersStatus", Members = { new EnumMember { Value = "a" } } };
+
+        var report = Run(Delta(baseline, effective), Input("Order.Get", Select("orders", "id", "status")));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Risky, entry.Classification);
+        var reason = Assert.Single(entry.Reasons);
+        Assert.Equal("orders.status", reason.SchemaObject);
+        Assert.Equal("enum", reason.ChangeKind);
+        Assert.Equal("enum OrdersStatus members changed", reason.Effect);
+    }
+
+    [Fact]
+    public void Risky_WhenReferencedColumnStopsBeingAnEnum()
+    {
+        var baseline = Schema(Table("orders", Col("id"), new ColumnSchema { Name = "status", DbType = "varchar", EnumName = "OrdersStatus" }));
+        var effective = Schema(Table("orders", Col("id"), new ColumnSchema { Name = "status", DbType = "varchar" }));
+
+        var report = Run(Delta(baseline, effective), Input("Order.Get", Select("orders", "status")));
+
+        var reason = Assert.Single(Assert.Single(report.Entries).Reasons);
+        Assert.Equal("enum", reason.ChangeKind);
+        Assert.Equal("enum OrdersStatus → (none)", reason.Effect);
+    }
+
+    [Fact]
     public void Risky_WhenUnmodeledStatementTouchesReferencedTable()
     {
         var baseline = Schema(Table("users", Col("id")));

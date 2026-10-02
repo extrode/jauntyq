@@ -52,6 +52,7 @@ class Extrode.JauntyQ.Analysis.Diff.ColumnChange
     prop Kinds:IReadOnlyList<ColumnChangeKind>
 enum Extrode.JauntyQ.Analysis.Diff.ColumnChangeKind
     field Computed:ColumnChangeKind
+    field Enum:ColumnChangeKind
     field Identity:ColumnChangeKind
     field MaxLength:ColumnChangeKind
     field Nullability:ColumnChangeKind
@@ -135,6 +136,7 @@ class Extrode.JauntyQ.Analysis.Migrations.MigrationStatement
     ctor .ctor()
     prop ColumnNames:List<String>
     prop Columns:List<ColumnSchema>
+    prop EnumMembers:Dictionary<String,List<String>>
     prop IfExists:Boolean
     prop Kind:MigrationStatementKind
     prop NullableAfter:Boolean

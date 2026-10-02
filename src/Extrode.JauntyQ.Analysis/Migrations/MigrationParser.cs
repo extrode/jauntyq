@@ -162,7 +162,7 @@ public static class MigrationParser
                 continue;
             }
 
-            var column = ParseColumnDef(def);
+            var column = ParseColumnDef(def, stmt.EnumMembers);
             if (column != null)
                 stmt.Columns.Add(column);
         }
@@ -331,7 +331,7 @@ public static class MigrationParser
 
         foreach (var def in defs)
         {
-            var column = ParseColumnDef(def);
+            var column = ParseColumnDef(def, stmt.EnumMembers);
             if (column == null)
                 return Unsupported(raw);
             stmt.Columns.Add(column);
@@ -471,10 +471,10 @@ public static class MigrationParser
             def.Add(body[i]);
         }
 
-        var column = ParseColumnDef(def);
+        var stmt = new MigrationStatement { Kind = MigrationStatementKind.AlterColumn, TableName = tableName, RawText = raw, TypeOnly = typeOnly };
+        var column = ParseColumnDef(def, stmt.EnumMembers);
         if (column == null)
             return Unsupported(raw);
-        var stmt = new MigrationStatement { Kind = MigrationStatementKind.AlterColumn, TableName = tableName, RawText = raw, TypeOnly = typeOnly };
         stmt.Columns.Add(column);
         return stmt;
     }
@@ -485,8 +485,17 @@ public static class MigrationParser
     /// Flags: NOT NULL, NULL, PRIMARY KEY, IDENTITY[(s,i)]; DEFAULT values
     /// are skipped. Returns null when the shape is unrecognizable.
     /// </summary>
-    private static ColumnSchema? ParseColumnDef(List<Token> def)
+    private static ColumnSchema? ParseColumnDef(List<Token> def, Dictionary<string, List<string>> enumMembersByColumn)
     {
+        var column = ParseColumnDef(def, out var enumMembers);
+        if (column != null && enumMembers != null)
+            enumMembersByColumn[column.Name] = enumMembers;
+        return column;
+    }
+
+    private static ColumnSchema? ParseColumnDef(List<Token> def, out List<string>? enumMembers)
+    {
+        enumMembers = null;
         if (def.Count < 2 || def[0].Type != TokenType.Identifier)
             return null;
 
@@ -599,6 +608,28 @@ public static class MigrationParser
         // (facets): (40), (10,2), (max)
         int? first = null, second = null;
         bool isMax = false;
+        // MySQL inline ENUM('a','b'): the member list is the type. Read it
+        // here rather than letting the facet branch below stall on the first
+        // literal, so the simulator can build the {Table}{Column} enum a live
+        // pull would capture (see EnumMembers).
+        if (column.DbType == "enum" && IsSymbol(def, pos, "("))
+        {
+            var members = new List<string>();
+            int ep = pos + 1;
+            while (ep < def.Count && def[ep].Type == TokenType.Literal)
+            {
+                members.Add(def[ep].Value.Replace("''", "'"));
+                ep++;
+                if (!IsSymbol(def, ep, ","))
+                    break;
+                ep++;
+            }
+            if (members.Count > 0 && IsSymbol(def, ep, ")"))
+            {
+                enumMembers = members;
+                pos = ep + 1;
+            }
+        }
         if (IsSymbol(def, pos, "("))
         {
             pos++;

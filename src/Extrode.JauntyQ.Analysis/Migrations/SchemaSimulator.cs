@@ -95,6 +95,7 @@ public static class SchemaSimulator
                 continue;
             }
             table.Columns[col.Name] = Finalize(col, schema.Dialect);
+            ApplyInlineEnum(schema, stmt, stmt.TableName, col);
         }
         ApplySqliteRowidAliasing(table, schema.Dialect);
         schema.Tables[stmt.TableName] = table;
@@ -129,6 +130,7 @@ public static class SchemaSimulator
                 continue;
             }
             table.Columns[col.Name] = Finalize(col, schema.Dialect);
+            ApplyInlineEnum(schema, stmt, table.Name, col);
         }
     }
 
@@ -210,6 +212,14 @@ public static class SchemaSimulator
                 updated.IsIdentity = existing.IsIdentity;
             if (stmt.TypeOnly)
                 updated.IsNullable = existing.IsNullable;
+            // MySQL MODIFY redefines the column, enum members included: the
+            // old {Table}{Column} enum goes, and an ENUM(...) in the
+            // statement builds its replacement. Without this the column lost
+            // its EnumName, generated as string, and the enum type vanished
+            // from the generated code while the impact report saw no change.
+            if (existing.EnumName != null && string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
+                schema.Enums.Remove(existing.EnumName);
+            ApplyInlineEnum(schema, stmt, table.Name, updated);
             // Reassign under the RESOLVED key, not col.Name: if the migration
             // spells the column differently-cased than the stored key,
             // indexing by col.Name would silently ADD a second, duplicate
@@ -399,6 +409,33 @@ public static class SchemaSimulator
         }
         column = null!;
         return false;
+    }
+
+    /// <summary>
+    /// MySQL inline ENUM('a','b'): builds the {Table}{Column} enum and the
+    /// column facets exactly as MySqlExtractor.CaptureInlineEnum and its
+    /// column query do (MaxLength is the longest member, the default
+    /// utf8mb4 charset makes it Unicode), so a simulated column matches a
+    /// live re-pull. Other dialects have no inline enum.
+    /// </summary>
+    private static void ApplyInlineEnum(DatabaseSchema schema, MigrationStatement stmt, string tableName, ColumnSchema col)
+    {
+        if (!string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase) ||
+            !stmt.EnumMembers.TryGetValue(col.Name, out var members))
+            return;
+
+        string name = EnumMemberNaming.Fold(tableName) + EnumMemberNaming.Fold(col.Name);
+        var enumSchema = new EnumSchema { Name = name };
+        int longest = 0;
+        foreach (string value in members)
+        {
+            enumSchema.Members.Add(new EnumMember { Value = value, CSharpName = EnumMemberNaming.Fold(value) });
+            longest = Math.Max(longest, value.Length);
+        }
+        schema.Enums[name] = enumSchema;
+        col.EnumName = name;
+        col.MaxLength = longest;
+        col.IsUnicode = true;
     }
 
     /// <summary>

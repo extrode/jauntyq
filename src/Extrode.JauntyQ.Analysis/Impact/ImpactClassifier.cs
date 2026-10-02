@@ -107,6 +107,7 @@ public static class ImpactClassifier
         ColumnChangeKind.Identity => "identity",
         ColumnChangeKind.RowVersion => "rowVersion",
         ColumnChangeKind.Computed => "computed",
+        ColumnChangeKind.Enum => "enum",
         _ => "changed"
     };
 
@@ -142,6 +143,11 @@ public static class ImpactClassifier
                     break;
                 case ColumnChangeKind.RowVersion:
                     parts.Add("rowversion changed");
+                    break;
+                case ColumnChangeKind.Enum:
+                    parts.Add(string.Equals(change.Baseline.EnumName, change.Effective.EnumName, StringComparison.OrdinalIgnoreCase)
+                        ? $"enum {change.Effective.EnumName} members changed"
+                        : $"enum {change.Baseline.EnumName ?? "(none)"} → {change.Effective.EnumName ?? "(none)"}");
                     break;
                 case ColumnChangeKind.Computed:
                     parts.Add(change.Effective.IsComputed

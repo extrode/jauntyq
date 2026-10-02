@@ -17,7 +17,11 @@ public enum ColumnChangeKind
     PrimaryKey,
     Identity,
     RowVersion,
-    Computed
+    Computed,
+
+    /// <summary>The column maps to a different generated enum, or its enum's
+    /// members (values or order) changed.</summary>
+    Enum
 }
 
 /// <summary>
