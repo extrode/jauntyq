@@ -40,14 +40,18 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         + "it with this message: " + ex.GetType().FullName + ": " + ex.Message;
 
     /// <summary>
-    /// Reports <see cref="JauntyDiagnostics.JNT0001"/> for an exception that escaped
-    /// one output stage. <see cref="Location.None"/> deliberately: the failure is not
+    /// <see cref="JauntyDiagnostics.JNT0001"/> for an exception that escaped one
+    /// output stage. <see cref="Location.None"/> deliberately: the failure is not
     /// attributable to any one source file, and anchoring it to an arbitrary .sql
     /// would send the consumer to edit a file that is not the cause.
     /// </summary>
-    private static void ReportInternalError(SourceProductionContext ctx, string stage, Exception ex) =>
-        ctx.ReportDiagnostic(Diagnostic.Create(
-            JauntyDiagnostics.JNT0001, Location.None, InternalErrorMessage(stage, ex)));
+    /// <remarks>
+    /// Returned rather than reported so a test can check it: the output-stage catch
+    /// blocks that report it are reached only by throws no known input makes, and a
+    /// <see cref="SourceProductionContext"/> cannot be built outside a generator run.
+    /// </remarks>
+    internal static Diagnostic InternalErrorDiagnostic(string stage, Exception ex) =>
+        Diagnostic.Create(JauntyDiagnostics.JNT0001, Location.None, InternalErrorMessage(stage, ex));
 
     /// <summary>
     /// Contains a throw out of <c>ProcessFileCore</c> to the one .sql file that

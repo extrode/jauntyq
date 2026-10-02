@@ -123,6 +123,21 @@ public class GeneratorInternalErrorTests
             message);
     }
 
+    [Fact]
+    public void AnOutputStageThrow_IsJNT0001_AtError_WithNoLocation_NamingTheStage()
+    {
+        var ex = new InvalidOperationException("the test threw this");
+
+        Diagnostic diagnostic = JauntyQGenerator.InternalErrorDiagnostic("running the N+1 analysis (JNT8008)", ex);
+
+        Assert.Equal("JNT0001", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Same(Location.None, diagnostic.Location);
+        Assert.Equal(
+            JauntyQGenerator.InternalErrorMessage("running the N+1 analysis (JNT8008)", ex),
+            diagnostic.GetMessage());
+    }
+
     private sealed class CancellingAdditionalText : AdditionalText
     {
         public CancellingAdditionalText(string path) => Path = path;
@@ -231,7 +246,7 @@ public class GeneratorInternalErrorTests
             if (Array.IndexOf(Unguarded, node) >= 0)
                 continue;
 
-            if (!body.Contains("ReportInternalError") && !body.Contains("JNT0001"))
+            if (!body.Contains("InternalErrorDiagnostic") && !body.Contains("JNT0001"))
                 unguarded.Add(node.Length == 0 ? $"(at offset {starts[i]})" : node);
         }
 
@@ -239,7 +254,7 @@ public class GeneratorInternalErrorTests
             "These output nodes have no route to JNT0001: " + string.Join(", ", unguarded)
             + ". A throw out of one of them is caught by Roslyn, reported as a CS8785 "
             + "warning, and erases generated code silently. Wrap the body in try/catch and "
-            + "call ReportInternalError, or add the node to Unguarded above with the reason "
+            + "report InternalErrorDiagnostic, or add the node to Unguarded above with the reason "
             + "it cannot throw.");
     }
 }
