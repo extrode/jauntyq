@@ -174,7 +174,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
             catch (Exception ex)
             {
-                ReportInternalError(ctx, "emitting generated code for one .sql file", ex);
+                ctx.ReportDiagnostic(InternalErrorDiagnostic("emitting generated code for one .sql file", ex));
             }
             // Stryker restore all
         });
@@ -248,7 +248,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
             catch (Exception ex)
             {
-                ReportInternalError(ctx, "checking for duplicate queries (JNT8005)", ex);
+                ctx.ReportDiagnostic(InternalErrorDiagnostic("checking for duplicate queries (JNT8005)", ex));
             }
             // Stryker restore all
         });
@@ -280,7 +280,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
             catch (Exception ex)
             {
-                ReportInternalError(ctx, "running the N+1 analysis (JNT8008)", ex);
+                ctx.ReportDiagnostic(InternalErrorDiagnostic("running the N+1 analysis (JNT8008)", ex));
             }
             // Stryker restore all
         });
@@ -314,7 +314,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             }
             catch (Exception ex)
             {
-                ReportInternalError(ctx, "running the predicate-drift analysis (JNT8011/JNT3010)", ex);
+                ctx.ReportDiagnostic(InternalErrorDiagnostic("running the predicate-drift analysis (JNT8011/JNT3010)", ex));
             }
             // Stryker restore all
         });
@@ -413,7 +413,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // every entity accessor and every row POCO, so a throw here is the
                 // route by which a consumer loses the whole generated surface while
                 // their per-query files still exist.
-                ReportInternalError(ctx, "emitting the aggregate types (JauntyDb, entity accessors, row POCOs)", ex);
+                ctx.ReportDiagnostic(InternalErrorDiagnostic("emitting the aggregate types (JauntyDb, entity accessors, row POCOs)", ex));
             }
             // Stryker restore all
         });
