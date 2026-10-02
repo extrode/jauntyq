@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using Extrode.JauntyQ.Analysis.Scoping;
 using Extrode.JauntyQ.Schema;
 using Extrode.JauntyQ.SqlParser;
 using Extrode.JauntyQ.SqlParser.IR;
@@ -318,6 +319,18 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             diagnostics.Add(DiagnosticInfo.ForValidation(error));
             if (error.Severity == ValidationSeverity.Error)
                 hasErrors = true;
+        }
+
+        // Spec 021: each reach of a scoped table with no scope-parameter proof
+        // is an error. The file still claims its method slot, so a synthetic
+        // auto-CRUD method of the same name does not quietly take its place.
+        if (schemaState.Scopes != null)
+        {
+            foreach (var reach in ScopeAnalyzer.FindUnproven(queryModel, schemaState.Scopes))
+            {
+                diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT4005, reach.Message));
+                hasErrors = true;
+            }
         }
 
         // JNT8012: the directive is present but nothing needed suppressing. An

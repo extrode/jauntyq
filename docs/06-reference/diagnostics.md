@@ -79,6 +79,7 @@ query/table; a **Warning** still emits code.
 |---|---|---|---|
 | JNT4003 | Parameter Type Unresolved | Error | `@param`'s C# type couldn't be inferred from a bound column; declare it via `-- @params name:type`. |
 | JNT4004 | Duplicate Parameter | Error | The same `@name` appears twice in a `-- @params` directive. |
+| JNT4005 | Scoped Table Reached Without Its Scope Parameter | Error | A table declared in `jaunty.scope.json` is reached without a proof that it is filtered by its scope column (spec 021). A proof is a top-level AND condition of exactly `<ref>.<column> = @param`, in the place SQL applies it: WHERE or an inner join's ON for a table read in FROM or an inner JOIN; the table's own ON (or a later RIGHT JOIN's ON) on the nullable side of an outer join; WHERE only in a FULL JOIN; WHERE for an UPDATE or DELETE target; a parameter in the column list for an INSERT target. OR, NOT, a literal, another column, `IS NULL` and `IN (@ids)` are not proof. CTE bodies and WHERE subqueries need their own. One error per unproven reach, naming it and the fix. The query is never rewritten; `-- @unscoped <reason>` accepts it. |
 
 ## 5xxx, Value Safety
 

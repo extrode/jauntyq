@@ -650,6 +650,19 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    /// <summary>
+    /// Spec 021: a table declared in <c>jaunty.scope.json</c> is reached
+    /// without a <c>column = @param</c> proof where SQL would apply it. One
+    /// per unproven reach; the message names the reach and the fix.
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT4005 = new(
+        "JNT4005",
+        "Scoped Table Reached Without Its Scope Parameter",
+        "{0}",
+        "JauntyQ.Parameters",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 5xxx: Value safety ────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT5001 = new(
