@@ -434,6 +434,15 @@ class Extrode.JauntyQ.Schema.ProcedureSchema
 class Extrode.JauntyQ.Schema.SchemaLoader
     method Load(String):DatabaseSchema
     method Serialize(DatabaseSchema):String
+class Extrode.JauntyQ.Schema.ScopeEntry
+    ctor .ctor()
+    prop Column:String
+    prop Table:String
+class Extrode.JauntyQ.Schema.ScopeFile
+    ctor .ctor()
+    prop Scopes:List<ScopeEntry>
+class Extrode.JauntyQ.Schema.ScopeLoader
+    method Load(String):ScopeFile
 class Extrode.JauntyQ.Schema.SequenceSchema
     ctor .ctor()
     prop CurrentValue:Nullable<Int64>
@@ -585,6 +594,7 @@ class Extrode.JauntyQ.SqlParser.IR.TableRef
     ctor .ctor()
     prop Alias:String
     prop Join:JoinKind
+    prop OnAtoms:List<PredicateAtom>
     prop TableName:String
 class Extrode.JauntyQ.SqlParser.SqlParser
     method Parse(List<Token>,String):QueryModel
