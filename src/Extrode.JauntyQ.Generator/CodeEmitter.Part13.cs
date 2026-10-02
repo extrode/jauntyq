@@ -322,23 +322,31 @@ public static partial class CodeEmitter
         string enumerableType = TypeRef(schema, "IEnumerable", "System.Collections.Generic");
         string rowsType = $"{enumerableType}<{rowType}>";
         string ScopeName(ColumnSchema c) => IdentifierGuard.Escape(c.Name);
+        // A scope parameter is named after its column; ours gives way on a
+        // collision, as in EmitPocoOverloads.
+        string Own(string name) => scopeCols.Exists(c => ScopeName(c) == name) ? "__" + name : name;
+        string connName = Own("conn");
+        string rowsName = Own("rows");
+        string rowLocal = Own("row");
+        string txName = Own("transaction");
+        string tokenName = Own("cancellationToken");
         string scopeParams = JoinColumns(scopeCols, "", c =>
             $"{ShortenValueTypeName(schema, DialectMapper.MapColumnToCSharp(c, dialect, schema))} {ScopeName(c)}, ");
-        string scopedRows = $"__ScopeRows(rows, {JoinColumns(scopeCols, ", ", ScopeName)})";
+        string scopedRows = $"__ScopeRows({rowsName}, {JoinColumns(scopeCols, ", ", ScopeName)})";
 
         sb.AppendLine();
-        sb.AppendLine($"        public int BulkInsert({scopeParams}{rowsType} rows) => __BulkInsertUnscoped({scopedRows});");
-        sb.AppendLine($"        public static int BulkInsert(DbConnection conn, {scopeParams}{rowsType} rows, DbTransaction? transaction = null) => __BulkInsertUnscoped(conn, {scopedRows}, transaction);");
-        sb.AppendLine($"        public {taskType}<int> BulkInsertAsync({scopeParams}{rowsType} rows, CancellationToken cancellationToken = default) => __BulkInsertUnscopedAsync({scopedRows}, cancellationToken);");
-        sb.AppendLine($"        public static {taskType}<int> BulkInsertAsync(DbConnection conn, {scopeParams}{rowsType} rows, DbTransaction? transaction = null, CancellationToken cancellationToken = default) => __BulkInsertUnscopedAsync(conn, {scopedRows}, transaction, cancellationToken);");
+        sb.AppendLine($"        public int BulkInsert({scopeParams}{rowsType} {rowsName}) => __BulkInsertUnscoped({scopedRows});");
+        sb.AppendLine($"        public static int BulkInsert(DbConnection {connName}, {scopeParams}{rowsType} {rowsName}, DbTransaction? {txName} = null) => __BulkInsertUnscoped({connName}, {scopedRows}, {txName});");
+        sb.AppendLine($"        public {taskType}<int> BulkInsertAsync({scopeParams}{rowsType} {rowsName}, CancellationToken {tokenName} = default) => __BulkInsertUnscopedAsync({scopedRows}, {tokenName});");
+        sb.AppendLine($"        public static {taskType}<int> BulkInsertAsync(DbConnection {connName}, {scopeParams}{rowsType} {rowsName}, DbTransaction? {txName} = null, CancellationToken {tokenName} = default) => __BulkInsertUnscopedAsync({connName}, {scopedRows}, {txName}, {tokenName});");
         sb.AppendLine();
-        sb.AppendLine($"        private static {rowsType} __ScopeRows({rowsType} rows, {scopeParams.TrimEnd(',', ' ')})");
+        sb.AppendLine($"        private static {rowsType} __ScopeRows({rowsType} {rowsName}, {scopeParams.TrimEnd(',', ' ')})");
         sb.AppendLine("        {");
-        sb.AppendLine("            foreach (var row in rows)");
+        sb.AppendLine($"            foreach (var {rowLocal} in {rowsName})");
         sb.AppendLine("            {");
         foreach (var c in scopeCols)
-            sb.AppendLine($"                row.{IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name))} = {ScopeName(c)};");
-        sb.AppendLine("                yield return row;");
+            sb.AppendLine($"                {rowLocal}.{IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name))} = {ScopeName(c)};");
+        sb.AppendLine($"                yield return {rowLocal};");
         sb.AppendLine("            }");
         sb.AppendLine("        }");
     }
