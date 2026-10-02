@@ -236,6 +236,12 @@ public class ScopeAnalyzerTests
     }
 
     [Fact]
+    public void AnUnaliasedTable_IsNamedOnce()
+    {
+        Assert.StartsWith("Scoped table 'orders' is read in FROM without", Only("select id from orders"));
+    }
+
+    [Fact]
     public void AColumnWithNoLetters_IsSuggestedAsItIs()
     {
         var model = SqlParser.SqlParser.Parse(SqlTokenizer.Tokenize("select id from orders"), "Q");

@@ -80,6 +80,7 @@ public static class ScopeAnalyzer
         string reference = table.Alias.Length > 0 ? table.Alias : table.TableName;
         string param = "@" + CamelCase(scope.Column);
         string qualified = $"{reference}.{scope.Column} = {param}";
+        string asAlias = table.Alias.Length > 0 ? $" (as '{table.Alias}')" : "";
         string inScope = scopeName == null ? "" : $" in {scopeName}";
         string whereClause = scopeName == null ? "the WHERE clause" : $"the WHERE clause of {scopeName}";
         string hatch = " If this query must reach every tenant's rows, mark it -- @unscoped <reason>.";
@@ -113,7 +114,7 @@ public static class ScopeAnalyzer
         {
             if (AnyProof(model.PredicateAtoms, scope.Column, refersHere))
                 return null;
-            return $"Scoped table '{scope.Table}' (as '{reference}') is in a FULL JOIN{inScope} without a filter on its scope column '{scope.Column}' in {whereClause}. "
+            return $"Scoped table '{scope.Table}'{asAlias} is in a FULL JOIN{inScope} without a filter on its scope column '{scope.Column}' in {whereClause}. "
                 + $"A FULL JOIN keeps unmatched rows from both sides, so an ON condition filters nothing. Add {qualified} as a top-level AND condition of {whereClause}.{hatch}";
         }
 
@@ -130,7 +131,7 @@ public static class ScopeAnalyzer
                 if (later.Join == JoinKind.Right && AnyProof(later.OnAtoms, scope.Column, refersHere))
                     return null;
             }
-            return $"Scoped table '{scope.Table}' (as '{reference}') is on the nullable side of a {nullableBy}{inScope} without a filter on its scope column '{scope.Column}' in that join's ON clause. "
+            return $"Scoped table '{scope.Table}'{asAlias} is on the nullable side of a {nullableBy}{inScope} without a filter on its scope column '{scope.Column}' in that join's ON clause. "
                 + $"Add {qualified} to the ON clause; in WHERE it would turn the outer join into an inner join.{hatch}";
         }
 
@@ -141,7 +142,7 @@ public static class ScopeAnalyzer
                 return null;
 
         string how = index == (model.TargetTable != null ? 1 : 0) ? "in FROM" : "in a JOIN";
-        return $"Scoped table '{scope.Table}' (as '{reference}') is read {how}{inScope} without a filter on its scope column '{scope.Column}'. "
+        return $"Scoped table '{scope.Table}'{asAlias} is read {how}{inScope} without a filter on its scope column '{scope.Column}'. "
             + $"Add {qualified} as a top-level AND condition of {whereClause}.{hatch}";
     }
 
