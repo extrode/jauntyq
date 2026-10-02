@@ -94,7 +94,7 @@ public static class SchemaSimulator
                     $"{fileName}: duplicate column '{col.Name}' in create table '{stmt.TableName}'."));
                 continue;
             }
-            table.Columns[col.Name] = Finalize(col, schema.Dialect);
+            table.Columns[col.Name] = Finalize(col, schema);
             ApplyInlineEnum(schema, stmt, stmt.TableName, col);
         }
         ApplySqliteRowidAliasing(table, schema.Dialect);
@@ -129,7 +129,7 @@ public static class SchemaSimulator
                     $"{fileName}: column '{stmt.TableName}.{col.Name}' already exists. If this migration was already deployed, archive it and re-run 'jaunty schema pull'."));
                 continue;
             }
-            table.Columns[col.Name] = Finalize(col, schema.Dialect);
+            table.Columns[col.Name] = Finalize(col, schema);
             ApplyInlineEnum(schema, stmt, table.Name, col);
         }
     }
@@ -206,7 +206,7 @@ public static class SchemaSimulator
             // no-op: the simulated schema kept reporting non-identity while
             // a live re-pull after the same migration would report identity).
             var existing = table.Columns[actualKey];
-            var updated = Finalize(col, schema.Dialect);
+            var updated = Finalize(col, schema);
             updated.IsPrimaryKey = existing.IsPrimaryKey;
             if (!string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
                 updated.IsIdentity = existing.IsIdentity;
@@ -412,6 +412,57 @@ public static class SchemaSimulator
     }
 
     /// <summary>
+    /// A column declared with a captured alias, DOMAIN or Postgres enum type
+    /// gets what a live pull gives it: an alias or domain resolves to its
+    /// underlying type with the declaration's facets where the column has
+    /// none (UserTypeResolution.Apply's rule, which lives in the extraction
+    /// assembly this one does not reference), and a Postgres enum column is
+    /// tagged with its enum. Without this a migration-added 'ssn' or 'mood'
+    /// column generated as object with a JNT2007 warning, and re-declaring an
+    /// already resolved column reported a phantom type change.
+    /// </summary>
+    private static void ResolveDeclaredType(ColumnSchema col, DatabaseSchema schema)
+    {
+        if (col.ResolvedFromUserType == null &&
+            TryGetByName(schema.UserTypes, col.DbType, out var userType) &&
+            userType.Kind is UserTypeKind.Alias or UserTypeKind.Domain &&
+            !string.IsNullOrEmpty(userType.UnderlyingDbType))
+        {
+            col.ResolvedFromUserType = userType.Name;
+            col.DbType = userType.UnderlyingDbType!;
+            col.MaxLength ??= userType.MaxLength;
+            col.Precision ??= userType.Precision;
+            col.Scale ??= userType.Scale;
+            string t = col.DbType;
+            if (col.IsUnicode == null && (t.Contains("char") || t.Contains("text") || t.Contains("clob")))
+                col.IsUnicode = t.StartsWith("n", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (col.EnumName == null &&
+            string.Equals(schema.Dialect, "postgres", StringComparison.OrdinalIgnoreCase) &&
+            TryGetByName(schema.Enums, col.DbType, out var enumSchema))
+        {
+            col.EnumName = enumSchema.Name;
+        }
+    }
+
+    private static bool TryGetByName<T>(Dictionary<string, T> map, string name, out T value)
+    {
+        if (map.TryGetValue(name, out value!))
+            return true;
+        foreach (var kvp in map)
+        {
+            if (string.Equals(kvp.Key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                value = kvp.Value;
+                return true;
+            }
+        }
+        value = default!;
+        return false;
+    }
+
+    /// <summary>
     /// MySQL inline ENUM('a','b'): builds the {Table}{Column} enum and the
     /// column facets exactly as MySqlExtractor.CaptureInlineEnum and its
     /// column query do (MaxLength is the longest member, the default
@@ -443,8 +494,11 @@ public static class SchemaSimulator
     /// SQL Server reports rowversion as 'timestamp', which is a datetime on
     /// PostgreSQL, so the concurrency-token flag is dialect-gated.
     /// </summary>
-    private static ColumnSchema Finalize(ColumnSchema col, string dialect)
+    private static ColumnSchema Finalize(ColumnSchema col, DatabaseSchema schema)
     {
+        string dialect = schema.Dialect;
+        ResolveDeclaredType(col, schema);
+
         if (col.DbType == "rowversion" ||
             (col.DbType == "timestamp" && string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase)))
         {
