@@ -147,6 +147,7 @@ public static partial class SqlParser
     {
         to.StatementType = from.StatementType;
         to.TargetTable = from.TargetTable;
+        to.TargetAlias = from.TargetAlias;
         to.Tables.AddRange(from.Tables);
         to.Columns.AddRange(from.Columns);
         to.Joins.AddRange(from.Joins);

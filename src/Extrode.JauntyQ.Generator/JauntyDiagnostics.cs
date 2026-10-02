@@ -650,6 +650,32 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    /// <summary>
+    /// Spec 021: a table declared in <c>jaunty.scope.json</c> is reached
+    /// without a <c>column = @param</c> proof where SQL would apply it. One
+    /// per unproven reach; the message names the reach and the fix.
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT4005 = new(
+        "JNT4005",
+        "Scoped Table Reached Without Its Scope Parameter",
+        "{0}",
+        "JauntyQ.Parameters",
+        DiagnosticSeverity.Error,
+        true);
+
+    /// <summary>
+    /// Spec 021: a file declares <c>-- @unscoped</c> but every scoped table it
+    /// reaches is proven, so the directive accepts nothing. Warning, as for
+    /// JNT8012.
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT4006 = new(
+        "JNT4006",
+        "Unnecessary Unscoped Acceptance",
+        "{0}",
+        "JauntyQ.Parameters",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 5xxx: Value safety ────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT5001 = new(
@@ -712,6 +738,17 @@ public static class JauntyDiagnostics
     public static readonly DiagnosticDescriptor JNT6003 = new(
         "JNT6003",
         "Invalid Acceptance File",
+        "{0}",
+        "JauntyQ.Configuration",
+        DiagnosticSeverity.Warning,
+        true);
+
+    // Spec 021. Warning, for JNT6003's reason: a malformed sidecar must not
+    // stop a build. Every message says the affected table is unscoped, so a
+    // dropped entry is never mistaken for an enforced one.
+    public static readonly DiagnosticDescriptor JNT6004 = new(
+        "JNT6004",
+        "Invalid Scope File",
         "{0}",
         "JauntyQ.Configuration",
         DiagnosticSeverity.Warning,

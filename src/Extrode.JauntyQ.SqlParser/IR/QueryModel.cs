@@ -5,6 +5,13 @@ public class QueryModel
     public string Name { get; set; } = string.Empty;
     public StatementType StatementType { get; set; } = StatementType.Select;
     public string? TargetTable { get; set; }
+
+    /// <summary>
+    /// The alias an UPDATE or DELETE gives its target table, or empty when it
+    /// gives none. Kept off the target's <see cref="TableRef"/> so existing
+    /// column resolution is unchanged.
+    /// </summary>
+    public string TargetAlias { get; set; } = string.Empty;
     public List<TableRef> Tables { get; } = new();
     public List<ColumnRef> Columns { get; } = new();
     public List<JoinRef> Joins { get; } = new();

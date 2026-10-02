@@ -202,6 +202,17 @@ public static partial class SqlParser
         if (start == -1)
             return;
 
+        SplitIntoAtoms(tokens, start, end, model.PredicateAtoms);
+    }
+
+    /// <summary>
+    /// Splits <c>tokens[start..end)</c> into top-level AND-conjuncts, appending
+    /// each to <paramref name="target"/>. Shared by the WHERE clause and each
+    /// join's ON clause (<see cref="TableRef.OnAtoms"/>), under the same two
+    /// conservatisms described on <see cref="ExtractPredicateAtoms"/>.
+    /// </summary>
+    private static void SplitIntoAtoms(List<Token> tokens, int start, int end, List<PredicateAtom> target)
+    {
         bool hasTopLevelOr = false;
         int scanDepth = 0;
         for (int i = start; i < end; i++)
@@ -245,7 +256,7 @@ public static partial class SqlParser
                 else if (!hasTopLevelOr)
                 {
                     if (current.Terms.Count > 0)
-                        model.PredicateAtoms.Add(current);
+                        target.Add(current);
                     current = new PredicateAtom();
                     continue;
                 }
@@ -254,7 +265,7 @@ public static partial class SqlParser
             current.Terms.Add(ClassifyAtomTerm(t));
         }
         if (current.Terms.Count > 0)
-            model.PredicateAtoms.Add(current);
+            target.Add(current);
     }
 
     /// <summary>

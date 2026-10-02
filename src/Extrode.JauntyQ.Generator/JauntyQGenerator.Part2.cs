@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using Extrode.JauntyQ.Analysis.Scoping;
 using Extrode.JauntyQ.Schema;
 using Extrode.JauntyQ.SqlParser;
 using Extrode.JauntyQ.SqlParser.IR;
@@ -320,6 +321,26 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 hasErrors = true;
         }
 
+        // Spec 021: each reach of a scoped table with no scope-parameter proof
+        // is an error. The file still claims its method slot, so a synthetic
+        // auto-CRUD method of the same name does not quietly take its place.
+        // -- @unscoped <reason> accepts them for this file only.
+        bool unscoped = directives.UnscopedReason != null;
+        bool suppressedUnscoped = false;
+        if (schemaState.Scopes != null)
+        {
+            foreach (var reach in ScopeAnalyzer.FindUnproven(queryModel, schemaState.Scopes))
+            {
+                if (unscoped)
+                {
+                    suppressedUnscoped = true;
+                    continue;
+                }
+                diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT4005, reach.Message));
+                hasErrors = true;
+            }
+        }
+
         // JNT8012: the directive is present but nothing needed suppressing. An
         // exemption that outlives the condition that justified it is how an
         // escape hatch quietly becomes the default, so a dead one is reported
@@ -351,6 +372,16 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 "-- @allow-unindexed is declared but no filter column on this query is unindexed, so it " +
                 "suppresses nothing. The index it was waiting for probably exists now: remove the directive. " +
                 $"(Stated reason: {directives.AllowUnindexedReason})"));
+        }
+
+        // JNT4006, gated like JNT8012: only when the scope analysis reached a
+        // verdict, which needs a scope file with at least one entry left.
+        if (unscoped && !suppressedUnscoped && schemaState.Scopes is { Count: > 0 })
+        {
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT4006,
+                "-- @unscoped is declared but this query reaches every scoped table with its scope parameter, " +
+                "so it accepts nothing. Remove the directive. " +
+                $"(Stated reason: {directives.UnscopedReason})"));
         }
 
         // The sort half, gated identically. Naming the directive in the message

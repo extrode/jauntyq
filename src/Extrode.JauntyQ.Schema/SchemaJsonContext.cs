@@ -29,6 +29,8 @@ namespace Extrode.JauntyQ.Schema;
 [JsonSerializable(typeof(UserTypeKind))]
 [JsonSerializable(typeof(AcceptanceFile))]
 [JsonSerializable(typeof(AcceptanceEntry))]
+[JsonSerializable(typeof(ScopeFile))]
+[JsonSerializable(typeof(ScopeEntry))]
 internal sealed partial class SchemaJsonContext : JsonSerializerContext
 {
 }

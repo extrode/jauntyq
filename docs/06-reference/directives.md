@@ -34,6 +34,7 @@ stripped from the emitted `CommandText`; the SQL that runs never contains them.
 | [`-- @allow-unindexed`](#-allow-unindexed) | any with a WHERE | Accept this query's unindexed filter columns deliberately. Reason mandatory. |
 | [`-- @allow-sort`](#-allow-sort) | any with an ORDER BY | Accept this query's runtime sort deliberately. Reason mandatory. |
 | [`-- @allow-n-plus-one`](#-allow-n-plus-one) | any child point lookup by a foreign key | Accept this query's N+1 shape deliberately. Reason mandatory. |
+| [`-- @unscoped`](#-unscoped) | any reaching a table in `jaunty.scope.json` | Accept that this query reaches scoped rows without the scope parameter. Reason mandatory. |
 
 ---
 
@@ -407,6 +408,29 @@ gone, because the parent-collection query was deleted or the child lookup was
 made set-based, the directive stops hiding an accepted pattern and starts hiding
 a future one, so the build asks for it to be removed. The message repeats the
 stated reason.
+
+### `-- @unscoped`
+
+Accepts that this query reaches a scoped table without proving it is filtered by
+its scope column, suppressing `JNT4005` for this file and nothing else. A reason
+is required.
+
+```sql
+-- @unscoped nightly billing totals every tenant's orders
+SELECT o.tenant_id, SUM(o.total) AS total
+FROM orders o
+GROUP BY o.tenant_id
+```
+
+A table is scoped when `jaunty.scope.json` names it (see
+[configuration](configuration.md)). Without this directive, every reach of a
+scoped table needs a top-level `<ref>.<column> = @param` condition where SQL
+applies it; `JNT4005` lists the rules. The directive covers its own file only: a
+query in another file reaching the same table is still checked.
+
+A bare `-- @unscoped` accepts nothing and is reported as `JNT3008`. Once the
+query proves every scoped reach, the directive is reported as unnecessary
+(`JNT4006`): remove it.
 
 ## Related diagnostics
 

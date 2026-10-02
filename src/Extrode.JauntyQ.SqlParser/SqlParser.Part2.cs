@@ -182,12 +182,14 @@ public static partial class SqlParser
                 }
             }
 
-            model.Tables.Add(new TableRef { TableName = tableName, Alias = alias, Join = joinKind });
+            var joined = new TableRef { TableName = tableName, Alias = alias, Join = joinKind };
+            model.Tables.Add(joined);
 
             // Parse ON condition
             if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "ON")
             {
                 pos++; // skip ON
+                SplitIntoAtoms(tokens, pos, FindOnClauseEnd(tokens, pos), joined.OnAtoms);
                 pos = ParseJoinCondition(tokens, pos, model);
             }
             else if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
@@ -240,6 +242,51 @@ public static partial class SqlParser
 
         return pos;
     }
+
+    /// <summary>
+    /// The index one past the last token of the ON clause starting at
+    /// <paramref name="pos"/>: the next depth-0 keyword that begins another
+    /// join or clause, or a depth-0 comma or semicolon. Without one the clause
+    /// runs to the end, where <see cref="SplitIntoAtoms"/> stops at the End
+    /// sentinel. <c>left(...)</c> and <c>right(...)</c> are the string
+    /// functions, not joins.
+    /// </summary>
+    private static int FindOnClauseEnd(List<Token> tokens, int pos)
+    {
+        int depth = 0;
+        for (int i = pos; i < tokens.Count; i++)
+        {
+            var t = tokens[i];
+            if (t.Type == TokenType.Symbol)
+            {
+                if (t.Value == "(")
+                    depth++;
+                else if (t.Value == ")")
+                    depth--;
+                else if (depth == 0 && (t.Value == "," || t.Value == ";"))
+                    return i;
+                continue;
+            }
+            if (depth != 0)
+                continue;
+            if (t.Type == TokenType.Keyword && OnClauseTerminators.Contains(t.Value) && !IsFunctionCall(tokens, i))
+                return i;
+            if (IsNaturalKeyword(t))
+                return i;
+        }
+        return tokens.Count;
+    }
+
+    private static bool IsFunctionCall(List<Token> tokens, int i) =>
+        (tokens[i].Value == "LEFT" || tokens[i].Value == "RIGHT")
+        && i + 1 < tokens.Count && tokens[i + 1].Type == TokenType.Symbol && tokens[i + 1].Value == "(";
+
+    private static readonly HashSet<string> OnClauseTerminators = new(StringComparer.Ordinal)
+    {
+        "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "CROSS", "FULL",
+        "WHERE", "GROUP", "ORDER", "HAVING", "LIMIT", "OFFSET",
+        "UNION", "INTERSECT", "EXCEPT", "RETURNING", "SET",
+    };
 
     private static int ParseJoinCondition(List<Token> tokens, int pos, QueryModel model)
     {

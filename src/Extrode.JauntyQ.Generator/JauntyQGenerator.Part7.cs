@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using Extrode.JauntyQ.Analysis.Scoping;
 using Extrode.JauntyQ.Schema;
 using Extrode.JauntyQ.SqlParser;
 using Extrode.JauntyQ.SqlParser.IR;
@@ -39,6 +40,17 @@ internal sealed class SchemaState
     public SchemaDelta? MigrationDelta { get; }
 
     /// <summary>
+    /// The scopes <c>jaunty.scope.json</c> declares that survived resolution
+    /// against the effective schema (spec 021), or null when there is no scope
+    /// file or no schema to resolve it against. Null, not empty, so a project
+    /// without the file takes none of the scoped code paths.
+    /// </summary>
+    public IReadOnlyList<ScopeColumn>? Scopes { get; }
+
+    /// <summary>JNT6004 for each scope entry that was dropped, or for a file that would not parse.</summary>
+    public ImmutableArray<DiagnosticInfo> ScopeDiagnostics { get; }
+
+    /// <summary>
     /// The state a throw out of <see cref="Load"/> degrades to: no schema, and the
     /// message that says why. ParseFailed is left false so JNT6001 does not also
     /// fire — one internal error reads better than an internal error plus a
@@ -50,8 +62,12 @@ internal sealed class SchemaState
     private SchemaState(DatabaseSchema? schema, bool parseFailed,
         ImmutableArray<DiagnosticInfo> migrationDiagnostics = default,
         SchemaDelta? migrationDelta = null,
-        string? internalError = null)
+        string? internalError = null,
+        IReadOnlyList<ScopeColumn>? scopes = null,
+        ImmutableArray<DiagnosticInfo> scopeDiagnostics = default)
     {
+        Scopes = scopes;
+        ScopeDiagnostics = scopeDiagnostics.IsDefault ? ImmutableArray<DiagnosticInfo>.Empty : scopeDiagnostics;
         Schema = schema;
         ParseFailed = parseFailed;
         InternalError = internalError;
@@ -62,6 +78,38 @@ internal sealed class SchemaState
     }
 
     public static SchemaState Load(
+        string? json,
+        ImmutableArray<(string Name, string Text)> migrations,
+        ImmutableArray<(string Name, string Text)> ddlFiles,
+        string? dialectOverride,
+        string? scopePath = null,
+        string? scopeJson = null)
+    {
+        var state = LoadSchema(json, migrations, ddlFiles, dialectOverride);
+        if (scopeJson == null || state.Schema == null)
+            return state;
+
+        var problems = new List<string>();
+        List<ScopeColumn> scopes;
+        try
+        {
+            scopes = ScopeResolver.Resolve(ScopeLoader.Load(scopeJson), state.Schema, problems);
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            scopes = new List<ScopeColumn>();
+            problems.Add($"Scope file '{scopePath}' could not be read ({ex.Message}). Every table is unscoped until it is fixed.");
+        }
+
+        var diagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>(problems.Count);
+        foreach (var problem in problems)
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT6004, $"{problem} ({scopePath})"));
+
+        return new SchemaState(state.Schema, state.ParseFailed, state.MigrationDiagnostics, state.MigrationDelta,
+            state.InternalError, scopes, diagnostics.MoveToImmutable());
+    }
+
+    private static SchemaState LoadSchema(
         string? json,
         ImmutableArray<(string Name, string Text)> migrations,
         ImmutableArray<(string Name, string Text)> ddlFiles,

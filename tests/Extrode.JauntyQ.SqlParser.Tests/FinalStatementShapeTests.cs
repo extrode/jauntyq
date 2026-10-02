@@ -135,6 +135,7 @@ public class FinalStatementShapeTests
     {
         nameof(QueryModel.StatementType),
         nameof(QueryModel.TargetTable),
+        nameof(QueryModel.TargetAlias),
         nameof(QueryModel.Tables),
         nameof(QueryModel.Columns),
         nameof(QueryModel.Joins),
