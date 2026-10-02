@@ -208,6 +208,8 @@ public static class SchemaSimulator
             updated.IsPrimaryKey = existing.IsPrimaryKey;
             if (!string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
                 updated.IsIdentity = existing.IsIdentity;
+            if (stmt.TypeOnly)
+                updated.IsNullable = existing.IsNullable;
             // Reassign under the RESOLVED key, not col.Name: if the migration
             // spells the column differently-cased than the stored key,
             // indexing by col.Name would silently ADD a second, duplicate
