@@ -102,8 +102,8 @@ public static class MigrationParser
         pos++; // skip (
 
         // Table-level UNIQUE/FOREIGN/CHECK constraints aren't modeled (the
-        // simulator has no secondary-index/FK/check population from
-        // migrations) -- each becomes its own sibling Unsupported statement
+        // simulator populates no secondary index, check, or table-level FK
+        // from migrations; only an inline column REFERENCES is captured) -- each becomes its own sibling Unsupported statement
         // so JNT9001 fires, matching ALTER TABLE ADD CONSTRAINT's identical
         // handling, instead of silently vanishing with no diagnostic at all.
         var unsupported = new List<MigrationStatement>();

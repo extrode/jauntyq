@@ -83,6 +83,7 @@ public class SchemaSimulatorInlineReferencesTests
     [InlineData("ON DELETE SET NULL")]
     [InlineData("ON DELETE SET DEFAULT ON UPDATE CASCADE")]
     [InlineData("ON UPDATE NO ACTION ON DELETE RESTRICT")]
+    [InlineData("ON UPDATE SET NULL")]
     public void Referential_actions_do_not_change_nullability(string actions)
     {
         var (effective, _) = Apply(Snapshot("postgres"), $"CREATE TABLE orders (id int primary key, customer_id int NOT NULL REFERENCES customers(id) {actions});");
