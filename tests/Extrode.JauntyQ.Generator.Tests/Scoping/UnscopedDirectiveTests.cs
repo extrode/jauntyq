@@ -29,6 +29,24 @@ public class UnscopedDirectiveTests
     }
 
     [Fact]
+    public void AMisspeltDirective_IsFlagged()
+    {
+        var result = Run(OrdersAndLines, ("db/Orders/GetByNote.sql", "-- @unscope support looks up a note across tenants\n" + Unproven));
+
+        Assert.Single(Messages(result, "JNT4005"));
+        Assert.Contains("unscoped", Assert.Single(Messages(result, "JNT3008")));
+    }
+
+    [Fact]
+    public void AProvenQueryWithoutTheDirective_RaisesNothing()
+    {
+        var result = Run(OrdersAndLines, ("db/Orders/GetMine.sql", Proven));
+
+        Assert.Empty(Messages(result, "JNT4005"));
+        Assert.Empty(Messages(result, "JNT4006"));
+    }
+
+    [Fact]
     public void ADirective_CoversItsOwnFileOnly()
     {
         var result = Run(OrdersAndLines,
