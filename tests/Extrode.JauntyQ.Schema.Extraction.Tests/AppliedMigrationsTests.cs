@@ -146,7 +146,7 @@ public class AppliedMigrationsTests
     }
 
     [Fact]
-    public async Task Sqlite_MatchesTheTableNameWithoutRegardToCase()
+    public async Task Sqlite_MatchesTheNameWithoutRegardToCase_AndReadsAView()
     {
         string path = Path.Combine(Path.GetTempPath(), "jq-applied-" + Guid.NewGuid().ToString("N") + ".db");
         string connection = $"Data Source={path}";
@@ -157,6 +157,15 @@ public class AppliedMigrationsTests
                 await conn.OpenAsync();
                 await ExecuteAsync(conn, "CREATE TABLE Schema_Migrations (version TEXT NOT NULL)");
                 await ExecuteAsync(conn, "INSERT INTO Schema_Migrations (version) VALUES ('V1__a.sql')");
+            }
+
+            Assert.Equal(new[] { "V1__a.sql" }, await AppliedMigrations.ReadAsync("sqlite", connection));
+
+            await using (var conn = new SqliteConnection(connection))
+            {
+                await conn.OpenAsync();
+                await ExecuteAsync(conn, "ALTER TABLE Schema_Migrations RENAME TO runner_log");
+                await ExecuteAsync(conn, "CREATE VIEW schema_migrations AS SELECT version FROM runner_log");
             }
 
             Assert.Equal(new[] { "V1__a.sql" }, await AppliedMigrations.ReadAsync("sqlite", connection));
@@ -171,7 +180,7 @@ public class AppliedMigrationsTests
     [Fact]
     public async Task Sqlite_AnInMemoryDatabaseOpens()
     {
-        Assert.Null(await AppliedMigrations.ReadAsync("sqlite", "Data Source=:memory:"));
+        Assert.Null(await AppliedMigrations.ReadAsync("sqlite", "Data Source=jq-applied-memory;Mode=Memory"));
     }
 
     [Fact]
