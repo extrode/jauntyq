@@ -18,6 +18,9 @@ name: Mutation (emitter)
 # schedule and workflow_dispatch only fire once this file is on the default branch (main). Until
 # then, and for any one-off run after, push a commit to run/mutation-emitter:
 #   git push origin dev:run/mutation-emitter
+# A push run mutates only code changed since the branch's previous tip (Stryker --since), so a
+# confirming run after a fix costs minutes, not the full run. The first push of the branch, the
+# schedule and workflow_dispatch run everything.
 on:
   schedule:
     - cron: '0 6 * * 0'
@@ -41,6 +44,9 @@ jobs:
         shard: [emitter-1, emitter-2, emitter-3, emitter-4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # --since below diffs against the previous push, which a shallow clone does not have.
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -64,6 +70,7 @@ jobs:
           dotnet-stryker
           --config-file stryker-config.${{ matrix.shard }}.json
           --concurrency ${{ vars.CI_MUTATION_CONCURRENCY || '16' }}
+          ${{ github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && format('--since:{0}', github.event.before) || '' }}
 
       - name: Upload report
         if: always()

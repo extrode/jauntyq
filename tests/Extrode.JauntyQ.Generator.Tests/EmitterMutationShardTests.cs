@@ -66,4 +66,14 @@ public class EmitterMutationShardTests
         Assert.Contains("shard: [" + string.Join(", ", Shards) + "]", workflow, StringComparison.Ordinal);
         Assert.Contains("--config-file stryker-config.${{ matrix.shard }}.json", workflow, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void APushRun_MutatesOnlyCodeChangedSinceThePreviousPush()
+    {
+        string workflow = File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", "mutation-emitter.yml"));
+
+        Assert.Contains("fetch-depth: 0", workflow, StringComparison.Ordinal);
+        Assert.Contains("github.event_name == 'push'", workflow, StringComparison.Ordinal);
+        Assert.Contains("format('--since:{0}', github.event.before)", workflow, StringComparison.Ordinal);
+    }
 }
