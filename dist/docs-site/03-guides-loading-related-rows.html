@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Conventions — jauntyq — jauntyq docs</title>
+<title>Loading parents with their children — jauntyq docs</title>
 <link rel="stylesheet" href="site.css">
 <script>
 /* Inline, in the head, and before anything paints. A saved preference applied
@@ -56,7 +56,7 @@
     <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
     <div class="header-brand">
       <span class="brand-name">jauntyq</span>
-      <span class="brand-crumb">General &#8250; Conventions — jauntyq</span>
+      <span class="brand-crumb">Guides &#8250; Loading parents with their children</span>
     </div>
     <div class="header-spacer"></div>
     <div class="header-tools">
@@ -86,12 +86,12 @@
         <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
       </div>
       <div class="sidebar-scroll" id="sidebar-scroll">
-        <div class="nav-group" data-group data-open="true">
+        <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
     <span class="nav-group-label">General</span>
   </div>
-  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html" class="active" aria-current="page">Conventions — jauntyq</a>  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — jauntyq</a>  <a href="conventions.html">Conventions — jauntyq</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -114,12 +114,12 @@
   </div>
   <div class="nav-group-items">  <a href="02-learn-readme.html">Your first hour with JauntyQ</a>  <a href="02-learn-exercises.html">Exercises</a>  </div>
 </div>
-<div class="nav-group" data-group>
+<div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Guides</span>
   </div>
-  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html" class="active" aria-current="page">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -142,41 +142,104 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#file--directory-naming">File &amp; directory naming</a><a class="toc-l2" href="#git-workflow">Git workflow</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#the-problem-one-query-per-parent">The problem: one query per parent</a><a class="toc-l2" href="#the-fix-two-queries-and-a-stitch">The fix: two queries and a stitch</a><a class="toc-l2" href="#why-there-is-no-eager-loading">Why there is no eager loading</a></nav>
       <div class="content-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">General &#8250; Conventions — jauntyq</nav>
+        <nav class="breadcrumb" aria-label="Breadcrumb">Guides &#8250; Loading parents with their children</nav>
         <article>
-<h1 id="conventions--jauntyq">Conventions — jauntyq</h1>
-<p>Mechanical how-we-work rules. Defaults are project-local;
-this file records project-specific deltas. Binding principles live in docs/constitution.md;
-project memory lives in docs/lessons/.</p>
-<h2 id="file--directory-naming">File &amp; directory naming</h2>
+<h1 id="loading-parents-with-their-children">Loading parents with their children</h1>
+<p>You have a list of parent rows (orders) and want each one's children (order
+items). This guide shows the pattern JauntyQ supports for that, and why it does
+not offer eager loading.</p>
+<h2 id="the-problem-one-query-per-parent">The problem: one query per parent</h2>
+<p>The obvious code calls a child lookup once for every parent:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> orders = db.<span class="tok-var">Orders</span>.<span class="tok-fn">GetRecent</span>(since);
+<span class="tok-ctl">foreach</span> (<span class="tok-kw">var</span> order <span class="tok-kw">in</span> orders)
+{
+    <span class="tok-kw">var</span> items = db.<span class="tok-var">OrderItems</span>.<span class="tok-fn">GetByOrderId</span>(order.<span class="tok-var">OrderId</span>);   <span class="tok-com">// one round trip per order</span>
+}
+</code></pre>
+</div>
+<p>For 200 orders that is 201 queries. This is the N+1 pattern, and <code>JNT8008</code>
+warns about it when your project has both a query returning many parents and a
+child lookup by the foreign key to that parent.</p>
+<h2 id="the-fix-two-queries-and-a-stitch">The fix: two queries and a stitch</h2>
+<p>Read the parents, then read <strong>all</strong> their children in one query, then group the
+children in C#.</p>
+<p>The child query takes a list of parent ids. <code>-- @each</code> turns the parameter into
+a list and expands it at call time:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- db/OrderItems/GetByOrderIds.sql</span>
+<span class="tok-com">-- @each ParentIds</span>
+<span class="tok-kw">SELECT</span> order_item_id, order_id, sku, quantity
+<span class="tok-kw">FROM</span> order_items
+<span class="tok-kw">WHERE</span> order_items.order_id <span class="tok-kw">IN</span> (<span class="tok-var">@ParentIds</span>)
+</code></pre>
+</div>
+<p>Select the foreign key column (<code>order_id</code> here) so you can group on it.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> orders = db.<span class="tok-var">Orders</span>.<span class="tok-fn">GetRecent</span>(since);
+<span class="tok-kw">var</span> items = db.<span class="tok-var">OrderItems</span>.<span class="tok-fn">GetByOrderIds</span>(orders.<span class="tok-fn">Select</span>(o =&gt; o.<span class="tok-var">OrderId</span>).<span class="tok-fn">ToList</span>());
+<span class="tok-kw">var</span> itemsByOrder = items.<span class="tok-fn">ToLookup</span>(i =&gt; i.<span class="tok-var">OrderId</span>);
+
+<span class="tok-ctl">foreach</span> (<span class="tok-kw">var</span> order <span class="tok-kw">in</span> orders)
+{
+    <span class="tok-ctl">foreach</span> (<span class="tok-kw">var</span> item <span class="tok-kw">in</span> itemsByOrder[order.<span class="tok-var">OrderId</span>])
+    {
+        <span class="tok-com">// ...</span>
+    }
+}
+</code></pre>
+</div>
+<p>That is two queries however many orders there are. <code>JNT8008</code> does not fire on
+a child query that filters its foreign key with <code>IN</code>.</p>
+<p>Things to know:</p>
 <ul>
-<li>kebab-case for files and dirs: <code>mail-pipeline.md</code>, <code>data-model.sql</code>.</li>
-<li>Except where an established convention dictates otherwise: <code>README.md</code>, <code>CHANGELOG.md</code>,
-<code>LICENSE.md</code>, <code>Directory.Build.props</code>, or language-mandated casing (C# <code>PascalCase.cs</code>).</li>
-<li>Unsure? Match the nearest existing sibling file.</li>
+<li><strong>An empty list costs nothing.</strong> With no parents, the child query returns an
+empty result without opening a connection.</li>
+<li><strong>Very long lists have a limit.</strong> Each list element is one parameter, and each
+database caps parameters per command (2,000 on SQL Server). Past that the call
+fails fast with <code>ArgumentException</code>; split the ids into chunks. See
+<a href="06-reference-directives.html#-each"><code>-- @each</code></a> for the per-dialect numbers.</li>
+<li><strong>Composite foreign keys</strong> do not fit this pattern, because <code>-- @each</code> expands
+one parameter, not a tuple. Join the child into the parent query instead.</li>
+<li><strong>The other fix is a join.</strong> One query that joins children to parents returns
+each parent once per child. That suits small, flat reports; the two-query form
+suits building a parent-with-children structure.</li>
+<li><strong>Counting children</strong> (<code>COUNT(*)</code> per parent) is better as one grouped query:
+<code>JOIN order_items ... GROUP BY order_id</code>.</li>
 </ul>
-<h2 id="git-workflow">Git workflow</h2>
-<ul>
-<li><code>main</code> is release-only; <code>dev</code> is integration. Never commit directly to either.</li>
-<li>All work on named branches off <code>dev</code> (<code>feat/ fix/ chore/ docs/ refactor/ test/</code>). Commit often.</li>
-<li>Merge completed branches back to <code>dev</code> with <code>--no-ff</code>. Always merge once a branch is complete —
-never leave finished work unmerged.</li>
-<li>Release: <code>dev</code> -&gt; <code>main</code> <code>--no-ff</code> + semver tag. Ask before deleting branches.</li>
-</ul>
-<hr />
-<p>This file is a stub. Populate it with project-specific mechanical conventions as they are
-established, following the same structure as jaunty's <code>docs/conventions.md</code>.</p>
+<h2 id="why-there-is-no-eager-loading">Why there is no eager loading</h2>
+<p>JauntyQ does not plan to add eager loading (<code>Include</code>, <code>select_related</code>). Eager
+loading means taking one flat result set and rebuilding an object graph from
+it: removing the repeated parent rows, keying by primary key and filling child
+collections. That is the core of an ORM, and JauntyQ's model is that the SQL in
+your file is the SQL that runs, returned as flat typed rows. The two-query
+stitch above gets the same result with SQL you can read and a few lines of C#.</p>
+<p>If an N+1 lookup is deliberate (one customer at a time on a detail screen,
+never in a loop), accept it for that query with
+<a href="06-reference-directives.html#-allow-n-plus-one"><code>-- @allow-n-plus-one &lt;reason&gt;</code></a>.</p>
 
         </article>
         <div class="page-nav" id="page-nav">
-          <div class="prev-next"><a class="pn-prev" href="constitution.html">
+          <div class="prev-next"><a class="pn-prev" href="03-guides-licensing-and-activation.html">
   <span class="pn-label">&#8592; prev</span>
-  <span class="pn-title">Constitution — jauntyq</span>
-</a><a class="pn-next" href="00-overview-readme.html">
+  <span class="pn-title">Licensing and activation</span>
+</a><a class="pn-next" href="03-guides-migrating-from-dapper-and-ef.html">
   <span class="pn-label">next &#8594;</span>
-  <span class="pn-title">JauntyQ Documentation</span>
+  <span class="pn-title">Migrating from Dapper or EF Core</span>
 </a></div>
         </div>
       </div>
