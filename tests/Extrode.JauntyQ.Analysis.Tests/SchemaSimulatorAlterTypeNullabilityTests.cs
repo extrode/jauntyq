@@ -43,9 +43,20 @@ public class SchemaSimulatorAlterTypeNullabilityTests
     }
 
     [Fact]
+    public void Postgres_set_data_type_keeps_not_null()
+    {
+        var (effective, errors) = Apply(Snapshot("postgres", qtyNullable: false), "ALTER TABLE items ALTER COLUMN qty SET DATA TYPE bigint;");
+
+        var qty = effective.Tables["items"].Columns["qty"];
+        Assert.Empty(errors);
+        Assert.Equal("bigint", qty.DbType);
+        Assert.False(qty.IsNullable);
+    }
+
+    [Fact]
     public void Postgres_alter_type_keeps_nullable()
     {
-        var (effective, _) = Apply(Snapshot("postgres", qtyNullable: true), "ALTER TABLE items ALTER COLUMN qty SET DATA TYPE bigint;");
+        var (effective, _) = Apply(Snapshot("postgres", qtyNullable: true), "ALTER TABLE items ALTER COLUMN qty TYPE bigint;");
 
         Assert.True(effective.Tables["items"].Columns["qty"].IsNullable);
     }

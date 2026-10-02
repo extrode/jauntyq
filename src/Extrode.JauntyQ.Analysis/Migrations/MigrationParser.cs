@@ -453,8 +453,9 @@ public static class MigrationParser
         // there) the column came out nullable: a NOT NULL integer widened to
         // bigint generated as long?, and the impact report showed a
         // nullability change the migration never made. TypeOnly tells the
-        // simulator to keep the existing nullability, and the USING
-        // expression is cut off so nothing in it is read as a flag.
+        // simulator to keep the existing nullability. A USING expression is
+        // left to the flags loop, which skips its tokens; the NULL/NOT NULL
+        // it might contain is overridden by TypeOnly.
         bool typeOnly = false;
         int typeAt = p + 1;
         if (isAlterColumn && Is(body, typeAt, "SET") && Is(body, typeAt + 1, "DATA") && Is(body, typeAt + 2, "TYPE"))
@@ -467,8 +468,6 @@ public static class MigrationParser
         {
             if (typeOnly && i > p && i <= typeAt)
                 continue;
-            if (typeOnly && Is(body, i, "USING"))
-                break;
             def.Add(body[i]);
         }
 
