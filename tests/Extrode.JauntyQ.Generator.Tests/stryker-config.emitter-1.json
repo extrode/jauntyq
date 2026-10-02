@@ -1,0 +1,10 @@
+{
+  "_comment": "One of four emitter shards run by .github/workflows/mutation-emitter.yml on Blacksmith. The emitter files are outside stryker-config.json's mutate scope, and all of them in one run (4,365 testable mutants) did not finish in 2 hours locally on 2026-10-02, so they are split by file into shards of roughly equal size. Files are listed by name, not by glob range, so EmitterMutationShardTests can check every emitter file is in exactly one shard.",
+  "stryker-config": {
+    "project": "Extrode.JauntyQ.Generator.csproj",
+    "mutate": ["**/CodeEmitter.cs", "**/CodeEmitter.Part2.cs", "**/CodeEmitter.Part3.cs", "**/CodeEmitter.Part4.cs", "**/CodeEmitter.Part5.cs", "**/CodeEmitter.Part6.cs", "**/CodeEmitter.Part7.cs", "**/CodeEmitter.Part8.cs"],
+    "reporters": ["progress", "json", "html"],
+    "verbosity": "info",
+    "thresholds": { "high": 80, "low": 65, "break": 0 }
+  }
+}

@@ -1,0 +1,68 @@
+name: Mutation (emitter)
+
+# Mutation testing for the Generator's emitter files (CodeEmitter*.cs, JauntyQGenerator*.cs), which
+# nightly.yml's Generator shard leaves out of its mutate scope. Kept out of nightly.yml because it
+# is too big for a hosted runner: the nightly Generator shard already takes 3 h 12 m of its 240-minute
+# cap on a 2-core runner (2026-10-01), and the emitter files alone were 4,365 testable mutants that
+# did not finish in 2 hours on a 16-thread desktop (2026-10-02). So this runs on Blacksmith, split
+# into four shards by file, weekly and on demand rather than nightly.
+#
+# Blacksmith's free minutes are 2vCPU-minutes, so a 16 vCPU runner bills at 8x wall clock, and the
+# allowance is shared with jaunty's weekly mutation job. Check that before adding shards or moving
+# other jobs here.
+#
+# A `runs-on` label no runner answers to does not fail; the job queues until GitHub drops it. If the
+# Blacksmith app is not enabled for this repository, these jobs sit queued. Set CI_MUTATION_RUNNER
+# to a hosted label to run them elsewhere, or CI_MUTATION_EMITTER_ENABLED to 'false' to skip them.
+on:
+  schedule:
+    - cron: '0 6 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    name: Mutate ${{ matrix.shard }}
+    if: vars.CI_MUTATION_EMITTER_ENABLED != 'false'
+    runs-on: ${{ vars.CI_MUTATION_RUNNER || 'blacksmith-16vcpu-ubuntu-2404' }}
+    # GitHub's 360-minute job default applies on Blacksmith too; 240 fails a hung run first.
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [emitter-1, emitter-2, emitter-3, emitter-4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Install Stryker.NET
+        run: dotnet tool install --global dotnet-stryker
+
+      # Stryker's own restore retry does not recover a never-restored multi-TFM test project.
+      - name: Restore
+        run: dotnet restore JauntyQ.slnx
+
+      # Concurrency is passed, not left to Stryker: Blacksmith runners report the host's CPU count
+      # rather than the allocated vCPUs, so self-sizing over-subscribes. 16 matches the 16 vCPU label.
+      - name: Mutate ${{ matrix.shard }}
+        working-directory: tests/Extrode.JauntyQ.Generator.Tests
+        run: >-
+          dotnet-stryker
+          --config-file stryker-config.${{ matrix.shard }}.json
+          --concurrency ${{ vars.CI_MUTATION_CONCURRENCY || '16' }}
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: stryker-${{ matrix.shard }}
+          path: tests/Extrode.JauntyQ.Generator.Tests/StrykerOutput/**/reports/
+          if-no-files-found: ignore
