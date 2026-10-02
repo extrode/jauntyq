@@ -62,6 +62,10 @@ match):
 Any path component literally named `ddl` or `migrations` triggers that
 classification, regardless of depth.
 
+JauntyQ never applies migrations to a database. The
+[migration tracking contract](migration-tracking-contract.md) says what your
+own runner needs to do to agree with it.
+
 ## Schema-source precedence
 
 1. If a `.schema.json` snapshot is present, it is authoritative and any
