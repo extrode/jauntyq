@@ -204,6 +204,6 @@ public static class ScopeAnalyzer
     private static string CamelCase(string column)
     {
         string pascal = DialectMapper.ToPascalCase(column);
-        return pascal.Length == 0 ? column : char.ToLowerInvariant(pascal[0]) + pascal.Substring(1);
+        return char.ToLowerInvariant(pascal[0]) + pascal.Substring(1);
     }
 }
