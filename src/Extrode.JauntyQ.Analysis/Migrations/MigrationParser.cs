@@ -491,9 +491,11 @@ public static class MigrationParser
         // ("AS (Qty) + CASE ..."). Either way the expression runs to the first
         // PERSISTED outside a paren group (the only thing that may follow it),
         // so a "CASE WHEN x IS NOT NULL ..." inside it is not read as the
-        // column's nullability. NOT NULL or NULL straight after a paren group
-        // also ends it: "AS (a + b) NOT NULL" is accepted as the column's
-        // nullability though T-SQL wants PERSISTED first.
+        // column's nullability. NOT NULL or NULL straight after a leading
+        // paren group also ends it: "AS (a + b) NOT NULL" is accepted as the
+        // column's nullability though T-SQL wants PERSISTED first. A group
+        // later in the expression does not, so "CASE WHEN (qty) NOT IN ..."
+        // keeps scanning.
         if (def[1].Type == TokenType.Keyword && string.Equals(def[1].Value, "AS", StringComparison.OrdinalIgnoreCase) &&
             def.Count > 2)
         {
@@ -513,8 +515,9 @@ public static class MigrationParser
                     cp++;
                     continue;
                 }
+                bool leading = cp == 2;
                 SkipParenGroup(def, ref cp);
-                if (Is(def, cp, "NOT") || Is(def, cp, "NULL"))
+                if (leading && ((Is(def, cp, "NOT") && Is(def, cp + 1, "NULL")) || Is(def, cp, "NULL")))
                     break;
             }
             // Stryker disable once Equality : `<=` runs one extra iteration at cp == def.Count where Is() sees no token and the catch-all only advances cp, so it ends in the same state; `<`-to-`>` is also covered by this disable but skips the loop, which any computed-column test with NULL or NOT NULL after the expression kills (`>` is also hidden by this disable; existing tests kill it)
