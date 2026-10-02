@@ -91,8 +91,11 @@ Extra columns (who applied it, a checksum, run duration) are fine. Keep
   PostgreSQL's `CREATE INDEX CONCURRENTLY`. Put each such statement in a file of
   its own, run it outside a transaction, and record it only after it succeeds.
 
-## What is planned
+## Checking a database against this contract
 
-A read-only `jauntyq migrate status` command is planned. It would compare the
-`schema_migrations` table against `db/migrations/` and report the difference,
-using the table shape above.
+`jauntyq migrate status` reads the `schema_migrations` table and compares it
+with `db/migrations/`, using the table shape and file order above. It lists the
+pending files in apply order and exits `2` on drift: a file that is recorded as
+applied but still in the folder, or a pending file that sorts before the latest
+applied one. `--fail-on pending` also fails on any pending file, for a deploy
+gate. It only reads; see the [CLI reference](cli.md#migrate-status).

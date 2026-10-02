@@ -6,5 +6,6 @@ public static class CoreVerbs
     public static IReadOnlyList<IVerb> All => new IVerb[]
     {
         new SchemaPullVerb(),
+        new MigrateStatusVerb(),
     };
 }
