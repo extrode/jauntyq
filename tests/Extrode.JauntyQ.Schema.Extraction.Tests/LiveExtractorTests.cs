@@ -513,7 +513,15 @@ public sealed class PostgresLiveFixture : IDisposable
 
         using (var cmd = _conn.CreateCommand())
         {
-            cmd.CommandText = @"CREATE EXTENSION IF NOT EXISTS citext;";
+            // The extension is the one object this fixture shares across runs,
+            // and CREATE EXTENSION IF NOT EXISTS is not safe under concurrency:
+            // with net8.0 and net10.0 running at once against one server, the
+            // loser fails with 23505 on pg_extension_name_index (2026-10-02,
+            // 26 failures). The session lock makes the two runs take turns.
+            cmd.CommandText = @"
+                SELECT pg_advisory_lock(hashtext('jauntyq_livetest_citext'));
+                CREATE EXTENSION IF NOT EXISTS citext;
+                SELECT pg_advisory_unlock(hashtext('jauntyq_livetest_citext'));";
             cmd.ExecuteNonQuery();
         }
 
