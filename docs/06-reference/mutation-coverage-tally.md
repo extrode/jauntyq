@@ -69,7 +69,7 @@ Three things sit outside it, and the table below is the running record of each.
 | `Extrode.JauntyQ.Schema` | 0 | | | whole assembly |
 | `Extrode.JauntyQ.Schema.Extraction` | 2 | | | whole assembly |
 | `Extrode.JauntyQ.Cli.Core` | 1 | 5 | 8 | whole assembly |
-| `Extrode.JauntyQ.Generator` | 27 | 5 | 382 | `**/QueryValidator*.cs`, `**/*Analyzer.cs`, `**/JauntyDiagnostics.cs`, `**/IdentifierGuard.cs` only |
+| `Extrode.JauntyQ.Generator` | 30 | 5 + 32 emitter | 382 | `**/QueryValidator*.cs`, `**/*Analyzer.cs`, `**/JauntyDiagnostics.cs`, `**/IdentifierGuard.cs`; emitter files (`CodeEmitter*.cs`, `JauntyQGenerator*.cs`) via `stryker-config.emitter-{1..4}.json` |
 | `Extrode.JauntyQ.Analysis` | 7 | 26 | 108 | whole assembly |
 
 Rules for this table:
@@ -95,6 +95,7 @@ the per-assembly figures in the history below it.
 | `Extrode.JauntyQ.Schema` | none (run ad hoc) | **100%** | | | 0 | 0 | |
 | `Extrode.JauntyQ.Cli.Core` | `tests/Extrode.JauntyQ.Cli.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 1m08s |
 | `Extrode.JauntyQ.Generator` | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 1h34m with shared engines (`eval "$(scripts/mutation-engines.sh --quiet)"`, concurrency 4); CompileError mutants excluded from score |
+| Generator emitter files | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.emitter-{1..4}.json` | **99.45%** | 4320 | 32 | 13 | 11 | First run, on Blacksmith (`mutation-emitter.yml`, run 36979486901, 2026-10-02), 4 shards, slowest 32m, about 67 runner-minutes. All 24 uncaught resolved: 14 equivalent (8 throw-only paths, 3 `GetHashCode` bodies, 3 in `Part4`), now disabled; 10 got tests, 3 of which (`Part10:75`, `CodeEmitter.Part2:31`, `:47`) were real gaps the old tests could not see. Shards rebalanced to about 17m each. Confirming run pending |
 | `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | **100%** | | | 0 | 0 | whole-assembly run 99.91% (2 survivors), both resolved; scoped rerun of those two files 100% |
 | `Extrode.JauntyQ.Schema.Extraction` | `tests/Extrode.JauntyQ.Schema.Extraction.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 22 min with shared engines |
 | `Extrode.JauntyQ.Cli` | — | — | | | | | no testable mutants |
