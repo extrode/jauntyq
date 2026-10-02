@@ -50,6 +50,15 @@ public class ScopeRefusalTests
     }
 
     [Fact]
+    public void OneScopedTable_IsEnoughToCheck()
+    {
+        var result = Run(@"{ ""scopes"": [ { ""table"": ""orders"", ""column"": ""tenant_id"" } ] }",
+            ("db/Orders/GetLines.sql", "select l.qty from orders o join order_lines l on l.order_id = o.id where o.id = @id"));
+
+        Assert.StartsWith("Scoped table 'orders' (as 'o')", Assert.Single(Messages(result, "JNT4005")));
+    }
+
+    [Fact]
     public void EachUnprovenReach_IsItsOwnError()
     {
         var result = Run(OrdersAndLines,
