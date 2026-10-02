@@ -33,6 +33,11 @@ condensed.
   identifier by the `@each` expander and the `@identity` `OUTPUT INSERTED` splicer. Before, the
   first `]` ended it, so an `@each` name or the word `values` later inside the identifier was
   treated as live SQL.
+- A schema snapshot whose table, column, procedure, sequence or enum key differs from the entry's
+  `name` (`"Customers": { "name": "customers" }`, typically after a hand edit) no longer crashes
+  auto-CRUD emission with JNT0001. The loader now keys each entry by its `name`; an entry with no
+  `name` takes its key, and two entries with the same `name` fail the load like any malformed
+  snapshot.
 
 ### Changed
 - MySQL schema extraction reads function rows through `MySqlExtractor.ReadFunctionsAsync`, so a
