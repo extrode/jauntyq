@@ -14,6 +14,28 @@ namespace Extrode.JauntyQ.Analysis.Scoping;
 /// </summary>
 public static class ScopeResolver
 {
+    /// <summary>
+    /// The columns of <paramref name="table"/> that <paramref name="scopes"/>
+    /// scopes it by, in scope-file order. Empty when the table is unscoped or
+    /// there is no scope file. Matching is case-insensitive, as in
+    /// <see cref="Resolve"/>.
+    /// </summary>
+    public static List<ColumnSchema> ColumnsOf(TableSchema table, IReadOnlyList<ScopeColumn>? scopes)
+    {
+        var result = new List<ColumnSchema>();
+        if (scopes == null)
+            return result;
+        foreach (var scope in scopes)
+        {
+            if (!string.Equals(scope.Table, table.Name, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var column = FindColumn(table, scope.Column);
+            if (column != null)
+                result.Add(column);
+        }
+        return result;
+    }
+
     public static List<ScopeColumn> Resolve(ScopeFile file, DatabaseSchema schema, List<string> problems)
     {
         var result = new List<ScopeColumn>();
