@@ -68,6 +68,13 @@ public class MigrationStatement
     /// the {Table}{Column} <see cref="EnumSchema"/> a live pull captures.</summary>
     public Dictionary<string, List<string>> EnumMembers { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Inline column-level <c>REFERENCES t [(c)]</c> targets for
+    /// CreateTable/AddColumn. FromTable is left empty (the statement's table);
+    /// ToColumn is empty when the clause names no column, meaning the
+    /// target's primary key. The simulator adds them to the effective schema
+    /// for every dialect but MySQL, which parses and ignores the inline form.</summary>
+    public List<ForeignKeySchema> ForeignKeys { get; } = new();
+
     /// <summary>Original SQL text, for diagnostics.</summary>
     public string RawText { get; set; } = string.Empty;
 }

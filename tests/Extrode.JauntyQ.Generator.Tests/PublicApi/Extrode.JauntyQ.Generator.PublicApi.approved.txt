@@ -137,6 +137,7 @@ class Extrode.JauntyQ.Analysis.Migrations.MigrationStatement
     prop ColumnNames:List<String>
     prop Columns:List<ColumnSchema>
     prop EnumMembers:Dictionary<String,List<String>>
+    prop ForeignKeys:List<ForeignKeySchema>
     prop IfExists:Boolean
     prop Kind:MigrationStatementKind
     prop NullableAfter:Boolean
