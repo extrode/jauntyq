@@ -717,6 +717,17 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // Spec 021. Warning, for JNT6003's reason: a malformed sidecar must not
+    // stop a build. Every message says the affected table is unscoped, so a
+    // dropped entry is never mistaken for an enforced one.
+    public static readonly DiagnosticDescriptor JNT6004 = new(
+        "JNT6004",
+        "Invalid Scope File",
+        "{0}",
+        "JauntyQ.Configuration",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 7xxx: Dialect ─────────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT7001 = new(

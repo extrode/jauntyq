@@ -84,16 +84,46 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // Cached until the snapshot json or any migration/ddl text changes.
         // When there is no JSON snapshot, db/ddl/*.sql builds the base schema
         // (dialect from JauntyQDialect); JSON always wins when present.
+        // Spec 021: jaunty.scope.json, the tables scoped by a column. Resolved
+        // inside SchemaState, not in the aggregate step as the accept sidecar
+        // is, because the per-file step needs it too: a hand-written query
+        // that reaches a scoped table unproven is refused there. Same winner
+        // rule as the other sidecars; with no file both halves are null and
+        // SchemaState is what it was before.
+        var scopeFiles = context.AdditionalTextsProvider
+            .Where(static f => f.Path.EndsWith(".scope.json", StringComparison.OrdinalIgnoreCase));
+
+        var scopeFile = scopeFiles.Collect().Select(static (files, ct) =>
+        {
+            if (files.IsEmpty)
+                return ((string?)null, (string?)null);
+            AdditionalText winner = OrdinalLowestPath(files);
+            return ((string?)winner.Path, (string?)(winner.GetText(ct)?.ToString() ?? ""));
+        });
+
+        context.RegisterSourceOutput(
+            scopeFiles.Select(static (f, _) => f.Path).Collect().Select(static (paths, _) => paths.Sort(StringComparer.Ordinal)),
+            static (ctx, paths) =>
+            {
+                if (paths.Length < 2)
+                    return;
+                ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6004, Location.None,
+                    $"Found {paths.Length} scope files ({string.Join(", ", paths)}); using '{paths[0]}'. " +
+                    "Scopes in the others are ignored entirely, they are not merged, so any table only they " +
+                    "declare is unscoped. Keep one *.scope.json (or exclude the extras from AdditionalFiles)."));
+            });
+
         var schemaState = schemaText
             .Combine(migrationFiles)
             .Combine(ddlFiles)
             .Combine(dialectOverride)
+            .Combine(scopeFile)
             .Select(static (pair, _) =>
             {
-                var (((json, migrations), ddl), dialect) = pair;
+                var ((((json, migrations), ddl), dialect), scope) = pair;
                 try
                 {
-                    return SchemaState.Load(json, migrations, ddl, dialect);
+                    return SchemaState.Load(json, migrations, ddl, dialect, scope.Item1, scope.Item2);
                 }
                 // Stryker disable Statement,String,Block : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
                 catch (OperationCanceledException)
@@ -121,6 +151,12 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     JauntyDiagnostics.JNT0001, Location.None, state.InternalError));
         });
         // Stryker restore all
+
+        context.RegisterSourceOutput(schemaState, static (ctx, state) =>
+        {
+            foreach (var diag in state.ScopeDiagnostics)
+                ctx.ReportDiagnostic(diag.ToDiagnostic());
+        });
 
         // Auto-CRUD is on unless the consumer sets <JauntyQAutoCrud>false</JauntyQAutoCrud>
         var autoCrudEnabled = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) =>
