@@ -106,7 +106,7 @@ public class SchemaSimulatorTypeResolutionTests
     public void Composite_and_table_types_are_not_resolved()
     {
         var snapshot = Snapshot("postgres");
-        snapshot.UserTypes["address"] = new UserTypeSchema { Name = "address", Kind = UserTypeKind.Composite };
+        snapshot.UserTypes["address"] = new UserTypeSchema { Name = "address", Kind = UserTypeKind.Composite, UnderlyingDbType = "text" };
 
         var home = Apply(snapshot, "ALTER TABLE people ADD COLUMN home address;").Tables["people"].Columns["home"];
 
