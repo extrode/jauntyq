@@ -4,21 +4,21 @@ Line coverage per assembly, measured with `scripts/coverage.sh --with-docker` (c
 plus the SQLite and Testcontainers sample suites, both TFMs, merged by `reportgenerator`).
 Mutation scores are tracked separately in `mutation-coverage-tally.md`.
 
-Last run: 2026-10-02 on mb1, dev at `93a5912`.
+Last run: 2026-10-03 on mb1, dev at `ec0af88`.
 
 | Assembly | Line coverage | Mutation score |
 |---|---|---|
-| `Extrode.JauntyQ.Analysis` | 99.7% | 100% |
+| `Extrode.JauntyQ.Analysis` | 99.8% | 100% |
 | `Extrode.JauntyQ.Cli` | 100% | no testable mutants |
-| `Extrode.JauntyQ.Cli.Core` | 99.6% | 100% |
+| `Extrode.JauntyQ.Cli.Core` | 100% | 100% |
 | `Extrode.JauntyQ.Generator` | 98.7% | 100% (mutate scope is a subset, see the tally) |
-| `Extrode.JauntyQ.Schema` | 97.9% | 100% |
+| `Extrode.JauntyQ.Schema` | 100% | 100% |
 | `Extrode.JauntyQ.Schema.Extraction` | 99.5% | 100% |
 | `Extrode.JauntyQ.SqlParser` | 99.1% | 100% |
-| **All 7 assemblies** | **99%** (13496 of 13622 coverable lines) | |
+| **All 7 assemblies** | **99.1%** (13672 of 13788 coverable lines) | |
 
-Other totals: branch 97.9% (7897 of 8060), method 98.9% (879 of 888), fully covered
-methods 95.3% (847 of 888).
+Other totals: branch 97.9% (7985 of 8148), method 100% (905 of 905), fully covered
+methods 96.5% (874 of 905).
 
 ## Reading it
 
@@ -30,20 +30,21 @@ methods 95.3% (847 of 888).
   now leaves the Generator's SqlParser and Analysis copies out. Schema has no test project,
   so its code runs only through the Generator's copy, which stays in; `CoverageScopeTests`
   fails if a `Schema.Tests` project appears without the filter following.
-- The nine methods no test runs on 2026-10-02: the `AcceptanceFile`/`AcceptanceEntry`
-  getters in the Schema assembly (the Generator's copy runs them), `SyntheticQuery.EntityName`
-  and `ImpactClassifier.ClassifySingle` in Analysis, `CliHost.Verbs` (no caller), and
-  `UserTypeSchema.Precision`/`Scale` in the Generator's Schema copy. After this run,
-  `CliHost.Verbs` was deleted (no reader in core or premium) and the other eight got tests
-  in `06e577f`; the next full run should show no method that no test runs.
+- Every method runs under some test as of 2026-10-03. The nine that did not on 2026-10-02
+  (the `AcceptanceFile`/`AcceptanceEntry` getters, `SyntheticQuery.EntityName`,
+  `ImpactClassifier.ClassifySingle`, `CliHost.Verbs`, `UserTypeSchema.Precision`/`Scale`)
+  were tested or, for `CliHost.Verbs`, deleted. The lowest class is
+  `Schema.EnumMemberNaming` at 75.8%, in the Generator's copy.
 - Mutation 100% on Generator covers `QueryValidator*`, `*Analyzer.cs`, `JauntyDiagnostics.cs`,
   `IdentifierGuard.cs`, and the emitter files (`CodeEmitter*.cs`, `JauntyQGenerator*.cs`)
   through `mutation-emitter.yml`; other Generator files are not mutated.
 - Coverage tells you a line ran, not that a test would notice it changing; the mutation
   score covers that.
-- The four Conduit sample suites did not run on this pass: they target `net8.0` only and mb1
-  has only the .NET 10 runtime, so their test host exits with "You must install or update
-  .NET". They exercise the consumer runtime path, which none of the 7 assemblies above is.
+- The four Conduit sample suites (81 tests each) ran on this pass, now that mb1 has the
+  .NET 8 runtime they target. They exercise the consumer runtime path, which none of the
+  7 assemblies above is, so they add tests without moving these numbers.
+- Spec 021 phase A (scope refusal, merged after this run as `42060a0`) is not in these
+  numbers.
 
 ## Reproduce
 
