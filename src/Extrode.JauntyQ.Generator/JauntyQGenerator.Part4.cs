@@ -2,6 +2,7 @@
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using Extrode.JauntyQ.Analysis.Scoping;
 using Extrode.JauntyQ.Schema;
 using Extrode.JauntyQ.SqlParser;
 using Extrode.JauntyQ.SqlParser.IR;
@@ -559,7 +560,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // Auto-CRUD: synthesize per-table CRUD for everything the user didn't write
         if (autoCrud && schema != null)
         {
-            foreach (var synth in AutoCrud.Synthesize(schema))
+            foreach (var synth in AutoCrud.Synthesize(schema, schemaState.Scopes))
             {
                 // Stryker disable once Statement : only an in-flight cancellation observes it, and a cancelled run's output is discarded
                 context.CancellationToken.ThrowIfCancellationRequested();
@@ -567,8 +568,20 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 if (!claimedMethods.Add($"{synth.EntityName}.{synth.MethodName}"))
                     continue; // user SQL file wins
 
+                var synthScope = ScopeResolver.ColumnsOf(schema.Tables[synth.TableName], schemaState.Scopes);
+
                 if (synth.IsUpsert)
                 {
+                    if (synthScope.Count > 0 && string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT4007, Location.None,
+                            $"No Upsert is generated for table '{synth.TableName}': it is scoped by " +
+                            $"'{synthScope[0].Name}', and MySQL's ON DUPLICATE KEY UPDATE has no WHERE, so a key " +
+                            "collision with another scope's row would overwrite that row. Use Insert and Update, " +
+                            "or write the upsert by hand and prove the scope in it."));
+                        continue;
+                    }
+
                     // AUD-R4-16 (JNT2018): reported here rather than in a table
                     // loop of its own, because here is the one place that knows
                     // an Upsert is actually being emitted for this table -- a
@@ -602,7 +615,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
                     // Dialect-native upsert bypasses the minimal SQL parser;
                     // correctness comes from the schema snapshot itself.
-                    string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, upsertTable, schema.Dialect, schema);
+                    string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, upsertTable, schema.Dialect, schema, synthScope);
                     context.AddSource($"{synth.EntityName}.Upsert.auto.g.cs", SourceText.From(upsertSource, Encoding.UTF8));
                     entityNames.Add(synth.EntityName);
                     RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, "Upsert");
@@ -612,6 +625,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 var (directives, cleanedSql) = Directives.DirectiveParser.Parse(synth.Sql);
                 var tokens = SqlTokenizer.Tokenize(cleanedSql);
                 var queryModel = SqlParser.SqlParser.Parse(tokens, synth.MethodName);
+                // Spec 021, R2: the scope parameter comes first. Update's SQL
+                // binds SET before WHERE, so its scope parameter parses last.
+                MoveScopeParametersFirst(queryModel, synthScope);
 
                 // Synthesized SQL is derived from the schema itself; validation
                 // errors here indicate a synthesis bug, not a user error, so
@@ -708,9 +724,10 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 var table = schema.Tables[kvp.Key];
                 var info = kvp.Value;
                 string rowType = Inflector.RowTypeName(DialectMapper.ToPascalCase(table.Name));
+                var scopeCols = ScopeResolver.ColumnsOf(table, schemaState.Scopes);
                 string overloadSource = CodeEmitter.EmitPocoOverloads(
                     info.Entity, rowType, table, schema.Dialect,
-                    info.Insert, info.Update, info.Delete, info.Upsert, schema);
+                    info.Insert, info.Update, info.Delete, info.Upsert, schema, scopeCols);
                 context.AddSource($"{info.Entity}.Poco.auto.g.cs", SourceText.From(overloadSource, Encoding.UTF8));
                 neededRowTables.Add(table.Name);
 
@@ -718,7 +735,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // for tables that have a synthetic Insert (and thus a row POCO).
                 if (info.Insert && !string.IsNullOrEmpty(schema.Dialect))
                 {
-                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, table, schema.Dialect, schema);
+                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, table, schema.Dialect, schema, scopeCols);
                     context.AddSource($"{info.Entity}.BulkInsert.auto.g.cs", SourceText.From(bulkSource, Encoding.UTF8));
                 }
             }
@@ -1140,5 +1157,12 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         firstRawName = null;
         secondRawName = null;
         return null;
+    }
+
+    private static void MoveScopeParametersFirst(QueryModel model, List<ColumnSchema> scopeCols)
+    {
+        var moved = model.Parameters.FindAll(p => scopeCols.Exists(c => c.Name == p.Name));
+        model.Parameters.RemoveAll(moved.Contains);
+        model.Parameters.InsertRange(0, moved);
     }
 }

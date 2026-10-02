@@ -8,17 +8,17 @@ public static partial class CodeEmitter
     private static void EmitBulkInsertBody(
         System.Text.StringBuilder sb, string rowType, string tableName,
         System.Collections.Generic.List<ColumnSchema> cols,
-        string connVar, bool isStatic, bool isAsync, string dialect, DatabaseSchema? schema = null)
+        string connVar, bool isStatic, bool isAsync, string dialect, DatabaseSchema? schema = null, bool scoped = false)
     {
         string enumerableType = TypeRef(schema, "IEnumerable", "System.Collections.Generic");
         string taskType = TypeRef(schema, "Task", "System.Threading.Tasks");
         // AUD-R50-03 (residual): same DbType-shadowing guard as
         // CodeEmitter.Part3.cs's EmitParameterBinding.
         string dbTypeEnum = TypeRef(schema, "DbType", "System.Data");
-        string modifier = isStatic ? "public static" : "public";
+        string modifier = BulkInsertModifier(isStatic, scoped);
         string asyncModifier = isAsync ? " async" : "";
         string ret = isAsync ? $"{taskType}<int>" : "int";
-        string name = isAsync ? "BulkInsertAsync" : "BulkInsert";
+        string name = BulkInsertName(isAsync, scoped);
         string rowsParam = $"{enumerableType}<{rowType}> rows";
         // Same signature shape as the provider fast paths (BulkInsertSignature
         // in CodeEmitter.Part13.cs): statics take an optional caller-managed
