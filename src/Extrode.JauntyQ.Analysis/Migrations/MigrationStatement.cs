@@ -62,6 +62,12 @@ public class MigrationStatement
     /// MODIFY, which redefine the whole column.</summary>
     public bool TypeOnly { get; set; }
 
+    /// <summary>MySQL inline <c>ENUM('a','b')</c> member lists, keyed by
+    /// column name, for CreateTable/AddColumn/AlterColumn. Values are
+    /// verbatim (a doubled '' is unescaped). The simulator turns each into
+    /// the {Table}{Column} <see cref="EnumSchema"/> a live pull captures.</summary>
+    public Dictionary<string, List<string>> EnumMembers { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Original SQL text, for diagnostics.</summary>
     public string RawText { get; set; } = string.Empty;
 }
