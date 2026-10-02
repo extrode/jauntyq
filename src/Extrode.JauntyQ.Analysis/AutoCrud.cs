@@ -153,7 +153,7 @@ public static class AutoCrud
                     continue;
                 if (!table.Columns.ContainsKey(fk.FromColumn))
                     continue;
-                if (scopeCols.Exists(c => string.Equals(c.Name, fk.FromColumn, StringComparison.OrdinalIgnoreCase)))
+                if (scopeCols.Contains(table.Columns[fk.FromColumn]))
                     continue;
 
                 result.Add(new SyntheticQuery(entityName, $"GetBy{DialectMapper.ToPascalCase(fk.FromColumn)}",
@@ -275,12 +275,10 @@ public static class AutoCrud
 
     /// <summary>
     /// <paramref name="cols"/> with the scope columns moved to the front, in
-    /// scope order. The same list when there are none.
+    /// scope order.
     /// </summary>
     public static List<ColumnSchema> ScopeFirst(List<ColumnSchema> cols, List<ColumnSchema> scopeCols)
     {
-        if (scopeCols.Count == 0)
-            return cols;
         var result = new List<ColumnSchema>(cols.Count);
         foreach (var c in scopeCols)
             if (cols.Contains(c))
