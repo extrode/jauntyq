@@ -40,7 +40,11 @@ public class NPlusOneAnalyzerMutationCoverageTests
     private static string PointLookupMessage(string child, string childTable, string parentTable, string columns, string parent) =>
         $"{child} is a point lookup on {childTable} by its foreign key to {parentTable} ({columns}), and {parent} " +
         $"returns a {parentTable} collection: calling it once per row is an N+1 query pattern. Fetch the rows " +
-        $"set-based instead: join {childTable} into the parent query, or batch the lookups with WHERE {columns} IN (...).";
+        $"set-based instead: join {childTable} into the parent query, or batch the lookups with " +
+        (columns.Contains(',')
+            ? $"WHERE {columns} IN (...)."
+            : $"WHERE {columns} IN (@ParentIds) under -- @each ParentIds, one query for all parents. " +
+              "See docs/03-guides/loading-related-rows.md.");
 
     private static GeneratorDriverRunResult Run(string schemaJson, params (string Path, string Text)[] files)
     {
@@ -78,7 +82,8 @@ public class NPlusOneAnalyzerMutationCoverageTests
             "OrderItems.GetByOrderId is a point lookup on order_items by its foreign key to orders (order_id), and " +
             "Orders.GetAll returns a orders collection: calling it once per row is an N+1 query pattern. Fetch the " +
             "rows set-based instead: join order_items into the parent query, or batch the lookups with WHERE " +
-            "order_id IN (...).",
+            "order_id IN (@ParentIds) under -- @each ParentIds, one query for all parents. See " +
+            "docs/03-guides/loading-related-rows.md.",
             SingleNPlusOneMessage(result));
     }
 
@@ -94,7 +99,8 @@ public class NPlusOneAnalyzerMutationCoverageTests
             "OrderItems.CountByOrderId computes a per-row aggregate on order_items filtered by its foreign key to " +
             "orders (order_id), and Orders.GetAll returns a orders collection: calling it once per row is an N+1 " +
             "query pattern. Consider a grouped aggregate join (JOIN order_items ... GROUP BY order_id) or a batched " +
-            "WHERE order_id IN (...).",
+            "WHERE order_id IN (@ParentIds) under -- @each ParentIds, one query for all parents. See " +
+            "docs/03-guides/loading-related-rows.md.",
             SingleNPlusOneMessage(result));
     }
 

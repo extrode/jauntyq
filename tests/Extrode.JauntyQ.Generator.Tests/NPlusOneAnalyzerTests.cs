@@ -103,7 +103,8 @@ public class NPlusOneAnalyzerTests
         Assert.Contains("order_id", message);
         Assert.Contains("orders", message);
         Assert.Contains("join", message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("IN (...)", message);
+        Assert.Contains("IN (@ParentIds) under -- @each ParentIds", message);
+        Assert.Contains("docs/03-guides/loading-related-rows.md", message);
 
         // A warning never blocks: both queries still compiled.
         Assert.Contains(result.Results[0].GeneratedSources, s => s.HintName == "OrderItems.GetByOrderId.g.cs");
@@ -156,6 +157,20 @@ public class NPlusOneAnalyzerTests
                 "select order_item_id, sku, quantity\nfrom order_items\nwhere order_items.order_id in (@order_ids)"));
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
+    }
+
+    [Fact]
+    public void TheDocumentedTwoQueryStitch_NoWarning_AndTakesAList()
+    {
+        var result = Run(SchemaJson,
+            ("db/Orders/GetAll.sql", ParentGetAll),
+            ("db/OrderItems/GetByOrderIds.sql",
+                "-- @each ParentIds\nselect order_item_id, order_id, sku, quantity\nfrom order_items\nwhere order_items.order_id in (@ParentIds)"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8008");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        var source = Assert.Single(result.Results[0].GeneratedSources, s => s.HintName == "OrderItems.GetByOrderIds.g.cs");
+        Assert.Contains("IReadOnlyList<", source.SourceText.ToString());
     }
 
     [Fact]

@@ -10,6 +10,9 @@ Quickstart and the [first-hour tutorial](../02-learn/README.md)).
   (SQL Server and PostgreSQL).
 - **[Bulk insert](bulk-insert.md)**, insert many rows fast via the provider's
   native bulk-copy path.
+- **[Loading parents with their children](loading-related-rows.md)**, the
+  two-query pattern that fixes `JNT8008`'s N+1 warning, and why there is no
+  eager loading.
 - **[Migrating from Dapper or EF Core](migrating-from-dapper-and-ef.md)**, how
   an existing data layer maps onto JauntyQ's SQL-first, compile-time model.
 - **[Database contract testing](contract-testing.md)**, assert a live database
