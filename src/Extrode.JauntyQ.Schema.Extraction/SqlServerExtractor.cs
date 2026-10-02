@@ -203,12 +203,10 @@ public class SqlServerExtractor : ISchemaExtractor
                        CASE WHEN p.DATA_TYPE IN ('decimal','numeric','money','smallmoney') THEN CAST(p.NUMERIC_PRECISION AS int) END AS num_precision,
                        CASE WHEN p.DATA_TYPE IN ('decimal','numeric','money','smallmoney') THEN CAST(p.NUMERIC_SCALE AS int) END AS num_scale,
                        -- Spec 014, appended LAST. A table-valued parameter
-                       -- reports a NULL DATA_TYPE and carries its type name
-                       -- only here, so without this column a TVP arrives as a
-                       -- parameter with an empty type -- which is how it used
-                       -- to reach DialectMapper's fallback and generate object
-                       -- + JNT2007. Named, it can be refused by JNT2025
-                       -- instead.
+                       -- reports DATA_TYPE as the literal 'table type' and
+                       -- carries its real type name only here, so without
+                       -- this column every TVP arrives under one shared
+                       -- pseudo-type and JNT2025 has no name to print.
                        p.USER_DEFINED_TYPE_NAME AS param_udt
                 FROM INFORMATION_SCHEMA.ROUTINES r
                 LEFT JOIN INFORMATION_SCHEMA.PARAMETERS p
