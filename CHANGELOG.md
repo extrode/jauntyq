@@ -38,6 +38,9 @@ condensed.
   auto-CRUD emission with JNT0001. The loader now keys each entry by its `name`; an entry with no
   `name` takes its key, and two entries with the same `name` fail the load like any malformed
   snapshot.
+- A SQL Server computed column written without parentheses (`Total AS Qty * Price [PERSISTED]`)
+  in a DDL or migration file now enters the schema. It used to be dropped silently, so a later
+  query selecting it failed with a false JNT2002.
 
 ### Changed
 - MySQL schema extraction reads function rows through `MySqlExtractor.ReadFunctionsAsync`, so a
