@@ -119,7 +119,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Guides</span>
   </div>
-  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  <a href="03-guides-tenant-scoping.html">Tenant scoping</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -248,10 +248,10 @@ Three things sit outside it, and the table below is the running record of each.<
 </tr>
 <tr>
 <td><code>Extrode.JauntyQ.Generator</code></td>
-<td>27</td>
-<td>5</td>
+<td>30</td>
+<td>5 + 32 emitter</td>
 <td>382</td>
-<td><code>**/QueryValidator*.cs</code>, <code>**/*Analyzer.cs</code>, <code>**/JauntyDiagnostics.cs</code>, <code>**/IdentifierGuard.cs</code> only</td>
+<td><code>**/QueryValidator*.cs</code>, <code>**/*Analyzer.cs</code>, <code>**/JauntyDiagnostics.cs</code>, <code>**/IdentifierGuard.cs</code>; emitter files (<code>CodeEmitter*.cs</code>, <code>JauntyQGenerator*.cs</code>) via <code>stryker-config.emitter-{1..4}.json</code></td>
 </tr>
 <tr>
 <td><code>Extrode.JauntyQ.Analysis</code></td>
@@ -331,6 +331,16 @@ the per-assembly figures in the history below it.</p>
 <td>0</td>
 <td>0</td>
 <td>1h34m with shared engines (<code>eval &quot;$(scripts/mutation-engines.sh --quiet)&quot;</code>, concurrency 4); CompileError mutants excluded from score</td>
+</tr>
+<tr>
+<td>Generator emitter files</td>
+<td><code>tests/Extrode.JauntyQ.Generator.Tests/stryker-config.emitter-{1..4}.json</code></td>
+<td><strong>100%</strong></td>
+<td>4327</td>
+<td>32</td>
+<td>0</td>
+<td>0</td>
+<td>Confirming run 36995854432 (2026-10-02): all 4 shards 100%, slowest shard 18m, about 54 runner-minutes. <code>--since</code> ran everything because the shard configs changed (Stryker retests all when a non-C# file in the test project changes). First run 36979486901 (2026-10-02, the first on Blacksmith via <code>mutation-emitter.yml</code>): 99.45% (4320 killed, 32 timeout, 13 survived, 11 no coverage), slowest shard 32m, about 67 runner-minutes. All 24 uncaught resolved: 14 equivalent (8 throw-only paths, 3 <code>GetHashCode</code> bodies, 3 in <code>Part4</code>), now disabled; 10 got tests, 3 of which (<code>Part10:75</code>, <code>CodeEmitter.Part2:31</code>, <code>:47</code>) were real gaps the old tests could not see. Shards rebalanced; they now take 10m to 18m</td>
 </tr>
 <tr>
 <td><code>Extrode.JauntyQ.Analysis</code></td>

@@ -119,7 +119,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Guides</span>
   </div>
-  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  <a href="03-guides-tenant-scoping.html">Tenant scoping</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -142,13 +142,13 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#why-jauntyq-does-not-apply-migrations">Why JauntyQ does not apply migrations</a><a class="toc-l2" href="#what-jauntyq-does-with-dbmigrations">What JauntyQ does with db/migrations/</a><a class="toc-l2" href="#what-your-runner-must-do">What your runner must do</a><a class="toc-l2" href="#the-table">The table</a><a class="toc-l2" href="#where-a-transaction-cannot-help">Where a transaction cannot help</a><a class="toc-l2" href="#what-is-planned">What is planned</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#why-jauntyq-does-not-apply-migrations">Why JauntyQ does not apply migrations</a><a class="toc-l2" href="#what-jauntyq-does-with-dbmigrations">What JauntyQ does with db/migrations/</a><a class="toc-l2" href="#what-your-runner-must-do">What your runner must do</a><a class="toc-l2" href="#the-table">The table</a><a class="toc-l2" href="#where-a-transaction-cannot-help">Where a transaction cannot help</a><a class="toc-l2" href="#checking-a-database-against-this-contract">Checking a database against this contract</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Migration tracking contract</nav>
         <article>
 <h1 id="migration-tracking-contract">Migration tracking contract</h1>
 <p>JauntyQ reads your migrations but never runs them. You apply them with your own
-runner (a script, Flyway, DbUp, dbmate, anything). This page is what that runner
+runner (a script, Flyway, DbUp, anything). This page is what that runner
 has to do so that it and JauntyQ agree about which migrations exist, in what
 order, and which have been applied.</p>
 <h2 id="why-jauntyq-does-not-apply-migrations">Why JauntyQ does not apply migrations</h2>
@@ -193,6 +193,9 @@ succeeding.</li>
 <h2 id="the-table">The table</h2>
 <p>Two columns. <code>version</code> is the file name exactly as it appears in
 <code>db/migrations/</code>, including <code>.sql</code>.</p>
+<p>dbmate and golang-migrate also name their table <code>schema_migrations</code>, but they
+store a version number rather than the file name, so they do not meet this
+contract and <code>jauntyq migrate status</code> refuses to read their table.</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">SQL</span>
@@ -235,10 +238,13 @@ the tracking row right after it.</li>
 PostgreSQL's <code>CREATE INDEX CONCURRENTLY</code>. Put each such statement in a file of
 its own, run it outside a transaction, and record it only after it succeeds.</li>
 </ul>
-<h2 id="what-is-planned">What is planned</h2>
-<p>A read-only <code>jauntyq migrate status</code> command is planned. It would compare the
-<code>schema_migrations</code> table against <code>db/migrations/</code> and report the difference,
-using the table shape above.</p>
+<h2 id="checking-a-database-against-this-contract">Checking a database against this contract</h2>
+<p><code>jauntyq migrate status</code> reads the <code>schema_migrations</code> table and compares it
+with <code>db/migrations/</code>, using the table shape and file order above. It lists the
+pending files in apply order and exits <code>2</code> on drift: a file that is recorded as
+applied but still in the folder, or a pending file that sorts before the latest
+applied one. <code>--fail-on pending</code> also fails on any pending file, for a deploy
+gate. It only reads; see the <a href="06-reference-cli.html#migrate-status">CLI reference</a>.</p>
 
         </article>
         <div class="page-nav" id="page-nav">

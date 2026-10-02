@@ -119,7 +119,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Guides</span>
   </div>
-  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  <a href="03-guides-tenant-scoping.html">Tenant scoping</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -150,7 +150,7 @@
 <p>Line coverage per assembly, measured with <code>scripts/coverage.sh --with-docker</code> (core suites
 plus the SQLite and Testcontainers sample suites, both TFMs, merged by <code>reportgenerator</code>).
 Mutation scores are tracked separately in <code>mutation-coverage-tally.md</code>.</p>
-<p>Last run: 2026-09-30 on mb1, dev at <code>0bee865</code>.</p>
+<p>Last run: 2026-10-03 on mb1, dev at <code>ec0af88</code>.</p>
 <table>
 <thead>
 <tr>
@@ -162,7 +162,7 @@ Mutation scores are tracked separately in <code>mutation-coverage-tally.md</code
 <tbody>
 <tr>
 <td><code>Extrode.JauntyQ.Analysis</code></td>
-<td>99.7%</td>
+<td>99.8%</td>
 <td>100%</td>
 </tr>
 <tr>
@@ -172,56 +172,63 @@ Mutation scores are tracked separately in <code>mutation-coverage-tally.md</code
 </tr>
 <tr>
 <td><code>Extrode.JauntyQ.Cli.Core</code></td>
-<td>99.6%</td>
+<td>100%</td>
 <td>100%</td>
 </tr>
 <tr>
 <td><code>Extrode.JauntyQ.Generator</code></td>
-<td>90.2%</td>
+<td>98.7%</td>
 <td>100% (mutate scope is a subset, see the tally)</td>
 </tr>
 <tr>
 <td><code>Extrode.JauntyQ.Schema</code></td>
-<td>96%</td>
+<td>100%</td>
 <td>100%</td>
 </tr>
 <tr>
 <td><code>Extrode.JauntyQ.Schema.Extraction</code></td>
-<td>99.3%</td>
+<td>99.5%</td>
 <td>100%</td>
 </tr>
 <tr>
 <td><code>Extrode.JauntyQ.SqlParser</code></td>
-<td>98.6%</td>
+<td>99.1%</td>
 <td>100%</td>
 </tr>
 <tr>
 <td><strong>All 7 assemblies</strong></td>
-<td><strong>93.3%</strong> (16064 of 17206 coverable lines)</td>
+<td><strong>99.1%</strong> (13672 of 13788 coverable lines)</td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p>Other totals: branch 88.4% (10100 of 11416), method 95.3% (1112 of 1166), fully covered
-methods 83.6% (975 of 1166).</p>
+<p>Other totals: branch 97.9% (7985 of 8148), method 100% (905 of 905), fully covered
+methods 96.5% (874 of 905).</p>
 <h2 id="reading-it">Reading it</h2>
 <ul>
-<li>Mutation 100% on Generator covers only <code>QueryValidator*</code>, <code>*Analyzer.cs</code>,
-<code>JauntyDiagnostics.cs</code> and <code>IdentifierGuard.cs</code>; the rest of that assembly is what the
-90.2% line figure exposes.</li>
+<li>Each SqlParser and Analysis file is counted once, in its own assembly. The Generator
+compiles every SqlParser/Schema/Analysis file into itself, and until 2026-10-02 its copies
+were counted as well: the same code twice, including files the generator never calls
+(<code>MigrationImpactReport</code>). That alone held Generator at 90.2% and the total at 93.3% on
+2026-09-30, with 45 of the 54 uncovered methods being such copies. <code>coverage.runsettings</code>
+now leaves the Generator's SqlParser and Analysis copies out. Schema has no test project,
+so its code runs only through the Generator's copy, which stays in; <code>CoverageScopeTests</code>
+fails if a <code>Schema.Tests</code> project appears without the filter following.</li>
+<li>Every method runs under some test as of 2026-10-03. The nine that did not on 2026-10-02
+(the <code>AcceptanceFile</code>/<code>AcceptanceEntry</code> getters, <code>SyntheticQuery.EntityName</code>,
+<code>ImpactClassifier.ClassifySingle</code>, <code>CliHost.Verbs</code>, <code>UserTypeSchema.Precision</code>/<code>Scale</code>)
+were tested or, for <code>CliHost.Verbs</code>, deleted. The lowest class is
+<code>Schema.EnumMemberNaming</code> at 75.8%, in the Generator's copy.</li>
+<li>Mutation 100% on Generator covers <code>QueryValidator*</code>, <code>*Analyzer.cs</code>, <code>JauntyDiagnostics.cs</code>,
+<code>IdentifierGuard.cs</code>, and the emitter files (<code>CodeEmitter*.cs</code>, <code>JauntyQGenerator*.cs</code>)
+through <code>mutation-emitter.yml</code>; other Generator files are not mutated.</li>
 <li>Coverage tells you a line ran, not that a test would notice it changing; the mutation
 score covers that.</li>
-<li>Five suites had one failing test on the run above; both causes are fixed on dev and
-the suites pass on mb1 (coverage numbers were merged from those failing runs, and the
-failures did not change which lines ran):
-<ul>
-<li><code>LicenceLinkPinTests</code> scanned the gitignored <code>StrykerOutput/</code> reports, whose JSON
-escapes the quote after a link. The scan now skips <code>StrykerOutput</code>.</li>
-<li><code>CreateOrder_SnapshotImmune_ToLaterCatalogItemEdits</code> renamed catalog row 2 and never
-restored it, so <code>CatalogTests.GetByName_ExactMatch</code> failed whenever it ran later on a
-shared Postgres/MySQL/MariaDB/SQL Server database. It now restores the name.</li>
-</ul>
-</li>
+<li>The four Conduit sample suites (81 tests each) ran on this pass, now that mb1 has the
+.NET 8 runtime they target. They exercise the consumer runtime path, which none of the
+7 assemblies above is, so they add tests without moving these numbers.</li>
+<li>Spec 021 phase A (scope refusal, merged after this run as <code>42060a0</code>) is not in these
+numbers.</li>
 </ul>
 <h2 id="reproduce">Reproduce</h2>
 <div class="code-block">
@@ -233,8 +240,7 @@ shared Postgres/MySQL/MariaDB/SQL Server database. It now restores the name.</li
 </code></pre>
 </div>
 <p>Needs <code>dotnet tool install --global dotnet-reportgenerator-globaltool</code> and Docker for the
-container suites. The run takes about 70 minutes on mb1 under load; run it there, not locally.
-Output is under <code>artifacts/coverage/</code>.</p>
+container suites. Run it on mb1, not locally. Output is under <code>artifacts/coverage/</code>.</p>
 
         </article>
         <div class="page-nav" id="page-nav">
