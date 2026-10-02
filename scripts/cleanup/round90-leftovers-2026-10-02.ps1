@@ -48,7 +48,9 @@ if (-not (Test-Path $path) -and -not $registered) {
             Write-Host "would remove: $rel"
         }
     } elseif ($Execute) {
-        Write-Host "pruned: $rel was registered but its directory is gone"
+        git worktree prune
+        if ($LASTEXITCODE -ne 0) { Write-Host '  git worktree prune failed. Left alone.'; $failed = $true }
+        else { Write-Host "pruned: $rel was registered but its directory is gone" }
     } else {
         Write-Host "would prune: $rel is registered but its directory is gone"
     }
