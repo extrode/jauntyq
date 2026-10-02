@@ -120,4 +120,37 @@ public class SchemaStateMutationCoverageTests
 
         Assert.Equal("JNT9002", Assert.Single(state.MigrationDiagnostics).ToDiagnostic().Id);
     }
+    private const string SnapshotJson = @"{
+  ""dialect"": ""sqlite"",
+  ""tables"": {
+    ""t"": {
+      ""name"": ""t"",
+      ""columns"": {
+        ""id"": { ""name"": ""id"", ""dbType"": ""integer"", ""isNullable"": false, ""isPrimaryKey"": true }
+      }
+    }
+  }
+}";
+
+    [Fact]
+    public void Load_JsonWithoutMigrations_HasJsonAndNoDelta()
+    {
+        var state = SchemaState.Load(SnapshotJson, None, None, null);
+
+        Assert.NotNull(state.Schema);
+        Assert.False(state.ParseFailed);
+        Assert.True(state.HasJson);
+        Assert.Null(state.MigrationDelta);
+    }
+
+    [Fact]
+    public void Load_JsonWithMigrations_HasJsonAndAppliesThem()
+    {
+        var state = SchemaState.Load(SnapshotJson, Files(("V1__add.sql", "alter table t add extra int")), None, null);
+
+        Assert.Contains("extra", state.Schema!.Tables["t"].Columns.Keys);
+        Assert.False(state.ParseFailed);
+        Assert.True(state.HasJson);
+        Assert.NotNull(state.MigrationDelta);
+    }
 }
