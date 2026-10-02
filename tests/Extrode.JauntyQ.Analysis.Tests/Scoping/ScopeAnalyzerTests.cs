@@ -27,7 +27,10 @@ public class ScopeAnalyzerTests
     [InlineData("select o.id from orders o join customers c on c.id = o.id and o.tenant_id = @t")]
     [InlineData("select c.id from customers c left join orders o on o.id = c.id and o.tenant_id = @t")]
     [InlineData("select c.id from orders o right join customers c on c.id = o.id and o.tenant_id = @t")]
-    [InlineData("select c.id from customers c full join orders o on o.tenant_id = @t and o.id = c.id")]
+    [InlineData("select c.id from customers c full join orders o on o.id = c.id where o.tenant_id = @t")]
+    [InlineData("select c.id from orders o full join customers c on c.id = o.id where o.tenant_id = @t")]
+    [InlineData("select c.id from customers c join orders o on o.id = c.id and o.tenant_id = @t right join customers k on k.id = o.id")]
+    [InlineData("with Orders as (select c.id from customers c) select o.id from orders o")]
     [InlineData("select id from customers where id = @id")]
     [InlineData("update orders set note = @note where tenant_id = @t and id = @id")]
     [InlineData("update orders set note = @note where orders.tenant_id = @t")]
@@ -92,13 +95,40 @@ public class ScopeAnalyzerTests
             Only("select c.id from customers c left join orders o on o.id = c.id where o.tenant_id = @t"));
     }
 
-    [Theory]
-    [InlineData("select c.id from orders o right join customers c on c.id = o.id where o.tenant_id = @t", "RIGHT JOIN")]
-    [InlineData("select c.id from orders o full join customers c on c.id = o.id where o.tenant_id = @t", "FULL JOIN")]
-    [InlineData("select c.id from customers c full join orders o on o.id = c.id where o.tenant_id = @t", "FULL JOIN")]
-    public void EveryOuterJoinNullableSide_NeedsAnOnProof(string sql, string join)
+    [Fact]
+    public void ARightJoinsNullableSide_NeedsAnOnProof()
     {
-        Assert.Contains($"is on the nullable side of a {join} ", Only(sql));
+        Assert.Contains("is on the nullable side of a RIGHT JOIN ",
+            Only("select c.id from orders o right join customers c on c.id = o.id where o.tenant_id = @t"));
+    }
+
+    [Fact]
+    public void ARightJoinsOwnOn_DoesNotFilterTheTableItKeeps()
+    {
+        Assert.Contains("is read in a JOIN without",
+            Only("select c.id from customers c right join orders o on o.id = c.id and o.tenant_id = @t"));
+        Assert.Contains("is on the nullable side of a RIGHT JOIN ",
+            Only("select c.id from customers c right join orders o on o.id = c.id and o.tenant_id = @t right join customers k on k.id = o.id"));
+    }
+
+    [Theory]
+    [InlineData("select c.id from customers c full join orders o on o.id = c.id and o.tenant_id = @t")]
+    [InlineData("select c.id from orders o full join customers c on c.id = o.id and o.tenant_id = @t")]
+    public void AFullJoinsOn_IsNeverProof(string sql)
+    {
+        Assert.Equal(
+            "Scoped table 'orders' (as 'o') is in a FULL JOIN without a filter on its scope column 'tenant_id' in the WHERE clause. "
+            + "A FULL JOIN keeps unmatched rows from both sides, so an ON condition filters nothing. "
+            + "Add o.tenant_id = @tenantId as a top-level AND condition of the WHERE clause. "
+            + "If this query must reach every tenant's rows, mark it -- @unscoped <reason>.",
+            Only(sql));
+    }
+
+    [Fact]
+    public void AnOuterJoinsOn_DoesNotFilterTheTablesBeforeIt()
+    {
+        Assert.Contains("is read in FROM without",
+            Only("select o.id from orders o left join customers c on c.id = o.id and o.tenant_id = @t"));
     }
 
     [Fact]
@@ -186,6 +216,32 @@ public class ScopeAnalyzerTests
             + "List 'tenant_id' in the column list with a parameter such as @tenantId; a literal or an omitted column is not proof. "
             + "If this query must reach every tenant's rows, mark it -- @unscoped <reason>.",
             Only(sql));
+    }
+
+    [Fact]
+    public void AnInsertSelect_ChecksTheTargetAndTheSourceApart()
+    {
+        var found = Find("insert into orders (id, tenant_id) select o.id, o.tenant_id from orders o");
+
+        Assert.Equal(2, found.Count);
+        Assert.Contains("is the INSERT target,", found[0].Message);
+        Assert.Contains("is read in FROM without", found[1].Message);
+    }
+
+    [Fact]
+    public void AScopeParameterInAnInsertSelectsWhere_IsNotTheInsertedValue()
+    {
+        Assert.Contains("is the INSERT target,",
+            Only("insert into orders (id, note) select l.id, l.note from order_lines l where l.tenant_id = @t"));
+    }
+
+    [Fact]
+    public void AColumnWithNoLetters_IsSuggestedAsItIs()
+    {
+        var model = SqlParser.SqlParser.Parse(SqlTokenizer.Tokenize("select id from orders"), "Q");
+
+        Assert.Contains("Add orders._ = @_ as",
+            Assert.Single(ScopeAnalyzer.FindUnproven(model, new[] { new ScopeColumn("orders", "_") })).Message);
     }
 
     [Fact]

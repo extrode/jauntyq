@@ -36,8 +36,7 @@ public static class ScopeAnalyzer
     public static List<UnprovenReach> FindUnproven(QueryModel model, IReadOnlyList<ScopeColumn> scopes)
     {
         var result = new List<UnprovenReach>();
-        if (scopes.Count > 0)
-            Analyze(model, scopes, null, result);
+        Analyze(model, scopes, null, result);
         return result;
     }
 
@@ -85,8 +84,7 @@ public static class ScopeAnalyzer
         string whereClause = scopeName == null ? "the WHERE clause" : $"the WHERE clause of {scopeName}";
         string hatch = " If this query must reach every tenant's rows, mark it -- @unscoped <reason>.";
 
-        bool isTarget = index == 0 && model.StatementType != StatementType.Select
-            && string.Equals(model.TargetTable, table.TableName, StringComparison.OrdinalIgnoreCase);
+        bool isTarget = index == 0 && model.TargetTable != null;
 
         if (isTarget && model.StatementType == StatementType.Insert)
         {
@@ -109,61 +107,74 @@ public static class ScopeAnalyzer
             ? onlyTable
             : string.Equals(q, reference, StringComparison.OrdinalIgnoreCase);
 
+        // A FULL JOIN keeps unmatched rows from both sides, so no ON condition
+        // filters this table; only WHERE does.
+        if (InFullJoin(model, index))
+        {
+            if (AnyProof(model.PredicateAtoms, scope.Column, refersHere))
+                return null;
+            return $"Scoped table '{scope.Table}' (as '{reference}') is in a FULL JOIN{inScope} without a filter on its scope column '{scope.Column}' in {whereClause}. "
+                + $"A FULL JOIN keeps unmatched rows from both sides, so an ON condition filters nothing. Add {qualified} as a top-level AND condition of {whereClause}.{hatch}";
+        }
+
+        // The table's own ON filters it unless its own join is RIGHT, which
+        // keeps every row of this table whatever the ON says.
         string? nullableBy = NullableBy(model, index);
         if (nullableBy != null)
         {
-            if (AnyProof(table.OnAtoms, scope.Column, refersHere))
+            if (table.Join != JoinKind.Right && AnyProof(table.OnAtoms, scope.Column, refersHere))
                 return null;
             for (int j = index + 1; j < model.Tables.Count; j++)
             {
                 var later = model.Tables[j];
-                if ((later.Join == JoinKind.Right || later.Join == JoinKind.Full) && AnyProof(later.OnAtoms, scope.Column, refersHere))
+                if (later.Join == JoinKind.Right && AnyProof(later.OnAtoms, scope.Column, refersHere))
                     return null;
             }
             return $"Scoped table '{scope.Table}' (as '{reference}') is on the nullable side of a {nullableBy}{inScope} without a filter on its scope column '{scope.Column}' in that join's ON clause. "
                 + $"Add {qualified} to the ON clause; in WHERE it would turn the outer join into an inner join.{hatch}";
         }
 
-        if (AnyProof(model.PredicateAtoms, scope.Column, refersHere) || AnyProof(table.OnAtoms, scope.Column, refersHere))
+        if (AnyProof(model.PredicateAtoms, scope.Column, refersHere))
             return null;
-        for (int j = 0; j < model.Tables.Count; j++)
-            if (j != index && model.Tables[j].Join == JoinKind.None && AnyProof(model.Tables[j].OnAtoms, scope.Column, refersHere))
+        foreach (var joined in model.Tables)
+            if (joined.Join == JoinKind.None && AnyProof(joined.OnAtoms, scope.Column, refersHere))
                 return null;
 
-        string how = table.Join == JoinKind.None && index == 0 ? "in FROM" : "in a JOIN";
+        string how = index == (model.TargetTable != null ? 1 : 0) ? "in FROM" : "in a JOIN";
         return $"Scoped table '{scope.Table}' (as '{reference}') is read {how}{inScope} without a filter on its scope column '{scope.Column}'. "
             + $"Add {qualified} as a top-level AND condition of {whereClause}.{hatch}";
     }
 
+    private static bool InFullJoin(QueryModel model, int index)
+    {
+        for (int j = index; j < model.Tables.Count; j++)
+            if (model.Tables[j].Join == JoinKind.Full)
+                return true;
+        return false;
+    }
+
     private static string? NullableBy(QueryModel model, int index)
     {
-        var own = model.Tables[index].Join;
-        if (own == JoinKind.Left)
+        if (model.Tables[index].Join == JoinKind.Left)
             return "LEFT JOIN";
-        if (own == JoinKind.Full)
-            return "FULL JOIN";
         for (int j = index + 1; j < model.Tables.Count; j++)
-        {
             if (model.Tables[j].Join == JoinKind.Right)
                 return "RIGHT JOIN";
-            if (model.Tables[j].Join == JoinKind.Full)
-                return "FULL JOIN";
-        }
         return null;
     }
 
     private static bool TargetQualifier(QueryModel model, int index, string qualifier) =>
         qualifier.Length == 0
         || string.Equals(qualifier, model.Tables[index].TableName, StringComparison.OrdinalIgnoreCase)
-        || (model.TargetAlias.Length > 0 && string.Equals(qualifier, model.TargetAlias, StringComparison.OrdinalIgnoreCase));
+        || string.Equals(qualifier, model.TargetAlias, StringComparison.OrdinalIgnoreCase);
 
     private static bool InsertBindsParameter(QueryModel model, string column)
     {
         foreach (var literal in model.Literals)
-            if (literal.BoundTableAlias.Length == 0 && string.Equals(literal.BoundColumnName, column, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(literal.BoundColumnName, column, StringComparison.OrdinalIgnoreCase))
                 return false;
         foreach (var p in model.Parameters)
-            if (p.IsWriteTarget && p.BoundScope == null && string.Equals(p.BoundColumnName, column, StringComparison.OrdinalIgnoreCase))
+            if (p.IsWriteTarget && string.Equals(p.BoundColumnName, column, StringComparison.OrdinalIgnoreCase))
                 return true;
         return false;
     }
@@ -175,7 +186,7 @@ public static class ScopeAnalyzer
             if (atom.Terms.Count != 3)
                 continue;
             var t = atom.Terms;
-            if (t[1].Kind != AtomTermKind.Operator || t[1].Text != "=")
+            if (t[1].Text != "=")
                 continue;
             AtomTerm col;
             if (t[0].Kind == AtomTermKind.Column && t[2].Kind == AtomTermKind.Parameter)
@@ -193,6 +204,6 @@ public static class ScopeAnalyzer
     private static string CamelCase(string column)
     {
         string pascal = DialectMapper.ToPascalCase(column);
-        return pascal.Length == 0 ? pascal : char.ToLowerInvariant(pascal[0]) + pascal.Substring(1);
+        return pascal.Length == 0 ? column : char.ToLowerInvariant(pascal[0]) + pascal.Substring(1);
     }
 }

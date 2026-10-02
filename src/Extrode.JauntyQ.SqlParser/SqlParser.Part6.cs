@@ -10,9 +10,10 @@ public static partial class SqlParser
     /// </summary>
     private static string ReadTargetAlias(List<Token> tokens, int pos)
     {
-        if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "AS")
+        // Tokenize ends every list with an End token, and pos is at most its index.
+        if (tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "AS")
             pos++;
-        return pos < tokens.Count && tokens[pos].Type == TokenType.Identifier ? tokens[pos].Value : string.Empty;
+        return tokens[pos].Type == TokenType.Identifier ? tokens[pos].Value : string.Empty;
     }
 
     private static void ParseDelete(List<Token> tokens, int pos, QueryModel model)
