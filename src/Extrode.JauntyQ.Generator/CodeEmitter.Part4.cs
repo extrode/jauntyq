@@ -94,7 +94,14 @@ public static partial class CodeEmitter
         {
             char c = sql[i];
             if (inString) { if (c == '\'') inString = false; i++; continue; }
-            if (inBracket) { if (c == ']') inBracket = false; i++; continue; }
+            if (inBracket)
+            {
+                // ']]' is an escaped ']' inside the identifier, not its end.
+                if (c == ']' && i + 1 < sql.Length && sql[i + 1] == ']') i++;
+                else if (c == ']') inBracket = false;
+                i++;
+                continue;
+            }
             if (inQuote) { if (c == '"') inQuote = false; i++; continue; }
             if (c == '\'') { inString = true; i++; continue; }
             // Stryker disable once Statement : without this i++ the next pass re-reads the '[' inside the bracket run, where it is not ']' and that branch's own i++ steps past it -- same index either way

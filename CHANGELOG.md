@@ -29,6 +29,10 @@ condensed.
   and a hand-written `select ... from lateral` no longer fails with JNT1009. The parser read any
   `lateral` in a table position as the LATERAL keyword; it now does so only before `(` or a
   function call. The two read methods were dropped with no diagnostic.
+- A SQL Server bracketed identifier containing the `]]` escape (`[a]]b]`) is now read as one
+  identifier by the `@each` expander and the `@identity` `OUTPUT INSERTED` splicer. Before, the
+  first `]` ended it, so an `@each` name or the word `values` later inside the identifier was
+  treated as live SQL.
 
 ### Changed
 - MySQL schema extraction reads function rows through `MySqlExtractor.ReadFunctionsAsync`, so a

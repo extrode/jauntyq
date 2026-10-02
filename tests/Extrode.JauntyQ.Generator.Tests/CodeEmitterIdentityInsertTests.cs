@@ -73,6 +73,8 @@ public class CodeEmitterIdentityInsertTests
     [InlineData("insert into t (xvalues, x_values, @values) values (1)", "insert into t (xvalues, x_values, @values) |values (1)")]
     [InlineData("insert into t ([ab values], [abc values], \"values\", 'values') values (1)", "insert into t ([ab values], [abc values], \"values\", 'values') |values (1)")]
     [InlineData("insert into t (a,      valuesx,      values_) values (1)", "insert into t (a,      valuesx,      values_) |values (1)")]
+    [InlineData("insert into t ([a]] values]) values (1)", "insert into t ([a]] values]) |values (1)")]
+    [InlineData("insert into t ([a]]]) values (1)", "insert into t ([a]]]) |values (1)")]
     public void SqlServer_SplicesOutputBeforeTheValuesKeywordOnly(string sql, string expected)
     {
         string result = CodeEmitter.BuildIdentityInsertSql(sql, "sqlserver", "id");
