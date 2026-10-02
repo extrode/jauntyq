@@ -36,8 +36,13 @@ public static partial class CodeEmitter
     /// are outside the minimal grammar, and the SQL is correct by
     /// construction from the schema snapshot.
     /// </summary>
-    public static string EmitUpsert(string entityName, TableSchema tableSchema, string dialect, DatabaseSchema? schema = null)
+    public static string EmitUpsert(string entityName, TableSchema tableSchema, string dialect, DatabaseSchema? schema = null,
+        List<ColumnSchema>? scopeCols = null)
     {
+        // Spec 021: a scoped table's Upsert takes the scope value first and
+        // never updates another scope's row on a key collision. The scope
+        // column stays in SET: the match already guarantees it is unchanged.
+        scopeCols ??= new List<ColumnSchema>();
         var keyCols = ResolveUpsertKey(tableSchema)
             ?? throw new System.InvalidOperationException(
                 $"Table '{tableSchema.Name}' has no usable upsert key: no primary key, or an " +
@@ -67,7 +72,7 @@ public static partial class CodeEmitter
         // the single source of truth for this filtering -- AutoCrud.cs's
         // Upsert-synthesis gate and CodeEmitter.Part7.cs's EmitPocoOverloads
         // must both agree with the SQL built here byte-for-byte.
-        var columns = CrudColumnRules.UpsertColumns(tableSchema.Columns.Values, keyCols);
+        var columns = AutoCrud.ScopeFirst(CrudColumnRules.UpsertColumns(tableSchema.Columns.Values, keyCols), scopeCols);
         var setCols = CrudColumnRules.UpsertSetColumns(columns, keyCols);
 
         string colList = JoinColumns(columns, ", ", c => c.Name);
@@ -85,7 +90,9 @@ public static partial class CodeEmitter
             case "sqlserver":
                 {
                     string srcSelect = JoinColumns(columns, ", ", c => $"@{c.Name} AS {c.Name}");
-                    string onClause = JoinColumns(keyCols, " AND ", c => $"target.{c.Name} = src.{c.Name}");
+                    var matchCols = new List<ColumnSchema>(keyCols);
+                    matchCols.AddRange(scopeCols);
+                    string onClause = JoinColumns(matchCols, " AND ", c => $"target.{c.Name} = src.{c.Name}");
                     string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = src.{c.Name}");
                     string insertVals = JoinColumns(columns, ", ", c => $"src.{c.Name}");
                     sql = $"MERGE INTO {tableSchema.Name} WITH (HOLDLOCK) AS target\n" +
@@ -102,10 +109,18 @@ public static partial class CodeEmitter
                     string updateSet = JoinColumns(setCols, ", ", c => $"{c.Name} = EXCLUDED.{c.Name}");
                     sql = $"INSERT INTO {tableSchema.Name} ({colList})\nVALUES ({paramList})\n" +
                           $"ON CONFLICT ({conflictCols}) DO UPDATE SET {updateSet}";
+                    if (scopeCols.Count > 0)
+                        sql += $"\nWHERE {JoinColumns(scopeCols, " AND ", c => $"{tableSchema.Name}.{c.Name} = EXCLUDED.{c.Name}")}";
                     break;
                 }
             case "mysql":
                 {
+                    // Spec 021: ON DUPLICATE KEY UPDATE has no WHERE, so no form
+                    // here can refuse another scope's row. JauntyQGenerator skips
+                    // the method and reports JNT4007 before reaching this.
+                    if (scopeCols.Count > 0)
+                        throw new System.InvalidOperationException(
+                            $"Table '{tableSchema.Name}' is scoped, and MySQL has no upsert form that leaves another scope's row alone.");
                     // AUD-R4-16: ON DUPLICATE KEY UPDATE names no conflict target
                     // -- MySQL/MariaDB match whichever UNIQUE the insert violates.
                     // With exactly one UNIQUE on the table that is the key

@@ -676,6 +676,19 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    /// <summary>
+    /// Spec 021, R4: a scoped MySQL table gets no synthetic Upsert. ON
+    /// DUPLICATE KEY UPDATE has no WHERE, so a key collision with another
+    /// scope's row would overwrite it.
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT4007 = new(
+        "JNT4007",
+        "Scoped Upsert Not Generated",
+        "{0}",
+        "JauntyQ.Parameters",
+        DiagnosticSeverity.Info,
+        true);
+
     // ── 5xxx: Value safety ────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT5001 = new(

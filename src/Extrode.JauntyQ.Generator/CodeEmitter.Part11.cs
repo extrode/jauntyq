@@ -482,9 +482,11 @@ public static partial class CodeEmitter
     /// columns are database-assigned and excluded. Returns the number of rows
     /// inserted.
     /// </summary>
-    public static string EmitBulkInsert(string entityName, string rowType, TableSchema tableSchema, string dialect, DatabaseSchema? schema = null)
+    public static string EmitBulkInsert(string entityName, string rowType, TableSchema tableSchema, string dialect, DatabaseSchema? schema = null,
+        List<ColumnSchema>? scopeCols = null)
     {
         var cols = CrudColumnRules.InsertableColumns(tableSchema.Columns.Values);
+        bool scoped = scopeCols is { Count: > 0 };
 
         bool isPostgres = string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase);
         bool isSqlServer = string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase);
@@ -515,13 +517,13 @@ public static partial class CodeEmitter
         void EmitOne(string connVar, bool isStatic, bool isAsync)
         {
             if (isPostgres)
-                EmitBulkInsertBodyPostgres(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect, schema);
+                EmitBulkInsertBodyPostgres(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect, schema, scoped);
             else if (isSqlServer)
-                EmitBulkInsertBodySqlServer(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, schema);
+                EmitBulkInsertBodySqlServer(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, schema, scoped);
             else if (isMySql)
-                EmitBulkInsertBodyMySql(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, schema);
+                EmitBulkInsertBodyMySql(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, schema, scoped);
             else
-                EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect, schema);
+                EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect, schema, scoped);
         }
 
         EmitOne("_conn", isStatic: false, isAsync: false);
@@ -531,6 +533,9 @@ public static partial class CodeEmitter
         EmitOne("_conn", isStatic: false, isAsync: true);
         sb.AppendLine();
         EmitOne("conn", isStatic: true, isAsync: true);
+
+        if (scoped)
+            EmitScopedBulkInsertWrappers(sb, rowType, scopeCols!, dialect, schema);
 
         // The SqlBulkCopy / MySqlBulkCopy paths write columns through an
         // IDataReader; emit the shared AOT-safe adapter exactly once.

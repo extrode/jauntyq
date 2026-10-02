@@ -11,7 +11,9 @@ enum Extrode.JauntyQ.Analysis.AnalysisSeverity
     field Warning:AnalysisSeverity
 class Extrode.JauntyQ.Analysis.AutoCrud
     method DescribeUnusableTable(TableSchema,String):String
+    method ScopeFirst(List<ColumnSchema>,List<ColumnSchema>):List<ColumnSchema>
     method Synthesize(DatabaseSchema):List<SyntheticQuery>
+    method Synthesize(DatabaseSchema,IReadOnlyList<ScopeColumn>):List<SyntheticQuery>
 class Extrode.JauntyQ.Analysis.AutoCrud+SyntheticQuery
     ctor .ctor(String,String,String,String,Boolean,String)
     prop EntityName:String
@@ -165,6 +167,7 @@ class Extrode.JauntyQ.Analysis.Scoping.ScopeColumn
     prop Column:String
     prop Table:String
 class Extrode.JauntyQ.Analysis.Scoping.ScopeResolver
+    method ColumnsOf(TableSchema,IReadOnlyList<ScopeColumn>):List<ColumnSchema>
     method Resolve(ScopeFile,DatabaseSchema,List<String>):List<ScopeColumn>
 class Extrode.JauntyQ.Analysis.Scoping.UnprovenReach
     ctor .ctor(String,String,String)
@@ -183,16 +186,16 @@ class Extrode.JauntyQ.Generator.CSharpToSqlTypeMapper
     method Map(String):String
 class Extrode.JauntyQ.Generator.CodeEmitter
     method Emit(QueryModel,ProjectionModel,String,String,DatabaseSchema,DirectiveModel,String):String
-    method EmitBulkInsert(String,String,TableSchema,String,DatabaseSchema):String
+    method EmitBulkInsert(String,String,TableSchema,String,DatabaseSchema,List<ColumnSchema>):String
     method EmitCrud(QueryModel,String,String,DatabaseSchema,DirectiveModel):String
     method EmitEntityCore(String):String
     method EmitEnums(DatabaseSchema):String
     method EmitJauntyDb(IEnumerable<String>,DatabaseSchema):String
-    method EmitPocoOverloads(String,String,TableSchema,String,Boolean,Boolean,Boolean,Boolean,DatabaseSchema):String
+    method EmitPocoOverloads(String,String,TableSchema,String,Boolean,Boolean,Boolean,Boolean,DatabaseSchema,List<ColumnSchema>):String
     method EmitProcCall(String,String,ProcedureSchema,String,DatabaseSchema):String
     method EmitRowPoco(String,TableSchema,String,DatabaseSchema):String
     method EmitShapeGuardSource():String
-    method EmitUpsert(String,TableSchema,String,DatabaseSchema):String
+    method EmitUpsert(String,TableSchema,String,DatabaseSchema,List<ColumnSchema>):String
     method InferParameterType(String,QueryModel,ProjectionModel,DatabaseSchema,DirectiveModel):String
 class Extrode.JauntyQ.Generator.Directives.DirectiveModel
     ctor .ctor()
@@ -291,6 +294,7 @@ class Extrode.JauntyQ.Generator.JauntyDiagnostics
     field JNT4004:DiagnosticDescriptor
     field JNT4005:DiagnosticDescriptor
     field JNT4006:DiagnosticDescriptor
+    field JNT4007:DiagnosticDescriptor
     field JNT5001:DiagnosticDescriptor
     field JNT5002:DiagnosticDescriptor
     field JNT5003:DiagnosticDescriptor
