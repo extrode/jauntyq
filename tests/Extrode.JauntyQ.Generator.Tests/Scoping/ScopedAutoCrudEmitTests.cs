@@ -178,6 +178,106 @@ public class ScopedAutoCrudEmitTests
         Assert.DoesNotContain("__ScopeRows", bulk);
     }
 
+    private static GeneratorDriverRunResult GenerateScopedBy(string scopeColumn, string dialect)
+    {
+        var schema = $@"{{
+  ""dialect"": ""{dialect}"",
+  ""tables"": {{
+    ""orders"": {{
+      ""name"": ""orders"",
+      ""columns"": {{
+        ""order_no"": {{ ""name"": ""order_no"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true }},
+        ""{scopeColumn}"": {{ ""name"": ""{scopeColumn}"", ""dbType"": ""int"", ""isNullable"": false }},
+        ""note"": {{ ""name"": ""note"", ""dbType"": ""varchar"", ""isNullable"": true }}
+      }}
+    }}
+  }},
+  ""foreignKeys"": []
+}}";
+        var scope = $@"{{ ""scopes"": [ {{ ""table"": ""orders"", ""column"": ""{scopeColumn}"" }} ] }}";
+        return Run(new[] { (ScopePath, scope) }, schema, null, true);
+    }
+
+    private static List<Diagnostic> CompileErrors(GeneratorDriverRunResult result)
+    {
+        var runtimeDir = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+        var references = new[]
+        {
+            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(System.Data.Common.DbConnection).Assembly.Location),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Runtime.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Data.Common.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.ComponentModel.Primitives.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Threading.Tasks.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Collections.dll")),
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Collections.NonGeneric.dll")),
+            MetadataReference.CreateFromFile(typeof(Microsoft.Data.SqlClient.SqlConnection).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(MySqlConnector.MySqlConnection).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(Npgsql.NpgsqlConnection).Assembly.Location),
+        };
+        var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("ScopedCollisionAssembly",
+            result.GeneratedTrees, references,
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        return compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+    }
+
+    [Theory]
+    [InlineData("conn", "sqlite")]
+    [InlineData("row", "sqlite")]
+    [InlineData("rows", "sqlite")]
+    [InlineData("cancellationToken", "sqlite")]
+    [InlineData("id", "sqlite")]
+    [InlineData("conn", "sqlserver")]
+    [InlineData("row", "sqlserver")]
+    [InlineData("rows", "sqlserver")]
+    [InlineData("cancellationToken", "sqlserver")]
+    [InlineData("id", "sqlserver")]
+    [InlineData("conn", "mysql")]
+    [InlineData("transaction", "mysql")]
+    [InlineData("row", "postgres")]
+    [InlineData("transaction", "postgres")]
+    public void AScopeColumn_NamedLikeAGeneratedParameter_StillCompiles(string scopeColumn, string dialect)
+    {
+        var result = GenerateScopedBy(scopeColumn, dialect);
+
+        Assert.True(Emits(result, "Orders.Poco.auto.g.cs"), string.Join("\n", result.Diagnostics));
+        Assert.True(Emits(result, "Orders.BulkInsert.auto.g.cs"), string.Join("\n", result.Diagnostics));
+        var errors = CompileErrors(result);
+        Assert.True(errors.Count == 0, string.Join("\n", errors));
+    }
+
+    [Fact]
+    public void PocoOverloads_RenameTheirOwnParameter_WhenTheScopeTakesItsName()
+    {
+        var conn = Source(GenerateScopedBy("conn", "sqlite"), "Orders.Poco.auto.g.cs");
+        var row = Source(GenerateScopedBy("row", "sqlite"), "Orders.Poco.auto.g.cs");
+
+        Assert.Contains("public static int Update(DbConnection __conn, int conn, Order row, DbTransaction? transaction = null) => Update(__conn, conn, row.Note, row.OrderNo, transaction);", conn);
+        Assert.Contains("public int Update(int row, Order __row) => Update(row, __row.Note, __row.OrderNo);", row);
+    }
+
+    [Fact]
+    public void BulkInsert_RenamesItsOwnParameter_WhenTheScopeTakesItsName()
+    {
+        var bulk = Source(GenerateScopedBy("rows", "sqlite"), "Orders.BulkInsert.auto.g.cs");
+
+        Assert.Contains("public int BulkInsert(int rows, IEnumerable<Order> __rows) => __BulkInsertUnscoped(__ScopeRows(__rows, rows));", bulk);
+        Assert.Contains("private static IEnumerable<Order> __ScopeRows(IEnumerable<Order> __rows, int rows)", bulk);
+    }
+
+    [Fact]
+    public void AScopeThatCollidesWithNothing_KeepsTheConventionalParameterNames()
+    {
+        var bulk = Source(GenerateScopedBy("tenant_id", "sqlite"), "Orders.BulkInsert.auto.g.cs");
+        var poco = Source(GenerateScopedBy("tenant_id", "sqlite"), "Orders.Poco.auto.g.cs");
+
+        Assert.DoesNotContain("__conn", bulk + poco);
+        Assert.DoesNotContain("__row", bulk + poco);
+        Assert.DoesNotContain("__transaction", bulk + poco);
+        Assert.DoesNotContain("__cancellationToken", bulk + poco);
+        Assert.DoesNotContain("__id", poco);
+    }
+
     [Theory]
     [InlineData("sqlite")]
     [InlineData("sqlserver")]
