@@ -158,12 +158,19 @@ enum Extrode.JauntyQ.Analysis.Migrations.MigrationStatementKind
     field Unsupported:MigrationStatementKind
 class Extrode.JauntyQ.Analysis.Migrations.SchemaSimulator
     method Apply(DatabaseSchema,IEnumerable<ValueTuple<String,List<MigrationStatement>>>,List<AnalysisDiagnostic>):DatabaseSchema
+class Extrode.JauntyQ.Analysis.Scoping.ScopeAnalyzer
+    method FindUnproven(QueryModel,IReadOnlyList<ScopeColumn>):List<UnprovenReach>
 class Extrode.JauntyQ.Analysis.Scoping.ScopeColumn
     ctor .ctor(String,String)
     prop Column:String
     prop Table:String
 class Extrode.JauntyQ.Analysis.Scoping.ScopeResolver
     method Resolve(ScopeFile,DatabaseSchema,List<String>):List<ScopeColumn>
+class Extrode.JauntyQ.Analysis.Scoping.UnprovenReach
+    ctor .ctor(String,String,String)
+    prop Column:String
+    prop Message:String
+    prop Table:String
 enum Extrode.JauntyQ.Analysis.SqlIdentifierPosition
     field Column:SqlIdentifierPosition
     field Object:SqlIdentifierPosition
@@ -582,6 +589,7 @@ class Extrode.JauntyQ.SqlParser.IR.QueryModel
     prop StatementType:StatementType
     prop Subqueries:List<SubqueryRef>
     prop Tables:List<TableRef>
+    prop TargetAlias:String
     prop TargetTable:String
     prop UnsupportedConstructs:List<String>
     prop WithRecursive:Boolean
