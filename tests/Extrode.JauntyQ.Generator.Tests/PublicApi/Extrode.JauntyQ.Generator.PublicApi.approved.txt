@@ -158,6 +158,12 @@ enum Extrode.JauntyQ.Analysis.Migrations.MigrationStatementKind
     field Unsupported:MigrationStatementKind
 class Extrode.JauntyQ.Analysis.Migrations.SchemaSimulator
     method Apply(DatabaseSchema,IEnumerable<ValueTuple<String,List<MigrationStatement>>>,List<AnalysisDiagnostic>):DatabaseSchema
+class Extrode.JauntyQ.Analysis.Scoping.ScopeColumn
+    ctor .ctor(String,String)
+    prop Column:String
+    prop Table:String
+class Extrode.JauntyQ.Analysis.Scoping.ScopeResolver
+    method Resolve(ScopeFile,DatabaseSchema,List<String>):List<ScopeColumn>
 enum Extrode.JauntyQ.Analysis.SqlIdentifierPosition
     field Column:SqlIdentifierPosition
     field Object:SqlIdentifierPosition
@@ -281,6 +287,7 @@ class Extrode.JauntyQ.Generator.JauntyDiagnostics
     field JNT6001:DiagnosticDescriptor
     field JNT6002:DiagnosticDescriptor
     field JNT6003:DiagnosticDescriptor
+    field JNT6004:DiagnosticDescriptor
     field JNT7001:DiagnosticDescriptor
     field JNT7002:DiagnosticDescriptor
     field JNT7003:DiagnosticDescriptor

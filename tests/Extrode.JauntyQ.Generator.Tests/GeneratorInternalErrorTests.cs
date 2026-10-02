@@ -214,10 +214,10 @@ public class GeneratorInternalErrorTests
     }
 
     /// <summary>
-    /// Output nodes that need no guard, each with the reason it cannot throw. Both
-    /// only join strings from an array that was already materialized upstream.
+    /// Output nodes that need no guard, each with the reason it cannot throw. All
+    /// three only join strings from an array that was already materialized upstream.
     /// </summary>
-    private static readonly string[] Unguarded = { "schemaCandidates", "acceptCandidates" };
+    private static readonly string[] Unguarded = { "schemaCandidates", "acceptCandidates", "scopeCandidates" };
 
     [Fact]
     public void EveryOutputNodeIsGuarded_OrIsOnTheAllowlistWithAReason()

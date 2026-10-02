@@ -101,17 +101,21 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             return ((string?)winner.Path, (string?)(winner.GetText(ct)?.ToString() ?? ""));
         });
 
-        context.RegisterSourceOutput(
-            scopeFiles.Select(static (f, _) => f.Path).Collect().Select(static (paths, _) => paths.Sort(StringComparer.Ordinal)),
-            static (ctx, paths) =>
-            {
-                if (paths.Length < 2)
-                    return;
-                ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6004, Location.None,
-                    $"Found {paths.Length} scope files ({string.Join(", ", paths)}); using '{paths[0]}'. " +
-                    "Scopes in the others are ignored entirely, they are not merged, so any table only they " +
-                    "declare is unscoped. Keep one *.scope.json (or exclude the extras from AdditionalFiles)."));
-            });
+        var scopeCandidates = scopeFiles
+            .Select(static (f, _) => f.Path)
+            .Collect()
+            .Select(static (paths, _) => paths.Sort(StringComparer.Ordinal))
+            .WithTrackingName("JauntyQ_ScopeCandidates");
+
+        context.RegisterSourceOutput(scopeCandidates, static (ctx, paths) =>
+        {
+            if (paths.Length < 2)
+                return;
+            ctx.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT6004, Location.None,
+                $"Found {paths.Length} scope files ({string.Join(", ", paths)}); using '{paths[0]}'. " +
+                "Scopes in the others are ignored entirely, they are not merged, so any table only they " +
+                "declare is unscoped. Keep one *.scope.json (or exclude the extras from AdditionalFiles)."));
+        });
 
         var schemaState = schemaText
             .Combine(migrationFiles)
@@ -154,8 +158,21 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(schemaState, static (ctx, state) =>
         {
-            foreach (var diag in state.ScopeDiagnostics)
-                ctx.ReportDiagnostic(diag.ToDiagnostic());
+            try
+            {
+                foreach (var diag in state.ScopeDiagnostics)
+                    ctx.ReportDiagnostic(diag.ToDiagnostic());
+            }
+            // Stryker disable Statement,String,Block : reached only by a throw out of code no known input makes throw; a test that reached it would be a bug report, fixed by removing the throw
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ctx.ReportDiagnostic(InternalErrorDiagnostic("reporting scope file problems (JNT6004)", ex));
+            }
+            // Stryker restore all
         });
 
         // Auto-CRUD is on unless the consumer sets <JauntyQAutoCrud>false</JauntyQAutoCrud>
