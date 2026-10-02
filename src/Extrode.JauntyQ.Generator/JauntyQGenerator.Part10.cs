@@ -88,6 +88,7 @@ internal sealed class DiagnosticInfo : IEquatable<DiagnosticInfo>
 
     public override bool Equals(object? obj) => Equals(obj as DiagnosticInfo);
 
+    // Stryker disable once Block : an empty body yields a constant hash, which still satisfies GetHashCode's contract (equal objects => equal hashes); only bucket distribution, not any observable result, changes
     public override int GetHashCode()
     {
         // Stryker disable once Arithmetic,NullCoalescing : GetHashCode's only contract is equal objects => equal hashes, which holds under any fixed combining transform of fields Equals compares

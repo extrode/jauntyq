@@ -47,6 +47,7 @@ internal sealed class FileSummary : IEquatable<FileSummary>
 
     public override bool Equals(object? obj) => Equals(obj as FileSummary);
 
+    // Stryker disable once Block : an empty body yields a constant hash, which still satisfies GetHashCode's contract (equal objects => equal hashes); only bucket distribution, not any observable result, changes
     public override int GetHashCode()
     {
         unchecked
