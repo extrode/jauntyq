@@ -155,4 +155,15 @@ public class CliHostTests
         Assert.Equal(["b"], CliHost.SkipArgs(new[] { "a", "b" }, 1));
         Assert.Same(Array.Empty<string>(), CliHost.SkipArgs(new[] { "a" }, 1));
     }
+
+    [Fact]
+    public void Verbs_AreTheRegisteredVerbs_InRegistrationOrder()
+    {
+        var pull = new FakeVerb("schema pull");
+        var check = new FakeVerb("check");
+
+        var host = new CliHost(new IVerb[] { pull, check });
+
+        Assert.Equal(new IVerb[] { pull, check }, host.Verbs);
+    }
 }
