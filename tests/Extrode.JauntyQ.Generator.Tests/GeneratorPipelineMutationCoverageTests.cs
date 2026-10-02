@@ -167,6 +167,16 @@ public class GeneratorPipelineMutationCoverageTests
     }
 
     [Fact]
+    public void NoFilesAndNoSnapshot_EmitsOnlyTheShapeGuard()
+    {
+        var result = Run();
+
+        var source = Assert.Single(result.Results.Single().GeneratedSources);
+        Assert.Equal("JauntyQShapeGuard.g.cs", source.HintName);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
     public void ComputeHintCollisions_GroupsCaseInsensitivelyAndSortsByPath()
     {
         var collisions = JauntyQGenerator.ComputeHintCollisions(ImmutableArray.Create<(string?, string?)>(
