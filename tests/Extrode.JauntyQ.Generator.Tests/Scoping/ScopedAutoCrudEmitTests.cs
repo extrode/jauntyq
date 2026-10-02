@@ -60,6 +60,22 @@ public class ScopedAutoCrudEmitTests
     }
 
     [Fact]
+    public void PocoInsert_ThatReturnsTheIdentity_TakesTheScopeBeforeTheRow()
+    {
+        var schema = SchemaJson
+            .Replace(@"""dialect"": ""sqlite""", @"""dialect"": ""sqlserver""")
+            .Replace(@"""isPrimaryKey"": true }", @"""isPrimaryKey"": true, ""isIdentity"": true }");
+        var result = Run(new[] { (ScopePath, OrdersOnly) }, schema, null, true);
+
+        var poco = Source(result, "Orders.Poco.auto.g.cs");
+        Assert.Contains("public int Insert(int tenant_id, Order row)", poco);
+        Assert.Contains("int id = Insert(tenant_id, row.Note);", poco);
+        Assert.Contains("public static int Insert(DbConnection conn, int tenant_id, Order row, DbTransaction? transaction = null)", poco);
+        Assert.Contains("public async Task<int> InsertAsync(int tenant_id, Order row, CancellationToken cancellationToken = default)", poco);
+        Assert.Contains("public static async Task<int> InsertAsync(DbConnection conn, int tenant_id, Order row, DbTransaction? transaction = null, CancellationToken cancellationToken = default)", poco);
+    }
+
+    [Fact]
     public void Upsert_OnSqlite_UpdatesOnlyTheCallersRow()
     {
         var upsert = Source(Generate(OrdersOnly), "Orders.Upsert.auto.g.cs");
