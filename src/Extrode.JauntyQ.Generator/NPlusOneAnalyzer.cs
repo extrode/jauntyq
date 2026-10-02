@@ -242,20 +242,27 @@ internal static class NPlusOneAnalyzer
     {
         string columns = string.Join(", ", group.ChildColumns);
 
+        // -- @each expands one list parameter, so the two-query stitch it names
+        // only fits a single-column key; a composite key keeps the generic form.
+        string batched = group.ChildColumns.Count == 1
+            ? $"WHERE {columns} IN (@ParentIds) under -- @each ParentIds, one query for all parents. " +
+              "See docs/03-guides/loading-related-rows.md."
+            : $"WHERE {columns} IN (...).";
+
         if (fact.AggregateOnlyProjection)
         {
             return $"{fact.Name} computes a per-row aggregate on {group.ChildTable} filtered by its " +
                    $"foreign key to {group.ParentTable} ({columns}), and {parentQuery} returns a " +
                    $"{group.ParentTable} collection: calling it once per row is an N+1 query pattern. " +
                    $"Consider a grouped aggregate join (JOIN {group.ChildTable} ... GROUP BY {columns}) " +
-                   $"or a batched WHERE {columns} IN (...).";
+                   $"or a batched {batched}";
         }
 
         return $"{fact.Name} is a point lookup on {group.ChildTable} by its foreign key to " +
                $"{group.ParentTable} ({columns}), and {parentQuery} returns a {group.ParentTable} " +
                $"collection: calling it once per row is an N+1 query pattern. Fetch the rows " +
                $"set-based instead: join {group.ChildTable} into the parent query, or batch the " +
-               $"lookups with WHERE {columns} IN (...).";
+               $"lookups with {batched}";
     }
 
     /// <summary>

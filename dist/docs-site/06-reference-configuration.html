@@ -119,14 +119,14 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Guides</span>
   </div>
-  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="06-reference-readme.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html" class="active" aria-current="page">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-mutation-coverage-report.html">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</a>  <a href="06-reference-mutation-coverage-tally.html">Mutation coverage tally vs. target</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+  <div class="nav-group-items">  <a href="06-reference-readme.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-code-coverage.html">Code coverage</a>  <a href="06-reference-configuration.html" class="active" aria-current="page">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-migration-tracking-contract.html">Migration tracking contract</a>  <a href="06-reference-mutation-coverage-report.html">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</a>  <a href="06-reference-mutation-coverage-tally.html">Mutation coverage tally vs. target</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -254,6 +254,9 @@ match):</p>
 </table>
 <p>Any path component literally named <code>ddl</code> or <code>migrations</code> triggers that
 classification, regardless of depth.</p>
+<p>JauntyQ never applies migrations to a database. The
+<a href="06-reference-migration-tracking-contract.html">migration tracking contract</a> says what your
+own runner needs to do to agree with it.</p>
 <h2 id="schema-source-precedence">Schema-source precedence</h2>
 <ol>
 <li>If a <code>.schema.json</code> snapshot is present, it is authoritative and any
@@ -331,13 +334,81 @@ over it.</p>
 example: the SQLite port of Pagila declares its foreign keys without secondary
 indexes, and its 17 entries take the resulting <code>JNT8004</code> count to zero.</p>
 <h2 id="entity-and-method-naming">Entity and method naming</h2>
+<p>This mapping is a <strong>stable contract</strong>. Other tools (a scaffolder, a code
+reviewer, a doc generator) may depend on it. Changing it would be a breaking
+change and would be called out as one in the changelog. <code>NamingContractTests</code>
+pins every rule below.</p>
+<p><strong>The rule.</strong> A query file's containing folder names the entity, and its file
+name names the method:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Generated call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>db/Widgets/GetAll.sql</code></td>
+<td><code>db.Widgets.GetAll()</code></td>
+</tr>
+<tr>
+<td><code>db/tables/Widgets/GetAll.sql</code></td>
+<td><code>db.Widgets.GetAll()</code></td>
+</tr>
+<tr>
+<td><code>db/Widgets/Admin/ListAll.sql</code></td>
+<td><code>db.Widgets.ListAll()</code></td>
+</tr>
+<tr>
+<td><code>db/Ping.sql</code></td>
+<td><code>db.Queries.Ping()</code></td>
+</tr>
+</tbody>
+</table>
 <ul>
-<li><strong>Entity name</strong> = the folder under <code>db/tables/</code> (e.g. <code>Products</code> →
-<code>db.Products</code>, generated class <code>Products</code>).</li>
-<li><strong>Method name</strong> = the <code>.sql</code> file name without extension (e.g.
-<code>GetByCategory.sql</code> → <code>GetByCategory</code>).</li>
-<li>A hand-written file whose name matches an auto-CRUD method <strong>overrides</strong> the
-synthetic one; hand-written always wins.</li>
+<li><strong>The root.</strong> JauntyQ finds the common folder above all query files (the
+folder two levels up from each file, shared by all of them). Paths are read
+relative to that root. Migration and DDL files are not query files and do
+not count.</li>
+<li><strong>Entity name</strong> = the first folder below the root. A leading <code>tables</code> or
+<code>views</code> folder is skipped, so <code>db/tables/Widgets/</code> and <code>db/Widgets/</code> are the
+same entity. Folders deeper than the entity folder are ignored: they group
+files, they do not rename anything.</li>
+<li><strong>Catch-all.</strong> A file directly in the root, with no entity folder, belongs to
+the entity <code>Queries</code>.</li>
+<li><strong>Method name</strong> = the file name without <code>.sql</code>.</li>
+<li><strong>No case or plural changes.</strong> Folder and file names are used exactly as
+written. <code>db/widgets/getAll.sql</code> gives <code>db.widgets.getAll()</code>.</li>
+<li><strong>Overrides.</strong> A hand-written file whose entity and method match an auto-CRUD
+method replaces the generated one. Hand-written always wins.</li>
+</ul>
+<p><strong>Legal names (<code>JNT2004</code>).</strong> The entity and method names become a C# class and
+method, so each must be a legal C# identifier: ASCII letters, digits and
+underscores, not starting with a digit, and not a C# reserved keyword such as
+<code>class</code> or <code>int</code>. <code>db/Widgets/2Fast.sql</code>, <code>db/Wid-gets/GetAll.sql</code> and
+<code>db/class/GetAll.sql</code> are all <code>JNT2004</code>, and the file generates nothing until it
+is renamed.</p>
+<p><strong>Row types.</strong> What a query returns is named from the same pair, in one of two
+ways:</p>
+<ul>
+<li><p><strong>The table's own type.</strong> A query that selects every column of one table, in
+the table's column order, with no result-shaping directives, returns the
+shared per-table type. Its name comes from the <strong>table</strong> name, not the folder:
+the table name in PascalCase, made singular by these rules, applied in order:</p>
+<ul>
+<li>ends in <code>ies</code>: replace with <code>y</code> (<code>Categories</code> → <code>Category</code>)</li>
+<li>ends in <code>xes</code>, <code>zes</code>, <code>ches</code>, <code>shes</code> or <code>sses</code>: drop <code>es</code> (<code>Boxes</code> → <code>Box</code>)</li>
+<li>ends in <code>s</code> but not <code>ss</code>, <code>us</code> or <code>is</code>: drop <code>s</code> (<code>Widgets</code> → <code>Widget</code>)</li>
+<li>otherwise unchanged.</li>
+</ul>
+<p>When the rules leave the name unchanged (<code>Status</code>, <code>Region</code>), the type is the
+name plus <code>Row</code> (<code>StatusRow</code>), so it never collides with the entity class.</p>
+</li>
+<li><p><strong>A query-specific type.</strong> Any other projection (a join, a subset of columns)
+returns a type nested in the entity and named for the method:
+<code>db/Widgets/GetNames.sql</code> returns <code>Widgets.Result.GetNames</code>.</p>
+</li>
 </ul>
 <h2 id="consumer-project-template">Consumer project template</h2>
 <p>Package consumers:</p>
@@ -381,9 +452,9 @@ synthetic one; hand-written always wins.</li>
 
         </article>
         <div class="page-nav" id="page-nav">
-          <div class="prev-next"><a class="pn-prev" href="06-reference-cli.html">
+          <div class="prev-next"><a class="pn-prev" href="06-reference-code-coverage.html">
   <span class="pn-label">&#8592; prev</span>
-  <span class="pn-title">CLI reference: jauntyq</span>
+  <span class="pn-title">Code coverage</span>
 </a><a class="pn-next" href="06-reference-cross-dialect-compatibility.html">
   <span class="pn-label">next &#8594;</span>
   <span class="pn-title">Cross-dialect compatibility</span>

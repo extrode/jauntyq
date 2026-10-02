@@ -119,14 +119,14 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Guides</span>
   </div>
-  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="06-reference-readme.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-mutation-coverage-report.html">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</a>  <a href="06-reference-mutation-coverage-tally.html" class="active" aria-current="page">Mutation coverage tally vs. target</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+  <div class="nav-group-items">  <a href="06-reference-readme.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-code-coverage.html">Code coverage</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-migration-tracking-contract.html">Migration tracking contract</a>  <a href="06-reference-mutation-coverage-report.html">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</a>  <a href="06-reference-mutation-coverage-tally.html" class="active" aria-current="page">Mutation coverage tally vs. target</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -142,14 +142,15 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#assemblies-covered-by-stryker">Assemblies covered by Stryker</a><a class="toc-l2" href="#extrodejauntyqanalysis--per-file-tally-vs-96-target">Extrode.JauntyQ.Analysis — per-file tally vs. 96% target</a><a class="toc-l2" href="#files-at-or-above-target-15-of-19">Files at or above target (15 of 19)</a><a class="toc-l2" href="#files-below-target-4-of-19--round-4-pass-complete-results-final">Files below target (4 of 19) — round-4 pass complete, results final</a><a class="toc-l2" href="#bottom-line">Bottom line</a><a class="toc-l2" href="#extrodejauntyqsqlparser--per-file-tally-vs-96-target">Extrode.JauntyQ.SqlParser — per-file tally vs. 96% target</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#what-the-100-does-and-does-not-mean">What the 100% does and does not mean</a><a class="toc-l2" href="#assemblies-covered-by-stryker">Assemblies covered by Stryker</a><a class="toc-l2" href="#extrodejauntyqanalysis--per-file-tally-vs-96-target">Extrode.JauntyQ.Analysis — per-file tally vs. 96% target</a><a class="toc-l2" href="#files-at-or-above-target-15-of-19">Files at or above target (15 of 19)</a><a class="toc-l2" href="#files-below-target-4-of-19--round-4-pass-complete-results-final">Files below target (4 of 19) — round-4 pass complete, results final</a><a class="toc-l2" href="#bottom-line">Bottom line</a><a class="toc-l2" href="#extrodejauntyqsqlparser--per-file-tally-vs-96-target">Extrode.JauntyQ.SqlParser — per-file tally vs. 96% target</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Mutation coverage tally vs. target</nav>
         <article>
 <h1 id="mutation-coverage-tally-vs-target">Mutation coverage tally vs. target</h1>
 <p>Per-assembly, per-file mutation score, tallied against the 96% target set for
 <code>Extrode.JauntyQ.Analysis</code> (parity with sibling repo <code>jaunty</code>'s ~96% baseline).
-Last confirmed whole-project <code>Extrode.JauntyQ.Analysis</code> run: <strong>99.14%</strong>
+Current scores are in the table under &quot;Assemblies covered by Stryker&quot; (all 100%); what follows
+is history. Analysis at the time of this paragraph: <strong>99.14%</strong>
 (2026-09-21 08:02-08:32, pending commit) — a comment-based Stryker exclusion
 pass over 47 confirmed-equivalent survivors across 7 files, see the
 &quot;2026-09-21 pass: Stryker comment-based exclusions&quot; section below and in
@@ -203,88 +204,189 @@ See the &quot;2026-09-21 push&quot; section in mutation-coverage-report.md for t
 per-file breakdown. For score-history-over-time and
 equivalent-mutant reasoning, see <a href="06-reference-mutation-coverage-report.html"><code>mutation-coverage-report.md</code></a>
 and <code>../handoffs/2026-09-19-stryker-mutation-gaps.md</code>.</p>
+<h2 id="what-the-100-does-and-does-not-mean">What the 100% does and does not mean</h2>
+<p>The score is killed-or-timed-out over the mutants Stryker was allowed to test.
+Three things sit outside it, and the table below is the running record of each.</p>
+<table>
+<thead>
+<tr>
+<th>Assembly</th>
+<th><code>// Stryker disable</code> lines in <code>src</code></th>
+<th>Timeouts (count as killed)</th>
+<th>CompileError (excluded)</th>
+<th>Mutate scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Extrode.JauntyQ.SqlParser</code></td>
+<td>4</td>
+<td>158</td>
+<td></td>
+<td>whole assembly</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Schema</code></td>
+<td>0</td>
+<td></td>
+<td></td>
+<td>whole assembly</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Schema.Extraction</code></td>
+<td>2</td>
+<td></td>
+<td></td>
+<td>whole assembly</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Cli.Core</code></td>
+<td>1</td>
+<td>5</td>
+<td>8</td>
+<td>whole assembly</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Generator</code></td>
+<td>27</td>
+<td>5</td>
+<td>382</td>
+<td><code>**/QueryValidator*.cs</code>, <code>**/*Analyzer.cs</code>, <code>**/JauntyDiagnostics.cs</code>, <code>**/IdentifierGuard.cs</code> only</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Analysis</code></td>
+<td>7</td>
+<td>26</td>
+<td>108</td>
+<td>whole assembly</td>
+</tr>
+</tbody>
+</table>
+<p>Rules for this table:</p>
+<ul>
+<li>A <code>// Stryker disable once &lt;Mutators&gt; : &lt;reason&gt;</code> is allowed only where no test can
+distinguish the mutant (a provably equivalent mutant such as a loop bound). Never for
+a test that is merely inconvenient to write. Prefer, in order: a killing test, simplifying
+the code so the mutated construct disappears, then a disable with the reason on the line.</li>
+<li>A disable is evidence-based, not proven. The 2026-10 audit removed 146 of the 165 disables the 0.6.0 cut carried (19 remained then; 43 by the 2026-10-02 sweep) over two passes, by deleting dead code or adding tests, and found three real bugs (JNT8008 missed Kelvin-sign table names; SQL Server CLR user-type resolution; the RETURNING alias regression caught in review). Timeout and CompileError columns predate the audit.</li>
+<li>2026-10-02 sweep of all 43 disables then in <code>src</code>: each was stripped and its span re-run under Stryker. No mutant a disable was written for was killed; every one survived or had no coverage. Two kinds of side effect were found: a <code>once</code> disable on an Equality line also hides the killed <code>&gt;</code> mutant beside the equivalent <code>&lt;=</code> (MigrationParser, CliHost; Stryker has no per-mutant switch), and the <code>JauntyQGenerator.Part4</code> JNT2004 region opened one line early and hid the killed <code>rowNameOk = true</code> Boolean mutant (region moved below it). The two MySQL <code>DATA_TYPE</code> disables were replaced by a test (<code>MySqlFunctionReaderTests</code>), leaving 41. The <code>ReferencedObjects</code> <code>Block</code> disable and the <code>Schema.Extraction</code> sites (container-only tests, no coverage under Stryker) rest on the trace in their reason, not on a run.</li>
+<li>Refresh the counts with
+<code>grep -rE 'Stryker disable' src/Extrode.JauntyQ.&lt;Assembly&gt; --include=*.cs | wc -l</code>
+and the Timeout/CompileError columns from the run's <code>mutation-report.json</code>.</li>
+<li>Code coverage is tracked separately in <code>code-coverage.md</code>.</li>
+</ul>
 <h2 id="assemblies-covered-by-stryker">Assemblies covered by Stryker</h2>
-<p>Only 2 of 8 <code>src/</code> assemblies have a Stryker config at all; both have been
-run this effort.</p>
+<p>Latest whole-assembly runs (2026-09-24 to 2026-09-30, all on mb1). This table supersedes
+the per-assembly figures in the history below it.</p>
 <table>
 <thead>
 <tr>
 <th>Assembly</th>
 <th>Stryker config</th>
-<th>Ever run this effort</th>
-<th>Target</th>
-<th>Actual</th>
-<th>Δ to target</th>
+<th>Score</th>
+<th>Killed</th>
+<th>Timeout</th>
+<th>Survived</th>
+<th>NoCov</th>
+<th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>Extrode.JauntyQ.Analysis</code></td>
-<td><code>tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json</code></td>
-<td>Yes</td>
-<td>96.00%</td>
-<td><strong>99.14%</strong></td>
-<td><strong>+3.14 pp (target exceeded)</strong></td>
-</tr>
-<tr>
 <td><code>Extrode.JauntyQ.SqlParser</code></td>
 <td><code>tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json</code></td>
-<td>Yes</td>
-<td>96.00%</td>
-<td><strong>88.53%</strong></td>
-<td><strong>-7.47 pp (follow-up flagged)</strong></td>
-</tr>
-<tr>
-<td><code>Extrode.JauntyQ.Cli.Core</code></td>
-<td>none</td>
-<td>No</td>
-<td>—</td>
-<td>—</td>
-<td>out of scope</td>
-</tr>
-<tr>
-<td><code>Extrode.JauntyQ.Cli</code></td>
-<td>none</td>
-<td>No</td>
-<td>—</td>
-<td>—</td>
-<td>out of scope</td>
-</tr>
-<tr>
-<td><code>Extrode.JauntyQ.Generator</code></td>
-<td>none</td>
-<td>No</td>
-<td>—</td>
-<td>—</td>
-<td>out of scope</td>
-</tr>
-<tr>
-<td><code>Extrode.JauntyQ.Runtime</code></td>
-<td>none</td>
-<td>No</td>
-<td>—</td>
-<td>—</td>
-<td>out of scope</td>
+<td><strong>100%</strong></td>
+<td>2464</td>
+<td>158</td>
+<td>0</td>
+<td>0</td>
+<td><code>additional-timeout</code> 2000; timeouts are mutants that turn a parser loop infinite</td>
 </tr>
 <tr>
 <td><code>Extrode.JauntyQ.Schema</code></td>
-<td>none</td>
-<td>No</td>
-<td>—</td>
-<td>—</td>
-<td>out of scope</td>
+<td>none (run ad hoc)</td>
+<td><strong>100%</strong></td>
+<td></td>
+<td></td>
+<td>0</td>
+<td>0</td>
+<td></td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Cli.Core</code></td>
+<td><code>tests/Extrode.JauntyQ.Cli.Tests/stryker-config.json</code></td>
+<td><strong>100%</strong></td>
+<td></td>
+<td></td>
+<td>0</td>
+<td>0</td>
+<td>1m08s</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Generator</code></td>
+<td><code>tests/Extrode.JauntyQ.Generator.Tests/stryker-config.json</code></td>
+<td><strong>100%</strong></td>
+<td></td>
+<td></td>
+<td>0</td>
+<td>0</td>
+<td>1h34m with shared engines (<code>eval &quot;$(scripts/mutation-engines.sh --quiet)&quot;</code>, concurrency 4); CompileError mutants excluded from score</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Analysis</code></td>
+<td><code>tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json</code></td>
+<td><strong>100%</strong></td>
+<td></td>
+<td></td>
+<td>0</td>
+<td>0</td>
+<td>whole-assembly run 99.91% (2 survivors), both resolved; scoped rerun of those two files 100%</td>
 </tr>
 <tr>
 <td><code>Extrode.JauntyQ.Schema.Extraction</code></td>
-<td>none</td>
-<td>No</td>
+<td><code>tests/Extrode.JauntyQ.Schema.Extraction.Tests/stryker-config.json</code></td>
+<td><strong>100%</strong></td>
+<td></td>
+<td></td>
+<td>0</td>
+<td>0</td>
+<td>22 min with shared engines</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Cli</code></td>
 <td>—</td>
 <td>—</td>
-<td>out of scope</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td>no testable mutants</td>
+</tr>
+<tr>
+<td><code>Extrode.JauntyQ.Runtime</code></td>
+<td>—</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td>no source</td>
 </tr>
 </tbody>
 </table>
-<p>Both configured Stryker projects carry the same <code>stryker-config.json</code>
+<p>For Schema.Extraction, start the shared engines first; a scoped run went from
+15.5 min to 2.2 min with identical results:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">eval &quot;$(scripts/mutation-engines.sh --quiet)&quot;
+(cd tests/Extrode.JauntyQ.Schema.Extraction.Tests &amp;&amp; dotnet-stryker --concurrency 4)
+scripts/mutation-engines.sh --stop
+</code></pre>
+</div>
+<p>Every configured Stryker project carries the same <code>stryker-config.json</code>
 thresholds: <code>high: 80, low: 65, break: 0</code>. The 96% target is a user-set goal
 for <code>Extrode.JauntyQ.Analysis</code> specifically, not the tool's own break
 threshold — <code>dotnet stryker</code> will not fail the build below 96%, only below 0%

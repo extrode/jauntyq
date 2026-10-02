@@ -16,6 +16,18 @@ condensed.
   now reported, naming the method, the table and each error. The method was always skipped; the
   skip used to be silent, which is how the `lateral` table bug below went unnoticed.
 
+### Changed
+- `JNT8008` now names its fix: for a single-column foreign key the message suggests
+  `WHERE fk IN (@ParentIds)` under `-- @each ParentIds`, one query for all parents, and points
+  at the new [loading parents with their children](docs/03-guides/loading-related-rows.md)
+  guide. Composite keys keep the generic `IN (...)` wording. Eager loading is not planned.
+
+### Documentation
+- The folder-to-entity and file-to-method naming rules (`db/Widgets/GetAll.sql` becomes
+  `db.Widgets.GetAll()`), the row-type naming rules and `JNT2004`'s identifier rule are stated
+  as a stable contract in [configuration](docs/06-reference/configuration.md#entity-and-method-naming)
+  and pinned by `NamingContractTests`.
+
 ### Fixed
 - `JNT8004` no longer fires on a residual filter or a later composite-index column when the
   table is aliased and one reference is qualified while the other is not

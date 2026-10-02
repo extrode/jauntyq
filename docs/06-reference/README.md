@@ -8,6 +8,10 @@ Precise, lookup-oriented documentation for JauntyQ.
   `.schema.json` structure.
 - **[Configuration reference](configuration.md)**, MSBuild properties,
   `AdditionalFiles` globs, and folder conventions.
+- **[Migration tracking contract](migration-tracking-contract.md)**, what your
+  own migration runner must do (order, the `schema_migrations` table, one
+  transaction per migration) to agree with JauntyQ, and why JauntyQ does not
+  apply migrations itself.
 - **[Directives reference](directives.md)**, every `-- @` directive with
   syntax and constraints.
 - **[Dialect differences](dialects.md)**, per-dialect emitted SQL for
