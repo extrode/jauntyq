@@ -277,6 +277,29 @@ public class AggregateMutationCoverageTests
     }
 
     [Fact]
+    public void ACallFileNamedLikeAnAutoCrudMethod_ClaimsIt_SoAutoCrudDoesNotSynthesizeASecond()
+    {
+        string schema = WidgetSchema.Replace(@"  ""tables"": {", @"  ""procedures"": {
+    ""InsertWidget"": {
+      ""name"": ""InsertWidget"",
+      ""params"": [ { ""name"": ""Name"", ""dbType"": ""text"", ""direction"": ""In"", ""isNullable"": false } ],
+      ""results"": []
+    }
+  },
+  ""tables"": {");
+
+        var result = Run(schema, true, ("db/Widgets/Insert.sql", "-- @call InsertWidget\n"));
+
+        Assert.Null(result.Results.Single().Exception);
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        var inserts = result.Results.Single().GeneratedSources
+            .Where(s => s.SourceText.ToString().Contains(" Insert("))
+            .Select(s => s.HintName + ": " + (s.SourceText.ToString().Contains("\"InsertWidget\"") ? "call" : "synthesized"))
+            .ToArray();
+        Assert.Equal(new[] { "Widgets.Insert.g.cs: call" }, inserts);
+    }
+
+    [Fact]
     public void PrefixOnlyCompositeUpsertKey_JNT2019Message_ListsEveryColumn()
     {
         var result = Run(Schema("mysql", Table("users", Column("email", "varchar") + Column("bio", "varchar"))
