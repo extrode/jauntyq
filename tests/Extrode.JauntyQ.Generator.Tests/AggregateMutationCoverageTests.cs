@@ -276,6 +276,54 @@ public class AggregateMutationCoverageTests
             Assert.Single(Messages(Run(Schema("mysql", table), true), "JNT2018")));
     }
 
+    [Fact]
+    public void ACallFileNamedLikeAnAutoCrudMethod_ClaimsIt_SoAutoCrudDoesNotSynthesizeASecond()
+    {
+        string schema = WidgetSchema.Replace(@"  ""tables"": {", @"  ""procedures"": {
+    ""InsertWidget"": {
+      ""name"": ""InsertWidget"",
+      ""params"": [ { ""name"": ""Name"", ""dbType"": ""text"", ""direction"": ""In"", ""isNullable"": false } ],
+      ""results"": []
+    }
+  },
+  ""tables"": {");
+
+        var result = Run(schema, true, ("db/Widgets/Insert.sql", "-- @call InsertWidget\n"));
+
+        Assert.Null(result.Results.Single().Exception);
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        var inserts = result.Results.Single().GeneratedSources
+            .Where(s => s.SourceText.ToString().Contains(" Insert("))
+            .Select(s => s.HintName + ": " + (s.SourceText.ToString().Contains("\"InsertWidget\"") ? "call" : "synthesized"))
+            .ToArray();
+        Assert.Equal(new[] { "Widgets.Insert.g.cs: call" }, inserts);
+    }
+
+    [Fact]
+    public void PrefixOnlyCompositeUpsertKey_JNT2019Message_ListsEveryColumn()
+    {
+        var result = Run(Schema("mysql", Table("users", Column("email", "varchar") + Column("bio", "varchar"))
+            .Replace("} } }", @"} }, ""indexes"": [ { ""name"": ""ux_email_bio"", ""columns"": [""email"", ""bio""], ""isUnique"": true, ""hasPrefixKeyPart"": true } ] }")), true);
+
+        Assert.StartsWith(
+            "No Upsert is generated for table 'users': the only constraint that could serve as its upsert key is 'ux_email_bio' (email, bio), a UNIQUE over a column PREFIX",
+            Assert.Single(Messages(result, "JNT2019")));
+    }
+
+    [Fact]
+    public void MySqlCompetingUnique_CompositeKey_JNT2018Message_ListsEveryColumn()
+    {
+        string table = @"""tenants"": { ""name"": ""tenants"", ""columns"": {
+            ""tenant_id"": { ""name"": ""tenant_id"", ""dbType"": ""varchar"", ""isNullable"": false, ""isPrimaryKey"": true },
+            ""region"": { ""name"": ""region"", ""dbType"": ""varchar"", ""isNullable"": false, ""isPrimaryKey"": true },
+            ""slug"": { ""name"": ""slug"", ""dbType"": ""varchar"", ""isNullable"": false } },
+          ""indexes"": [ { ""name"": ""ux_slug"", ""columns"": [""slug""], ""isUnique"": true } ] }";
+
+        Assert.StartsWith(
+            "'Tenants.Upsert' targets table 'tenants' on (tenant_id, region), but the table carries another UNIQUE constraint.",
+            Assert.Single(Messages(Run(Schema("mysql", table), true), "JNT2018")));
+    }
+
     [Theory]
     [InlineData("jaunty_db", "JauntyDb")]
     [InlineData("jaunty_q_shape_guard", "JauntyQShapeGuard")]

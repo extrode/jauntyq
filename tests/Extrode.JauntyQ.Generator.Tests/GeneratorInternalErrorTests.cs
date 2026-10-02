@@ -141,7 +141,7 @@ public class GeneratorInternalErrorTests
             new CancellingAdditionalText("db/Widgets/Cancelled.sql"));
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT0001");
-        Assert.NotNull(Assert.Single(result.Results).Exception);
+        Assert.IsAssignableFrom<OperationCanceledException>(Assert.Single(result.Results).Exception);
     }
 
     [Fact]

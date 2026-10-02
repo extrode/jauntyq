@@ -64,6 +64,36 @@ public class CodeEmitterParameterInferenceTests
     }
 
     [Fact]
+    public void InferCrudParameterType_AnUpdateTargetColumnWinsOverAnEarlierSourceTable()
+    {
+        var param = new ParameterRef { Name = "a", BoundColumnName = "a" };
+        var query = Query(StatementType.Update, "t", ("s", ""), ("t", ""));
+
+        Assert.Equal("int", CodeEmitter.InferCrudParameterType(param, query, Schema()));
+    }
+
+    [Fact]
+    public void InferCrudParameterType_AnAliasQualifiedColumnWinsOverTheTargetTable()
+    {
+        var param = new ParameterRef { Name = "a", BoundTableAlias = "x", BoundColumnName = "a" };
+        var query = Query(StatementType.Update, "t", ("t", ""), ("s", "x"));
+
+        Assert.Equal("long", CodeEmitter.InferCrudParameterType(param, query, Schema()));
+    }
+
+    [Fact]
+    public void InferCrudParameterType_AColumnFoundOnlyInACteBodyTable_TakesThatTablesType()
+    {
+        var param = new ParameterRef { Name = "p", BoundColumnName = "only_u" };
+        var query = Query(StatementType.Insert, "t", ("t", ""));
+        var cte = new CteRef { Name = "c" };
+        cte.Body.Tables.Add(new TableRef { TableName = "u" });
+        query.Ctes.Add(cte);
+
+        Assert.Equal("short", CodeEmitter.InferCrudParameterType(param, query, Schema()));
+    }
+
+    [Fact]
     public void InferCrudParameterType_AliasMissStillFindsTheColumnInAnotherReferencedTable()
     {
         var param = new ParameterRef { Name = "p", BoundTableAlias = "x", BoundColumnName = "only_u" };
