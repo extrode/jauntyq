@@ -42,9 +42,16 @@ condensed.
   auto-CRUD emission with JNT0001. The loader now keys each entry by its `name`; an entry with no
   `name` takes its key, and two entries with the same `name` fail the load like any malformed
   snapshot.
+- A schema snapshot with an explicit JSON `null` (`"indexes": null`, `"foreignKeys": null`,
+  `"dbType": null`) no longer crashes every generator stage with JNT0001. A `null` property now
+  loads like an omitted one; a `null` entry inside a collection (`"tables": { "t": null }`,
+  `"foreignKeys": [ null ]`) fails the load like any malformed snapshot.
 - A SQL Server computed column written without parentheses (`Total AS Qty * Price [PERSISTED]`)
   in a DDL or migration file now enters the schema. It used to be dropped silently, so a later
   query selecting it failed with a false JNT2002.
+- A parenthesised computed column whose expression continues after the parentheses
+  (`Flag AS (Qty) + CASE WHEN Note IS NOT NULL THEN 1 ELSE 0 END`) is no longer marked NOT NULL by
+  the `IS NOT NULL` inside its expression.
 - A parameter compared inside an `IN`/`EXISTS` subquery or a CTE body now takes its type, length
   and nullability from the column SQL binds it to, the subquery's own table. Before,
   `delete from orders where customer_id in (select id from customers where id = @id)` typed `@id`
@@ -54,6 +61,9 @@ condensed.
   column. They had suppressed JNT8004 and JNT8009/JNT8010 on the outer table, raised JNT8004
   against it, made JNT8008 report an N+1 child lookup, and added the outer column to migration
   impact analysis.
+- Migration impact analysis now attributes a correlated subquery's reference to an outer alias
+  (`o.total` inside `exists (select 1 from items i where ...)`) to the outer table. It used to
+  record a table named after the alias, so a migration touching `orders.total` reported SAFE.
 
 ### Changed
 - MySQL schema extraction reads function rows through `MySqlExtractor.ReadFunctionsAsync`, so a

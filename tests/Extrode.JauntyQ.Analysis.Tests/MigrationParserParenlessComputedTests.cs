@@ -15,6 +15,10 @@ public class MigrationParserParenlessComputedTests
     [InlineData("total as case when qty is not null then qty * price end", true)]
     [InlineData("total as case when qty is not null then qty * price end persisted", true)]
     [InlineData("total as (qty) * price persisted not null", false)]
+    [InlineData("total as (qty) + case when note is not null then 1 else 0 end", true)]
+    [InlineData("total as (qty) + case when note is not null then 1 else 0 end persisted", true)]
+    [InlineData("total as (qty) + (case when note is not null then 1 end) persisted not null", false)]
+    [InlineData("total as (persisted + 1) persisted not null", false)]
     public void CreateTable_ParenlessComputedColumn_EntersTheSchema(string column, bool nullable)
     {
         var statements = MigrationParser.Parse(

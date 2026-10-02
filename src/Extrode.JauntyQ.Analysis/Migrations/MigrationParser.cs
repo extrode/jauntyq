@@ -486,11 +486,14 @@ public static class MigrationParser
         // so a later query selecting it falsely failed JNT2002 "column does
         // not exist" even though the column is real and live.
         //
-        // T-SQL does not require the parentheses: "Total AS Qty * Price" is
-        // the same column. With no opening paren the expression runs to the
-        // first PERSISTED (the only thing that may follow it), so a
-        // "CASE WHEN x IS NOT NULL ..." inside it is not read as the column's
-        // nullability.
+        // T-SQL does not require the parentheses ("Total AS Qty * Price"),
+        // and a parenthesised group need not be the whole expression
+        // ("AS (Qty) + CASE ..."). Either way the expression runs to the first
+        // PERSISTED outside a paren group (the only thing that may follow it),
+        // so a "CASE WHEN x IS NOT NULL ..." inside it is not read as the
+        // column's nullability. NOT NULL or NULL straight after a paren group
+        // also ends it: "AS (a + b) NOT NULL" is accepted as the column's
+        // nullability though T-SQL wants PERSISTED first.
         if (def[1].Type == TokenType.Keyword && string.Equals(def[1].Value, "AS", StringComparison.OrdinalIgnoreCase) &&
             def.Count > 2)
         {
@@ -502,13 +505,17 @@ public static class MigrationParser
                 IsNullable = true
             };
             int cp = 2;
-            if (IsSymbol(def, cp, "("))
-                SkipParenGroup(def, ref cp);
-            else
+            // Stryker disable once Equality : `<=` runs one extra iteration at cp == def.Count where Is() and IsSymbol() see no token, so cp ends at Count + 1 and the nullability loop below, bounded by cp < def.Count, is skipped for Count and Count + 1 alike (`>` is also hidden by this disable; the PERSISTED NOT NULL tests kill it)
+            while (cp < def.Count && !Is(def, cp, "PERSISTED"))
             {
-                // Stryker disable once Equality : `<=` runs one extra iteration at cp == def.Count where Is() sees no token, so cp ends at Count + 1 and the nullability loop below, bounded by cp < def.Count, is skipped for Count and Count + 1 alike (`>` is also hidden by this disable; the parenless PERSISTED NOT NULL test kills it)
-                while (cp < def.Count && !Is(def, cp, "PERSISTED"))
+                if (!IsSymbol(def, cp, "("))
+                {
                     cp++;
+                    continue;
+                }
+                SkipParenGroup(def, ref cp);
+                if (Is(def, cp, "NOT") || Is(def, cp, "NULL"))
+                    break;
             }
             // Stryker disable once Equality : `<=` runs one extra iteration at cp == def.Count where Is() sees no token and the catch-all only advances cp, so it ends in the same state; `<`-to-`>` is also covered by this disable but skips the loop, which any computed-column test with NULL or NOT NULL after the expression kills (`>` is also hidden by this disable; existing tests kill it)
             while (cp < def.Count)

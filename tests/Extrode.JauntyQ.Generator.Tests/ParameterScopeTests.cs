@@ -64,6 +64,8 @@ public class ParameterScopeTests
     [InlineData("with x as (select 1 as one) delete from orders where customer_id in (select id from customers where id = @Id)", "Q(int Id)")]
     [InlineData("insert into orders (customer_id) select id from customers where id = @Id", "Q(int Id)")]
     [InlineData("delete from orders where id = @Id and customer_id in (select id from customers where note = @Note)", "Q(long Id, string? Note = default)")]
+    [InlineData("select o.id from orders o where exists (select 1 from customers c where c.id = o.customer_id and o.id = @Id)", "Q(long Id)")]
+    [InlineData("select id from orders where customer_id in (select id from customers c where exists (select 1 from regions r where r.id = c.region_id and c.id = @Id))", "Q(int Id)")]
     public void AParameterIsTypedFromTheScopeThatBindsIt(string sql, string signature)
     {
         var result = Run(sql);
@@ -79,6 +81,14 @@ public class ParameterScopeTests
 
         Assert.Contains("__p0.Size = 10;", source);
         Assert.Contains("__p1.Size = CNote == null ? 50 : (CNote.Length > 50 ? CNote.Length : 50);", source);
+    }
+
+    [Fact]
+    public void ACorrelatedStringComparison_IsSizedFromTheOuterTablesColumn()
+    {
+        var source = Source(Run("select o.id from orders o where exists (select 1 from customers c where c.id = o.customer_id and o.note = @Note)", "sqlserver"));
+
+        Assert.Contains("Size = Note == null ? 10 : (Note.Length > 10 ? Note.Length : 10);", source);
     }
 
     [Fact]
