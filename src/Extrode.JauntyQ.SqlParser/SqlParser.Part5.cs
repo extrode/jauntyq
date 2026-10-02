@@ -261,6 +261,7 @@ public static partial class SqlParser
             string tableName = StripQualifier(tokens[pos].Value);
             model.TargetTable = tableName;
             model.Tables.Add(new TableRef { TableName = tableName, Alias = string.Empty });
+            model.TargetAlias = ReadTargetAlias(tokens, pos + 1);
         }
 
         // Parameter bindings handled by ExtractParameterBindings (col = @param pattern)
