@@ -801,4 +801,24 @@ public class ImpactClassifierTests
             + "the JNT9004 build message emits a trailing space. WireKind already degrades an unknown "
             + "kind to the token \"changed\"; DescribeChange must not be the one site that says nothing.");
     }
+
+    [Fact]
+    public void ClassifySingle_GivesTheSameEntryAsTheReport()
+    {
+        var baseline = Schema(Table("users", Col("id"), Col("name", "varchar")));
+        var effective = Schema(Table("users", Col("id")));
+        var delta = Delta(baseline, effective);
+        var input = Input("User.Get", Select("users", "id", "name"));
+
+        ImpactEntry single = ImpactClassifier.ClassifySingle(delta, input);
+        ImpactEntry fromReport = Assert.Single(Run(delta, input).Entries);
+
+        Assert.Equal(Classification.Breaking, single.Classification);
+        Assert.Equal(fromReport.QueryFile, single.QueryFile);
+        Assert.Equal(fromReport.EntityMethod, single.EntityMethod);
+        Assert.Equal(fromReport.Classification, single.Classification);
+        Assert.Equal(
+            fromReport.Reasons.Select(r => (r.SchemaObject, r.ChangeKind, r.Effect)),
+            single.Reasons.Select(r => (r.SchemaObject, r.ChangeKind, r.Effect)));
+    }
 }

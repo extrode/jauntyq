@@ -47,6 +47,17 @@ public class AutoCrudSynthesizeTests
     }
 
     [Fact]
+    public void EverySynthetic_IsNamedForThePascalCasedTable()
+    {
+        var schema = Schema("sqlserver", Table("order_lines", Col("id", pk: true), Col("qty")));
+
+        var queries = AutoCrud.Synthesize(schema);
+
+        Assert.NotEmpty(queries);
+        Assert.All(queries, q => Assert.Equal("OrderLines", q.EntityName));
+    }
+
+    [Fact]
     public void ForeignKeyLoader_Synthesized_ForNonPkForeignKeyColumn()
     {
         var schema = Schema("sqlserver", Table("orders", Col("id", pk: true), Col("customer_id"), Col("note")));
