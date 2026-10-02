@@ -85,7 +85,7 @@ public static partial class SqlParser
                     existing.BoundColumnName = p.BoundColumnName;
                     existing.IsWriteTarget = p.IsWriteTarget;
                     existing.ComparisonOp = p.ComparisonOp;
-                    existing.BoundScope = p.BoundScope ?? cte.Body;
+                    existing.BoundScope = ScopeOf(p, cte.Body);
                 }
             }
 

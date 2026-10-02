@@ -200,6 +200,27 @@ public static partial class SqlParser
     }
 
     /// <summary>
+    /// The scope a binding carried out of <paramref name="body"/> resolves in:
+    /// the scope an inner body already recorded, else <paramref name="body"/>
+    /// itself, unless the binding's qualifier names no table there. A
+    /// correlated reference such as <c>o.total</c> inside
+    /// <c>exists (select 1 from items i where ...)</c> binds to the enclosing
+    /// statement's <c>o</c>, so it carries no scope out of this body.
+    /// </summary>
+    private static QueryModel? ScopeOf(ParameterRef p, QueryModel body)
+    {
+        if (p.BoundScope != null || string.IsNullOrEmpty(p.BoundTableAlias))
+            return p.BoundScope ?? body;
+        foreach (var table in body.Tables)
+        {
+            string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+            if (string.Equals(key, p.BoundTableAlias, StringComparison.OrdinalIgnoreCase))
+                return body;
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Scans <paramref name="tokens"/> for top-level WHERE-clause predicate
     /// subqueries — <c>&lt;column&gt; [NOT] IN ( &lt;SELECT&gt; )</c> and
     /// <c>[NOT] EXISTS ( &lt;SELECT&gt; )</c> — and lifts each out of the stream:
@@ -310,7 +331,7 @@ public static partial class SqlParser
                     existing.BoundColumnName = p.BoundColumnName;
                     existing.IsWriteTarget = p.IsWriteTarget;
                     existing.ComparisonOp = p.ComparisonOp;
-                    existing.BoundScope = p.BoundScope ?? body;
+                    existing.BoundScope = ScopeOf(p, body);
                 }
             }
 

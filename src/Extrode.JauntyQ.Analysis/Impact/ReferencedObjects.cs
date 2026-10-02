@@ -47,15 +47,23 @@ public sealed class ReferencedObjects
     /// every nested statement scope it carries — WHERE-clause predicate
     /// subqueries (<see cref="QueryModel.Subqueries"/>) and CTE bodies
     /// (<see cref="QueryModel.Ctes"/>) — each resolved against its own alias
-    /// map, not the outer statement's. Without this, a migration that only
+    /// map, not the outer statement's. A predicate subquery's map starts from
+    /// <paramref name="outerAliases"/>, the enclosing statement's, because a
+    /// correlated reference (<c>o.total</c> inside
+    /// <c>exists (select 1 from items i where ...)</c>) names an outer table;
+    /// the subquery's own tables shadow it. A CTE body cannot be correlated
+    /// and gets none. Without this, a migration that only
     /// touched a column referenced inside a subquery/CTE body, a WHERE/SET
     /// predicate, or an ORDER BY clause produced a false SAFE verdict: the
     /// query's dependency on that column was never recorded at all.
     /// </summary>
-    private static void ResolveInto(QueryModel model, HashSet<string> tables, HashSet<ReferencedColumn> columns)
+    private static void ResolveInto(QueryModel model, HashSet<string> tables, HashSet<ReferencedColumn> columns,
+        Dictionary<string, string>? outerAliases = null)
     {
         // alias -> real table name; also every real table name maps to itself.
-        var aliasToTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var aliasToTable = outerAliases == null
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(outerAliases, StringComparer.OrdinalIgnoreCase);
         var inScope = new List<string>();
         foreach (var t in model.Tables)
         {
@@ -169,7 +177,7 @@ public sealed class ReferencedObjects
         // Nested statement scopes: each resolved against its own FROM/JOIN
         // tables, not this statement's aliasToTable/inScope.
         foreach (var sq in model.Subqueries)
-            ResolveInto(sq.Body, tables, columns);
+            ResolveInto(sq.Body, tables, columns, aliasToTable);
 
         foreach (var cte in model.Ctes)
             ResolveInto(cte.Body, tables, columns);
