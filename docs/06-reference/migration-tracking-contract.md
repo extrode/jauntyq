@@ -1,7 +1,7 @@
 # Migration tracking contract
 
 JauntyQ reads your migrations but never runs them. You apply them with your own
-runner (a script, Flyway, DbUp, dbmate, anything). This page is what that runner
+runner (a script, Flyway, DbUp, anything). This page is what that runner
 has to do so that it and JauntyQ agree about which migrations exist, in what
 order, and which have been applied.
 
@@ -52,6 +52,10 @@ hand-written runners most often get wrong.
 Two columns. `version` is the file name exactly as it appears in
 `db/migrations/`, including `.sql`.
 
+dbmate and golang-migrate also name their table `schema_migrations`, but they
+store a version number rather than the file name, so they do not meet this
+contract and `jauntyq migrate status` refuses to read their table.
+
 ```sql
 -- PostgreSQL
 CREATE TABLE schema_migrations (
@@ -91,8 +95,11 @@ Extra columns (who applied it, a checksum, run duration) are fine. Keep
   PostgreSQL's `CREATE INDEX CONCURRENTLY`. Put each such statement in a file of
   its own, run it outside a transaction, and record it only after it succeeds.
 
-## What is planned
+## Checking a database against this contract
 
-A read-only `jauntyq migrate status` command is planned. It would compare the
-`schema_migrations` table against `db/migrations/` and report the difference,
-using the table shape above.
+`jauntyq migrate status` reads the `schema_migrations` table and compares it
+with `db/migrations/`, using the table shape and file order above. It lists the
+pending files in apply order and exits `2` on drift: a file that is recorded as
+applied but still in the folder, or a pending file that sorts before the latest
+applied one. `--fail-on pending` also fails on any pending file, for a deploy
+gate. It only reads; see the [CLI reference](cli.md#migrate-status).

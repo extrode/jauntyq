@@ -81,8 +81,16 @@ public class CliCoreMutationCoverageTests : IDisposable
     {
         var expected = new List<string> { "JauntyQ CLI (Extrode.JauntyQ.Cli): schema extraction tool", "" };
         expected.AddRange(PullUsage);
+        expected.Add("  jauntyq migrate status --provider <provider> --connection <connstr> [--migrations <dir>] [--fail-on pending]");
         expected.Add("");
         expected.AddRange(PullHelp);
+        expected.AddRange(new[]
+        {
+            "  migrate status: compare schema_migrations with db/migrations/*.sql (read-only).",
+            "                  Exits 2 on drift (a file applied but still present, or a pending file",
+            "                  sorting before the latest applied one), or on any pending file with",
+            "                  --fail-on pending.",
+        });
         expected.Add("");
         expected.AddRange(new[]
         {

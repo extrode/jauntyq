@@ -15,6 +15,13 @@ condensed.
 - `JNT2027` (Warning): an auto-CRUD method whose generated SQL fails JauntyQ's own validation is
   now reported, naming the method, the table and each error. The method was always skipped; the
   skip used to be silent, which is how the `lateral` table bug below went unnoticed.
+- `jauntyq migrate status`, free in both tools: reads `schema_migrations` and compares it with
+  `db/migrations/*.sql` under the [migration tracking contract](docs/06-reference/migration-tracking-contract.md).
+  Lists pending files in apply order; exits `2` when a recorded migration is still in the folder
+  or a pending one sorts before the latest applied, and on any pending file with
+  `--fail-on pending`. Read-only on all four dialects; a missing table means nothing applied.
+- `MigrationOrder.Compare` in `Extrode.JauntyQ.Analysis`: the migration file order the generator
+  simulates in, now public so a runner or tool can sort the same way.
 
 ### Changed
 - `JNT8008` now names its fix: for a single-column foreign key the message suggests

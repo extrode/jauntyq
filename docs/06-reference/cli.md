@@ -3,20 +3,21 @@
 The `jauntyq` command-line tool extracts a database schema into a committed
 `.schema.json` snapshot (`schema pull`), checks a snapshot against a live
 database (`schema verify`), reports the blast radius of a pending migration
-set offline (`migrate impact`), and runs the query corpus through the
+set offline (`migrate impact`), reports which migrations a database has
+applied (`migrate status`), and runs the query corpus through the
 database's estimate-only EXPLAIN (`explain`). The generator itself never
-connects to a database; only `schema pull`/`schema verify`/`explain` do, `migrate impact` and `registry` are fully offline.
+connects to a database; only `schema pull`/`schema verify`/`migrate status`/`explain` do, `migrate impact` and `registry` are fully offline. Every connecting verb only reads.
 
 ## Two packages, one command
 
 | Package | Feed | Verbs | Install |
 |---|---|---|---|
-| `Extrode.JauntyQ.Cli` | NuGet.org | `schema pull` | `dotnet tool install --global Extrode.JauntyQ.Cli` |
+| `Extrode.JauntyQ.Cli` | NuGet.org | `schema pull`, `migrate status` | `dotnet tool install --global Extrode.JauntyQ.Cli` |
 | `Extrode.JauntyQ.Cli.Premium` | a private feed for subscribers | everything in `Extrode.JauntyQ.Cli` plus `schema verify`, `usage export`, `migrate impact`, `explain`, `registry`, `activate`, `license` | `dotnet tool install --global Extrode.JauntyQ.Cli.Premium --add-source <feed>` |
 
 Both install the same command, `jauntyq`. The premium package replaces the
-free one; never install both. `schema pull` is implemented once, in the shared
-`Extrode.JauntyQ.Cli.Core` library, so it behaves identically in either. A premium verb
+free one; never install both. `schema pull` and `migrate status` are implemented once, in the shared
+`Extrode.JauntyQ.Cli.Core` library, so they behave identically in either. A premium verb
 typed at the free tool exits `3` and prints the install line; it never reads
 its inputs.
 
@@ -37,6 +38,7 @@ The examples below use `jauntyq`.
 jauntyq schema pull    --provider <provider> (--connection-env <VAR> | --connection <connstr>) [--output <path>]
 jauntyq schema verify  --provider <provider> (--connection-env <VAR> | --connection <connstr>) [--output <snapshot-path>] [--format text|json] [--fail-on any|breaking] [--service <id> [--registry <path>]] [--usage <path>]
 jauntyq usage export   [--queries <dir>] [--snapshot <path>] [--output <file>] [--no-auto-crud]
+jauntyq migrate status --provider <provider> (--connection-env <VAR> | --connection <connstr>) [--migrations <dir>] [--fail-on pending]
 jauntyq migrate impact [--snapshot <path>] [--migrations <dir>] [--queries <dir>] [--format text|json] [--fail-on breaking|risky] [--fail-on-warnings]
 jauntyq explain        --provider <provider> [--connection-env <VAR> | --connection <connstr>] [--queries <dir>] [--max <n>] [--format text|json] [--fail-on high|informational] [--cache-dir <dir>]
 jauntyq registry resolve    --schema <id> [--registry <path>] [--format text|json]
@@ -49,7 +51,7 @@ jauntyq license deactivate
 ```
 
 Top-level commands are `schema` (subcommands `pull`, `verify`), `usage`
-(subcommand `export`), `migrate` (subcommand `impact`), `explain`, `registry`
+(subcommand `export`), `migrate` (subcommands `status`, `impact`), `explain`, `registry`
 (subcommands `resolve`, `dependents`, `validate`, `list`), `activate`, and
 `license` (subcommands `status`, `deactivate`).
 
@@ -59,7 +61,7 @@ entitling license and otherwise exit `3` without doing the work;
 `schema verify --service` requires a further, separate entitlement on top of
 base `schema verify` (see
 [License and entitlements](#license-and-entitlements)). `schema pull`,
-`activate`, `license`, and the core source generator are never gated.
+`migrate status`, `activate`, `license`, and the core source generator are never gated.
 
 Being **offline** and being **ungated** are independent: `migrate impact`,
 `registry` and `usage export` need no database connection and are still gated.
@@ -165,6 +167,46 @@ listing each one).
   "unresolvedQueries": []
 }
 ```
+
+### `migrate status`
+
+Reads the `schema_migrations` table your migration runner keeps and compares it
+with the `*.sql` files in `--migrations`, using the table shape and file order
+in the [migration tracking contract](migration-tracking-contract.md). Read-only:
+it never creates the table or writes a row. Free in both tools.
+
+It prints three groups, each only when it is non-empty:
+
+- **Pending**, files with no row, in the order a runner must apply them.
+- **Applied but still present**, files that already have a row. The build
+  applies every file in the folder on top of the snapshot, so a deployed
+  migration left there is applied twice. Re-pull the snapshot, then move it out.
+- **Out of order**, pending files that sort before the latest applied
+  migration. A runner applies them after migrations they come before, so the
+  database is built in a different order from the one the build simulates.
+
+A database with no `schema_migrations` table (or view) is reported as having
+nothing applied, not as an error. A row whose `version` is not a file name
+ending in `.sql` is an error (exit `1`): dbmate and golang-migrate keep a table
+with the same name that holds version numbers, which this contract does not
+cover. A MySQL connection string must name a database. A SQLite database is
+opened read-only, so a mistyped path fails instead of creating an empty file.
+Connection flags resolve the same way as for `schema pull` (see
+[Options](#options)).
+
+**Options**
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--provider <provider>` |, | Database provider, as for `schema pull`. Required. |
+| `--connection-env <VAR>` |, | Environment variable holding the connection string. Preferred. |
+| `--connection <connstr>` |, | Inline connection string. Avoid. |
+| `--migrations <dir>` | `db/migrations` | Directory of migration files. Every `.sql` file under it counts, in any subfolder and whatever the extension's case, matching what the build applies. |
+| `--fail-on pending` | off | Also exit `2` when any file is pending, for a deploy gate. |
+
+- Exit `0`, no drift (pending files alone do not fail without `--fail-on pending`).
+- Exit `2`, an applied file is still present, a pending file is out of order, or `--fail-on pending` is set and a file is pending.
+- Exit `1`, usage error, a missing `--migrations` directory, or a connection failure.
 
 ### `migrate impact`
 
@@ -411,9 +453,9 @@ emits, so `--provider mariadb` maps to the `mysql` dialect in the snapshot.
 
 | Code | Meaning |
 |---|---|
-| `0` | Success. `pull`: snapshot written. `verify`: snapshot matches (with `--usage`, this includes runs whose only drift was downgraded to informational). `usage export`: manifest written. `activate`/`license`: completed. |
+| `0` | Success. `pull`: snapshot written. `verify`: snapshot matches (with `--usage`, this includes runs whose only drift was downgraded to informational). `usage export`: manifest written. `migrate status`: no drift. `activate`/`license`: completed. |
 | `1` | Usage or runtime error, bad/missing arguments, unknown provider, no connection string, invalid `--output` path, an extraction/connection failure, an activation failure (bad signature, malformed license, wrong product, unknown version), or a `registry` error (missing registry file, unknown schema id). |
-| `2` | `verify`: schema drift detected (differences listed on stderr). `migrate impact`: an entry at or above `--fail-on` exists, or `--fail-on-warnings` is set and the run warned. `explain`: a plan problem at or above `--fail-on` exists. `registry validate`: the registry has problems (each named on stderr). |
+| `2` | `verify`: schema drift detected (differences listed on stderr). `migrate status`: drift, or a pending file under `--fail-on pending`. `migrate impact`: an entry at or above `--fail-on` exists, or `--fail-on-warnings` is set and the run warned. `explain`: a plan problem at or above `--fail-on` exists. `registry validate`: the registry has problems (each named on stderr). |
 | `3` | Reserved: a premium command (`migrate impact`, `schema verify`, `explain`, `registry`, `usage export`) was run without an entitling license, or any premium verb was run at the free `Extrode.JauntyQ.Cli` tool, which prints the `Extrode.JauntyQ.Cli.Premium` install line instead. Distinct from `1`/`2` so scripts can tell "not licensed" from "found problems." A lapsed license does **not** produce this code, it runs with a warning. |
 
 ## Examples
@@ -432,6 +474,13 @@ Verify in CI, failing the job on drift:
 jauntyq schema verify --provider sqlserver --connection-env CI_DB_CONN \
   --output db/schema/jaunty.schema.json
 # exit 0 = match, exit 2 = drift
+```
+
+Gate a deploy on migrations having been applied:
+
+```bash
+jauntyq migrate status --provider postgres --connection-env PROD_DB_CONN --fail-on pending
+# exit 0 = nothing pending, exit 2 = pending or drifted
 ```
 
 Optional MSBuild wiring that verifies before every build when a connection is

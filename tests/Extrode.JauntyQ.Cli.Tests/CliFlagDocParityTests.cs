@@ -131,6 +131,12 @@ public class CliFlagDocParityTests
             new[] { "### `schema pull`", "## Options" },
             true
         },
+        {
+            "### `migrate status`",
+            new[] { "src/Extrode.JauntyQ.Cli.Core/MigrateStatusVerb.cs" },
+            new[] { "### `migrate status`" },
+            true
+        },
     };
 
     /// <summary>
