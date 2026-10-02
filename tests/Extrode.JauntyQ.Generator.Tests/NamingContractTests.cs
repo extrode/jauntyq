@@ -90,6 +90,15 @@ public class NamingContractTests
     }
 
     [Fact]
+    public void FolderAndFileNames_AreUsedExactlyAsWritten()
+    {
+        var (_, output) = Run(("db/widgets/getNames.sql", "select widgets.name from widgets"));
+
+        Assert.NotNull(Method(output, "widgets", "getNames"));
+        Assert.Null(Method(output, "Widgets", "GetNames"));
+    }
+
+    [Fact]
     public void ALeadingTablesFolder_IsSkipped()
     {
         var (_, output) = Run(Layout);

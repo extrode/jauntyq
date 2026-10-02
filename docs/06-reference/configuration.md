@@ -115,12 +115,61 @@ indexes, and its 17 entries take the resulting `JNT8004` count to zero.
 
 ## Entity and method naming
 
-- **Entity name** = the folder under `db/tables/` (e.g. `Products` →
-  `db.Products`, generated class `Products`).
-- **Method name** = the `.sql` file name without extension (e.g.
-  `GetByCategory.sql` → `GetByCategory`).
-- A hand-written file whose name matches an auto-CRUD method **overrides** the
-  synthetic one; hand-written always wins.
+This mapping is a **stable contract**. Other tools (a scaffolder, a code
+reviewer, a doc generator) may depend on it. Changing it would be a breaking
+change and would be called out as one in the changelog. `NamingContractTests`
+pins every rule below.
+
+**The rule.** A query file's containing folder names the entity, and its file
+name names the method:
+
+| File | Generated call |
+|---|---|
+| `db/Widgets/GetAll.sql` | `db.Widgets.GetAll()` |
+| `db/tables/Widgets/GetAll.sql` | `db.Widgets.GetAll()` |
+| `db/Widgets/Admin/ListAll.sql` | `db.Widgets.ListAll()` |
+| `db/Ping.sql` | `db.Queries.Ping()` |
+
+- **The root.** JauntyQ finds the common folder above all query files (the
+  folder two levels up from each file, shared by all of them). Paths are read
+  relative to that root. Migration and DDL files are not query files and do
+  not count.
+- **Entity name** = the first folder below the root. A leading `tables` or
+  `views` folder is skipped, so `db/tables/Widgets/` and `db/Widgets/` are the
+  same entity. Folders deeper than the entity folder are ignored: they group
+  files, they do not rename anything.
+- **Catch-all.** A file directly in the root, with no entity folder, belongs to
+  the entity `Queries`.
+- **Method name** = the file name without `.sql`.
+- **No case or plural changes.** Folder and file names are used exactly as
+  written. `db/widgets/getAll.sql` gives `db.widgets.getAll()`.
+- **Overrides.** A hand-written file whose entity and method match an auto-CRUD
+  method replaces the generated one. Hand-written always wins.
+
+**Legal names (`JNT2004`).** The entity and method names become a C# class and
+method, so each must be a legal C# identifier: ASCII letters, digits and
+underscores, not starting with a digit, and not a C# reserved keyword such as
+`class` or `int`. `db/Widgets/2Fast.sql`, `db/Wid-gets/GetAll.sql` and
+`db/class/GetAll.sql` are all `JNT2004`, and the file generates nothing until it
+is renamed.
+
+**Row types.** What a query returns is named from the same pair, in one of two
+ways:
+
+- **The table's own type.** A query that selects every column of one table, in
+  the table's column order, with no result-shaping directives, returns the
+  shared per-table type. Its name comes from the **table** name, not the folder:
+  the table name in PascalCase, made singular by these rules, applied in order:
+  - ends in `ies`: replace with `y` (`Categories` → `Category`)
+  - ends in `xes`, `zes`, `ches`, `shes` or `sses`: drop `es` (`Boxes` → `Box`)
+  - ends in `s` but not `ss`, `us` or `is`: drop `s` (`Widgets` → `Widget`)
+  - otherwise unchanged.
+
+  When the rules leave the name unchanged (`Status`, `Region`), the type is the
+  name plus `Row` (`StatusRow`), so it never collides with the entity class.
+- **A query-specific type.** Any other projection (a join, a subset of columns)
+  returns a type nested in the entity and named for the method:
+  `db/Widgets/GetNames.sql` returns `Widgets.Result.GetNames`.
 
 ## Consumer project template
 
