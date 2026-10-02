@@ -147,6 +147,14 @@ public class DirectiveModel
     public string? AllowNPlusOneReason { get; set; }
 
     /// <summary>
+    /// The stated reason from: -- @unscoped &lt;reason&gt;
+    /// Spec 021: accepts this file's JNT4005s (a scoped table reached without
+    /// its scope parameter) and nothing else. Reason mandatory; a directive
+    /// that accepts nothing is reported as JNT4006. Null when absent.
+    /// </summary>
+    public string? UnscopedReason { get; set; }
+
+    /// <summary>
     /// True if any directives were specified.
     /// </summary>
     public bool HasDirectives =>
@@ -154,7 +162,7 @@ public class DirectiveModel
         || ExplicitParams != null || IsProc || IsFirst || ReturnsIdentity || IsStream
         || CallProcName != null || TypeDirectives != null || EachParams != null
         || MirrorsTarget != null || AllowUnindexedReason != null || AllowSortReason != null
-        || AllowNPlusOneReason != null;
+        || AllowNPlusOneReason != null || UnscopedReason != null;
 
     /// <summary>
     /// JNT3008 warning messages for directive-lookalike comment lines that

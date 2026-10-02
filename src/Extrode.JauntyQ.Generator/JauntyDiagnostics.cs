@@ -663,6 +663,19 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    /// <summary>
+    /// Spec 021: a file declares <c>-- @unscoped</c> but every scoped table it
+    /// reaches is proven, so the directive accepts nothing. Warning, as for
+    /// JNT8012.
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT4006 = new(
+        "JNT4006",
+        "Unnecessary Unscoped Acceptance",
+        "{0}",
+        "JauntyQ.Parameters",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 5xxx: Value safety ────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT5001 = new(

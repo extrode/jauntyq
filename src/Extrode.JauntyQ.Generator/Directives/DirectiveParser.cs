@@ -193,6 +193,14 @@ public static class DirectiveParser
                 directives.AllowNPlusOneReason = value;
                 return true;
 
+            // Spec 021: accepts this file's JNT4005s. Mandatory reason, bare
+            // form declines to JNT3008, like the allow-* family.
+            case "unscoped":
+                if (value.Length == 0)
+                    return false;
+                directives.UnscopedReason = value;
+                return true;
+
             case "proc":
                 directives.IsProc = true;
                 // Last wins, including back to unnamed: "-- @proc Foo" then a
@@ -399,14 +407,14 @@ public static class DirectiveParser
     // value-taking directive whose value is empty).
     private static readonly string[] KnownDirectives =
         { "result", "params", "type", "each", "first", "identity", "stream", "call", "proc", "mirrors",
-          "allow-unindexed", "allow-sort", "allow-n-plus-one" };
+          "allow-unindexed", "allow-sort", "allow-n-plus-one", "unscoped" };
 
     // AUD-R79-02 added "call": it names an existing procedure and does nothing
     // at all without one, so bare "-- @call" belongs here rather than in the
     // silently-accepted set. "mirrors" is the same shape -- it names the query
     // to compare against and means nothing without one.
     private static readonly HashSet<string> ValueRequiredDirectives =
-        new(StringComparer.Ordinal) { "result", "params", "type", "each", "call", "mirrors", "allow-unindexed", "allow-sort", "allow-n-plus-one" };
+        new(StringComparer.Ordinal) { "result", "params", "type", "each", "call", "mirrors", "allow-unindexed", "allow-sort", "allow-n-plus-one", "unscoped" };
 
     /// <summary>
     /// Records a JNT3008 warning when an unmatched <c>-- @word</c> comment is

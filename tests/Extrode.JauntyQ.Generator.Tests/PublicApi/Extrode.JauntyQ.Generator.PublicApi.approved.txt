@@ -215,6 +215,7 @@ class Extrode.JauntyQ.Generator.Directives.DirectiveModel
     prop ReturnsIdentity:Boolean
     prop SuspiciousDirectives:List<String>
     prop TypeDirectives:List<TypeDirective>
+    prop UnscopedReason:String
 class Extrode.JauntyQ.Generator.Directives.DirectiveParser
     method Parse(String):ValueTuple<DirectiveModel,String>
 class Extrode.JauntyQ.Generator.Directives.ExplicitParam
@@ -289,6 +290,7 @@ class Extrode.JauntyQ.Generator.JauntyDiagnostics
     field JNT4003:DiagnosticDescriptor
     field JNT4004:DiagnosticDescriptor
     field JNT4005:DiagnosticDescriptor
+    field JNT4006:DiagnosticDescriptor
     field JNT5001:DiagnosticDescriptor
     field JNT5002:DiagnosticDescriptor
     field JNT5003:DiagnosticDescriptor
