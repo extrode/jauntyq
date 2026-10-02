@@ -62,7 +62,10 @@ $branches = @(
     'test/coverage-count-shared-source-once',
     'fix/coverage-keep-schema-copy',
     'docs/coverage-2026-10-02',
-    'test/cover-remaining-methods'
+    'test/cover-remaining-methods',
+    'chore/cleanup-coverage-and-emitter-mutation',
+    'refactor/remove-unused-verbs-and-hasjson',
+    'chore/cleanup-script-add-branches'
 )
 foreach ($b in $branches) {
     git rev-parse --verify --quiet "refs/heads/$b" > $null
