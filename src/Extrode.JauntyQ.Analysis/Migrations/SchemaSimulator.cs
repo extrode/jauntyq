@@ -99,6 +99,7 @@ public static class SchemaSimulator
         }
         ApplySqliteRowidAliasing(table, schema.Dialect);
         schema.Tables[stmt.TableName] = table;
+        ApplyInlineForeignKeys(schema, stmt, fileName, errors);
     }
 
     private static void ApplyDropTable(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
@@ -131,6 +132,55 @@ public static class SchemaSimulator
             }
             table.Columns[col.Name] = Finalize(col, schema);
             ApplyInlineEnum(schema, stmt, table.Name, col);
+        }
+        ApplyInlineForeignKeys(schema, stmt, fileName, errors);
+    }
+
+    /// <summary>
+    /// Inline column-level REFERENCES from CREATE TABLE / ADD COLUMN become
+    /// foreign keys, as a live re-pull reports them. MySQL is skipped: it
+    /// parses the inline form and creates no constraint. A clause naming no
+    /// column targets the referenced table's primary key; when that is not a
+    /// single known column the key is reported (JNT9001) rather than guessed.
+    /// </summary>
+    private static void ApplyInlineForeignKeys(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
+    {
+        if (string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        foreach (var reference in stmt.ForeignKeys)
+        {
+            string toColumn = reference.ToColumn;
+            if (toColumn.Length == 0)
+            {
+                string? pk = null;
+                int pkCount = 0;
+                if (TryFindTable(schema, reference.ToTable, out var target))
+                {
+                    foreach (var col in target.Columns.Values)
+                    {
+                        if (!col.IsPrimaryKey)
+                            continue;
+                        pkCount++;
+                        pk = col.Name;
+                    }
+                }
+                if (pkCount != 1)
+                {
+                    errors.Add(AnalysisDiagnostic.Warning("JNT9001",
+                        $"{fileName}: foreign key not simulated: '{stmt.TableName}.{reference.FromColumn}' REFERENCES '{reference.ToTable}' names no column, and that table has no single known primary-key column."));
+                    continue;
+                }
+                toColumn = pk!;
+            }
+
+            schema.ForeignKeys.Add(new ForeignKeySchema
+            {
+                FromTable = stmt.TableName,
+                FromColumn = reference.FromColumn,
+                ToTable = reference.ToTable,
+                ToColumn = toColumn
+            });
         }
     }
 

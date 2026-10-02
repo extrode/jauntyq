@@ -162,7 +162,7 @@ public static class MigrationParser
                 continue;
             }
 
-            var column = ParseColumnDef(def, stmt.EnumMembers);
+            var column = ParseColumnDef(def, stmt);
             if (column != null)
                 stmt.Columns.Add(column);
         }
@@ -331,7 +331,7 @@ public static class MigrationParser
 
         foreach (var def in defs)
         {
-            var column = ParseColumnDef(def, stmt.EnumMembers);
+            var column = ParseColumnDef(def, stmt);
             if (column == null)
                 return Unsupported(raw);
             stmt.Columns.Add(column);
@@ -472,7 +472,7 @@ public static class MigrationParser
         }
 
         var stmt = new MigrationStatement { Kind = MigrationStatementKind.AlterColumn, TableName = tableName, RawText = raw, TypeOnly = typeOnly };
-        var column = ParseColumnDef(def, stmt.EnumMembers);
+        var column = ParseColumnDef(def, stmt);
         if (column == null)
             return Unsupported(raw);
         stmt.Columns.Add(column);
@@ -485,17 +485,23 @@ public static class MigrationParser
     /// Flags: NOT NULL, NULL, PRIMARY KEY, IDENTITY[(s,i)]; DEFAULT values
     /// are skipped. Returns null when the shape is unrecognizable.
     /// </summary>
-    private static ColumnSchema? ParseColumnDef(List<Token> def, Dictionary<string, List<string>> enumMembersByColumn)
+    private static ColumnSchema? ParseColumnDef(List<Token> def, MigrationStatement stmt)
     {
-        var column = ParseColumnDef(def, out var enumMembers);
+        var column = ParseColumnDef(def, out var enumMembers, out var reference);
         if (column != null && enumMembers != null)
-            enumMembersByColumn[column.Name] = enumMembers;
+            stmt.EnumMembers[column.Name] = enumMembers;
+        if (column != null && reference != null)
+        {
+            reference.FromColumn = column.Name;
+            stmt.ForeignKeys.Add(reference);
+        }
         return column;
     }
 
-    private static ColumnSchema? ParseColumnDef(List<Token> def, out List<string>? enumMembers)
+    private static ColumnSchema? ParseColumnDef(List<Token> def, out List<string>? enumMembers, out ForeignKeySchema? reference)
     {
         enumMembers = null;
+        reference = null;
         if (def.Count < 2 || def[0].Type != TokenType.Identifier)
             return null;
 
@@ -772,6 +778,36 @@ public static class MigrationParser
                         // loop's catchall, like any other unknown flag.
                         SkipParenGroup(def, ref pos);
                     }
+                }
+                continue;
+            }
+            // Inline "REFERENCES t [(c)] [ON DELETE|UPDATE action ...]". The
+            // catch-all below used to skip it a token at a time, so the
+            // foreign key vanished with no JNT9001 (unlike the table-level
+            // FOREIGN KEY form), and "ON DELETE SET NULL" landed on the NULL
+            // flag above and made a NOT NULL column nullable. The target is
+            // recorded for the simulator, which knows the dialect (MySQL
+            // ignores inline REFERENCES) and can resolve an omitted column
+            // to the target's primary key.
+            if (Is(def, pos, "REFERENCES"))
+            {
+                pos++;
+                string toTable = ReadObjectName(def, ref pos);
+                var toColumns = ReadParenNameList(def, pos);
+                if (IsSymbol(def, pos, "("))
+                    SkipParenGroup(def, ref pos);
+                while (Is(def, pos, "ON") && (Is(def, pos + 1, "DELETE") || Is(def, pos + 1, "UPDATE")))
+                {
+                    pos += 2;
+                    pos += Is(def, pos, "SET") || Is(def, pos, "NO") ? 2 : 1;
+                }
+                if (toTable.Length > 0)
+                {
+                    reference = new ForeignKeySchema
+                    {
+                        ToTable = toTable,
+                        ToColumn = toColumns.Count == 1 ? toColumns[0] : string.Empty
+                    };
                 }
                 continue;
             }
