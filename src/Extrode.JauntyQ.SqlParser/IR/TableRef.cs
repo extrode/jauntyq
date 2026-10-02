@@ -28,4 +28,13 @@ public class TableRef
     /// its columns must project as nullable regardless of the schema's own
     /// NOT NULL constraint — see ProjectionBuilder's join-nullability pass.</summary>
     public JoinKind Join { get; set; } = JoinKind.None;
+
+    /// <summary>
+    /// This join's ON clause split into top-level AND-conjuncts, the same shape
+    /// as <see cref="QueryModel.PredicateAtoms"/>. Empty for the first FROM
+    /// table, a comma-joined table, and a USING join. Read by the scope check
+    /// (spec 021): a table on the nullable side of an outer join can only be
+    /// filtered in its own ON clause.
+    /// </summary>
+    public List<PredicateAtom> OnAtoms { get; } = new();
 }
