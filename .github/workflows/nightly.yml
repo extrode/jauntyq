@@ -34,7 +34,18 @@ jobs:
         run: dotnet build JauntyQ.slnx -c Release --no-restore
 
       - name: Test
-        run: dotnet test JauntyQ.slnx -c Release --no-build --verbosity normal
+        run: |
+          dotnet test JauntyQ.slnx -c Release --no-build --verbosity normal \
+            --logger trx --results-directory artifacts/test-results
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+
+      - name: Skip audit
+        # Same gate as ci.yml: fail on any skip the repo has not sanctioned.
+        run: |
+          deno run -A scripts/skip-audit.js \
+            --results artifacts/test-results --docker-reachable true
 
   fuzz:
     # First execution of tools/Extrode.JauntyQ.Fuzz ever, anywhere: the harness was

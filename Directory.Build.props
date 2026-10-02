@@ -33,6 +33,8 @@
          the ItemGroup at the bottom. -->
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <!-- 128x128 render of docs/assets/logo/jauntyq-mark.svg. -->
+    <PackageIcon>jauntyq-icon-128.png</PackageIcon>
     <Authors>Extrode LLC</Authors>
     <Product>JauntyQ</Product>
     <Company>Extrode LLC</Company>
@@ -87,5 +89,6 @@
          a consumer actually downloaded, not only in the repository. -->
     <None Include="$(MSBuildThisFileDirectory)THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
+    <None Include="$(MSBuildThisFileDirectory)docs/assets/logo/jauntyq-icon-128.png" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 </Project>
