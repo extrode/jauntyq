@@ -131,6 +131,14 @@ public class SchemaSimulatorMySqlEnumTests
     }
 
     [Fact]
+    public void Parser_ignores_a_member_list_that_is_not_all_literals()
+    {
+        var stmt = Assert.Single(MigrationParser.Parse("ALTER TABLE orders ADD flag ENUM('a', 1) NULL;"));
+
+        Assert.Empty(stmt.EnumMembers);
+    }
+
+    [Fact]
     public void Diff_reports_an_enum_change_when_only_the_members_differ()
     {
         var before = Snapshot();
@@ -147,6 +155,17 @@ public class SchemaSimulatorMySqlEnumTests
         var before = Snapshot();
         var after = Snapshot();
         after.Tables["orders"].Columns["status"].EnumName = null;
+
+        var change = Assert.Single(Assert.Single(StructuralSchemaDiff.Compute(before, after).ModifiedTables).ModifiedColumns);
+        Assert.Equal(new[] { ColumnChangeKind.Enum }, change.Kinds);
+    }
+
+    [Fact]
+    public void Diff_reports_an_enum_change_when_the_named_enum_is_gone()
+    {
+        var before = Snapshot();
+        var after = Snapshot();
+        after.Enums.Remove(StatusEnum);
 
         var change = Assert.Single(Assert.Single(StructuralSchemaDiff.Compute(before, after).ModifiedTables).ModifiedColumns);
         Assert.Equal(new[] { ColumnChangeKind.Enum }, change.Kinds);
