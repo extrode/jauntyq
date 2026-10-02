@@ -1,10 +1,27 @@
 {
-  "_comment": "One of four emitter shards run by .github/workflows/mutation-emitter.yml on Blacksmith. The emitter files are outside stryker-config.json's mutate scope, and all of them in one run (4,365 testable mutants) did not finish in 2 hours locally on 2026-10-02, so they are split by file into shards of roughly equal size. Files are listed by name, not by glob range, so EmitterMutationShardTests can check every emitter file is in exactly one shard.",
+  "_comment": "One of four emitter shards run by .github/workflows/mutation-emitter.yml on Blacksmith. The emitter files are outside stryker-config.json's mutate scope, and all of them in one run (4,365 testable mutants) did not finish in 2 hours locally on 2026-10-02, so they are split by file into four shards. The split balances each file's testable mutants plus its timeouts (a timed-out mutant costs about 40 times a killed one) as measured by the first Blacksmith run, 36979486901 on 2026-10-02, where the old split took 32, 22, 6 and 8 minutes. Files are listed by name, not by glob range, so EmitterMutationShardTests can check every emitter file is in exactly one shard.",
   "stryker-config": {
     "project": "Extrode.JauntyQ.Generator.csproj",
-    "mutate": ["**/JauntyQGenerator.cs", "**/JauntyQGenerator.Part2.cs", "**/JauntyQGenerator.Part3.cs"],
-    "reporters": ["progress", "json", "html"],
+    "mutate": [
+      "**/CodeEmitter.Part11.cs",
+      "**/CodeEmitter.Part13.cs",
+      "**/CodeEmitter.Part6.cs",
+      "**/CodeEmitter.Part7.cs",
+      "**/CodeEmitter.Part9.cs",
+      "**/JauntyQGenerator.Part10.cs",
+      "**/JauntyQGenerator.Part12.cs",
+      "**/JauntyQGenerator.Part5.cs"
+    ],
+    "reporters": [
+      "progress",
+      "json",
+      "html"
+    ],
     "verbosity": "info",
-    "thresholds": { "high": 80, "low": 65, "break": 0 }
+    "thresholds": {
+      "high": 80,
+      "low": 65,
+      "break": 0
+    }
   }
 }
