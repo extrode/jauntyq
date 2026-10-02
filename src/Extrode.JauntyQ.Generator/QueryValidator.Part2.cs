@@ -176,7 +176,7 @@ public static partial class QueryValidator
             // CheckIndexed, so it needs its own gate.
             if (tableSchema!.IsView)
                 continue;
-            string orderByInstanceKey = !string.IsNullOrEmpty(orderBy.BoundTableAlias) ? orderBy.BoundTableAlias : tableName;
+            string orderByInstanceKey = !string.IsNullOrEmpty(orderBy.BoundTableAlias) ? orderBy.BoundTableAlias : InstanceOf(query, tableName);
             if (IsColumnIndexSupported(column, orderByInstanceKey, tableSchema!, filterColumns))
                 continue;
 

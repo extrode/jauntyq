@@ -21,6 +21,10 @@ condensed.
   table is aliased and one reference is qualified while the other is not
   (`from t x join s y on ... where x.u = @u and d = @d`, or `where x.a = @a and b = @b` on an
   index over `(a, b)`). The unqualified column was keyed by table name, the qualified one by alias.
+- `JNT8007` no longer fires on an unqualified ORDER BY column of an aliased table whose leading
+  index column is filtered (`from products p where p.launched_at = @d order by product_name` on an
+  index over `(launched_at, product_name)`). Same alias-versus-table-name keying as the JNT8004
+  fix above.
 - A pending file under `db/migrations/` no longer erases the snapshot's functions and user types.
   Migration simulation copied tables, procedures, sequences and enums but not functions or user
   types, so `db.Functions` disappeared from the generated code with no diagnostic as soon as one
