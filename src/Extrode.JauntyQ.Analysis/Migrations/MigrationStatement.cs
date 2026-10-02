@@ -55,6 +55,13 @@ public class MigrationStatement
     /// target column name is ColumnNames[0].</summary>
     public bool NullableAfter { get; set; }
 
+    /// <summary>AlterColumn from PostgreSQL's "ALTER COLUMN c [SET DATA] TYPE t":
+    /// only the type and its facets change, so the simulator keeps the
+    /// column's existing nullability instead of reading the missing NULL/NOT
+    /// NULL clause as nullable. False for SQL Server ALTER COLUMN and MySQL
+    /// MODIFY, which redefine the whole column.</summary>
+    public bool TypeOnly { get; set; }
+
     /// <summary>Original SQL text, for diagnostics.</summary>
     public string RawText { get; set; } = string.Empty;
 }

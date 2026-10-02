@@ -447,21 +447,35 @@ public static class MigrationParser
             return Unsupported(raw);
         }
 
+        // PostgreSQL "ALTER COLUMN c [SET DATA] TYPE t [USING expr]" changes
+        // the type and nothing else. It used to be read as a full column
+        // definition, so with no NULL/NOT NULL clause (Postgres allows none
+        // there) the column came out nullable: a NOT NULL integer widened to
+        // bigint generated as long?, and the impact report showed a
+        // nullability change the migration never made. TypeOnly tells the
+        // simulator to keep the existing nullability, and the USING
+        // expression is cut off so nothing in it is read as a flag.
+        bool typeOnly = false;
+        int typeAt = p + 1;
+        if (isAlterColumn && Is(body, typeAt, "SET") && Is(body, typeAt + 1, "DATA") && Is(body, typeAt + 2, "TYPE"))
+            typeAt += 2;
+        if (isAlterColumn && p < body.Count && body[p].Type == TokenType.Identifier && Is(body, typeAt, "TYPE"))
+            typeOnly = true;
+
         var def = new List<Token>();
         for (int i = p; i < body.Count; i++)
         {
-            // PostgreSQL: drop the TYPE keyword so the def reads name+type
-            if (body[i].Type == TokenType.Identifier &&
-                string.Equals(body[i].Value, "TYPE", StringComparison.OrdinalIgnoreCase) &&
-                def.Count == 1)
+            if (typeOnly && i > p && i <= typeAt)
                 continue;
+            if (typeOnly && Is(body, i, "USING"))
+                break;
             def.Add(body[i]);
         }
 
         var column = ParseColumnDef(def);
         if (column == null)
             return Unsupported(raw);
-        var stmt = new MigrationStatement { Kind = MigrationStatementKind.AlterColumn, TableName = tableName, RawText = raw };
+        var stmt = new MigrationStatement { Kind = MigrationStatementKind.AlterColumn, TableName = tableName, RawText = raw, TypeOnly = typeOnly };
         stmt.Columns.Add(column);
         return stmt;
     }

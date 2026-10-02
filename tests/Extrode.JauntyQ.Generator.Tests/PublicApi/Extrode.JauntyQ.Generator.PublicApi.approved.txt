@@ -140,6 +140,7 @@ class Extrode.JauntyQ.Analysis.Migrations.MigrationStatement
     prop NullableAfter:Boolean
     prop RawText:String
     prop TableName:String
+    prop TypeOnly:Boolean
 enum Extrode.JauntyQ.Analysis.Migrations.MigrationStatementKind
     field AddColumn:MigrationStatementKind
     field AddPrimaryKey:MigrationStatementKind
