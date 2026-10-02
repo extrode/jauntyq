@@ -65,4 +65,16 @@ public class SchemaLoaderRekeyTests
 
         Assert.Equal("schema snapshot has two entries named 'a' (column in table 't')", ex.Message);
     }
+
+    [Theory]
+    [InlineData("procedures", "procedure")]
+    [InlineData("sequences", "sequence")]
+    [InlineData("enums", "enum")]
+    public void TwoEntriesWithTheSameName_NameTheirKind(string collection, string kind)
+    {
+        var ex = Assert.Throws<JsonException>(() => SchemaLoader.Load(
+            "{ \"" + collection + "\": { \"X\": { \"name\": \"x\" }, \"x\": { \"name\": \"x\" } } }"));
+
+        Assert.Equal("schema snapshot has two entries named 'x' (" + kind + ")", ex.Message);
+    }
 }

@@ -23,6 +23,7 @@ public class CodeEmitterSqlScanTests
         { "[a]]@Ids] in (@Ids)", new[] { "[a]]@Ids] in (", "@Ids", ")" } },
         { "[a]]] in (@Ids)", new[] { "[a]]] in (", "@Ids", ")" } },
         { "in (@Ids) [a]]", new[] { "in (", "@Ids", ") [a]]" } },
+        { "in (@Ids) [a]", new[] { "in (", "@Ids", ") [a]" } },
     };
 
     [Theory]
