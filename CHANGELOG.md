@@ -45,6 +45,15 @@ condensed.
 - A SQL Server computed column written without parentheses (`Total AS Qty * Price [PERSISTED]`)
   in a DDL or migration file now enters the schema. It used to be dropped silently, so a later
   query selecting it failed with a false JNT2002.
+- A parameter compared inside an `IN`/`EXISTS` subquery or a CTE body now takes its type, length
+  and nullability from the column SQL binds it to, the subquery's own table. Before,
+  `delete from orders where customer_id in (select id from customers where id = @id)` typed `@id`
+  from `orders.id`. An INSERT...SELECT's `WHERE` parameters likewise no longer resolve against
+  the insert target, which is not in scope there.
+- The same subquery parameters no longer count as filters on the outer statement's same-named
+  column. They had suppressed JNT8004 and JNT8009/JNT8010 on the outer table, raised JNT8004
+  against it, made JNT8008 report an N+1 child lookup, and added the outer column to migration
+  impact analysis.
 
 ### Changed
 - MySQL schema extraction reads function rows through `MySqlExtractor.ReadFunctionsAsync`, so a

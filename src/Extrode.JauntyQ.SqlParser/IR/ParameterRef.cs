@@ -23,4 +23,16 @@ public class ParameterRef
     /// point lookup from a range/set predicate on the same column (JNT8008).
     /// </summary>
     public string ComparisonOp { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The statement scope whose tables <see cref="BoundTableAlias"/> and
+    /// <see cref="BoundColumnName"/> refer to, when the binding was carried up
+    /// out of a predicate subquery or CTE body; null when it was bound in this
+    /// statement. SQL binds an unqualified column to the innermost scope, so
+    /// <c>delete from orders where customer_id in (select id from customers
+    /// where id = @id)</c> compares <c>@id</c> with customers.id, not
+    /// orders.id. Consumers resolve against this scope's tables, and checks
+    /// that walk each scope on its own skip a carried binding in the outer one.
+    /// </summary>
+    public QueryModel? BoundScope { get; set; }
 }

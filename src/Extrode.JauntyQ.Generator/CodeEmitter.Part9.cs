@@ -149,7 +149,7 @@ public static partial class CodeEmitter
         var paramRef = query.Parameters.Find(p => p.Name == paramName);
         if (paramRef != null && !string.IsNullOrEmpty(paramRef.BoundColumnName) && schema != null)
         {
-            var resolved = ResolveColumnType(paramRef.BoundTableAlias, paramRef.BoundColumnName, query, schema);
+            var resolved = ResolveColumnType(paramRef.BoundTableAlias, paramRef.BoundColumnName, paramRef.BoundScope ?? query, schema);
             if (resolved != null)
                 return resolved;
         }
