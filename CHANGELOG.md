@@ -49,9 +49,11 @@ condensed.
 - A SQL Server computed column written without parentheses (`Total AS Qty * Price [PERSISTED]`)
   in a DDL or migration file now enters the schema. It used to be dropped silently, so a later
   query selecting it failed with a false JNT2002.
-- A parenthesised computed column whose expression continues after the parentheses
-  (`Flag AS (Qty) + CASE WHEN Note IS NOT NULL THEN 1 ELSE 0 END`) is no longer marked NOT NULL by
-  the `IS NOT NULL` inside its expression.
+- A computed column whose expression contains a parenthesised group followed by more expression
+  (`Flag AS (Qty) + CASE WHEN Note IS NOT NULL THEN 1 ELSE 0 END`,
+  `Flag AS CASE WHEN (Qty) NOT IN (1, 2) AND Note IS NOT NULL THEN 1 ELSE 0 END`) is no longer
+  marked NOT NULL by the `IS NOT NULL` inside its expression. Only `PERSISTED NOT NULL`, or
+  `NOT NULL` straight after a fully parenthesised expression, sets the column's nullability.
 - A parameter compared inside an `IN`/`EXISTS` subquery or a CTE body now takes its type, length
   and nullability from the column SQL binds it to, the subquery's own table. Before,
   `delete from orders where customer_id in (select id from customers where id = @id)` typed `@id`
