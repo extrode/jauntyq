@@ -78,9 +78,22 @@ public class ScopedAutoCrudEmitTests
     }
 
     [Fact]
-    public void Upsert_OnMySql_IsNotGenerated_ForAScopedTable()
+    public void Reads_FilterOnTheScope_AndTakeItFirst()
     {
-        var result = Generate(OrdersOnly, "mysql");
+        var result = Generate(OrdersOnly);
+
+        var getAll = Source(result, "Orders.GetAll.auto.g.cs");
+        Assert.Contains("public static List<Order> GetAll(DbConnection conn, int tenant_id, DbTransaction? transaction = null)", getAll);
+        Assert.Contains("WHERE orders.tenant_id = @tenant_id", getAll);
+        Assert.Contains("public static Order? GetById(DbConnection conn, int tenant_id, int id, DbTransaction? transaction = null)", Source(result, "Orders.GetById.auto.g.cs"));
+    }
+
+    [Theory]
+    [InlineData("mysql")]
+    [InlineData("MySQL")]
+    public void Upsert_OnMySql_IsNotGenerated_ForAScopedTable(string dialect)
+    {
+        var result = Generate(OrdersOnly, dialect);
 
         Assert.False(Emits(result, "Orders.Upsert.auto.g.cs"));
         Assert.True(Emits(result, "Customers.Upsert.auto.g.cs"));
