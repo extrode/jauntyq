@@ -172,6 +172,34 @@ public class SchemaSimulatorMySqlEnumTests
     }
 
     [Fact]
+    public void Diff_matches_tables_case_insensitively()
+    {
+        var before = Snapshot();
+        var after = Snapshot();
+        var orders = after.Tables["orders"];
+        after.Tables.Remove("orders");
+        orders.Name = "Orders";
+        orders.Columns["note"] = new ColumnSchema { Name = "note", DbType = "text" };
+        after.Tables["Orders"] = orders;
+
+        var delta = StructuralSchemaDiff.Compute(before, after);
+
+        Assert.Empty(delta.AddedTables);
+        Assert.Empty(delta.RemovedTables);
+        Assert.Equal(new[] { "note" }, Assert.Single(delta.ModifiedTables).AddedColumns);
+    }
+
+    [Fact]
+    public void Drop_and_recreate_under_another_casing_is_a_modification()
+    {
+        var (_, delta, _) = Apply(Snapshot(), "DROP TABLE ORDERS; CREATE TABLE ORDERS (id int primary key, status ENUM('pending','shipped') NOT NULL, note text);");
+
+        Assert.Empty(delta.AddedTables);
+        Assert.Empty(delta.RemovedTables);
+        Assert.Equal(new[] { "note" }, Assert.Single(delta.ModifiedTables).AddedColumns);
+    }
+
+    [Fact]
     public void Diff_ignores_identical_enums()
     {
         Assert.Empty(StructuralSchemaDiff.Compute(Snapshot(), Snapshot()).ModifiedTables);

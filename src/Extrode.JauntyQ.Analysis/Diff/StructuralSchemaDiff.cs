@@ -21,20 +21,25 @@ public static class StructuralSchemaDiff
 
         foreach (var table in baseline.Tables.Values)
         {
-            if (!effective.Tables.ContainsKey(table.Name))
+            // Matched case-insensitively, as the doc above promises: the
+            // simulator re-adds a dropped-and-recreated table under the
+            // migration's spelling, so an ordinal lookup reported
+            // 'Customers' removed and 'customers' added for what is one table.
+            var after = FindTable(effective, table.Name);
+            if (after == null)
             {
                 removedTables.Add(table.Name);
                 continue;
             }
 
-            var delta = CompareTable(table, effective.Tables[table.Name], baseline, effective);
+            var delta = CompareTable(table, after, baseline, effective);
             if (delta != null)
                 modifiedTables.Add(delta);
         }
 
         foreach (var table in effective.Tables.Values)
         {
-            if (!baseline.Tables.ContainsKey(table.Name))
+            if (FindTable(baseline, table.Name) == null)
                 addedTables.Add(table.Name);
         }
 
@@ -133,6 +138,18 @@ public static class StructuralSchemaDiff
                 return false;
         }
         return true;
+    }
+
+    private static TableSchema? FindTable(DatabaseSchema schema, string name)
+    {
+        if (schema.Tables.TryGetValue(name, out var exact))
+            return exact;
+        foreach (var table in schema.Tables.Values)
+        {
+            if (string.Equals(table.Name, name, StringComparison.OrdinalIgnoreCase))
+                return table;
+        }
+        return null;
     }
 
     private static Dictionary<string, ColumnSchema> ByName(IEnumerable<ColumnSchema> columns)
