@@ -246,8 +246,10 @@ public static partial class SqlParser
     /// <summary>
     /// The index one past the last token of the ON clause starting at
     /// <paramref name="pos"/>: the next depth-0 keyword that begins another
-    /// join or clause, a depth-0 comma or semicolon, the paren that closes an
-    /// enclosing scope, or the End sentinel.
+    /// join or clause, or a depth-0 comma or semicolon. Without one the clause
+    /// runs to the end, where <see cref="SplitIntoAtoms"/> stops at the End
+    /// sentinel. <c>left(...)</c> and <c>right(...)</c> are the string
+    /// functions, not joins.
     /// </summary>
     private static int FindOnClauseEnd(List<Token> tokens, int pos)
     {
@@ -255,31 +257,29 @@ public static partial class SqlParser
         for (int i = pos; i < tokens.Count; i++)
         {
             var t = tokens[i];
-            if (t.Type == TokenType.End)
-                return i;
             if (t.Type == TokenType.Symbol)
             {
                 if (t.Value == "(")
                     depth++;
                 else if (t.Value == ")")
-                {
-                    if (depth == 0)
-                        return i;
                     depth--;
-                }
                 else if (depth == 0 && (t.Value == "," || t.Value == ";"))
                     return i;
                 continue;
             }
             if (depth != 0)
                 continue;
-            if (t.Type == TokenType.Keyword && OnClauseTerminators.Contains(t.Value))
+            if (t.Type == TokenType.Keyword && OnClauseTerminators.Contains(t.Value) && !IsFunctionCall(tokens, i))
                 return i;
             if (IsNaturalKeyword(t))
                 return i;
         }
         return tokens.Count;
     }
+
+    private static bool IsFunctionCall(List<Token> tokens, int i) =>
+        (tokens[i].Value == "LEFT" || tokens[i].Value == "RIGHT")
+        && i + 1 < tokens.Count && tokens[i + 1].Type == TokenType.Symbol && tokens[i + 1].Value == "(";
 
     private static readonly HashSet<string> OnClauseTerminators = new(StringComparer.Ordinal)
     {

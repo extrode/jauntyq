@@ -97,6 +97,26 @@ public class OnAtomTests
     }
 
     [Fact]
+    public void AClauseKeywordInsideParentheses_DoesNotEndIt()
+    {
+        var model = ParseSql(
+            "select o.id from orders o join lines l on l.order_id = o.id and o.codes = string_agg(l.code, ',' order by l.code) and l.tenant_id = @t");
+
+        Assert.Equal(3, model.Tables[1].OnAtoms.Count);
+        Assert.Equal("l.tenant_id = @t", Rendered(model.Tables[1])[2]);
+    }
+
+    [Fact]
+    public void LeftAndRightFunctionCalls_DoNotEndIt()
+    {
+        var model = ParseSql(
+            "select o.id from orders o join lines l on l.order_id = o.id and left(l.code, 2) = right(o.code, 2) and l.tenant_id = @t");
+
+        Assert.Equal(3, model.Tables[1].OnAtoms.Count);
+        Assert.Equal("l.tenant_id = @t", Rendered(model.Tables[1])[2]);
+    }
+
+    [Fact]
     public void AUsingJoin_HasNoOnAtoms()
     {
         var model = ParseSql("select o.id from orders o join lines l using (order_id)");
