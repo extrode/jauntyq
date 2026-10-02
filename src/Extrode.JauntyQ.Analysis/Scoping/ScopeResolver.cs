@@ -17,7 +17,7 @@ public static class ScopeResolver
     public static List<ScopeColumn> Resolve(ScopeFile file, DatabaseSchema schema, List<string> problems)
     {
         var result = new List<ScopeColumn>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         for (int i = 0; i < file.Scopes.Count; i++)
         {
             var entry = file.Scopes[i];
