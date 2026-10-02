@@ -10,6 +10,9 @@ Quickstart and the [first-hour tutorial](../02-learn/README.md)).
   (SQL Server and PostgreSQL).
 - **[Bulk insert](bulk-insert.md)**, insert many rows fast via the provider's
   native bulk-copy path.
+- **[Tenant scoping](tenant-scoping.md)**, declare tenant-owned tables in
+  `jaunty.scope.json`: queries that skip the tenant filter fail to build, and
+  auto-CRUD takes the tenant value first.
 - **[Loading parents with their children](loading-related-rows.md)**, the
   two-query pattern that fixes `JNT8008`'s N+1 warning, and why there is no
   eager loading.

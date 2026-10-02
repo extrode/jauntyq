@@ -12,6 +12,14 @@ condensed.
 ## [Unreleased]
 
 ### Added
+- Tenant scoping (spec 021): `jaunty.scope.json` declares tables scoped by a column. A
+  hand-written query that reaches one without `<ref>.<column> = @param` in the right place is
+  refused with `JNT4005` (Error), one per unproven reach; `-- @unscoped <reason>` accepts a query
+  that must cross tenants, and `JNT4006` reports one that accepts nothing. Auto-CRUD on a scoped
+  table takes the scope value first in every method, never moves a row between scopes, and its
+  Upsert cannot overwrite another scope's row; MySQL gets no scoped Upsert (`JNT4007`, Info).
+  Problems in the file are `JNT6004`. Views and procedures are not checked. With no scope file
+  the generated code is unchanged. See the [tenant scoping guide](docs/03-guides/tenant-scoping.md).
 - `JNT2027` (Warning): an auto-CRUD method whose generated SQL fails JauntyQ's own validation is
   now reported, naming the method, the table and each error. The method was always skipped; the
   skip used to be silent, which is how the `lateral` table bug below went unnoticed.
