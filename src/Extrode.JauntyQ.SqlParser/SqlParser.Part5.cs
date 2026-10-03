@@ -112,8 +112,10 @@ public static partial class SqlParser
     /// <summary>
     /// Binds <c>col = @param</c> in an upsert's update branch, the SET list of
     /// <c>ON CONFLICT ... DO UPDATE</c> or the list after <c>ON DUPLICATE KEY
-    /// UPDATE</c>, to the target column as a write target. Only top-level
-    /// assignments count; the list ends at WHERE or RETURNING.
+    /// UPDATE</c>, to the target column as a write target. Only a top-level
+    /// item that starts the list or follows a comma counts, so <c>k = @p</c>
+    /// inside a CASE or subquery is left to the comparison scan; the list ends
+    /// at WHERE or RETURNING.
     /// </summary>
     private static void BindUpsertAssignments(List<Token> tokens, QueryModel model)
     {
@@ -148,7 +150,12 @@ public static partial class SqlParser
             }
             if (!inList || t.Type != TokenType.Symbol || t.Value != "=" || i == 0 || i + 1 >= tokens.Count)
                 continue;
-            if (tokens[i - 1].Type != TokenType.Identifier || tokens[i + 1].Type != TokenType.Parameter)
+            if (tokens[i - 1].Type != TokenType.Identifier || tokens[i + 1].Type != TokenType.Parameter || i < 2)
+                continue;
+            var before = tokens[i - 2];
+            bool startsItem = (before.Type == TokenType.Symbol && before.Value == ",")
+                || (before.Type == TokenType.Keyword && (before.Value == "SET" || before.Value == "UPDATE"));
+            if (!startsItem)
                 continue;
             var param = model.Parameters.Find(p => p.Name == tokens[i + 1].Value);
             if (param == null || !string.IsNullOrEmpty(param.BoundColumnName))

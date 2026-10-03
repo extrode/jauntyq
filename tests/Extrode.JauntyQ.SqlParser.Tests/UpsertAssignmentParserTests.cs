@@ -38,10 +38,14 @@ public class UpsertAssignmentParserTests
         Assert.False(p.IsUpsertAssignment);
     }
 
-    [Fact]
-    public void AnAssignmentInsideASubquery_IsNotAnUpsertWrite()
+    [Theory]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set status = (select s from u where k = @s)")]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set status = (case when k = @s then 'a' end)")]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set status = case when k = @s then 'a' end")]
+    [InlineData("insert into t (id) values (@id) on duplicate key update status = if(k = @s, 'a', 'b')")]
+    public void AComparisonInsideAnAssignedValue_IsNotAnUpsertWrite(string sql)
     {
-        var p = Param("insert into t (id) values (@id) on conflict (id) do update set status = (select s from u where k = @s)", "s");
+        var p = Param(sql, "s");
 
         Assert.Equal("k", p.BoundColumnName);
         Assert.False(p.IsUpsertAssignment);
