@@ -31,12 +31,36 @@ public class ScopeFileTests
     [InlineData("{ not json")]
     [InlineData("null")]
     [InlineData("")]
+    [InlineData(@"{ ""scope"": [ { ""table"": ""orders"", ""column"": ""tenant_id"" } ] }")]
+    [InlineData(@"{ ""scopes"": [ { ""table"": ""orders"", ""column"": ""tenant_id"" } ], ""extra"": 1 }")]
+    [InlineData(@"{ ""scopes"": null }")]
     public void AnUnreadableFile_ScopesNothing_AndSaysSo(string json)
     {
         var message = Assert.Single(Messages(Run(json), "JNT6004"));
 
         Assert.StartsWith("Scope file 'db/schema/jaunty.scope.json' could not be read (", message);
         Assert.EndsWith("). Every table is unscoped until it is fixed. (db/schema/jaunty.scope.json)", message);
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData(@"{ ""scopes"": [] }")]
+    public void AFileWithNoEntries_IsReported(string json)
+    {
+        Assert.Equal(
+            "The scope file declares no entries under \"scopes\", so every table is unscoped. (db/schema/jaunty.scope.json)",
+            Assert.Single(Messages(Run(json), "JNT6004")));
+    }
+
+    [Fact]
+    public void ANullEntry_IsDropped_AndTheOthersStillScope()
+    {
+        var result = Run(@"{ ""scopes"": [ null, { ""table"": ""orders"", ""column"": ""tenant_id"" } ] }");
+
+        Assert.Equal(
+            "Scope entry 1 is null. It was dropped, so it scopes no table. (db/schema/jaunty.scope.json)",
+            Assert.Single(Messages(result, "JNT6004")));
+        Assert.Empty(Messages(result, "JNT0001"));
     }
 
     [Fact]
