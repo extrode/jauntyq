@@ -721,7 +721,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             $"{entityName}.{methodName}.g.cs",
             source,
             diagnostics.ToImmutable(),
-            new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable, emitsResultType),
+            new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable, emitsResultType, emitsProcType: directives.IsProc),
             ComputeFingerprint(tokens),
             queryModel,
             sqlFile.Path,

@@ -189,6 +189,34 @@ public class CollidingNamesAreRefusedTests
         Assert.Contains(Errors(result), m => m.StartsWith("JNT2006") && m.Contains("Entity 'Result' would contain a nested type"));
     }
 
+    [Theory]
+    [InlineData("db/Orders/Proc.sql", "-- @proc\nSELECT id, note FROM orders WHERE id = @id")]
+    [InlineData("db/Orders/Proc.sql", "SELECT id, note FROM orders WHERE id = @id", "db/Orders/Find.sql", "-- @proc\nSELECT id FROM orders")]
+    public void AProcQueryBesideAProcScaffold_IsReported(string path, string sql, string? otherPath = null, string? otherSql = null)
+    {
+        var files = otherPath == null ? new[] { (path, sql) } : new[] { (path, sql), (otherPath, otherSql!) };
+
+        Assert.Contains(Errors(SqlServer(files)), m => m.StartsWith("JNT2006") && m.Contains("method 'Proc' and the nested type Proc"));
+    }
+
+    [Fact]
+    public void AProcFolderWithAProcScaffold_IsReported()
+    {
+        var result = Run(Array.Empty<(string, string)>(), NameCollisionHarness.Schema("sqlserver", Table("proc", "id", ("note", "varchar", true))), null, false,
+            ("db/Proc/Find.sql", "-- @proc\nSELECT id, note FROM proc WHERE id = @id"));
+
+        Assert.Contains(Errors(result), m => m.StartsWith("JNT2006") && m.Contains("Entity 'Proc' would contain a nested type"));
+    }
+
+    [Fact]
+    public void AProcQueryWithNoProcScaffoldBesideIt_IsNotReported()
+    {
+        var result = SqlServer(("db/Orders/Proc.sql", "SELECT id, note FROM orders WHERE id = @id"));
+
+        Assert.Empty(Errors(result));
+        Assert.Empty(CompileErrors(result));
+    }
+
     [Fact]
     public void AFolderNamedLikeAFrameworkType_IsReported()
     {
@@ -241,6 +269,9 @@ public class CollidingNamesAreRefusedTests
 
     private static GeneratorDriverRunResult HandWritten(params (string path, string sql)[] files) =>
         Run(Array.Empty<(string, string)>(), NameCollisionHarness.Schema("sqlite", Table("orders", "id", ("note", "varchar", true))), null, false, files);
+
+    private static GeneratorDriverRunResult SqlServer(params (string path, string sql)[] files) =>
+        Run(Array.Empty<(string, string)>(), NameCollisionHarness.Schema("sqlserver", Table("orders", "id", ("note", "varchar", true))), null, false, files);
 
     private static List<string> Errors(GeneratorDriverRunResult result) =>
         result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => $"{d.Id}: {d.GetMessage()}").ToList();

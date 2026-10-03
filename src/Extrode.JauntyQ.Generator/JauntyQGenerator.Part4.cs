@@ -352,6 +352,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         }
         // entities that hold a nested Result type (a query's own DTO)
         var entitiesWithResultType = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        var entitiesWithProcType = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
 
         // entity.method slots claimed by user SQL files: a user file always
         // overrides the auto-CRUD synthetic of the same name
@@ -374,6 +375,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 RecordMethod(file.EntityName, file.MethodName);
                 if (file.EmitsResultType)
                     entitiesWithResultType.Add(file.EntityName);
+                if (file.EmitsProcType)
+                    entitiesWithProcType.Add(file.EntityName);
             }
             if (file.CanonicalTable != null)
                 neededRowTables.Add(file.CanonicalTable);
@@ -970,6 +973,15 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                           "Rename the table or its db/ folder."
                         : $"Entity '{entity}' would declare both a method 'Result' and the nested type Result that holds its queries' result types. " +
                           "Rename the Result.sql file."));
+            }
+            if (entitiesWithProcType.Contains(entity) && (entity == "Proc" || (methods != null && methods.Contains("Proc"))))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    entity == "Proc"
+                        ? "Entity 'Proc' would contain a nested type also named Proc, which holds its -- @proc scripts, and a C# class cannot have a member named like itself. " +
+                          "Rename the table or its db/ folder."
+                        : $"Entity '{entity}' would declare both a method 'Proc' and the nested type Proc that holds its -- @proc scripts. " +
+                          "Rename the Proc.sql file."));
             }
         }
 
