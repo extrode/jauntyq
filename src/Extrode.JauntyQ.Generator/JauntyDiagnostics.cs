@@ -767,6 +767,17 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Warning,
         true);
 
+    // Spec 021. Error, unlike JNT6004: a scope file that cannot be read, or
+    // declares no entries, turns every JNT4005 off at once, so a JSON typo
+    // must stop the build rather than quietly unscope every table.
+    public static readonly DiagnosticDescriptor JNT6005 = new(
+        "JNT6005",
+        "Unusable Scope File",
+        "{0}",
+        "JauntyQ.Configuration",
+        DiagnosticSeverity.Error,
+        true);
+
     // ── 7xxx: Dialect ─────────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT7001 = new(

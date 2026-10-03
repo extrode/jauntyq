@@ -304,6 +304,7 @@ class Extrode.JauntyQ.Generator.JauntyDiagnostics
     field JNT6002:DiagnosticDescriptor
     field JNT6003:DiagnosticDescriptor
     field JNT6004:DiagnosticDescriptor
+    field JNT6005:DiagnosticDescriptor
     field JNT7001:DiagnosticDescriptor
     field JNT7002:DiagnosticDescriptor
     field JNT7003:DiagnosticDescriptor

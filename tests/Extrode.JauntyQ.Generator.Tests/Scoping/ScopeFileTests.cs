@@ -1,3 +1,5 @@
+using System.Linq;
+using Microsoft.CodeAnalysis;
 using Xunit;
 using static Extrode.JauntyQ.Generator.Tests.Scoping.ScopeHarness;
 
@@ -34,9 +36,13 @@ public class ScopeFileTests
     [InlineData(@"{ ""scope"": [ { ""table"": ""orders"", ""column"": ""tenant_id"" } ] }")]
     [InlineData(@"{ ""scopes"": [ { ""table"": ""orders"", ""column"": ""tenant_id"" } ], ""extra"": 1 }")]
     [InlineData(@"{ ""scopes"": null }")]
-    public void AnUnreadableFile_ScopesNothing_AndSaysSo(string json)
+    public void AnUnreadableFile_ScopesNothing_AndStopsTheBuild(string json)
     {
-        var message = Assert.Single(Messages(Run(json), "JNT6004"));
+        var result = Run(json);
+        var message = Assert.Single(Messages(result, "JNT6005"));
+
+        Assert.Empty(Messages(result, "JNT6004"));
+        Assert.Equal(DiagnosticSeverity.Error, result.Diagnostics.Single(d => d.Id == "JNT6005").Severity);
 
         Assert.StartsWith("Scope file 'db/schema/jaunty.scope.json' could not be read (", message);
         Assert.EndsWith("). Every table is unscoped until it is fixed. (db/schema/jaunty.scope.json)", message);
@@ -45,11 +51,23 @@ public class ScopeFileTests
     [Theory]
     [InlineData("{}")]
     [InlineData(@"{ ""scopes"": [] }")]
-    public void AFileWithNoEntries_IsReported(string json)
+    public void AFileWithNoEntries_StopsTheBuild(string json)
     {
+        var result = Run(json);
+
         Assert.Equal(
-            "The scope file declares no entries under \"scopes\", so every table is unscoped. (db/schema/jaunty.scope.json)",
-            Assert.Single(Messages(Run(json), "JNT6004")));
+            "Scope file 'db/schema/jaunty.scope.json' declares no entries under \"scopes\". Every table is unscoped until it is fixed. (db/schema/jaunty.scope.json)",
+            Assert.Single(Messages(result, "JNT6005")));
+        Assert.Empty(Messages(result, "JNT6004"));
+    }
+
+    [Fact]
+    public void ADroppedEntry_StaysAWarning()
+    {
+        var result = Run(@"{ ""scopes"": [ { ""table"": ""invoices"", ""column"": ""tenant_id"" } ] }");
+
+        Assert.Empty(Messages(result, "JNT6005"));
+        Assert.Equal(DiagnosticSeverity.Warning, result.Diagnostics.Single(d => d.Id == "JNT6004").Severity);
     }
 
     [Fact]
