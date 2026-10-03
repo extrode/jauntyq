@@ -68,4 +68,29 @@ public class ReferencedObjectsParameterScopeTests
         Assert.Contains(refs.Columns, c => c.Table == "items" && c.Column == "qty");
         Assert.DoesNotContain(refs.Columns, c => c.Table == "orders" && c.Column == "qty");
     }
+
+    [Fact]
+    public void ASelectListExists_RecordsItsTablesAndColumns()
+    {
+        var model = SqlParser.SqlParser.Parse(
+            SqlTokenizer.Tokenize("select o.id, exists (select 1 from items i where i.sku = @Sku and i.order_id = o.id) as has_item from orders o where o.tenant_id = @T"), "q");
+
+        var refs = ReferencedObjects.Resolve(model);
+
+        Assert.Contains("items", refs.Tables);
+        Assert.Contains(refs.Columns, c => c.Table == "items" && c.Column == "sku");
+        Assert.Contains(refs.Columns, c => c.Table == "orders" && c.Column == "id");
+    }
+
+    [Fact]
+    public void AnUnqualifiedColumnInASelectListExists_IsAlsoAttributedToTheOuterTable()
+    {
+        var model = SqlParser.SqlParser.Parse(
+            SqlTokenizer.Tokenize("select o.id, exists (select 1 from items where status = @S) as has_item from orders o"), "q");
+
+        var refs = ReferencedObjects.Resolve(model);
+
+        Assert.Contains(refs.Columns, c => c.Table == "items" && c.Column == "status");
+        Assert.Contains(refs.Columns, c => c.Table == "orders" && c.Column == "status");
+    }
 }
