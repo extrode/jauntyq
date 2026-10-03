@@ -1,4 +1,4 @@
-using Extrode.JauntyQ.Schema;
+﻿using Extrode.JauntyQ.Schema;
 using Extrode.JauntyQ.SqlParser.IR;
 
 namespace Extrode.JauntyQ.Generator;
@@ -50,6 +50,10 @@ public static partial class CodeEmitter
         string rowName = Own("row");
         string tokenName = Own("cancellationToken");
         string idLocal = Own("id");
+        // A scope parameter named like the method being forwarded to hides
+        // that method group inside the forwarding call, so qualify the call.
+        string Call(string method, bool isStatic)
+            => scopeCols.Exists(c => ScopeName(c) == method) ? (isStatic ? $"{entityName}.{method}" : $"this.{method}") : method;
         string Args(System.Collections.Generic.List<ColumnSchema> cols)
             => JoinColumns(cols, ", ", c => scopeCols.Contains(c) ? ScopeName(c) : $"{rowName}.{IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name))}");
         string scopeParams = JoinColumns(scopeCols, "", c =>
@@ -81,10 +85,10 @@ public static partial class CodeEmitter
             bool tx = TxForwardable(cols);
             string txParam = tx ? ", DbTransaction? transaction = null" : "";
             string txArg = tx ? ", transaction" : "";
-            sb.AppendLine($"        public int {method}({scopeParams}{rowType} {rowName}) => {method}({args});");
-            sb.AppendLine($"        public static int {method}(DbConnection {connName}, {scopeParams}{rowType} {rowName}{txParam}) => {method}({connName}, {args}{txArg});");
-            sb.AppendLine($"        public {taskType}<int> {method}Async({scopeParams}{rowType} {rowName}, CancellationToken {tokenName} = default) => {method}Async({args}, {tokenName});");
-            sb.AppendLine($"        public static {taskType}<int> {method}Async(DbConnection {connName}, {scopeParams}{rowType} {rowName}{txParam}, CancellationToken {tokenName} = default) => {method}Async({connName}, {args}{txArg}, {tokenName});");
+            sb.AppendLine($"        public int {method}({scopeParams}{rowType} {rowName}) => {Call(method, false)}({args});");
+            sb.AppendLine($"        public static int {method}(DbConnection {connName}, {scopeParams}{rowType} {rowName}{txParam}) => {Call(method, true)}({connName}, {args}{txArg});");
+            sb.AppendLine($"        public {taskType}<int> {method}Async({scopeParams}{rowType} {rowName}, CancellationToken {tokenName} = default) => {Call(method + "Async", false)}({args}, {tokenName});");
+            sb.AppendLine($"        public static {taskType}<int> {method}Async(DbConnection {connName}, {scopeParams}{rowType} {rowName}{txParam}, CancellationToken {tokenName} = default) => {Call(method + "Async", true)}({connName}, {args}{txArg}, {tokenName});");
             sb.AppendLine();
         }
 
@@ -98,7 +102,7 @@ public static partial class CodeEmitter
                 sb.AppendLine($"        /// <summary>Inserts the row and writes the database-assigned {idProp} back onto it.</summary>");
                 sb.AppendLine($"        public {idType} Insert({scopeParams}{rowType} {rowName})");
                 sb.AppendLine("        {");
-                sb.AppendLine($"            {idType} {idLocal} = Insert({args});");
+                sb.AppendLine($"            {idType} {idLocal} = {Call("Insert", false)}({args});");
                 sb.AppendLine($"            {rowName}.{idProp} = {idLocal};");
                 sb.AppendLine($"            return {idLocal};");
                 sb.AppendLine("        }");
@@ -108,21 +112,21 @@ public static partial class CodeEmitter
                 string insertTxArg = insertTx ? ", transaction" : "";
                 sb.AppendLine($"        public static {idType} Insert(DbConnection {connName}, {scopeParams}{rowType} {rowName}{insertTxParam})");
                 sb.AppendLine("        {");
-                sb.AppendLine($"            {idType} {idLocal} = Insert({connName}, {args}{insertTxArg});");
+                sb.AppendLine($"            {idType} {idLocal} = {Call("Insert", true)}({connName}, {args}{insertTxArg});");
                 sb.AppendLine($"            {rowName}.{idProp} = {idLocal};");
                 sb.AppendLine($"            return {idLocal};");
                 sb.AppendLine("        }");
                 sb.AppendLine();
                 sb.AppendLine($"        public async {taskType}<{idType}> InsertAsync({scopeParams}{rowType} {rowName}, CancellationToken {tokenName} = default)");
                 sb.AppendLine("        {");
-                sb.AppendLine($"            {idType} {idLocal} = await InsertAsync({args}, {tokenName}).ConfigureAwait(false);");
+                sb.AppendLine($"            {idType} {idLocal} = await {Call("InsertAsync", false)}({args}, {tokenName}).ConfigureAwait(false);");
                 sb.AppendLine($"            {rowName}.{idProp} = {idLocal};");
                 sb.AppendLine($"            return {idLocal};");
                 sb.AppendLine("        }");
                 sb.AppendLine();
                 sb.AppendLine($"        public static async {taskType}<{idType}> InsertAsync(DbConnection {connName}, {scopeParams}{rowType} {rowName}{insertTxParam}, CancellationToken {tokenName} = default)");
                 sb.AppendLine("        {");
-                sb.AppendLine($"            {idType} {idLocal} = await InsertAsync({connName}, {args}{insertTxArg}, {tokenName}).ConfigureAwait(false);");
+                sb.AppendLine($"            {idType} {idLocal} = await {Call("InsertAsync", true)}({connName}, {args}{insertTxArg}, {tokenName}).ConfigureAwait(false);");
                 sb.AppendLine($"            {rowName}.{idProp} = {idLocal};");
                 sb.AppendLine($"            return {idLocal};");
                 sb.AppendLine("        }");

@@ -1,4 +1,4 @@
-using Extrode.JauntyQ.Schema;
+﻿using Extrode.JauntyQ.Schema;
 using Extrode.JauntyQ.SqlParser.IR;
 
 namespace Extrode.JauntyQ.Generator;
@@ -46,7 +46,13 @@ public static partial class CodeEmitter
             // local), not "reader" -- the callee's OWN "reader" parameter
             // (declared right below / on the row type itself) is a separate,
             // immune scope and is intentionally left unrenamed.
-            mapperCall = $"{canonicalRowType}.Read(__reader)";
+            string rowTypeRef = AnyParamNameCollidesWith(paramInfos, canonicalRowType)
+                ? GlobalTypeName(canonicalRowType, "Extrode.JauntyQ.Generated")
+                : canonicalRowType;
+            var columnNames = new System.Collections.Generic.List<string>();
+            foreach (var col in projection.Columns)
+                columnNames.Add(col.SourceName);
+            mapperCall = $"{rowTypeRef}.{RowReadMethodName(columnNames)}(__reader)";
         }
         else
         {
@@ -127,6 +133,8 @@ public static partial class CodeEmitter
         string tokenParamName = cancellationTokenNameCollides ? "__cancellationToken" : "cancellationToken";
 
         string paramList = BuildParamList(paramInfos, isStatic, isAsync, connVarName: connVar, tokenParamName: tokenParamName, enumeratorCancellation: cancelAttr, schema: schema);
+        string connectionState = BodyTypeRef(schema, paramInfos, "ConnectionState", "System.Data");
+        string commandBehavior = BodyTypeRef(schema, paramInfos, "CommandBehavior", "System.Data");
 
         sb.AppendLine($"        {modifier}{asyncModifier} {declaredReturn} {methodName}({paramList})");
         sb.AppendLine("        {");
@@ -137,7 +145,7 @@ public static partial class CodeEmitter
         // Connection lifecycle. AUD-R69-01: "__weOpened", "__cmd" -- pure
         // internal locals, unconditionally renamed (see EmitCrudMethodBody's
         // identical comment).
-        sb.AppendLine($"            bool __weOpened = {connVar}.State != ConnectionState.Open;");
+        sb.AppendLine($"            bool __weOpened = {connVar}.State != {connectionState}.Open;");
         sb.AppendLine(isAsync
             ? $"            if (__weOpened) await {connVar}.OpenAsync({tokenParamName}).ConfigureAwait(false);"
             : $"            if (__weOpened) {connVar}.Open();");
@@ -172,8 +180,8 @@ public static partial class CodeEmitter
         // for @first) lets the provider optimize buffering for the shape we
         // are guaranteed to consume.
         string behavior = isFirst
-            ? "CommandBehavior.SingleRow | CommandBehavior.SingleResult"
-            : "CommandBehavior.SingleResult";
+            ? $"{commandBehavior}.SingleRow | {commandBehavior}.SingleResult"
+            : $"{commandBehavior}.SingleResult";
         sb.AppendLine();
         // AUD-R69-01: "__reader", not "reader" -- confirmed live that a query
         // parameter literally named "@reader" collides (CS0136) with the
@@ -184,10 +192,10 @@ public static partial class CodeEmitter
         // AUD-R50-03 (residual): Volatile was emitted bare — a table named
         // "volatiles" (row POCO "Volatile") shadowed System.Threading.Volatile
         // namespace-wide, breaking Volatile.Read/Write with CS1615/CS0117.
-        string volatileType = TypeRef(schema, "Volatile", "System.Threading");
+        string volatileType = BodyTypeRef(schema, paramInfos, "Volatile", "System.Threading");
         sb.AppendLine($"                if ({volatileType}.Read(ref __{query.Name}Validated) == 0)");
         sb.AppendLine("                {");
-        sb.AppendLine($"                    JauntyQShapeGuard.Validate(__reader, __{query.Name}Columns, \"{queryId}\");");
+        sb.AppendLine($"                    {BodyTypeRef(schema, paramInfos, "JauntyQShapeGuard", "Extrode.JauntyQ.Generated")}.Validate(__reader, __{query.Name}Columns, \"{queryId}\");");
         sb.AppendLine($"                    {volatileType}.Write(ref __{query.Name}Validated, 1);");
         sb.AppendLine("                }");
 

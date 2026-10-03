@@ -90,8 +90,11 @@ public static partial class CodeEmitter
         if (!SchemaHasEntityNamed(schema, simpleName))
             return simpleName;
 
-        return @namespace.Length == 0 ? $"global::{simpleName}" : $"global::{@namespace}.{simpleName}";
+        return GlobalTypeName(simpleName, @namespace);
     }
+
+    internal static string GlobalTypeName(string simpleName, string @namespace)
+        => @namespace.Length == 0 ? $"global::{simpleName}" : $"global::{@namespace}.{simpleName}";
 
     /// <summary>
     /// Shortens the fixed set of fully-qualified value types

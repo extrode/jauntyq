@@ -368,7 +368,10 @@ public static partial class CodeEmitter
         }
         sb.AppendLine();
         sb.AppendLine("        /// <summary>Materializes one row; shared by every full-row query of this table.</summary>");
-        sb.AppendLine($"        public static {rowTypeName} Read(DbDataReader reader) => new {rowTypeName}");
+        var columnNames = new System.Collections.Generic.List<string>();
+        foreach (var col in tableSchema.Columns.Values)
+            columnNames.Add(col.Name);
+        sb.AppendLine($"        public static {rowTypeName} {RowReadMethodName(columnNames)}(DbDataReader reader) => new {rowTypeName}");
         sb.AppendLine("        {");
         int ordinal = 0;
         int colCount = tableSchema.Columns.Count;
@@ -386,4 +389,17 @@ public static partial class CodeEmitter
         return sb.ToString();
     }
 
+    /// <summary>
+    /// The row POCO's materializer is named Read, unless a column takes that
+    /// property name; then the materializer gives way, as "conn" does.
+    /// </summary>
+    internal static string RowReadMethodName(System.Collections.Generic.IEnumerable<string> columnNames)
+    {
+        foreach (string name in columnNames)
+        {
+            if (DialectMapper.ToPascalCase(name) == "Read")
+                return "__Read";
+        }
+        return "Read";
+    }
 }
