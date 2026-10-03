@@ -41,6 +41,15 @@ public class ScopeRefusalTests
     }
 
     [Fact]
+    public void AnUnprovenReachInAProjectionExists_IsRefused()
+    {
+        var result = Run(OrdersAndLines, ("db/Customers/WithOrders.sql",
+            "-- @params otherId:int\nselect c.id, exists(select 1 from orders o where o.id = @otherId) as has_order from customers c where c.id = @id"));
+
+        Assert.Contains(" in an EXISTS expression without a filter", Assert.Single(Messages(result, "JNT4005")));
+    }
+
+    [Fact]
     public void WithNoScopeFile_NothingIsChecked()
     {
         var result = Run(null, ("db/Orders/GetByNote.sql", "select o.id from orders o where o.note = @note"));

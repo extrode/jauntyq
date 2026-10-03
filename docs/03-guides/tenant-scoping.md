@@ -59,7 +59,7 @@ have any name. Where the proof has to be depends on how the table is reached:
 | the nullable side of a `LEFT` join | that join's own `ON` |
 | a table kept by a later `RIGHT` join | that `RIGHT` join's `ON` |
 | any side of a `FULL` join | `WHERE` only: a `FULL` join keeps unmatched rows from both sides, so an `ON` condition filters nothing |
-| inside a CTE body, or a `WHERE` `IN`/`EXISTS` subquery | inside that body. A proof in the outer query does not cover it |
+| inside a CTE body, a `WHERE` `IN`/`EXISTS` subquery, or an `EXISTS (...)` in the select list | inside that body. A proof in the outer query does not cover it |
 | `UPDATE` or `DELETE` target | the statement's `WHERE` |
 | `INSERT` target | the column list, bound to a parameter |
 

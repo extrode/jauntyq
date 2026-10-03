@@ -46,6 +46,8 @@ public static class ScopeAnalyzer
             Analyze(cte.Body, scopes, $"CTE '{cte.Name}'", result);
         foreach (var sub in model.Subqueries)
             Analyze(sub.Body, scopes, sub.Kind == SubqueryKind.In ? "an IN subquery" : "an EXISTS subquery", result);
+        foreach (var body in model.ExistsExpressions)
+            Analyze(body, scopes, "an EXISTS expression", result);
 
         var real = new List<int>();
         for (int i = 0; i < model.Tables.Count; i++)
