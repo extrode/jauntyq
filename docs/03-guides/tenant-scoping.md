@@ -33,7 +33,8 @@ those warnings. The [configuration reference](../06-reference/configuration.md#t
 lists the rules.
 
 With no scope file, or an empty one, nothing is checked and the generated code
-is byte-identical to a project without the feature.
+is byte-identical to a project without the feature. An empty file still raises
+`JNT6004`, so a file that scopes nothing by mistake is not silent.
 
 ## Hand-written queries
 
