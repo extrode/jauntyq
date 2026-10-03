@@ -236,8 +236,7 @@ public static partial class SqlParser
         if (string.Equals(word, "OPTION", StringComparison.OrdinalIgnoreCase))
             return next.Type == TokenType.Symbol && next.Value == "(";
         if (string.Equals(word, "WINDOW", StringComparison.OrdinalIgnoreCase))
-            return next.Type == TokenType.Identifier && i + 2 < tokens.Count
-                && tokens[i + 2].Type == TokenType.Keyword && tokens[i + 2].Value == "AS";
+            return next.Type == TokenType.Identifier;
         return false;
     }
 
