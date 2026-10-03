@@ -78,7 +78,15 @@ public static class SchemaSimulator
 
     private static void ApplyCreateTable(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        if (TryFindTable(schema, stmt.TableName, out _))
+        // Postgres resolves the new name as it stores it: an unquoted name
+        // folded to lower case, a quoted one exactly. Matching it loosely
+        // reported a false "already exists" for customers beside "Customers".
+        // The statement keeps the folded name, so the inline enum and foreign
+        // keys below name the same table; folding again is a no-op.
+        bool postgres = string.Equals(schema.Dialect, "postgres", StringComparison.OrdinalIgnoreCase);
+        if (postgres && !stmt.TableNameQuoted)
+            stmt.TableName = stmt.TableName.ToLowerInvariant();
+        if (postgres ? schema.Tables.ContainsKey(stmt.TableName) : TryFindTable(schema, stmt.TableName, out _))
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: table '{stmt.TableName}' already exists. If this migration was already deployed, archive it and re-run 'jaunty schema pull'."));
