@@ -487,9 +487,12 @@ public static class MigrationParser
     /// </summary>
     private static ColumnSchema? ParseColumnDef(List<Token> def, MigrationStatement stmt)
     {
-        var column = ParseColumnDef(def, out var enumMembers, out var reference);
+        var column = ParseColumnDef(def, out var enumMembers, out var reference, out var charset);
         if (column != null && enumMembers != null)
             stmt.EnumMembers[column.Name] = enumMembers;
+        if (column != null && charset != null)
+            stmt.CharsetIsUnicode[column.Name] = charset.StartsWith("utf", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(charset, "ucs2", StringComparison.OrdinalIgnoreCase);
         if (column != null && reference != null)
         {
             reference.FromColumn = column.Name;
@@ -498,10 +501,11 @@ public static class MigrationParser
         return column;
     }
 
-    private static ColumnSchema? ParseColumnDef(List<Token> def, out List<string>? enumMembers, out ForeignKeySchema? reference)
+    private static ColumnSchema? ParseColumnDef(List<Token> def, out List<string>? enumMembers, out ForeignKeySchema? reference, out string? charset)
     {
         enumMembers = null;
         reference = null;
+        charset = null;
         if (def.Count < 2 || def[0].Type != TokenType.Identifier)
             return null;
 
@@ -738,6 +742,16 @@ public static class MigrationParser
             {
                 column.DbType += " unsigned";
                 pos++;
+                continue;
+            }
+            if ((Is(def, pos, "CHARACTER") && Is(def, pos + 1, "SET")) || Is(def, pos, "CHARSET"))
+            {
+                pos += Is(def, pos, "CHARSET") ? 1 : 2;
+                if (pos < def.Count)
+                {
+                    charset = def[pos].Value;
+                    pos++;
+                }
                 continue;
             }
             if (Is(def, pos, "DEFAULT"))

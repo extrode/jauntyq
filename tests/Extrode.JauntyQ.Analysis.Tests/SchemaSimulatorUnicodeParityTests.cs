@@ -69,6 +69,43 @@ public class SchemaSimulatorUnicodeParityTests
         Assert.Equal(expected, effective.Tables["users"].Columns["note"].IsUnicode);
     }
 
+    [Fact]
+    public void A_mysql_modify_keeping_a_latin1_charset_reports_only_the_length()
+    {
+        var snapshot = Snapshot("mysql", "varchar", nameUnicode: false);
+        var effective = Apply(snapshot, "ALTER TABLE users MODIFY name varchar(200) CHARACTER SET latin1 NULL;");
+
+        Assert.False(effective.Tables["users"].Columns["name"].IsUnicode);
+        var change = Assert.Single(Assert.Single(StructuralSchemaDiff.Compute(snapshot, effective).ModifiedTables).ModifiedColumns);
+        Assert.Equal(new[] { ColumnChangeKind.MaxLength }, change.Kinds);
+    }
+
+    [Theory]
+    [InlineData("varchar(10) CHARACTER SET latin1", false)]
+    [InlineData("varchar(10) CHARSET ascii", false)]
+    [InlineData("text CHARACTER SET latin1 COLLATE latin1_swedish_ci", false)]
+    [InlineData("varchar(10) CHARACTER SET utf8mb4", true)]
+    [InlineData("varchar(10) CHARSET utf8", true)]
+    [InlineData("varchar(10) CHARACTER SET ucs2", true)]
+    [InlineData("varchar(10) CHARACTER SET utf16le", true)]
+    public void A_mysql_column_with_an_explicit_charset_takes_unicode_from_it(string type, bool expected)
+    {
+        var effective = Apply(Snapshot("mysql", "varchar", true), $"ALTER TABLE users ADD note {type} NULL;");
+
+        Assert.Equal(expected, effective.Tables["users"].Columns["note"].IsUnicode);
+    }
+
+    [Fact]
+    public void A_charset_on_a_create_table_column_is_honoured()
+    {
+        var effective = Apply(Snapshot("mysql", "varchar", true),
+            "CREATE TABLE tags (id int PRIMARY KEY, code varchar(8) CHARACTER SET latin1 NOT NULL, label varchar(40) NOT NULL);");
+
+        Assert.False(effective.Tables["tags"].Columns["code"].IsUnicode);
+        Assert.True(effective.Tables["tags"].Columns["label"].IsUnicode);
+        Assert.False(effective.Tables["tags"].Columns["code"].IsNullable);
+    }
+
     [Theory]
     [InlineData("postgres", "integer")]
     [InlineData("mysql", "varbinary(16)")]

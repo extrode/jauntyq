@@ -68,6 +68,12 @@ public class MigrationStatement
     /// the {Table}{Column} <see cref="EnumSchema"/> a live pull captures.</summary>
     public Dictionary<string, List<string>> EnumMembers { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>MySQL columns declared with an explicit <c>CHARACTER SET x</c>
+    /// or <c>CHARSET x</c>, keyed by column name. The value is whether x is a
+    /// Unicode charset (utf8*, utf16*, utf32, ucs2), which is what a live pull
+    /// reports as the column's Unicode flag.</summary>
+    public Dictionary<string, bool> CharsetIsUnicode { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Inline column-level <c>REFERENCES t [(c)]</c> targets for
     /// CreateTable/AddColumn. FromTable is left empty (the statement's table);
     /// ToColumn is empty when the clause names no column, meaning the
