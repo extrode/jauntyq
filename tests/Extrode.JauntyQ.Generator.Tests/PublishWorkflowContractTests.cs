@@ -50,6 +50,14 @@ public class PublishWorkflowContractTests
     }
 
     [Fact]
+    public void PublishJob_MarksPreOneAndSemVerPreReleaseTagsAsPreRelease()
+    {
+        var job = PublishJob();
+        Assert.Matches(@"(?m)^\s+v0\.\*\|\*-\*\) prerelease=""--prerelease"" ;;\s*$", job);
+        Assert.Matches(@"(?m)^\s+gh release create .* \$prerelease\s*$", job);
+    }
+
+    [Fact]
     public void Workflow_KeepsNoLongLivedApiKey()
     {
         Assert.DoesNotMatch(@"secrets\.NUGET", Workflow());
