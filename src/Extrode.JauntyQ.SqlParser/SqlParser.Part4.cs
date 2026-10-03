@@ -174,9 +174,12 @@ public static partial class SqlParser
     /// </summary>
     private static void ExtractPredicateAtoms(List<Token> tokens, QueryModel model)
     {
-        // Identical bounding to ExtractPerfHints: WHERE to GROUP/ORDER/HAVING or
-        // end, depth-gated so a projection-list EXISTS(...) subquery's own
-        // clause keywords are never mistaken for this statement's.
+        // WHERE to the first clause after it or end, depth-gated so a
+        // projection-list EXISTS(...) subquery's own clause keywords are never
+        // mistaken for this statement's. LIMIT, OFFSET, RETURNING and a locking
+        // FOR UPDATE/SHARE also end it: left in, they join the last conjunct, and
+        // the tenant-scope proof `tenant_id = @t limit 10` no longer reads as an
+        // equality.
         int start = -1;
         int end = tokens.Count;
         int boundaryDepth = 0;
@@ -186,14 +189,22 @@ public static partial class SqlParser
                 boundaryDepth++;
             if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ")")
                 boundaryDepth--;
-            if (tokens[i].Type != TokenType.Keyword || boundaryDepth != 0)
+            if (boundaryDepth != 0)
+                continue;
+            if (start != -1 && tokens[i].Type == TokenType.Identifier &&
+                string.Equals(tokens[i].Value, "FOR", StringComparison.OrdinalIgnoreCase))
+            {
+                end = i;
+                break;
+            }
+            if (tokens[i].Type != TokenType.Keyword)
                 continue;
             if (start == -1)
             {
                 if (tokens[i].Value == "WHERE")
                     start = i + 1;
             }
-            else if (tokens[i].Value is "GROUP" or "ORDER" or "HAVING")
+            else if (tokens[i].Value is "GROUP" or "ORDER" or "HAVING" or "LIMIT" or "OFFSET" or "RETURNING")
             {
                 end = i;
                 break;

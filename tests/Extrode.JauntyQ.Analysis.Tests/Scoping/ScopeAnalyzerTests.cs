@@ -43,6 +43,11 @@ public class ScopeAnalyzerTests
     [InlineData("select c.id from customers c where exists (select 1 from orders o where o.id = c.id and o.tenant_id = @t)")]
     [InlineData("select c.id from customers c where c.id in (select o.id from orders o where o.tenant_id = @t)")]
     [InlineData("select c.id, exists(select 1 from orders o where o.id = c.id and o.tenant_id = @t) as has_orders from customers c")]
+    [InlineData("select id from orders where tenant_id = @t limit 10")]
+    [InlineData("select id from orders where tenant_id = @t limit 10 offset 5")]
+    [InlineData("delete from orders where id = @id and tenant_id = @t returning id")]
+    [InlineData("update orders set note = @note where id = @id and tenant_id = @t returning id")]
+    [InlineData("select id from orders where tenant_id = @t for update")]
     public void AProvenReach_IsAccepted(string sql)
     {
         Assert.Empty(Find(sql));
