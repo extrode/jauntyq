@@ -43,6 +43,7 @@ public class UpsertAssignmentParserTests
     [InlineData("insert into t (id) values (@id) on conflict (id) do update set status = (case when k = @s then 'a' end)")]
     [InlineData("insert into t (id) values (@id) on conflict (id) do update set status = case when k = @s then 'a' end")]
     [InlineData("insert into t (id) values (@id) on duplicate key update status = if(k = @s, 'a', 'b')")]
+    [InlineData("insert into t (id) values (@id) on duplicate key update status = coalesce(note, k = @s)")]
     public void AComparisonInsideAnAssignedValue_IsNotAnUpsertWrite(string sql)
     {
         var p = Param(sql, "s");
