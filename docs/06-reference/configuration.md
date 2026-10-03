@@ -143,9 +143,10 @@ guide](../03-guides/tenant-scoping.md) covers what is checked and what is not.
 | **Several entries per table** | A table may be scoped by more than one column; each must be proven. |
 | **Bindable columns only** | A column that is part of the primary key, an identity, computed, or a rowversion cannot be bound from a parameter. The entry is `JNT6004` and dropped. |
 | **One file** | More than one `*.scope.json` is `JNT6004`; the ordinal-lowest path wins and the others are ignored entirely, they are not merged. |
-| **Structural problems are `JNT6004`** | Unparseable JSON, the literal `null`, a top-level key other than `scopes` (a misspelt `"scope"` would otherwise scope nothing), `"scopes": null`, a `null` entry, a missing `table` or `column`, a table or column the snapshot does not have, or a repeated entry (the first stays in force). Each is a warning, the entry is dropped, and the message says the table is now unscoped by it. |
+| **An unusable file is `JNT6005`** | Unparseable JSON, the literal `null`, a top-level key other than `scopes` (a misspelt `"scope"` would otherwise scope nothing), `"scopes": null`, or no entries (`{}`, `"scopes": []`). It is an error: every table would be unscoped, so the build stops. |
+| **A bad entry is `JNT6004`** | A `null` entry, a missing `table` or `column`, a table or column the snapshot does not have, or a repeated entry (the first stays in force). Each is a warning, the entry is dropped, and the message says the table is now unscoped by it. |
 | **Independent of auto-CRUD** | Hand-written queries are checked whether or not `<JauntyQAutoCrud>` is on. |
-| **Absent or empty** | Nothing is checked, and generated code is byte-identical to a project without the sidecar. A file with no entries (`{}` or `"scopes": []`) also raises `JNT6004`, since it is more likely a mistake than intended. |
+| **Absent** | Nothing is checked, and generated code is byte-identical to a project without the sidecar. |
 
 Tables and columns are matched case-insensitively. Like the acceptance
 sidecar, it is a separate hand-maintained file because `jauntyq schema pull`
@@ -153,7 +154,7 @@ rewrites the snapshot wholesale.
 
 Diagnostics: `JNT4005` (a reach without its scope parameter, Error),
 `JNT4006` (an `-- @unscoped` that accepts nothing), `JNT4007` (no scoped
-Upsert on MySQL), `JNT6004` (problems in the file). See
+Upsert on MySQL), `JNT6004` (a dropped entry), `JNT6005` (an unusable file, Error). See
 [diagnostics](diagnostics.md).
 
 ## Entity and method naming

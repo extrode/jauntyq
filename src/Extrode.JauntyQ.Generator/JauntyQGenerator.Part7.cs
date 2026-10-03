@@ -90,23 +90,29 @@ internal sealed class SchemaState
             return state;
 
         var problems = new List<string>();
-        List<ScopeColumn> scopes;
+        List<ScopeColumn> scopes = new List<ScopeColumn>();
+        string? unusable = null;
         try
         {
-            scopes = ScopeResolver.Resolve(ScopeLoader.Load(scopeJson), state.Schema, problems);
+            var file = ScopeLoader.Load(scopeJson);
+            if (file.Scopes.Count == 0)
+                unusable = $"Scope file '{scopePath}' declares no entries under \"scopes\". Every table is unscoped until it is fixed.";
+            else
+                scopes = ScopeResolver.Resolve(file, state.Schema, problems);
         }
         catch (System.Text.Json.JsonException ex)
         {
-            scopes = new List<ScopeColumn>();
-            problems.Add($"Scope file '{scopePath}' could not be read ({ex.Message}). Every table is unscoped until it is fixed.");
+            unusable = $"Scope file '{scopePath}' could not be read ({ex.Message}). Every table is unscoped until it is fixed.";
         }
 
-        var diagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>(problems.Count);
+        var diagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>(problems.Count + 1);
+        if (unusable != null)
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT6005, $"{unusable} ({scopePath})"));
         foreach (var problem in problems)
             diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT6004, $"{problem} ({scopePath})"));
 
         return new SchemaState(state.Schema, state.ParseFailed, state.MigrationDiagnostics, state.MigrationDelta,
-            state.InternalError, scopes, diagnostics.MoveToImmutable());
+            state.InternalError, scopes, diagnostics.ToImmutable());
     }
 
     private static SchemaState LoadSchema(

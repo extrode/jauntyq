@@ -27,14 +27,14 @@ project's `AdditionalFiles`:
 ```
 
 Each entry names one table and the column that scopes it. A table can have
-more than one entry; every one of them must be proven. Mistakes in the file
-are `JNT6004` warnings, and a dropped entry leaves its table unscoped, so read
-those warnings. The [configuration reference](../06-reference/configuration.md#the-scope-sidecar-scopejson)
+more than one entry; every one of them must be proven. A mistake in one entry
+is a `JNT6004` warning, and a dropped entry leaves its table unscoped, so read
+those warnings. A file that cannot be read at all, or declares no entries, is
+`JNT6005`, an error: it would leave every table unscoped, so it stops the build. The [configuration reference](../06-reference/configuration.md#the-scope-sidecar-scopejson)
 lists the rules.
 
-With no scope file, or an empty one, nothing is checked and the generated code
-is byte-identical to a project without the feature. An empty file still raises
-`JNT6004`, so a file that scopes nothing by mistake is not silent.
+With no scope file nothing is checked and the generated code is byte-identical
+to a project without the feature.
 
 ## Hand-written queries
 
