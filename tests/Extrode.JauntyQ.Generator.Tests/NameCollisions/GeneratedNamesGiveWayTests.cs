@@ -1,5 +1,6 @@
 using Xunit;
 using static Extrode.JauntyQ.Generator.Tests.NameCollisions.NameCollisionHarness;
+using static Extrode.JauntyQ.Generator.Tests.Scoping.ScopeHarness;
 
 namespace Extrode.JauntyQ.Generator.Tests.NameCollisions;
 
@@ -86,6 +87,21 @@ public class GeneratedNamesGiveWayTests
         Assert.Contains("public int Read { get; set; }", row);
         Assert.Contains("public static Order __Read(DbDataReader reader)", row);
         Assert.Contains("Order.__Read(__reader)", getAll);
+    }
+
+    [Theory]
+    [InlineData("read", "SELECT id, READ FROM orders", "sqlserver")]
+    [InlineData("read", "SELECT id, [READ] FROM orders", "sqlserver")]
+    [InlineData("read", "SELECT id, READ FROM orders", "mysql")]
+    [InlineData("READ", "SELECT id, read FROM orders", "sqlserver")]
+    [InlineData("READ", "SELECT id, read FROM orders", "mysql")]
+    public void AReadColumnSpelledInAnotherCaseByTheQuery_StillCompiles(string column, string sql, string dialect)
+    {
+        var result = Run(Array.Empty<(string, string)>(), NameCollisionHarness.Schema(dialect, Table("orders", "id", (column, "int", false))), null, false,
+            ("db/Orders/All.sql", sql));
+
+        Assert.Contains("Order.__Read(__reader)", SourceOf(result, "Orders.All.g.cs"));
+        Assert.Empty(CompileErrors(result));
     }
 
     [Fact]
