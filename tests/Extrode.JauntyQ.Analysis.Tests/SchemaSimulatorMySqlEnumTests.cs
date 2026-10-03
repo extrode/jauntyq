@@ -135,6 +135,20 @@ public class SchemaSimulatorMySqlEnumTests
         Assert.Equal(new[] { "ok", "it's bad", "a,b" }, Members(effective, "TicketsMood"));
     }
 
+    [Theory]
+    [InlineData("CREATE TABLE tickets (id int primary key, mood ENUM('ok','bad') CHARACTER SET latin1 NULL);", "tickets", "mood", false)]
+    [InlineData("CREATE TABLE tickets (id int primary key, mood ENUM('ok','bad') CHARACTER SET utf8mb4 NULL);", "tickets", "mood", true)]
+    [InlineData("ALTER TABLE orders ADD COLUMN mood ENUM('ok','bad') CHARACTER SET latin1 NULL;", "orders", "mood", false)]
+    [InlineData("ALTER TABLE orders MODIFY COLUMN status ENUM('ok','bad') CHARACTER SET latin1 NOT NULL;", "orders", "status", false)]
+    public void An_inline_enum_with_an_explicit_charset_takes_unicode_from_it(string sql, string table, string column, bool unicode)
+    {
+        var (effective, _, errors) = Apply(Snapshot(), sql);
+
+        Assert.Empty(errors);
+        Assert.NotNull(effective.Tables[table].Columns[column].EnumName);
+        Assert.Equal(unicode, effective.Tables[table].Columns[column].IsUnicode);
+    }
+
     [Fact]
     public void Add_column_with_an_inline_enum_captures_it()
     {

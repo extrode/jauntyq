@@ -573,7 +573,7 @@ public static class SchemaSimulator
         schema.Enums[name] = enumSchema;
         col.EnumName = name;
         col.MaxLength = longest;
-        col.IsUnicode = true;
+        col.IsUnicode = stmt.CharsetIsUnicode.TryGetValue(col.Name, out bool charsetIsUnicode) ? charsetIsUnicode : true;
     }
 
     /// <summary>
