@@ -256,6 +256,9 @@ public class ScopeAnalyzerTests
     [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id = excluded.note")]
     [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where order_lines.tenant_id = excluded.tenant_id")]
     [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id <> excluded.tenant_id")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id = orders.tenant_id")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.note = @note")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where 'tenant_id' = @tenantId")]
     [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) where tenant_id = @tenantId do update set note = @note")]
     public void AnUpsertWithoutAnUpdateBranchProof_IsRefused(string sql)
     {
