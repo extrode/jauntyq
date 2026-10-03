@@ -123,6 +123,17 @@ public class GeneratedNamesGiveWayTests
     }
 
     [Fact]
+    public void AScopeNamedLikeTheEntity_BesideOneNamedLikeTheMethod_QualifiesTheEntityToo()
+    {
+        string table = Table("orders", "id", ("Orders", "int", false), ("Upsert", "int", false), ("note", "varchar", true));
+        string scopes = @"{ ""scopes"": [ { ""table"": ""orders"", ""column"": ""Orders"" }, { ""table"": ""orders"", ""column"": ""Upsert"" } ] }";
+        var result = Run(new[] { (ScopePath, scopes) }, NameCollisionHarness.Schema("sqlite", table), null, true);
+
+        Assert.Contains("=> global::Extrode.JauntyQ.Generated.Orders.Upsert(conn, Orders, Upsert,", SourceOf(result, "Orders.Poco.auto.g.cs"));
+        Assert.Empty(CompileErrors(result));
+    }
+
+    [Fact]
     public void AScopeNamedLikeTheAsyncMethod_QualifiesOnlyTheAsyncCalls()
     {
         string overloads = Source("scope", "InsertAsync", "sqlite", "Orders.Poco.auto.g.cs");

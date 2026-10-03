@@ -51,9 +51,13 @@ public static partial class CodeEmitter
         string tokenName = Own("cancellationToken");
         string idLocal = Own("id");
         // A scope parameter named like the method being forwarded to hides
-        // that method group inside the forwarding call, so qualify the call.
+        // that method group inside the forwarding call, so qualify the call;
+        // and if another scope parameter is named like the entity, qualify that too.
+        string entityRef = scopeCols.Exists(c => ScopeName(c) == entityName)
+            ? GlobalTypeName(entityName, "Extrode.JauntyQ.Generated")
+            : entityName;
         string Call(string method, bool isStatic)
-            => scopeCols.Exists(c => ScopeName(c) == method) ? (isStatic ? $"{entityName}.{method}" : $"this.{method}") : method;
+            => scopeCols.Exists(c => ScopeName(c) == method) ? (isStatic ? $"{entityRef}.{method}" : $"this.{method}") : method;
         string Args(System.Collections.Generic.List<ColumnSchema> cols)
             => JoinColumns(cols, ", ", c => scopeCols.Contains(c) ? ScopeName(c) : $"{rowName}.{IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name))}");
         string scopeParams = JoinColumns(scopeCols, "", c =>
