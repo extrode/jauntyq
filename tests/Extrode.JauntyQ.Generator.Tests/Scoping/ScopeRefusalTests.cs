@@ -50,6 +50,24 @@ public class ScopeRefusalTests
     }
 
     [Fact]
+    public void AnUpsertUpdateBranchWithoutProof_IsRefused()
+    {
+        var result = Run(OrdersAndLines, ("db/Orders/Save.sql",
+            "insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note"));
+
+        Assert.Contains("is the target of ON CONFLICT ... DO UPDATE without a filter", Assert.Single(Messages(result, "JNT4005")));
+    }
+
+    [Fact]
+    public void AnUpsertUpdateBranchWithProof_IsAccepted()
+    {
+        var result = Run(OrdersAndLines, ("db/Orders/Save.sql",
+            "insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id = excluded.tenant_id"));
+
+        Assert.Empty(Messages(result, "JNT4005"));
+    }
+
+    [Fact]
     public void WithNoScopeFile_NothingIsChecked()
     {
         var result = Run(null, ("db/Orders/GetByNote.sql", "select o.id from orders o where o.note = @note"));

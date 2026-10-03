@@ -163,6 +163,8 @@ public static partial class SqlParser
         to.ExpressionsMissingAlias.AddRange(from.ExpressionsMissingAlias);
         to.Subqueries.AddRange(from.Subqueries);
         to.ExistsExpressions.AddRange(from.ExistsExpressions);
+        to.Upsert = from.Upsert;
+        to.UpsertAtoms.AddRange(from.UpsertAtoms);
 
         // Merge parameters (bindings resolved by the final statement's parse).
         foreach (var p in from.Parameters)

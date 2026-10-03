@@ -51,6 +51,14 @@ public class ScopeAnalyzerTests
     [InlineData("delete from orders where id = @id and tenant_id = @t returning id")]
     [InlineData("update orders set note = @note where id = @id and tenant_id = @t returning id")]
     [InlineData("select id from orders where tenant_id = @t for update")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id = excluded.tenant_id")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where tenant_id = EXCLUDED.tenant_id and orders.id > 0")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where excluded.tenant_id = orders.tenant_id")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id = @tenantId")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id = excluded.tenant_id returning id")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id = excluded.tenant_id;")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do nothing")]
+    [InlineData("insert into orders (id, tenant_id) select @id, @t from order_lines l where l.tenant_id = @t on conflict (id) do update set note = 'x' where orders.tenant_id = excluded.tenant_id")]
     public void AProvenReach_IsAccepted(string sql)
     {
         Assert.Empty(Find(sql));
@@ -237,6 +245,38 @@ public class ScopeAnalyzerTests
         Assert.Equal(
             "Scoped table 'orders' is the INSERT target, and its scope column 'tenant_id' is not given a parameter value. "
             + "List 'tenant_id' in the column list with a parameter such as @tenantId; a literal or an omitted column is not proof. "
+            + "If this query must reach every tenant's rows, mark it -- @unscoped <reason>.",
+            Only(sql));
+    }
+
+    [Theory]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.note = excluded.note")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id = excluded.tenant_id or orders.id = 1")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id = excluded.note")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where order_lines.tenant_id = excluded.tenant_id")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id <> excluded.tenant_id")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.tenant_id = orders.tenant_id")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where orders.note = @note")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) do update set note = @note where 'tenant_id' = @tenantId")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on conflict (id) where tenant_id = @tenantId do update set note = @note")]
+    public void AnUpsertWithoutAnUpdateBranchProof_IsRefused(string sql)
+    {
+        Assert.Equal(
+            "Scoped table 'orders' is the target of ON CONFLICT ... DO UPDATE without a filter on its scope column 'tenant_id' in the DO UPDATE's WHERE, so a conflict with another scope's row would update that row. "
+            + "Add WHERE orders.tenant_id = EXCLUDED.tenant_id as a top-level AND condition. "
+            + "If this query must reach every tenant's rows, mark it -- @unscoped <reason>.",
+            Only(sql));
+    }
+
+    [Theory]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on duplicate key update note = @note")]
+    [InlineData("insert into orders (id, tenant_id, note) values (@id, @tenantId, @note) on duplicate key update tenant_id = @tenantId")]
+    public void AnOnDuplicateKeyUpdate_IsAlwaysRefused(string sql)
+    {
+        Assert.Equal(
+            "Scoped table 'orders' is the target of ON DUPLICATE KEY UPDATE. It takes no WHERE, so a key collision with another scope's row would update that row. "
+            + "Write an INSERT and an UPDATE that each prove 'tenant_id' instead. "
             + "If this query must reach every tenant's rows, mark it -- @unscoped <reason>.",
             Only(sql));
     }

@@ -218,6 +218,8 @@ public class PredicateAtomTests
     [InlineData("select id from t where status = @s for update")]
     [InlineData("select id from t where status = @s FOR SHARE")]
     [InlineData("select id from t where status = @s;")]
+    [InlineData("insert into t (id) select id from u where status = @s on conflict (id) do nothing")]
+    [InlineData("insert into t (id) select id from u where status = @s on duplicate key update id = 1")]
     [InlineData("delete from t where status = @s ;")]
     [InlineData("select id from t where status = @s fetch first 10 rows only")]
     [InlineData("select id from t where status = @s FETCH NEXT 5 ROWS ONLY")]

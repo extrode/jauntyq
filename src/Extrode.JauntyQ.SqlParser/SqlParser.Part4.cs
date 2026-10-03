@@ -177,7 +177,8 @@ public static partial class SqlParser
         // WHERE to the first clause after it or end, depth-gated so a
         // projection-list EXISTS(...) subquery's own clause keywords are never
         // mistaken for this statement's. LIMIT, OFFSET, RETURNING and a locking
-        // FOR UPDATE/SHARE also end it, as do a statement-ending `;`, FETCH
+        // FOR UPDATE/SHARE also end it, as do an upsert's ON CONFLICT or ON
+        // DUPLICATE KEY after an INSERT...SELECT's WHERE, a statement-ending `;`, FETCH
         // FIRST/NEXT, SQL Server's OPTION (...) and a WINDOW clause: left in,
         // they join the last conjunct, and the tenant-scope proof
         // `tenant_id = @t limit 10` no longer reads as an equality. The words
@@ -207,7 +208,7 @@ public static partial class SqlParser
                 if (tokens[i].Value == "WHERE")
                     start = i + 1;
             }
-            else if (tokens[i].Value is "GROUP" or "ORDER" or "HAVING" or "LIMIT" or "OFFSET" or "RETURNING")
+            else if (tokens[i].Value is "GROUP" or "ORDER" or "HAVING" or "LIMIT" or "OFFSET" or "RETURNING" or "ON")
             {
                 end = i;
                 break;

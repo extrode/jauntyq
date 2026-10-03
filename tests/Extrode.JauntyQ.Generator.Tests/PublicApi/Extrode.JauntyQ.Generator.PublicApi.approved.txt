@@ -604,6 +604,8 @@ class Extrode.JauntyQ.SqlParser.IR.QueryModel
     prop TargetAlias:String
     prop TargetTable:String
     prop UnsupportedConstructs:List<String>
+    prop Upsert:UpsertKind
+    prop UpsertAtoms:List<PredicateAtom>
     prop WithRecursive:Boolean
 enum Extrode.JauntyQ.SqlParser.IR.StatementType
     field Delete:StatementType
@@ -623,6 +625,10 @@ class Extrode.JauntyQ.SqlParser.IR.TableRef
     prop Join:JoinKind
     prop OnAtoms:List<PredicateAtom>
     prop TableName:String
+enum Extrode.JauntyQ.SqlParser.IR.UpsertKind
+    field None:UpsertKind
+    field OnConflictUpdate:UpsertKind
+    field OnDuplicateKeyUpdate:UpsertKind
 class Extrode.JauntyQ.SqlParser.SqlParser
     method Parse(List<Token>,String):QueryModel
 class Extrode.JauntyQ.SqlParser.SqlTokenizer

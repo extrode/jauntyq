@@ -92,7 +92,7 @@ public static class ScopeAnalyzer
         if (isTarget && model.StatementType == StatementType.Insert)
         {
             if (InsertBindsParameter(model, scope.Column))
-                return null;
+                return CheckUpdateBranch(model, scope, inScope, hatch);
             return $"Scoped table '{scope.Table}' is the INSERT target{inScope}, and its scope column '{scope.Column}' is not given a parameter value. "
                 + $"List '{scope.Column}' in the column list with a parameter such as {param}; a literal or an omitted column is not proof.{hatch}";
         }
@@ -146,6 +146,46 @@ public static class ScopeAnalyzer
         string how = index == (model.TargetTable != null ? 1 : 0) ? "in FROM" : "in a JOIN";
         return $"Scoped table '{scope.Table}'{asAlias} is read {how}{inScope} without a filter on its scope column '{scope.Column}'. "
             + $"Add {qualified} as a top-level AND condition of {whereClause}.{hatch}";
+    }
+
+    // The update branch of an upsert writes to a row that already exists, and
+    // that row can belong to another scope: the INSERT's own scope value proves
+    // nothing about it. ON CONFLICT can prove it in DO UPDATE's WHERE; ON
+    // DUPLICATE KEY UPDATE has no WHERE, so it never can.
+    private static string? CheckUpdateBranch(QueryModel model, ScopeColumn scope, string inScope, string hatch)
+    {
+        if (model.Upsert == UpsertKind.OnDuplicateKeyUpdate)
+            return $"Scoped table '{scope.Table}' is the target of ON DUPLICATE KEY UPDATE{inScope}. It takes no WHERE, so a key collision with another scope's row would update that row. "
+                + $"Write an INSERT and an UPDATE that each prove '{scope.Column}' instead.{hatch}";
+        if (model.Upsert != UpsertKind.OnConflictUpdate || UpdateBranchProof(model, scope.Column))
+            return null;
+        return $"Scoped table '{scope.Table}' is the target of ON CONFLICT ... DO UPDATE{inScope} without a filter on its scope column '{scope.Column}' in the DO UPDATE's WHERE, so a conflict with another scope's row would update that row. "
+            + $"Add WHERE {scope.Table}.{scope.Column} = EXCLUDED.{scope.Column} as a top-level AND condition.{hatch}";
+    }
+
+    private static bool UpdateBranchProof(QueryModel model, string column)
+    {
+        foreach (var atom in model.UpsertAtoms)
+        {
+            if (atom.Terms.Count != 3 || atom.Terms[1].Text != "=")
+                continue;
+            if (ProvesUpdateBranch(model, atom.Terms[0], atom.Terms[2], column)
+                || ProvesUpdateBranch(model, atom.Terms[2], atom.Terms[0], column))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool ProvesUpdateBranch(QueryModel model, AtomTerm target, AtomTerm value, string column)
+    {
+        if (target.Kind != AtomTermKind.Column || !string.Equals(target.Text, column, StringComparison.OrdinalIgnoreCase)
+            || !TargetQualifier(model, 0, target.TableAlias ?? ""))
+            return false;
+        if (value.Kind == AtomTermKind.Parameter)
+            return true;
+        return value.Kind == AtomTermKind.Column
+            && string.Equals(value.TableAlias, "excluded", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(value.Text, column, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool InFullJoin(QueryModel model, int index)
