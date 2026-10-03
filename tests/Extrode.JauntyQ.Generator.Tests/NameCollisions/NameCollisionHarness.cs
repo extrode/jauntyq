@@ -81,6 +81,15 @@ internal static class NameCollisionHarness
             .GetDiagnostics()
             .Where(d => d.Severity == DiagnosticSeverity.Error);
 
+    internal static GeneratorDriverRunResult GenerateIdentityTable(string column, string dialect) =>
+        Run(Array.Empty<(string, string)>(), Schema(dialect,
+            $@"""orders"": {{ ""name"": ""orders"", ""columns"": {{ " +
+            $@"""id"": {{ ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true, ""isIdentity"": true }}, " +
+            $@"""{column}"": {{ ""name"": ""{column}"", ""dbType"": ""int"", ""isNullable"": false }} }} }}"), null, true);
+
+    internal static List<string> CompileErrors(GeneratorDriverRunResult result) =>
+        CompileErrorDiagnostics(result).Select(d => $"{d.Id}: {d.GetMessage()}").ToList();
+
     internal static string SourceOf(GeneratorDriverRunResult result, string file)
     {
         var tree = result.GeneratedTrees.SingleOrDefault(t => Path.GetFileName(t.FilePath) == file)
@@ -89,5 +98,5 @@ internal static class NameCollisionHarness
     }
 
     internal static List<string> CompileErrors(string site, string name, string dialect) =>
-        CompileErrorDiagnostics(Generate(site, name, dialect)).Select(d => $"{d.Id}: {d.GetMessage()}").ToList();
+        CompileErrors(Generate(site, name, dialect));
 }

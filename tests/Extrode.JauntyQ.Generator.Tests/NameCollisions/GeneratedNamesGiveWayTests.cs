@@ -38,6 +38,15 @@ public class GeneratedNamesGiveWayTests
     }
 
     [Fact]
+    public void AnIdentityInsert_WithAColumnNamedCommandBehavior_QualifiesTheTypeAndCompiles()
+    {
+        var result = GenerateIdentityTable("CommandBehavior", "sqlite");
+
+        Assert.Empty(CompileErrors(result));
+        Assert.Contains("global::System.Data.CommandBehavior.SingleRow", SourceOf(result, "Orders.Insert.auto.g.cs"));
+    }
+
+    [Fact]
     public void AParameterNamedLikeAType_GetsTheTypeQualified()
     {
         string find = Source("qparam", "ConnectionState", "sqlite", "Orders.Find.g.cs");
