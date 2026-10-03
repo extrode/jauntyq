@@ -31,6 +31,8 @@ public class SchemaSimulatorPostgresTableNameTests
     [InlineData("Customers", "CREATE TABLE customers (id int PRIMARY KEY);", "customers")]
     [InlineData("Customers", "CREATE TABLE CUSTOMERS (id int PRIMARY KEY);", "customers")]
     [InlineData("customers", "CREATE TABLE \"Customers\" (id int PRIMARY KEY);", "Customers")]
+    [InlineData("customers", "CREATE TABLE public.\"Customers\" (id int PRIMARY KEY);", "Customers")]
+    [InlineData("Customers", "CREATE TABLE \"public\".Customers (id int PRIMARY KEY);", "customers")]
     public void A_name_postgres_keeps_apart_is_a_new_table(string existing, string sql, string created)
     {
         var (effective, errors) = Apply(Snapshot("postgres", existing), sql);
@@ -44,6 +46,7 @@ public class SchemaSimulatorPostgresTableNameTests
     [Theory]
     [InlineData("customers", "CREATE TABLE Customers (id int PRIMARY KEY);")]
     [InlineData("Customers", "CREATE TABLE \"Customers\" (id int PRIMARY KEY);")]
+    [InlineData("Customers", "CREATE TABLE public.\"Customers\" (id int PRIMARY KEY);")]
     public void A_name_postgres_resolves_to_the_existing_table_already_exists(string existing, string sql)
     {
         var (_, errors) = Apply(Snapshot("postgres", existing), sql);
@@ -67,6 +70,9 @@ public class SchemaSimulatorPostgresTableNameTests
     [InlineData("`Customers`", true)]
     [InlineData("Customers", false)]
     [InlineData("[Customers]", false)]
+    [InlineData("public.\"Customers\"", true)]
+    [InlineData("\"s\".\"Customers\"", true)]
+    [InlineData("\"public\".Customers", false)]
     public void The_tokenizer_marks_quoted_identifiers(string identifier, bool quoted)
     {
         Assert.Equal(quoted, SqlTokenizer.Tokenize("select 1 from " + identifier)[3].IsQuoted);

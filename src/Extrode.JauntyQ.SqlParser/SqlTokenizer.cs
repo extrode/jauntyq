@@ -461,7 +461,7 @@ public static class SqlTokenizer
                 (leftIsChainContinuation || !tokens[i].Value.Contains(".")) &&
                 !tokens[i + 2].Value.Contains("."))
             {
-                tokens[i] = new Token(TokenType.Identifier, tokens[i].Value + "." + tokens[i + 2].Value);
+                tokens[i] = new Token(TokenType.Identifier, tokens[i].Value + "." + tokens[i + 2].Value, isQuoted: tokens[i + 2].IsQuoted);
                 tokens.RemoveRange(i + 1, 2);
                 i--;
                 continuingChain = true;
@@ -479,7 +479,7 @@ public static class SqlTokenizer
                 tokens[i + 1].Type == TokenType.Identifier &&
                 !tokens[i + 1].Value.Contains("."))
             {
-                tokens[i] = new Token(TokenType.Identifier, tokens[i].Value + tokens[i + 1].Value);
+                tokens[i] = new Token(TokenType.Identifier, tokens[i].Value + tokens[i + 1].Value, isQuoted: tokens[i + 1].IsQuoted);
                 tokens.RemoveAt(i + 1);
                 i--;
                 continuingChain = true;
