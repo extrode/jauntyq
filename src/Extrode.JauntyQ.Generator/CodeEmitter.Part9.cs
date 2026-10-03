@@ -149,7 +149,7 @@ public static partial class CodeEmitter
         var paramRef = query.Parameters.Find(p => p.Name == paramName);
         if (paramRef != null && !string.IsNullOrEmpty(paramRef.BoundColumnName) && schema != null)
         {
-            var resolved = ResolveColumnType(paramRef.BoundTableAlias, paramRef.BoundColumnName, BindingScope.Of(paramRef, query, schema), schema);
+            var resolved = ResolveColumnType(paramRef.BoundTableAlias, paramRef.BoundColumnName, BindingScope.Of(paramRef, query, schema), query.Ctes, schema);
             if (resolved != null)
                 return resolved;
         }
@@ -177,7 +177,9 @@ public static partial class CodeEmitter
         return csharpType.Substring(prefix.Length, csharpType.Length - prefix.Length - 1);
     }
 
-    private static string? ResolveColumnType(string tableAlias, string columnName, QueryModel query, DatabaseSchema schema)
+    // The CTEs come from the outer statement: a subquery body that reads a CTE
+    // carries no CTE list of its own.
+    private static string? ResolveColumnType(string tableAlias, string columnName, QueryModel query, List<CteRef> ctes, DatabaseSchema schema)
     {
         if (!string.IsNullOrEmpty(tableAlias))
         {
@@ -192,7 +194,7 @@ public static partial class CodeEmitter
                 }
                 // Not a schema table: the qualifier may name a CTE whose
                 // virtual column traces back to a real one.
-                var qualifiedViaCte = ProjectionBuilder.ResolveThroughCtes(tableName, columnName, query.Ctes, schema, depth: 0);
+                var qualifiedViaCte = ProjectionBuilder.ResolveThroughCtes(tableName, columnName, ctes, schema, depth: 0);
                 if (qualifiedViaCte != null)
                     return DialectMapper.MapColumnToCSharp(qualifiedViaCte, schema.Dialect, schema);
             }
@@ -213,7 +215,7 @@ public static partial class CodeEmitter
             // (declared column list or aliased output).
             foreach (var table in query.Tables)
             {
-                var viaCte = ProjectionBuilder.ResolveThroughCtes(table.TableName, columnName, query.Ctes, schema, depth: 0);
+                var viaCte = ProjectionBuilder.ResolveThroughCtes(table.TableName, columnName, ctes, schema, depth: 0);
                 if (viaCte != null)
                     return DialectMapper.MapColumnToCSharp(viaCte, schema.Dialect, schema);
             }

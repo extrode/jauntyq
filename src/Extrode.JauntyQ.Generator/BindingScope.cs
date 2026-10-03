@@ -10,6 +10,8 @@ namespace Extrode.JauntyQ.Generator;
 /// not have is a correlated reference to the enclosing statement, as in
 /// <c>exists (select 1 from items where status = @s)</c> with <c>status</c> only
 /// on the outer table. That binding resolves in the enclosing statement.
+/// A body that reads a CTE or any other relation the schema does not list may
+/// have the column there, so its binding stays in the body.
 /// </summary>
 internal static class BindingScope
 {
@@ -19,7 +21,8 @@ internal static class BindingScope
         if (scope == null || schema == null || !string.IsNullOrEmpty(param.BoundTableAlias) ||
             string.IsNullOrEmpty(param.BoundColumnName))
             return scope ?? query;
-        if (!HasColumn(scope, param.BoundColumnName, schema) && HasColumn(query, param.BoundColumnName, schema))
+        if (!ReadsUnknownRelation(scope, schema) && !HasColumn(scope, param.BoundColumnName, schema)
+            && HasColumn(query, param.BoundColumnName, schema))
             return query;
         return scope;
     }
@@ -31,6 +34,16 @@ internal static class BindingScope
         foreach (var table in model.Tables)
         {
             if (TableHasColumn(table.TableName, column, schema))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool ReadsUnknownRelation(QueryModel model, DatabaseSchema schema)
+    {
+        foreach (var table in model.Tables)
+        {
+            if (!SchemaLookup.TryGetTable(schema, table.TableName, out _))
                 return true;
         }
         return false;
