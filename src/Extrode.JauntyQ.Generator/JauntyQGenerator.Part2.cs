@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
@@ -165,6 +165,17 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     $"The Result DTO cannot declare '{dupProcCol}' twice; alias one column distinctly in the procedure's own SELECT."));
                 return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
             }
+            foreach (var resultCol in procedure.Results)
+            {
+                if (DialectMapper.ToPascalCase(resultCol.Name) == methodName)
+                {
+                    callDiagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2011,
+                        $"Stored procedure '{procedure.Name}' returns a column '{resultCol.Name}' that maps to the property '{methodName}', " +
+                        $"the name of its own generated type Result.{methodName}, and a C# member cannot share its type's name. " +
+                        $"Alias the column in the procedure's SELECT or rename the .sql file."));
+                    return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
+                }
+            }
 
             // JNT2013: two distinct parameters folding to the same C# formal
             // would emit a duplicate parameter into every EmitProcCall
@@ -214,7 +225,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 $"{entityName}.{methodName}.g.cs",
                 callSource,
                 callDiagnostics.ToImmutable(),
-                new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable: null),
+                new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable: null, emitsResultType: procedure.Results.Count > 0),
                 fingerprint: $"@call:{procedure.Name}",
                 path: sqlFile.Path);
         }
@@ -529,6 +540,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
         string source;
         string? canonicalTable = null;
+        bool emitsResultType = false;
 
         if (queryModel.StatementType != StatementType.Select)
         {
@@ -586,12 +598,14 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
                 // JNT3009: duplicate emitted property name in the RETURNING row
                 // type (same rule as the SELECT projection below).
-                var dupReturningCol = FindDuplicateResultColumn(returningProjection);
+                var dupReturningCol = FindDuplicateResultColumn(returningProjection)
+                    ?? FindResultColumnNamedLikeItsType(returningProjection);
                 if (dupReturningCol != null)
                 {
                     diagnostics.Add(dupReturningCol);
                     return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
                 }
+                emitsResultType = true;
 
                 source = CodeEmitter.EmitCrudReturning(queryModel, returningProjection, cleanedSql, entityName, schema, directives);
             }
@@ -667,6 +681,16 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             string? canonicalRowType = ResolveCanonicalRowType(queryModel, projection, schema, directives);
             if (canonicalRowType != null)
                 canonicalTable = queryModel.Tables[0].TableName;
+            else
+            {
+                var aliasNamedLikeType = FindResultColumnNamedLikeItsType(projection);
+                if (aliasNamedLikeType != null)
+                {
+                    diagnostics.Add(aliasNamedLikeType);
+                    return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+                }
+                emitsResultType = true;
+            }
 
             source = CodeEmitter.Emit(queryModel, projection, cleanedSql, entityName, schema, directives, canonicalRowType);
         }
@@ -697,7 +721,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             $"{entityName}.{methodName}.g.cs",
             source,
             diagnostics.ToImmutable(),
-            new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable),
+            new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable, emitsResultType),
             ComputeFingerprint(tokens),
             queryModel,
             sqlFile.Path,
@@ -723,6 +747,24 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             if (!seen.Add(emitted))
                 return DiagnosticInfo.From(JauntyDiagnostics.JNT3009,
                     $"Two result columns map to the same generated property '{emitted}'. Give each SELECT/RETURNING item a distinct alias (AS) — the generated row type cannot declare '{emitted}' twice.");
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// JNT3009's other shape: a query's own result type is named after the
+    /// query (Result.{Name}), so a column folding to that name would be a
+    /// member named like its enclosing type (CS0542).
+    /// </summary>
+    private static DiagnosticInfo? FindResultColumnNamedLikeItsType(ProjectionModel projection)
+    {
+        foreach (var pcol in projection.Columns)
+        {
+            string emitted = DialectMapper.ToPascalCase(pcol.Name);
+            if (emitted == projection.Name)
+                return DiagnosticInfo.From(JauntyDiagnostics.JNT3009,
+                    $"Result column '{pcol.Name}' maps to the property '{emitted}', the name of its own generated type Result.{projection.Name}, " +
+                    $"and a C# member cannot share its type's name. Alias the column (AS) or rename the .sql file.");
         }
         return null;
     }
