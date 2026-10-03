@@ -18,7 +18,8 @@ public class ParameterScopeTests
         ""customer_id"": { ""name"": ""customer_id"", ""dbType"": ""int"", ""isNullable"": false },
         ""region_id"": { ""name"": ""region_id"", ""dbType"": ""int"", ""isNullable"": false },
         ""note"": { ""name"": ""note"", ""dbType"": ""varchar"", ""isNullable"": true, ""maxLength"": 10 },
-        ""email"": { ""name"": ""email"", ""dbType"": ""varchar"", ""isNullable"": true, ""maxLength"": 100 } },
+        ""email"": { ""name"": ""email"", ""dbType"": ""varchar"", ""isNullable"": true, ""maxLength"": 100 },
+        ""status"": { ""name"": ""status"", ""dbType"": ""varchar"", ""isNullable"": false, ""maxLength"": 20 } },
       ""indexes"": [ { ""name"": ""ix_orders_region_note"", ""columns"": [""region_id"", ""note""], ""isUnique"": false },
                      { ""name"": ""ix_orders_customer"", ""columns"": [""customer_id""], ""isUnique"": false } ] },
     ""customers"": { ""name"": ""customers"", ""columns"": {
@@ -66,7 +67,8 @@ public class ParameterScopeTests
     [InlineData("delete from orders where id = @Id and customer_id in (select id from customers where note = @Note)", "Q(long Id, string? Note = default)")]
     [InlineData("select o.id from orders o where exists (select 1 from customers c where c.id = o.customer_id and o.id = @Id)", "Q(long Id)")]
     [InlineData("select id from orders where customer_id in (select id from customers c where exists (select 1 from regions r where r.id = c.region_id and c.id = @Id))", "Q(int Id)")]
-    public void AParameterIsTypedFromTheScopeThatBindsIt(string sql, string signature)
+    [InlineData("select id from orders where exists (select 1 from customers where status = @S)", "Q(string S)")]
+    [InlineData("select id from orders where exists (select 1 from customers where id = @Id and customer_id = @C)", "Q(int Id, int C)")]    public void AParameterIsTypedFromTheScopeThatBindsIt(string sql, string signature)
     {
         var result = Run(sql);
 
@@ -122,5 +124,13 @@ public class ParameterScopeTests
         var result = Run("select id from orders where exists (select 1 from customers where email = @Email)");
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8004");
+    }
+
+    [Fact]
+    public void ASubqueryFilterOnAColumnOnlyTheOuterTableHas_IsCheckedAgainstTheOuterTable()
+    {
+        var result = Run("select id from orders where exists (select 1 from customers where status = @S)");
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("orders.status"));
     }
 }
