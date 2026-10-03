@@ -104,6 +104,13 @@ public static class SchemaSimulator
 
     private static void ApplyDropTable(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
+        var enumNames = new List<string>();
+        if (TryFindTable(schema, stmt.TableName, out var dropped))
+        {
+            foreach (var col in dropped.Columns.Values)
+                if (col.EnumName != null)
+                    enumNames.Add(col.EnumName);
+        }
         if (!RemoveTable(schema, stmt.TableName) && !stmt.IfExists)
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
@@ -112,6 +119,8 @@ public static class SchemaSimulator
         schema.ForeignKeys.RemoveAll(fk =>
             string.Equals(fk.FromTable, stmt.TableName, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(fk.ToTable, stmt.TableName, StringComparison.OrdinalIgnoreCase));
+        foreach (string enumName in enumNames)
+            RemoveUnusedMySqlEnum(schema, enumName);
     }
 
     private static void ApplyAddColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
@@ -208,6 +217,7 @@ public static class SchemaSimulator
             // the resolved actual key (not the migration's possibly
             // differently-cased spelling), since that is the real key
             // present in the dictionary.
+            string? enumName = table.Columns[actualKey].EnumName;
             var rebuilt = new Dictionary<string, ColumnSchema>();
             foreach (var kvp in table.Columns)
             {
@@ -217,6 +227,8 @@ public static class SchemaSimulator
             table.Columns = rebuilt;
 
             RemoveColumnFromIndexes(table, actualKey);
+            if (enumName != null)
+                RemoveUnusedMySqlEnum(schema, enumName);
         }
 
         schema.ForeignKeys.RemoveAll(fk =>
@@ -510,6 +522,23 @@ public static class SchemaSimulator
         }
         value = default!;
         return false;
+    }
+
+    /// <summary>
+    /// A MySQL enum is the inline type of one column, so a live pull stops
+    /// reporting it once that column or its table is gone. A Postgres enum is
+    /// a type of its own and outlives its columns, so it is left alone. Kept
+    /// while any column still names it.
+    /// </summary>
+    private static void RemoveUnusedMySqlEnum(DatabaseSchema schema, string enumName)
+    {
+        if (!string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
+            return;
+        foreach (var table in schema.Tables.Values)
+            foreach (var col in table.Columns.Values)
+                if (string.Equals(col.EnumName, enumName, StringComparison.Ordinal))
+                    return;
+        schema.Enums.Remove(enumName);
     }
 
     /// <summary>

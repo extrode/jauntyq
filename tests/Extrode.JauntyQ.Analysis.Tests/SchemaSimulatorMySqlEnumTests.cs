@@ -85,6 +85,42 @@ public class SchemaSimulatorMySqlEnumTests
         Assert.Contains(ColumnChangeKind.Enum, change.Kinds);
     }
 
+    [Theory]
+    [InlineData("ALTER TABLE orders DROP COLUMN status;")]
+    [InlineData("DROP TABLE orders;")]
+    public void Removing_the_enum_column_removes_its_enum(string sql)
+    {
+        var (effective, _, errors) = Apply(Snapshot(), sql);
+
+        Assert.Empty(errors);
+        Assert.False(effective.Enums.ContainsKey(StatusEnum));
+    }
+
+    [Fact]
+    public void An_enum_another_column_still_names_is_kept()
+    {
+        var snapshot = Snapshot();
+        snapshot.Tables["orders"].Columns["old_status"] = new ColumnSchema
+        {
+            Name = "old_status", DbType = "enum", EnumName = StatusEnum, IsNullable = true, MaxLength = 7, IsUnicode = true
+        };
+
+        var (effective, _, _) = Apply(snapshot, "ALTER TABLE orders DROP COLUMN status;");
+
+        Assert.True(effective.Enums.ContainsKey(StatusEnum));
+    }
+
+    [Fact]
+    public void A_postgres_enum_outlives_its_column()
+    {
+        var snapshot = Snapshot();
+        snapshot.Dialect = "postgres";
+
+        var (effective, _, _) = Apply(snapshot, "ALTER TABLE orders DROP COLUMN status;");
+
+        Assert.True(effective.Enums.ContainsKey(StatusEnum));
+    }
+
     [Fact]
     public void Create_table_with_an_inline_enum_captures_it_like_a_live_pull()
     {
