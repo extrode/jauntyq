@@ -217,9 +217,24 @@ public class PredicateAtomTests
     [InlineData("update t set x = 1 where status = @s returning id")]
     [InlineData("select id from t where status = @s for update")]
     [InlineData("select id from t where status = @s FOR SHARE")]
+    [InlineData("select id from t where status = @s;")]
+    [InlineData("delete from t where status = @s ;")]
+    [InlineData("select id from t where status = @s fetch first 10 rows only")]
+    [InlineData("select id from t where status = @s FETCH NEXT 5 ROWS ONLY")]
+    [InlineData("select id from t where status = @s option (recompile)")]
+    [InlineData("select id, sum(x) over w from t where status = @s window w as (partition by id)")]
     public void ATrailingClause_EndsTheRegion(string sql)
     {
         Assert.Equal(new[] { "status = @s" }, Rendered(ParseSql(sql)));
+    }
+
+    [Theory]
+    [InlineData("select id from t where status = @s and option = 1", "option = 1")]
+    [InlineData("select id from t where status = @s and fetch = 1", "fetch = 1")]
+    [InlineData("select id from t where status = @s and window = 1", "window = 1")]
+    public void AColumnNamedLikeAClause_DoesNotEndTheRegion(string sql, string second)
+    {
+        Assert.Equal(new[] { "status = @s", second }, Rendered(ParseSql(sql)));
     }
 
     [Fact]
