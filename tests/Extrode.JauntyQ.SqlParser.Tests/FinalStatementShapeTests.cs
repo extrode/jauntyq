@@ -162,6 +162,8 @@ public class FinalStatementShapeTests
         nameof(QueryModel.HasGroupBy),
         nameof(QueryModel.Subqueries),
         nameof(QueryModel.ExistsExpressions),
+        nameof(QueryModel.Upsert),
+        nameof(QueryModel.UpsertAtoms),
     };
 
     /// <summary>

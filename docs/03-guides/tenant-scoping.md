@@ -62,6 +62,8 @@ have any name. Where the proof has to be depends on how the table is reached:
 | inside a CTE body, a `WHERE` `IN`/`EXISTS` subquery, or an `EXISTS (...)` in the select list | inside that body. A proof in the outer query does not cover it |
 | `UPDATE` or `DELETE` target | the statement's `WHERE` |
 | `INSERT` target | the column list, bound to a parameter |
+| `INSERT ... ON CONFLICT ... DO UPDATE` target | the column list as above, and the `DO UPDATE`'s `WHERE`: `<table>.<column> = EXCLUDED.<column>` or `= @param`. The update branch reaches a row the insert never wrote, which may be another tenant's |
+| `INSERT ... ON DUPLICATE KEY UPDATE` target | nowhere: it takes no `WHERE`, so it is always refused. Write an `INSERT` and an `UPDATE` |
 
 These are not proof: a condition under `OR` or `NOT`, a literal
 (`tenant_id = 42`), another column (`o.tenant_id = c.tenant_id`), `IS NULL`,
@@ -115,7 +117,7 @@ An upsert that collides with another tenant's key must not overwrite that row:
 |---|---|
 | PostgreSQL, SQLite | `ON CONFLICT (key) DO UPDATE ... WHERE orders.tenant_id = EXCLUDED.tenant_id`. A collision with another tenant's row updates nothing and returns 0 |
 | SQL Server | the `MERGE` matches on the key and the scope. A collision with another tenant's key falls through to the insert, which the primary key rejects with an error |
-| MySQL | not generated. `ON DUPLICATE KEY UPDATE` has no `WHERE`, so it cannot leave another tenant's row alone. `JNT4007` (Info) says so; use `Insert` and `Update`, or write the upsert by hand |
+| MySQL | not generated. `ON DUPLICATE KEY UPDATE` has no `WHERE`, so it cannot leave another tenant's row alone. `JNT4007` (Info) says so; use `Insert` and `Update`. A hand-written `ON DUPLICATE KEY UPDATE` is refused with `JNT4005` for the same reason |
 
 ## What is not checked
 

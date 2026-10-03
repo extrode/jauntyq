@@ -115,12 +115,15 @@ public static partial class SqlParser
     /// UPDATE</c>, to the target column as a write target. Only a top-level
     /// item that starts the list or follows a comma counts, so <c>k = @p</c>
     /// inside a CASE or subquery is left to the comparison scan; the list ends
-    /// at WHERE or RETURNING.
+    /// at WHERE or RETURNING. Also records which update branch it is, and
+    /// splits a <c>DO UPDATE ... WHERE</c> into <see cref="QueryModel.UpsertAtoms"/>.
     /// </summary>
     private static void BindUpsertAssignments(List<Token> tokens, QueryModel model)
     {
         int depth = 0;
         bool inList = false;
+        int whereStart = -1;
+        int whereEnd = tokens.Count;
         for (int i = 0; i < tokens.Count; i++)
         {
             var t = tokens[i];
@@ -141,8 +144,16 @@ public static partial class SqlParser
                     || string.Equals(tokens[i - 1].Value, "KEY", StringComparison.OrdinalIgnoreCase)))
             {
                 inList = true;
+                model.Upsert = string.Equals(tokens[i - 1].Value, "DO", StringComparison.OrdinalIgnoreCase)
+                    ? UpsertKind.OnConflictUpdate
+                    : UpsertKind.OnDuplicateKeyUpdate;
                 continue;
             }
+            if (model.Upsert != UpsertKind.None && whereStart == -1 && t.Type == TokenType.Keyword && t.Value == "WHERE")
+                whereStart = i + 1;
+            if (whereStart != -1 && whereEnd == tokens.Count
+                && ((t.Type == TokenType.Keyword && t.Value == "RETURNING") || (t.Type == TokenType.Symbol && t.Value == ";")))
+                whereEnd = i;
             if (t.Type == TokenType.Keyword && (t.Value == "WHERE" || t.Value == "RETURNING"))
             {
                 inList = false;
@@ -167,6 +178,8 @@ public static partial class SqlParser
             param.IsUpsertAssignment = true;
             param.ComparisonOp = "=";
         }
+        if (whereStart != -1)
+            SplitIntoAtoms(tokens, whereStart, whereEnd, model.UpsertAtoms);
     }
 
     /// <summary>

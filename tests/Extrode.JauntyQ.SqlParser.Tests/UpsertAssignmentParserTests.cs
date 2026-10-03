@@ -71,6 +71,51 @@ public class UpsertAssignmentParserTests
         Assert.False(p.IsUpsertAssignment);
     }
 
+    private static QueryModel Model(string sql) => SqlParser.Parse(SqlTokenizer.Tokenize(sql), "Test");
+
+    [Theory]
+    [InlineData("insert into t (id) values (@id)", UpsertKind.None)]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do nothing", UpsertKind.None)]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set a = 1", UpsertKind.OnConflictUpdate)]
+    [InlineData("insert into t (id) values (@id) on duplicate key update a = 1", UpsertKind.OnDuplicateKeyUpdate)]
+    [InlineData("insert into t (id) select id from u on conflict (id) do update set a = 1", UpsertKind.OnConflictUpdate)]
+    [InlineData("update t set a = 1 where id = 2", UpsertKind.None)]
+    public void TheUpdateBranch_IsRecorded(string sql, UpsertKind kind)
+    {
+        Assert.Equal(kind, Model(sql).Upsert);
+    }
+
+    [Theory]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set a = 1 where t.k = excluded.k and t.b > 0", 2)]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set a = 1 where t.k = excluded.k returning id", 1)]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set a = 1 where t.k = excluded.k;", 1)]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set a = (select b from u where c = 1)", 0)]
+    [InlineData("insert into t (id) values (@id) on conflict (id) where k = 1 do update set a = 1", 0)]
+    [InlineData("insert into t (id) select id from u where k = 1 on conflict (id) do update set a = 1", 0)]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do nothing", 0)]
+    public void OnlyTheDoUpdateWhere_IsSplitIntoUpsertAtoms(string sql, int atoms)
+    {
+        Assert.Equal(atoms, Model(sql).UpsertAtoms.Count);
+    }
+
+    [Fact]
+    public void AnUpsertAtomEndsAtReturning()
+    {
+        var atom = Assert.Single(Model("insert into t (id) values (@id) on conflict (id) do update set a = 1 where t.k = excluded.k returning id").UpsertAtoms);
+
+        Assert.Equal(3, atom.Terms.Count);
+        Assert.Equal("excluded", atom.Terms[2].TableAlias);
+    }
+
+    [Fact]
+    public void AFinalStatementUpsert_IsCopiedOntoTheOuterModel()
+    {
+        var model = Model("with s as (select 1 as id) insert into t (id) select id from s on conflict (id) do update set a = 1 where t.k = excluded.k");
+
+        Assert.Equal(UpsertKind.OnConflictUpdate, model.Upsert);
+        Assert.Single(model.UpsertAtoms);
+    }
+
     [Fact]
     public void AnUpsertInAFinalStatement_KeepsTheFlag()
     {
