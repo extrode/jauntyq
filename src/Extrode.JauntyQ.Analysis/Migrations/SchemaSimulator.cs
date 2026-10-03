@@ -94,7 +94,7 @@ public static class SchemaSimulator
                     $"{fileName}: duplicate column '{col.Name}' in create table '{stmt.TableName}'."));
                 continue;
             }
-            table.Columns[col.Name] = Finalize(col, schema);
+            table.Columns[col.Name] = Finalize(col, schema, stmt);
             ApplyInlineEnum(schema, stmt, stmt.TableName, col);
         }
         ApplySqliteRowidAliasing(table, schema.Dialect);
@@ -130,7 +130,7 @@ public static class SchemaSimulator
                     $"{fileName}: column '{stmt.TableName}.{col.Name}' already exists. If this migration was already deployed, archive it and re-run 'jaunty schema pull'."));
                 continue;
             }
-            table.Columns[col.Name] = Finalize(col, schema);
+            table.Columns[col.Name] = Finalize(col, schema, stmt);
             ApplyInlineEnum(schema, stmt, table.Name, col);
         }
         ApplyInlineForeignKeys(schema, stmt, fileName, errors);
@@ -256,7 +256,7 @@ public static class SchemaSimulator
             // no-op: the simulated schema kept reporting non-identity while
             // a live re-pull after the same migration would report identity).
             var existing = table.Columns[actualKey];
-            var updated = Finalize(col, schema);
+            var updated = Finalize(col, schema, stmt);
             updated.IsPrimaryKey = existing.IsPrimaryKey;
             if (!string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
                 updated.IsIdentity = existing.IsIdentity;
@@ -544,7 +544,7 @@ public static class SchemaSimulator
     /// SQL Server reports rowversion as 'timestamp', which is a datetime on
     /// PostgreSQL, so the concurrency-token flag is dialect-gated.
     /// </summary>
-    private static ColumnSchema Finalize(ColumnSchema col, DatabaseSchema schema)
+    private static ColumnSchema Finalize(ColumnSchema col, DatabaseSchema schema, MigrationStatement stmt)
     {
         string dialect = schema.Dialect;
         ResolveDeclaredType(col, schema);
@@ -602,11 +602,16 @@ public static class SchemaSimulator
         // The parser marks a text column Unicode only for an n-prefixed type,
         // which is SQL Server's rule. The other extractors report every text
         // column Unicode: Postgres text under its UTF-8 encoding, MySQL under
-        // a utf8* charset (the utf8mb4 default; an explicit non-UTF charset is
-        // not modelled), SQLite for every text affinity. Left as false, any
-        // ALTER/MODIFY of a text column there showed a "unicode changed" the
-        // migration never made.
-        if (col.IsUnicode.HasValue &&
+        // a utf8* charset (the utf8mb4 default), SQLite for every text
+        // affinity. Left as false, any ALTER/MODIFY of a text column there
+        // showed a "unicode changed" the migration never made. A MySQL column
+        // with an explicit CHARACTER SET takes it from that charset instead; a
+        // table-level DEFAULT CHARSET is still not modelled.
+        if (col.IsUnicode.HasValue && stmt.CharsetIsUnicode.TryGetValue(col.Name, out bool charsetIsUnicode))
+        {
+            col.IsUnicode = charsetIsUnicode;
+        }
+        else if (col.IsUnicode.HasValue &&
             (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase) ||
              string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase) ||
              string.Equals(dialect, "sqlite", StringComparison.OrdinalIgnoreCase)))

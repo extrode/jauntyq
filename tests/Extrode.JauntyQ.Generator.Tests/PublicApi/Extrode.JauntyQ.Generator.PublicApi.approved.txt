@@ -138,6 +138,7 @@ class Extrode.JauntyQ.Analysis.Migrations.MigrationParser
     method Parse(String):List<MigrationStatement>
 class Extrode.JauntyQ.Analysis.Migrations.MigrationStatement
     ctor .ctor()
+    prop CharsetIsUnicode:Dictionary<String,Boolean>
     prop ColumnNames:List<String>
     prop Columns:List<ColumnSchema>
     prop EnumMembers:Dictionary<String,List<String>>
