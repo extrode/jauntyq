@@ -177,9 +177,12 @@ public static partial class SqlParser
         // WHERE to the first clause after it or end, depth-gated so a
         // projection-list EXISTS(...) subquery's own clause keywords are never
         // mistaken for this statement's. LIMIT, OFFSET, RETURNING and a locking
-        // FOR UPDATE/SHARE also end it: left in, they join the last conjunct, and
-        // the tenant-scope proof `tenant_id = @t limit 10` no longer reads as an
-        // equality.
+        // FOR UPDATE/SHARE also end it, as do a statement-ending `;`, FETCH
+        // FIRST/NEXT, SQL Server's OPTION (...) and a WINDOW clause: left in,
+        // they join the last conjunct, and the tenant-scope proof
+        // `tenant_id = @t limit 10` no longer reads as an equality. The words
+        // that are not keywords need their next token too, so a column named
+        // `option` or `window` is still a column.
         int start = -1;
         int end = tokens.Count;
         int boundaryDepth = 0;
@@ -191,8 +194,8 @@ public static partial class SqlParser
                 boundaryDepth--;
             if (boundaryDepth != 0)
                 continue;
-            if (start != -1 && tokens[i].Type == TokenType.Identifier &&
-                string.Equals(tokens[i].Value, "FOR", StringComparison.OrdinalIgnoreCase))
+            if (start != -1 && (IsTrailingClause(tokens, i)
+                || (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ";")))
             {
                 end = i;
                 break;
@@ -214,6 +217,28 @@ public static partial class SqlParser
             return;
 
         SplitIntoAtoms(tokens, start, end, model.PredicateAtoms);
+    }
+
+    private static bool IsTrailingClause(List<Token> tokens, int i)
+    {
+        if (tokens[i].Type != TokenType.Identifier)
+            return false;
+        string word = tokens[i].Value;
+        if (string.Equals(word, "FOR", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (i + 1 >= tokens.Count)
+            return false;
+        var next = tokens[i + 1];
+        if (string.Equals(word, "FETCH", StringComparison.OrdinalIgnoreCase))
+            return next.Type == TokenType.Identifier
+                && (string.Equals(next.Value, "FIRST", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(next.Value, "NEXT", StringComparison.OrdinalIgnoreCase));
+        if (string.Equals(word, "OPTION", StringComparison.OrdinalIgnoreCase))
+            return next.Type == TokenType.Symbol && next.Value == "(";
+        if (string.Equals(word, "WINDOW", StringComparison.OrdinalIgnoreCase))
+            return next.Type == TokenType.Identifier && i + 2 < tokens.Count
+                && tokens[i + 2].Type == TokenType.Keyword && tokens[i + 2].Value == "AS";
+        return false;
     }
 
     /// <summary>
