@@ -123,6 +123,16 @@ public class ScopedAutoCrudEmitTests
             diagnostic.GetMessage());
     }
 
+    [Theory]
+    [InlineData(@"{ ""scopes"": [ { ""table"": ""order_lines"", ""column"": ""tenant_id"" }, { ""table"": ""order_lines"", ""column"": ""order_id"" } ] }", "'tenant_id' and 'order_id'")]
+    [InlineData(@"{ ""scopes"": [ { ""table"": ""order_lines"", ""column"": ""tenant_id"" }, { ""table"": ""order_lines"", ""column"": ""order_id"" }, { ""table"": ""order_lines"", ""column"": ""qty"" } ] }", "'tenant_id', 'order_id' and 'qty'")]
+    public void Upsert_OnMySql_NamesEveryScopeColumn(string scopes, string named)
+    {
+        var diagnostic = Assert.Single(Generate(scopes, "mysql").Diagnostics, d => d.Id == "JNT4007");
+
+        Assert.Contains($"it is scoped by {named}, and MySQL's", diagnostic.GetMessage());
+    }
+
     [Fact]
     public void Upsert_OnMySql_IsGenerated_WithoutAScopeFile()
     {

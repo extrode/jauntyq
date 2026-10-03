@@ -593,7 +593,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     {
                         context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT4007, Location.None,
                             $"No Upsert is generated for table '{synth.TableName}': it is scoped by " +
-                            $"'{synthScope[0].Name}', and MySQL's ON DUPLICATE KEY UPDATE has no WHERE, so a key " +
+                            $"{ScopeColumnList(synthScope)}, and MySQL's ON DUPLICATE KEY UPDATE has no WHERE, so a key " +
                             "collision with another scope's row would overwrite that row. Use Insert and Update, " +
                             "or write the upsert by hand and prove the scope in it."));
                         continue;
@@ -1249,5 +1249,15 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             && methods.Contains(entity.Substring(0, entity.Length - asyncSuffix.Length)))
             return entity;
         return null;
+    }
+
+    // "'a'", "'a' and 'b'", "'a', 'b' and 'c'": every scope column, so a
+    // table scoped twice names both in the one message it gets.
+    private static string ScopeColumnList(List<ColumnSchema> scopeCols)
+    {
+        var quoted = scopeCols.ConvertAll(c => $"'{c.Name}'");
+        return quoted.Count == 1
+            ? quoted[0]
+            : string.Join(", ", quoted.GetRange(0, quoted.Count - 1)) + " and " + quoted[quoted.Count - 1];
     }
 }
