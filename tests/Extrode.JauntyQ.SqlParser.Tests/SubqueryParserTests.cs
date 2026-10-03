@@ -92,6 +92,37 @@ public class SubqueryParserTests
     }
 
     [Fact]
+    public void ProjectionExists_BodyIsParsed_AndStaysInTheProjection()
+    {
+        var model = ParseSql(
+            "select p.product_id, exists(select 1 from categories c where c.category_id = p.category_id) as has_cat from products p");
+
+        var body = Assert.Single(model.ExistsExpressions);
+        Assert.Equal("categories", Assert.Single(body.Tables).TableName);
+        Assert.Equal("products", Assert.Single(model.Tables).TableName);
+        Assert.Empty(model.Subqueries);
+        Assert.DoesNotContain("SUBQUERY", model.UnsupportedConstructs);
+    }
+
+    [Fact]
+    public void NestedProjectionExists_IsRecordedOnlyInsideItsParent()
+    {
+        var model = ParseSql(
+            "select p.product_id, exists(select 1 from categories c where exists (select 1 from tags t where t.id = c.tag_id)) as x from products p");
+
+        var body = Assert.Single(model.ExistsExpressions);
+        Assert.Equal("tags", Assert.Single(body.Subqueries).Body.Tables[0].TableName);
+    }
+
+    [Fact]
+    public void WhereExists_IsNotAnExistsExpression()
+    {
+        var model = ParseSql("select p.product_id from products p where exists (select 1 from categories c)");
+
+        Assert.Empty(model.ExistsExpressions);
+    }
+
+    [Fact]
     public void InValueList_NotTreatedAsSubquery()
     {
         // A plain IN (literal, ...) value list is not a subquery.

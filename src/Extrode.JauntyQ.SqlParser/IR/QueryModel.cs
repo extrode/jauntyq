@@ -94,4 +94,12 @@ public class QueryModel
     /// statement's result shape.
     /// </summary>
     public List<SubqueryRef> Subqueries { get; } = new();
+
+    /// <summary>
+    /// The bodies of <c>EXISTS (SELECT ...)</c> expressions that are not lifted
+    /// as a WHERE predicate: a projection-list EXISTS, or one in a JOIN's ON.
+    /// Unlike <see cref="Subqueries"/> they stay in the token stream; the body
+    /// is parsed only so the tenant-scope check can see the tables it reads.
+    /// </summary>
+    public List<QueryModel> ExistsExpressions { get; } = new();
 }

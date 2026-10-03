@@ -581,6 +581,7 @@ class Extrode.JauntyQ.SqlParser.IR.QueryModel
     ctor .ctor()
     prop Columns:List<ColumnRef>
     prop Ctes:List<CteRef>
+    prop ExistsExpressions:List<QueryModel>
     prop ExpressionsMissingAlias:List<String>
     prop HasGroupBy:Boolean
     prop HasReturning:Boolean

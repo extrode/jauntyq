@@ -161,6 +161,7 @@ public static partial class SqlParser
         to.HasGroupBy = from.HasGroupBy;
         to.ExpressionsMissingAlias.AddRange(from.ExpressionsMissingAlias);
         to.Subqueries.AddRange(from.Subqueries);
+        to.ExistsExpressions.AddRange(from.ExistsExpressions);
 
         // Merge parameters (bindings resolved by the final statement's parse).
         foreach (var p in from.Parameters)

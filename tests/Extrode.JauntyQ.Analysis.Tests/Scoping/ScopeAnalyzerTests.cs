@@ -42,6 +42,7 @@ public class ScopeAnalyzerTests
     [InlineData("with recent as (select o.id from orders o where o.tenant_id = @t) select r.id from recent r")]
     [InlineData("select c.id from customers c where exists (select 1 from orders o where o.id = c.id and o.tenant_id = @t)")]
     [InlineData("select c.id from customers c where c.id in (select o.id from orders o where o.tenant_id = @t)")]
+    [InlineData("select c.id, exists(select 1 from orders o where o.id = c.id and o.tenant_id = @t) as has_orders from customers c")]
     public void AProvenReach_IsAccepted(string sql)
     {
         Assert.Empty(Find(sql));
@@ -158,9 +159,21 @@ public class ScopeAnalyzerTests
     [Theory]
     [InlineData("select c.id from customers c where exists (select 1 from orders o where o.id = c.id)", "an EXISTS subquery")]
     [InlineData("select c.id from customers c where c.id in (select o.id from orders o)", "an IN subquery")]
+    [InlineData("select c.id, exists(select 1 from orders o where o.id = c.id) as has_orders from customers c where c.id = @id", "an EXISTS expression")]
+    [InlineData("select c.id, exists(select 1 from customers k where exists (select 1 from orders o where o.id = k.id)) as x from customers c", "an EXISTS subquery")]
     public void ASubquery_NeedsItsOwnProof(string sql, string where)
     {
         Assert.Contains($" in {where} without a filter", Only(sql));
+    }
+
+    [Fact]
+    public void AnOuterProof_DoesNotCoverAnExistsExpression()
+    {
+        Assert.Equal(
+            "Scoped table 'orders' (as 'o') is read in FROM in an EXISTS expression without a filter on its scope column 'tenant_id'. "
+            + "Add o.tenant_id = @tenantId as a top-level AND condition of the WHERE clause of an EXISTS expression. "
+            + "If this query must reach every tenant's rows, mark it -- @unscoped <reason>.",
+            Only("select l.id, exists(select 1 from orders o where o.id = l.order_id) as x from order_lines l where l.tenant_id = @t"));
     }
 
     [Fact]

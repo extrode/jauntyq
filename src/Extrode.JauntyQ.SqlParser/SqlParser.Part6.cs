@@ -136,6 +136,7 @@ public static partial class SqlParser
         // SELECT remains after this is a genuinely unsupported subquery.
         ExtractPredicateSubqueries(tokens, model);
 
+        int existsEnd = -1;
         for (int i = 0; i < tokens.Count; i++)
         {
             var token = tokens[i];
@@ -165,10 +166,14 @@ public static partial class SqlParser
                         // possibly only) SELECT keyword in the whole statement
                         // IS the illegal subquery: it slipped through
                         // undetected, e.g. `UPDATE t SET x = (SELECT ...)`.
-                        if (i > 0 && tokens[i - 1].Type == TokenType.Symbol && tokens[i - 1].Value == "(" &&
-                            !IsExistsSubquery(tokens, i))
+                        if (i > 0 && tokens[i - 1].Type == TokenType.Symbol && tokens[i - 1].Value == "(")
                         {
-                            if (!model.UnsupportedConstructs.Contains("SUBQUERY"))
+                            if (IsExistsSubquery(tokens, i))
+                            {
+                                if (i > existsEnd)
+                                    existsEnd = ParseExistsExpression(tokens, i - 1, model);
+                            }
+                            else if (!model.UnsupportedConstructs.Contains("SUBQUERY"))
                                 model.UnsupportedConstructs.Add("SUBQUERY");
                         }
                         break;
@@ -206,6 +211,26 @@ public static partial class SqlParser
         if (selectIndex < 2)
             return false;
         return tokens[selectIndex - 2].Type == TokenType.Keyword && tokens[selectIndex - 2].Value == "EXISTS";
+    }
+
+    /// <summary>
+    /// Parses the body of the unlifted <c>EXISTS (</c> at <paramref name="open"/>
+    /// into <see cref="QueryModel.ExistsExpressions"/>, leaving the tokens in
+    /// place, and returns the index of its closing paren. An EXISTS nested in
+    /// the body is reached by the recursive parse, so the caller does not
+    /// record it again.
+    /// </summary>
+    private static int ParseExistsExpression(List<Token> tokens, int open, QueryModel model)
+    {
+        int close = FindMatchingParen(tokens, open, tokens.Count);
+        if (close == -1)
+            return open;
+        var innerTokens = new List<Token>();
+        for (int j = open + 1; j < close; j++)
+            innerTokens.Add(tokens[j]);
+        innerTokens.Add(Token.End);
+        model.ExistsExpressions.Add(Parse(innerTokens, model.Name + "_exists" + model.ExistsExpressions.Count));
+        return close;
     }
 
     /// <summary>
