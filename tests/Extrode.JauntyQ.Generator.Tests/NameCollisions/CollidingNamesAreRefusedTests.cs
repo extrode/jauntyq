@@ -63,6 +63,19 @@ public class CollidingNamesAreRefusedTests
     }
 
     [Fact]
+    public void ATableNamedFunctions_IsReportedOnlyWhenTheSchemaHasFunctions()
+    {
+        string functions = @"""functions"": { ""calc_tax(decimal)"": { ""name"": ""calc_tax"", ""schema"": ""public"", ""params"": [ { ""name"": ""amount"", ""dbType"": ""numeric"", ""isNullable"": false } ], ""returnType"": { ""dbType"": ""numeric"", ""isNullable"": true } } },";
+        var withFunctions = Run(Array.Empty<(string, string)>(),
+            NameCollisionHarness.Schema("postgres", Table("functions", "id", ("note", "varchar", true)), functions), null, true);
+        var without = Generate("table", "functions", "postgres");
+
+        Assert.Contains(Errors(withFunctions), m => m.Contains(MemberOfJauntyDb) && m.Contains("db.Functions"));
+        Assert.DoesNotContain(Errors(without), m => m.Contains(MemberOfJauntyDb));
+        Assert.Empty(CompileErrors(without));
+    }
+
+    [Fact]
     public void ASqlFileNamedLikeItsFolder_IsReported()
     {
         var result = HandWritten(("db/Orders/Orders.sql", "SELECT id, note FROM orders"));
@@ -133,6 +146,27 @@ public class CollidingNamesAreRefusedTests
         var result = HandWritten(
             ("db/Orders/Result.sql", "SELECT id, note FROM orders"),
             ("db/Orders/Ids.sql", "SELECT id FROM orders"));
+
+        Assert.Contains(Errors(result), m => m.StartsWith("JNT2006") && m.Contains("method 'Result' and the nested type Result"));
+    }
+
+    [Fact]
+    public void AResultQueryNextToAReturningQuery_IsReported()
+    {
+        var result = HandWritten(
+            ("db/Orders/Result.sql", "SELECT id, note FROM orders"),
+            ("db/Orders/Add.sql", "INSERT INTO orders (note) VALUES (@note) RETURNING id"));
+
+        Assert.Contains(Errors(result), m => m.StartsWith("JNT2006") && m.Contains("method 'Result' and the nested type Result"));
+    }
+
+    [Fact]
+    public void AResultQueryNextToAProcedureCallWithResults_IsReported()
+    {
+        string proc = @"""procedures"": { ""find_orders"": { ""name"": ""find_orders"", ""params"": [], ""results"": [ { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false } ] } },";
+        var result = Run(Array.Empty<(string, string)>(), NameCollisionHarness.Schema("sqlserver", Table("orders", "id", ("note", "varchar", true)), proc), null, false,
+            ("db/Orders/Result.sql", "SELECT id, note FROM orders"),
+            ("db/Orders/Call.sql", "-- @call find_orders\n"));
 
         Assert.Contains(Errors(result), m => m.StartsWith("JNT2006") && m.Contains("method 'Result' and the nested type Result"));
     }
