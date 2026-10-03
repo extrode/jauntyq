@@ -151,6 +151,13 @@ jobs:
           done
 
       - name: GitHub Release with package assets
+        # Pre-1.0 (v0.*) and SemVer pre-release tags (v1.0.0-rc.1) are marked
+        # pre-release, so none of them shows as Latest.
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/packages/* dist/sbom/*.json --generate-notes --verify-tag
+        run: |
+          prerelease=""
+          case "$GITHUB_REF_NAME" in
+            v0.*|*-*) prerelease="--prerelease" ;;
+          esac
+          gh release create "$GITHUB_REF_NAME" dist/packages/* dist/sbom/*.json --generate-notes --verify-tag $prerelease
