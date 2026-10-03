@@ -9,10 +9,35 @@ namespace Extrode.JauntyQ.Analysis.Tests;
 public class ReferencedObjectsParameterScopeTests
 {
     [Fact]
-    public void AParameterBoundInsideASubquery_IsAttributedToTheSubquerysTable()
+    public void AnUnqualifiedParameterInsideASubquery_IsAttributedToTheSubquerysAndTheOuterTables()
     {
         var model = SqlParser.SqlParser.Parse(
             SqlTokenizer.Tokenize("delete from orders where exists (select 1 from customers where email = @Email)"), "q");
+
+        var refs = ReferencedObjects.Resolve(model);
+
+        Assert.Contains(refs.Columns, c => c.Table == "customers" && c.Column == "email");
+        Assert.Contains(refs.Columns, c => c.Table == "orders" && c.Column == "email");
+    }
+
+    [Fact]
+    public void AnUnqualifiedColumnInANestedSubquery_IsAttributedToEveryEnclosingTable()
+    {
+        var model = SqlParser.SqlParser.Parse(
+            SqlTokenizer.Tokenize("select id from orders where exists (select 1 from items i where i.qty > 0 and exists (select 1 from notes where status = @S))"), "q");
+
+        var refs = ReferencedObjects.Resolve(model);
+
+        Assert.Contains(refs.Columns, c => c.Table == "notes" && c.Column == "status");
+        Assert.Contains(refs.Columns, c => c.Table == "items" && c.Column == "status");
+        Assert.Contains(refs.Columns, c => c.Table == "orders" && c.Column == "status");
+    }
+
+    [Fact]
+    public void AQualifiedParameterInsideASubquery_IsAttributedOnlyToItsTable()
+    {
+        var model = SqlParser.SqlParser.Parse(
+            SqlTokenizer.Tokenize("delete from orders where exists (select 1 from customers c where c.email = @Email)"), "q");
 
         var refs = ReferencedObjects.Resolve(model);
 

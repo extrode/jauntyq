@@ -58,7 +58,7 @@ public sealed class ReferencedObjects
     /// query's dependency on that column was never recorded at all.
     /// </summary>
     private static void ResolveInto(QueryModel model, HashSet<string> tables, HashSet<ReferencedColumn> columns,
-        Dictionary<string, string>? outerAliases = null)
+        Dictionary<string, string>? outerAliases = null, List<string>? outerScope = null)
     {
         // alias -> real table name; also every real table name maps to itself.
         var aliasToTable = outerAliases == null
@@ -94,8 +94,16 @@ public sealed class ReferencedObjects
                 return;
             }
             // Unqualified: attribute to every in-scope table (over-approximation).
+            // Inside a predicate subquery that includes the enclosing
+            // statement's tables, since an unqualified column the subquery's own
+            // tables lack is a correlated reference to one of them.
             foreach (var table in inScope)
                 columns.Add(new ReferencedColumn(table, column));
+            if (outerScope != null)
+            {
+                foreach (var table in outerScope)
+                    columns.Add(new ReferencedColumn(table, column));
+            }
         }
 
         foreach (var c in model.Columns)
@@ -177,10 +185,18 @@ public sealed class ReferencedObjects
         // Nested statement scopes: each resolved against its own FROM/JOIN
         // tables, not this statement's aliasToTable/inScope.
         foreach (var sq in model.Subqueries)
-            ResolveInto(sq.Body, tables, columns, aliasToTable);
+            ResolveInto(sq.Body, tables, columns, aliasToTable, Concat(inScope, outerScope));
 
         foreach (var cte in model.Ctes)
             ResolveInto(cte.Body, tables, columns);
+    }
+
+    private static List<string> Concat(List<string> inner, List<string>? outer)
+    {
+        var all = new List<string>(inner);
+        if (outer != null)
+            all.AddRange(outer);
+        return all;
     }
 
     private sealed class ReferencedColumnComparer : IEqualityComparer<ReferencedColumn>

@@ -25,7 +25,7 @@ public static partial class CodeEmitter
         if (schema == null || string.IsNullOrEmpty(param.BoundColumnName))
             return null;
 
-        query = param.BoundScope ?? query;
+        query = BindingScope.Of(param, query, schema);
         bool targetOutOfScope = query.StatementType == StatementType.Insert && !param.IsWriteTarget;
 
         if (!string.IsNullOrEmpty(param.BoundTableAlias))

@@ -121,7 +121,7 @@ public static partial class QueryValidator
         // table, not one of this statement's, and its own scope checks it.
         foreach (var param in query.Parameters)
         {
-            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || param.BoundScope != null)
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || BindingScope.Of(param, query, schema) != query)
                 continue;
             CollectFilterColumn(param.BoundTableAlias, param.BoundColumnName);
         }
@@ -138,7 +138,7 @@ public static partial class QueryValidator
 
         foreach (var param in query.Parameters)
         {
-            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || param.BoundScope != null)
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || BindingScope.Of(param, query, schema) != query)
                 continue;
             CheckIndexed(query, param.BoundTableAlias, param.BoundColumnName, aliasToTable, schema, filterColumns, equalitySeekColumns, errors);
         }
@@ -222,7 +222,7 @@ public static partial class QueryValidator
 
         foreach (var param in query.Parameters)
         {
-            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || param.BoundScope != null)
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || BindingScope.Of(param, query, schema) != query)
                 continue;
             if (param.ComparisonOp == "=")
                 Collect(param.BoundTableAlias, param.BoundColumnName);
