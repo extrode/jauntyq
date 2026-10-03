@@ -13,12 +13,20 @@ public static partial class CodeEmitter
     /// table even when the target table happens to have a same-named column —
     /// otherwise a write-target column silently shadows the column the SQL
     /// actually references.
+    ///
+    /// A binding carried up from a subquery or CTE body resolves against that
+    /// body (<see cref="ParameterRef.BoundScope"/>), where SQL binds it. And an
+    /// INSERT...SELECT's WHERE is outside the target table's scope, so there a
+    /// compared parameter skips the target and looks only at the source tables.
     /// </summary>
     private static ColumnSchema? ResolveBoundColumn(ParameterRef param, QueryModel query, DatabaseSchema? schema, out string? tableName)
     {
         tableName = null;
         if (schema == null || string.IsNullOrEmpty(param.BoundColumnName))
             return null;
+
+        query = BindingScope.Of(param, query, schema);
+        bool targetOutOfScope = query.StatementType == StatementType.Insert && !param.IsWriteTarget;
 
         if (!string.IsNullOrEmpty(param.BoundTableAlias))
         {
@@ -33,7 +41,7 @@ public static partial class CodeEmitter
             return null;
         }
 
-        if (query.TargetTable != null &&
+        if (query.TargetTable != null && !targetOutOfScope &&
             SchemaLookup.TryGetTable(schema, query.TargetTable, out var target) &&
             SchemaLookup.TryGetColumn(target!, param.BoundColumnName, out var targetCol))
         {
@@ -41,8 +49,9 @@ public static partial class CodeEmitter
             return targetCol;
         }
 
-        foreach (var table in query.Tables)
+        for (int i = targetOutOfScope ? 1 : 0; i < query.Tables.Count; i++)
         {
+            var table = query.Tables[i];
             if (SchemaLookup.TryGetTable(schema, table.TableName, out var tableSchema) &&
                 SchemaLookup.TryGetColumn(tableSchema!, param.BoundColumnName, out var col))
             {
@@ -60,7 +69,7 @@ public static partial class CodeEmitter
             return new EmittedParam(name, csharpType, isNullable, isEach: isEach);
         return new EmittedParam(name, csharpType, isNullable,
             column.MaxLength, column.Precision, column.Scale, isWriteTarget,
-            tableName != null ? $"{tableName}.{column.Name}" : column.Name, isEach);
+            $"{tableName}.{column.Name}", isEach);
     }
 
     /// <summary>
@@ -135,7 +144,7 @@ public static partial class CodeEmitter
     /// is the only one reachable from that caller; the write-target branch
     /// exists for the plain single-value overload above.
     /// </summary>
-    private static void EmitParameterSizing(
+    internal static void EmitParameterSizing(
         System.Text.StringBuilder sb, string csharpType, int? maxLength, int? precision, int? scale,
         bool isWriteTarget, string varName, string valueExpr, string indent = "                ")
     {
@@ -167,7 +176,7 @@ public static partial class CodeEmitter
         }
     }
 
-    private static void EmitColumnNames(System.Text.StringBuilder sb, string methodName, ProjectionModel projection)
+    internal static void EmitColumnNames(System.Text.StringBuilder sb, string methodName, ProjectionModel projection)
     {
         sb.Append($"        private static readonly string[] __{methodName}Columns = {{ ");
         for (int i = 0; i < projection.Columns.Count; i++)

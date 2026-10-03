@@ -106,6 +106,16 @@ public class FinalStatementShapeTests
     }
 
     [Fact]
+    public void FinalStatementExistsExpression_IsCopiedOntoTheOuterModel()
+    {
+        var model = ParseSql(
+            "with active as (select event_id from events where correlation_id = @corr) "
+            + "select a.event_id, exists(select 1 from orders o where o.event_id = a.event_id) as has_orders from active a");
+
+        Assert.Equal("orders", Assert.Single(Assert.Single(model.ExistsExpressions).Tables).TableName);
+    }
+
+    [Fact]
     public void FinalStatementExpressionMissingAlias_IsCopiedOntoTheOuterModel()
     {
         var model = ParseSql(
@@ -135,6 +145,7 @@ public class FinalStatementShapeTests
     {
         nameof(QueryModel.StatementType),
         nameof(QueryModel.TargetTable),
+        nameof(QueryModel.TargetAlias),
         nameof(QueryModel.Tables),
         nameof(QueryModel.Columns),
         nameof(QueryModel.Joins),
@@ -150,6 +161,9 @@ public class FinalStatementShapeTests
         nameof(QueryModel.HasRowLimit),
         nameof(QueryModel.HasGroupBy),
         nameof(QueryModel.Subqueries),
+        nameof(QueryModel.ExistsExpressions),
+        nameof(QueryModel.Upsert),
+        nameof(QueryModel.UpsertAtoms),
     };
 
     /// <summary>

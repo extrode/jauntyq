@@ -110,16 +110,18 @@ public static partial class QueryValidator
             var col = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
             if (col != null && tableName != null)
             {
-                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
+                string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : InstanceOf(query, tableName);
                 filterColumns.Add(instanceKey + "|" + col.Name);
             }
         }
 
         var equalitySeekColumns = CollectEqualitySeekColumns(query, aliasToTable, schema);
 
+        // A binding carried up from a subquery or CTE body names that body's
+        // table, not one of this statement's, and its own scope checks it.
         foreach (var param in query.Parameters)
         {
-            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || BindingScope.Of(param, query, schema) != query)
                 continue;
             CollectFilterColumn(param.BoundTableAlias, param.BoundColumnName);
         }
@@ -136,7 +138,7 @@ public static partial class QueryValidator
 
         foreach (var param in query.Parameters)
         {
-            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || BindingScope.Of(param, query, schema) != query)
                 continue;
             CheckIndexed(query, param.BoundTableAlias, param.BoundColumnName, aliasToTable, schema, filterColumns, equalitySeekColumns, errors);
         }
@@ -166,9 +168,9 @@ public static partial class QueryValidator
             var column = ResolveColumn(query, orderBy.BoundTableAlias, orderBy.BoundColumnName, aliasToTable, schema, out string? tableName);
             if (column == null || tableName == null)
                 continue;
-            // Stryker disable once Statement : unreachable -- ResolveColumn returned a column only after SchemaLookup.TryGetTable found this same tableName, so this lookup cannot fail
-            if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
-                continue;
+            // Cannot fail: ResolveColumn returned a column only after
+            // SchemaLookup.TryGetTable found this same tableName.
+            SchemaLookup.TryGetTable(schema, tableName, out var tableSchema);
             // Same reasoning as CheckIndexed's view gate: a view declares no
             // indexes, so "no supporting index" is true of every view column
             // and proves nothing about whether the engine sorts. This block
@@ -176,7 +178,7 @@ public static partial class QueryValidator
             // CheckIndexed, so it needs its own gate.
             if (tableSchema!.IsView)
                 continue;
-            string orderByInstanceKey = !string.IsNullOrEmpty(orderBy.BoundTableAlias) ? orderBy.BoundTableAlias : tableName;
+            string orderByInstanceKey = !string.IsNullOrEmpty(orderBy.BoundTableAlias) ? orderBy.BoundTableAlias : InstanceOf(query, tableName);
             if (IsColumnIndexSupported(column, orderByInstanceKey, tableSchema!, filterColumns))
                 continue;
 
@@ -220,7 +222,7 @@ public static partial class QueryValidator
 
         foreach (var param in query.Parameters)
         {
-            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName))
+            if (param.IsWriteTarget || string.IsNullOrEmpty(param.BoundColumnName) || BindingScope.Of(param, query, schema) != query)
                 continue;
             if (param.ComparisonOp == "=")
                 Collect(param.BoundTableAlias, param.BoundColumnName);
@@ -268,9 +270,9 @@ public static partial class QueryValidator
         var column = ResolveColumn(query, tableAlias, columnName, aliasToTable, schema, out string? tableName);
         if (column == null || tableName == null)
             return;
-        // Stryker disable once Statement : unreachable -- ResolveColumn returned a column only after SchemaLookup.TryGetTable found this same tableName, so this lookup cannot fail
-        if (!SchemaLookup.TryGetTable(schema, tableName, out var tableSchema))
-            return;
+        // Cannot fail: ResolveColumn returned a column only after
+        // SchemaLookup.TryGetTable found this same tableName.
+        SchemaLookup.TryGetTable(schema, tableName, out var tableSchema);
 
         // A view carries no indexes of its own, so "no index covers this
         // column" is true of every view column and says nothing about whether
@@ -285,7 +287,7 @@ public static partial class QueryValidator
         if (tableSchema!.IsView)
             return;
 
-        string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : tableName;
+        string instanceKey = !string.IsNullOrEmpty(tableAlias) ? tableAlias : InstanceOf(query, tableName);
         if (IsColumnIndexSupported(column, instanceKey, tableSchema!, filterColumns))
             return;
 

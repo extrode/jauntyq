@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using Extrode.JauntyQ.Analysis.Scoping;
 using Extrode.JauntyQ.Schema;
 using Extrode.JauntyQ.SqlParser;
 using Extrode.JauntyQ.SqlParser.IR;
@@ -18,7 +19,6 @@ internal sealed class SchemaState
 {
     public DatabaseSchema? Schema { get; }
     public bool ParseFailed { get; }
-    public bool HasJson { get; }
 
     /// <summary>
     /// JNT0001 text when <see cref="Load"/> itself threw, else null. Distinct from
@@ -40,22 +40,36 @@ internal sealed class SchemaState
     public SchemaDelta? MigrationDelta { get; }
 
     /// <summary>
+    /// The scopes <c>jaunty.scope.json</c> declares that survived resolution
+    /// against the effective schema (spec 021), or null when there is no scope
+    /// file or no schema to resolve it against. Null, not empty, so a project
+    /// without the file takes none of the scoped code paths.
+    /// </summary>
+    public IReadOnlyList<ScopeColumn>? Scopes { get; }
+
+    /// <summary>JNT6004 for each scope entry that was dropped, or for a file that would not parse.</summary>
+    public ImmutableArray<DiagnosticInfo> ScopeDiagnostics { get; }
+
+    /// <summary>
     /// The state a throw out of <see cref="Load"/> degrades to: no schema, and the
     /// message that says why. ParseFailed is left false so JNT6001 does not also
     /// fire — one internal error reads better than an internal error plus a
     /// "run jaunty schema pull" that would not help.
     /// </summary>
     public static SchemaState Failed(string internalError) =>
-        new SchemaState(null, parseFailed: false, hasJson: false, internalError: internalError);
+        new SchemaState(null, parseFailed: false, internalError: internalError);
 
-    private SchemaState(DatabaseSchema? schema, bool parseFailed, bool hasJson,
+    private SchemaState(DatabaseSchema? schema, bool parseFailed,
         ImmutableArray<DiagnosticInfo> migrationDiagnostics = default,
         SchemaDelta? migrationDelta = null,
-        string? internalError = null)
+        string? internalError = null,
+        IReadOnlyList<ScopeColumn>? scopes = null,
+        ImmutableArray<DiagnosticInfo> scopeDiagnostics = default)
     {
+        Scopes = scopes;
+        ScopeDiagnostics = scopeDiagnostics.IsDefault ? ImmutableArray<DiagnosticInfo>.Empty : scopeDiagnostics;
         Schema = schema;
         ParseFailed = parseFailed;
-        HasJson = hasJson;
         InternalError = internalError;
         MigrationDiagnostics = migrationDiagnostics.IsDefault
             ? ImmutableArray<DiagnosticInfo>.Empty
@@ -64,6 +78,44 @@ internal sealed class SchemaState
     }
 
     public static SchemaState Load(
+        string? json,
+        ImmutableArray<(string Name, string Text)> migrations,
+        ImmutableArray<(string Name, string Text)> ddlFiles,
+        string? dialectOverride,
+        string? scopePath = null,
+        string? scopeJson = null)
+    {
+        var state = LoadSchema(json, migrations, ddlFiles, dialectOverride);
+        if (scopeJson == null || state.Schema == null)
+            return state;
+
+        var problems = new List<string>();
+        List<ScopeColumn> scopes = new List<ScopeColumn>();
+        string? unusable = null;
+        try
+        {
+            var file = ScopeLoader.Load(scopeJson);
+            if (file.Scopes.Count == 0)
+                unusable = $"Scope file '{scopePath}' declares no entries under \"scopes\". Every table is unscoped until it is fixed.";
+            else
+                scopes = ScopeResolver.Resolve(file, state.Schema, problems);
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            unusable = $"Scope file '{scopePath}' could not be read ({ex.Message}). Every table is unscoped until it is fixed.";
+        }
+
+        var diagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>(problems.Count + 1);
+        if (unusable != null)
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT6005, $"{unusable} ({scopePath})"));
+        foreach (var problem in problems)
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT6004, $"{problem} ({scopePath})"));
+
+        return new SchemaState(state.Schema, state.ParseFailed, state.MigrationDiagnostics, state.MigrationDelta,
+            state.InternalError, scopes, diagnostics.ToImmutable());
+    }
+
+    private static SchemaState LoadSchema(
         string? json,
         ImmutableArray<(string Name, string Text)> migrations,
         ImmutableArray<(string Name, string Text)> ddlFiles,
@@ -82,11 +134,11 @@ internal sealed class SchemaState
             }
             catch
             {
-                return new SchemaState(null, parseFailed: true, hasJson: true);
+                return new SchemaState(null, parseFailed: true);
             }
 
             if (migrations.IsDefaultOrEmpty)
-                return new SchemaState(snapshot, parseFailed: false, hasJson: true);
+                return new SchemaState(snapshot, parseFailed: false);
 
             // Pending migrations are applied to a clone of the snapshot in
             // filename order; the generator validates and emits against the
@@ -97,20 +149,19 @@ internal sealed class SchemaState
             // SchemaSimulator.Apply works on a clone, so `snapshot` is still the
             // pre-migration baseline for the impact delta.
             var jsonDelta = StructuralSchemaDiff.Compute(snapshot, effectiveFromJson);
-            return new SchemaState(effectiveFromJson, parseFailed: false, hasJson: true,
+            return new SchemaState(effectiveFromJson, parseFailed: false,
                 snapshotDiagnostics.ToImmutable(), jsonDelta);
         }
 
         // No JSON snapshot. If db/ddl/*.sql files exist, they DEFINE the base
         // schema (DDL-as-schema-source mode); otherwise there is no schema.
         if (ddlFiles.IsDefaultOrEmpty)
-            return new SchemaState(null, parseFailed: false, hasJson: false);
+            return new SchemaState(null, parseFailed: false);
 
         // DDL mode needs an explicit dialect: with no snapshot there is nothing
         // to infer it from. An unknown/empty dialect is a hard error (JNT9003)
         // and yields Schema: null so the pipeline degrades exactly as the
-        // no-schema case does — but hasJson: true so the aggregate step still
-        // reports the diagnostic even when there are no query files.
+        // no-schema case does; the aggregate step still reports the diagnostic.
         //
         // KNOWN LIMITATION: the MigrationParser does not populate
         // TableSchema.Indexes — inline UNIQUE column constraints and
@@ -127,7 +178,7 @@ internal sealed class SchemaState
                 "db/ddl/*.sql schema source found but no valid dialect is set. With no JSON snapshot there is " +
                 "nothing to infer the dialect from; declare it in the consuming project's .csproj, e.g. " +
                 "<JauntyQDialect>sqlserver</JauntyQDialect> (or postgres, mysql, sqlite)."));
-            return new SchemaState(null, parseFailed: false, hasJson: true, diag);
+            return new SchemaState(null, parseFailed: false, diag);
         }
 
         // Build the base schema by simulating the ddl files onto an empty
@@ -145,7 +196,7 @@ internal sealed class SchemaState
             ? null
             : StructuralSchemaDiff.Compute(ddlBuilt, effective);
 
-        return new SchemaState(effective, parseFailed: false, hasJson: true, ddlDiagnostics.ToImmutable(), ddlDelta);
+        return new SchemaState(effective, parseFailed: false, ddlDiagnostics.ToImmutable(), ddlDelta);
     }
 
     /// <summary>
@@ -161,7 +212,7 @@ internal sealed class SchemaState
         ImmutableArray<DiagnosticInfo>.Builder diagnostics)
     {
         var ordered = new System.Collections.Generic.List<(string Name, string Text)>(files);
-        ordered.Sort(static (a, b) => NaturalCompare(a.Name, b.Name));
+        ordered.Sort(static (a, b) => MigrationOrder.Compare(a.Name, b.Name));
 
         var parsed = new System.Collections.Generic.List<(string FileName, System.Collections.Generic.List<MigrationStatement> Statements)>();
         foreach (var file in ordered)
@@ -177,50 +228,6 @@ internal sealed class SchemaState
     }
 
     /// <summary>
-    /// Natural-order string comparison: runs of digits compare by numeric
-    /// value, everything else compares ordinally. A plain ordinal sort (the
-    /// old behavior) misorders common unpadded migration-file naming
-    /// conventions -- Flyway-style "V1__init.sql", "V2__add_col.sql", ...,
-    /// "V10__rename.sql" sorts ordinally as V1, V10, V2, V3, ..., V9, applying
-    /// V10 to the simulator before V2-V9 ran. Zero-padded ("001_", "002_")
-    /// and fixed-width date-prefixed ("20230101_") names are unaffected --
-    /// digit runs of equal length compare identically either way.
-    /// </summary>
-    private static int NaturalCompare(string a, string b)
-    {
-        int ia = 0, ib = 0;
-        while (ia < a.Length && ib < b.Length)
-        {
-            if (char.IsDigit(a[ia]) && char.IsDigit(b[ib]))
-            {
-                int sa = ia, sb = ib;
-                while (ia < a.Length && char.IsDigit(a[ia])) ia++;
-                while (ib < b.Length && char.IsDigit(b[ib])) ib++;
-                string da = a.Substring(sa, ia - sa).TrimStart('0');
-                string db = b.Substring(sb, ib - sb).TrimStart('0');
-                if (da.Length != db.Length)
-                    return da.Length - db.Length;
-                int numCmp = string.CompareOrdinal(da, db);
-                if (numCmp != 0)
-                    return numCmp;
-                // Numerically equal (e.g. "007" vs "07"): fall back to raw
-                // (padded) run length so the comparison stays deterministic.
-                int padCmp = (ia - sa) - (ib - sb);
-                if (padCmp != 0)
-                    return padCmp;
-            }
-            else
-            {
-                if (a[ia] != b[ib])
-                    return a[ia] - b[ib];
-                ia++;
-                ib++;
-            }
-        }
-        return (a.Length - ia) - (b.Length - ib);
-    }
-
-    /// <summary>
     /// Maps a Roslyn-free <see cref="AnalysisDiagnostic"/> code from the shared
     /// migration simulator back to its Roslyn <c>DiagnosticDescriptor</c>. The
     /// simulator only emits JNT9001 (unmodeled statement) and JNT9002 (invalid
@@ -229,7 +236,6 @@ internal sealed class SchemaState
     private static DiagnosticDescriptor MigrationDescriptor(string code) => code switch
     {
         "JNT9001" => JauntyDiagnostics.JNT9001,
-        "JNT9002" => JauntyDiagnostics.JNT9002,
         _ => JauntyDiagnostics.JNT9002,
     };
 }

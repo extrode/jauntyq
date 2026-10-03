@@ -109,6 +109,57 @@ public class GeneratorInternalErrorTests
     }
 
     [Fact]
+    public void TheMessageIsExactlyTheDocumentedSentence()
+    {
+        string message = Assert.Single(
+            RunWithOneUnreadableFile().Diagnostics, d => d.Id == "JNT0001").GetMessage();
+
+        Assert.Equal(
+            "JauntyQ's source generator threw while processing 'db/Widgets/Unreadable.sql'. Its generated output may be "
+            + "incomplete or entirely missing, so any CS0246 'type or namespace not found' errors on "
+            + "JauntyDb, an entity or a row POCO are consequences of this one failure rather than "
+            + "separate problems. This is a bug in JauntyQ, not in your SQL or schema -- please report "
+            + "it with this message: System.IO.IOException: the test made this file unreadable",
+            message);
+    }
+
+    [Fact]
+    public void AnOutputStageThrow_IsJNT0001_AtError_WithNoLocation_NamingTheStage()
+    {
+        var ex = new InvalidOperationException("the test threw this");
+
+        Diagnostic diagnostic = JauntyQGenerator.InternalErrorDiagnostic("running the N+1 analysis (JNT8008)", ex);
+
+        Assert.Equal("JNT0001", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Same(Location.None, diagnostic.Location);
+        Assert.Equal(
+            JauntyQGenerator.InternalErrorMessage("running the N+1 analysis (JNT8008)", ex),
+            diagnostic.GetMessage());
+    }
+
+    private sealed class CancellingAdditionalText : AdditionalText
+    {
+        public CancellingAdditionalText(string path) => Path = path;
+
+        public override string Path { get; }
+
+        public override SourceText? GetText(CancellationToken cancellationToken = default)
+            => throw new OperationCanceledException();
+    }
+
+    [Fact]
+    public void ACancellationOutOfOneFile_IsRethrownRatherThanReportedAsJNT0001()
+    {
+        var result = Run(
+            new InMemoryAdditionalText("db/schema/jaunty.schema.json", SchemaJson),
+            new CancellingAdditionalText("db/Widgets/Cancelled.sql"));
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT0001");
+        Assert.IsAssignableFrom<OperationCanceledException>(Assert.Single(result.Results).Exception);
+    }
+
+    [Fact]
     public void TheOtherSqlFilesStillGenerate_SoOneBadFileCostsOneFile()
     {
         var result = RunWithOneUnreadableFile();
@@ -163,10 +214,10 @@ public class GeneratorInternalErrorTests
     }
 
     /// <summary>
-    /// Output nodes that need no guard, each with the reason it cannot throw. Both
-    /// only join strings from an array that was already materialized upstream.
+    /// Output nodes that need no guard, each with the reason it cannot throw. All
+    /// three only join strings from an array that was already materialized upstream.
     /// </summary>
-    private static readonly string[] Unguarded = { "schemaCandidates", "acceptCandidates" };
+    private static readonly string[] Unguarded = { "schemaCandidates", "acceptCandidates", "scopeCandidates" };
 
     [Fact]
     public void EveryOutputNodeIsGuarded_OrIsOnTheAllowlistWithAReason()
@@ -195,7 +246,7 @@ public class GeneratorInternalErrorTests
             if (Array.IndexOf(Unguarded, node) >= 0)
                 continue;
 
-            if (!body.Contains("ReportInternalError") && !body.Contains("JNT0001"))
+            if (!body.Contains("InternalErrorDiagnostic") && !body.Contains("JNT0001"))
                 unguarded.Add(node.Length == 0 ? $"(at offset {starts[i]})" : node);
         }
 
@@ -203,7 +254,7 @@ public class GeneratorInternalErrorTests
             "These output nodes have no route to JNT0001: " + string.Join(", ", unguarded)
             + ". A throw out of one of them is caught by Roslyn, reported as a CS8785 "
             + "warning, and erases generated code silently. Wrap the body in try/catch and "
-            + "call ReportInternalError, or add the node to Unguarded above with the reason "
+            + "report InternalErrorDiagnostic, or add the node to Unguarded above with the reason "
             + "it cannot throw.");
     }
 }

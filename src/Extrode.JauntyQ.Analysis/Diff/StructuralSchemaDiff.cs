@@ -21,27 +21,32 @@ public static class StructuralSchemaDiff
 
         foreach (var table in baseline.Tables.Values)
         {
-            if (!effective.Tables.ContainsKey(table.Name))
+            // Matched case-insensitively, as the doc above promises: the
+            // simulator re-adds a dropped-and-recreated table under the
+            // migration's spelling, so an ordinal lookup reported
+            // 'Customers' removed and 'customers' added for what is one table.
+            var after = FindTable(effective, table.Name);
+            if (after == null)
             {
                 removedTables.Add(table.Name);
                 continue;
             }
 
-            var delta = CompareTable(table, effective.Tables[table.Name]);
+            var delta = CompareTable(table, after, baseline, effective);
             if (delta != null)
                 modifiedTables.Add(delta);
         }
 
         foreach (var table in effective.Tables.Values)
         {
-            if (!baseline.Tables.ContainsKey(table.Name))
+            if (FindTable(baseline, table.Name) == null)
                 addedTables.Add(table.Name);
         }
 
         return new SchemaDelta(addedTables, removedTables, modifiedTables);
     }
 
-    private static TableDelta? CompareTable(TableSchema baseline, TableSchema effective)
+    private static TableDelta? CompareTable(TableSchema baseline, TableSchema effective, DatabaseSchema baselineSchema, DatabaseSchema effectiveSchema)
     {
         var added = new List<string>();
         var removed = new List<string>();
@@ -58,7 +63,7 @@ public static class StructuralSchemaDiff
                 continue;
             }
 
-            var kinds = DiffColumn(col, after);
+            var kinds = DiffColumn(col, after, baselineSchema, effectiveSchema);
             if (kinds.Count > 0)
                 modified.Add(new ColumnChange(col.Name, col, after, kinds));
         }
@@ -75,7 +80,7 @@ public static class StructuralSchemaDiff
         return new TableDelta(effective.Name, added, removed, modified);
     }
 
-    private static List<ColumnChangeKind> DiffColumn(ColumnSchema before, ColumnSchema after)
+    private static List<ColumnChangeKind> DiffColumn(ColumnSchema before, ColumnSchema after, DatabaseSchema baselineSchema, DatabaseSchema effectiveSchema)
     {
         var kinds = new List<ColumnChangeKind>();
         if (!string.Equals(before.DbType, after.DbType, StringComparison.OrdinalIgnoreCase))
@@ -101,7 +106,50 @@ public static class StructuralSchemaDiff
         // be rejected by the database once the column is generated.
         if (before.IsComputed != after.IsComputed)
             kinds.Add(ColumnChangeKind.Computed);
+        // The column's generated C# enum type: which enum it maps to, and
+        // that enum's members. A MySQL MODIFY that drops a member keeps
+        // DbType "enum" and every facet above, so without this the delta was
+        // empty and a query reading a removed value was classified Safe.
+        if (!string.Equals(before.EnumName, after.EnumName, StringComparison.OrdinalIgnoreCase) ||
+            !SameMembers(EnumValues(baselineSchema, before.EnumName), EnumValues(effectiveSchema, after.EnumName)))
+            kinds.Add(ColumnChangeKind.Enum);
         return kinds;
+    }
+
+    private static List<string>? EnumValues(DatabaseSchema schema, string? enumName)
+    {
+        if (enumName == null || !schema.Enums.TryGetValue(enumName, out var e))
+            return null;
+        var values = new List<string>(e.Members.Count);
+        foreach (var m in e.Members)
+            values.Add(m.Value);
+        return values;
+    }
+
+    private static bool SameMembers(List<string>? a, List<string>? b)
+    {
+        if (a == null || b == null)
+            return a == b;
+        if (a.Count != b.Count)
+            return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (!string.Equals(a[i], b[i], StringComparison.Ordinal))
+                return false;
+        }
+        return true;
+    }
+
+    private static TableSchema? FindTable(DatabaseSchema schema, string name)
+    {
+        if (schema.Tables.TryGetValue(name, out var exact))
+            return exact;
+        foreach (var table in schema.Tables.Values)
+        {
+            if (string.Equals(table.Name, name, StringComparison.OrdinalIgnoreCase))
+                return table;
+        }
+        return null;
     }
 
     private static Dictionary<string, ColumnSchema> ByName(IEnumerable<ColumnSchema> columns)

@@ -41,10 +41,10 @@ public sealed class SchemaPullVerb : IVerb
             var schema = await LiveSchema.ExtractAsync(
                 extractor, connection, options.Provider!, dialect, LiveSchema.ProgressStream(verify: false));
 
-            var dir = Path.GetDirectoryName(output);
-            // Stryker disable once Logical : output is a full path PathSafety already confined strictly below the working directory, so dir is never null or empty, and "||" only adds a CreateDirectory call on a directory that exists, which is a no-op
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
+            // output is a full path PathSafety confined strictly below the
+            // working directory, so it always has a parent; CreateDirectory
+            // is a no-op when that parent already exists.
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
 
             await File.WriteAllTextAsync(output, SchemaLoader.Serialize(schema));
             Console.WriteLine($"Schema written to {output}");

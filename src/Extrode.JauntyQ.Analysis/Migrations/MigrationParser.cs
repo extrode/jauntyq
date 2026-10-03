@@ -97,13 +97,14 @@ public static class MigrationParser
         var stmt = new MigrationStatement { Kind = MigrationStatementKind.CreateTable, RawText = raw };
         int pos = 2;
         stmt.TableName = ReadObjectName(tokens, ref pos);
+        stmt.TableNameQuoted = pos > 0 && tokens[pos - 1].IsQuoted;
         if (stmt.TableName.Length == 0 || !IsSymbol(tokens, pos, "("))
             return new List<MigrationStatement> { Unsupported(raw) };
         pos++; // skip (
 
         // Table-level UNIQUE/FOREIGN/CHECK constraints aren't modeled (the
-        // simulator has no secondary-index/FK/check population from
-        // migrations) -- each becomes its own sibling Unsupported statement
+        // simulator populates no secondary index, check, or table-level FK
+        // from migrations; only an inline column REFERENCES is captured) -- each becomes its own sibling Unsupported statement
         // so JNT9001 fires, matching ALTER TABLE ADD CONSTRAINT's identical
         // handling, instead of silently vanishing with no diagnostic at all.
         var unsupported = new List<MigrationStatement>();
@@ -162,7 +163,7 @@ public static class MigrationParser
                 continue;
             }
 
-            var column = ParseColumnDef(def);
+            var column = ParseColumnDef(def, stmt);
             if (column != null)
                 stmt.Columns.Add(column);
         }
@@ -331,7 +332,7 @@ public static class MigrationParser
 
         foreach (var def in defs)
         {
-            var column = ParseColumnDef(def);
+            var column = ParseColumnDef(def, stmt);
             if (column == null)
                 return Unsupported(raw);
             stmt.Columns.Add(column);
@@ -447,21 +448,34 @@ public static class MigrationParser
             return Unsupported(raw);
         }
 
+        // PostgreSQL "ALTER COLUMN c [SET DATA] TYPE t [USING expr]" changes
+        // the type and nothing else. It used to be read as a full column
+        // definition, so with no NULL/NOT NULL clause (Postgres allows none
+        // there) the column came out nullable: a NOT NULL integer widened to
+        // bigint generated as long?, and the impact report showed a
+        // nullability change the migration never made. TypeOnly tells the
+        // simulator to keep the existing nullability. A USING expression is
+        // left to the flags loop, which skips its tokens; the NULL/NOT NULL
+        // it might contain is overridden by TypeOnly.
+        bool typeOnly = false;
+        int typeAt = p + 1;
+        if (isAlterColumn && Is(body, typeAt, "SET") && Is(body, typeAt + 1, "DATA") && Is(body, typeAt + 2, "TYPE"))
+            typeAt += 2;
+        if (isAlterColumn && p < body.Count && body[p].Type == TokenType.Identifier && Is(body, typeAt, "TYPE"))
+            typeOnly = true;
+
         var def = new List<Token>();
         for (int i = p; i < body.Count; i++)
         {
-            // PostgreSQL: drop the TYPE keyword so the def reads name+type
-            if (body[i].Type == TokenType.Identifier &&
-                string.Equals(body[i].Value, "TYPE", StringComparison.OrdinalIgnoreCase) &&
-                def.Count == 1)
+            if (typeOnly && i > p && i <= typeAt)
                 continue;
             def.Add(body[i]);
         }
 
-        var column = ParseColumnDef(def);
+        var stmt = new MigrationStatement { Kind = MigrationStatementKind.AlterColumn, TableName = tableName, RawText = raw, TypeOnly = typeOnly };
+        var column = ParseColumnDef(def, stmt);
         if (column == null)
             return Unsupported(raw);
-        var stmt = new MigrationStatement { Kind = MigrationStatementKind.AlterColumn, TableName = tableName, RawText = raw };
         stmt.Columns.Add(column);
         return stmt;
     }
@@ -472,8 +486,27 @@ public static class MigrationParser
     /// Flags: NOT NULL, NULL, PRIMARY KEY, IDENTITY[(s,i)]; DEFAULT values
     /// are skipped. Returns null when the shape is unrecognizable.
     /// </summary>
-    private static ColumnSchema? ParseColumnDef(List<Token> def)
+    private static ColumnSchema? ParseColumnDef(List<Token> def, MigrationStatement stmt)
     {
+        var column = ParseColumnDef(def, out var enumMembers, out var reference, out var charset);
+        if (column != null && enumMembers != null)
+            stmt.EnumMembers[column.Name] = enumMembers;
+        if (column != null && charset != null)
+            stmt.CharsetIsUnicode[column.Name] = charset.StartsWith("utf", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(charset, "ucs2", StringComparison.OrdinalIgnoreCase);
+        if (column != null && reference != null)
+        {
+            reference.FromColumn = column.Name;
+            stmt.ForeignKeys.Add(reference);
+        }
+        return column;
+    }
+
+    private static ColumnSchema? ParseColumnDef(List<Token> def, out List<string>? enumMembers, out ForeignKeySchema? reference, out string? charset)
+    {
+        enumMembers = null;
+        reference = null;
+        charset = null;
         if (def.Count < 2 || def[0].Type != TokenType.Identifier)
             return null;
 
@@ -485,8 +518,19 @@ public static class MigrationParser
         // dropped the column from the effective schema with no diagnostic,
         // so a later query selecting it falsely failed JNT2002 "column does
         // not exist" even though the column is real and live.
+        //
+        // T-SQL does not require the parentheses ("Total AS Qty * Price"),
+        // and a parenthesised group need not be the whole expression
+        // ("AS (Qty) + CASE ..."). Either way the expression runs to the first
+        // PERSISTED outside a paren group (the only thing that may follow it),
+        // so a "CASE WHEN x IS NOT NULL ..." inside it is not read as the
+        // column's nullability. NOT NULL or NULL straight after a leading
+        // paren group also ends it: "AS (a + b) NOT NULL" is accepted as the
+        // column's nullability though T-SQL wants PERSISTED first. A group
+        // later in the expression does not, so "CASE WHEN (qty) NOT IN ..."
+        // keeps scanning.
         if (def[1].Type == TokenType.Keyword && string.Equals(def[1].Value, "AS", StringComparison.OrdinalIgnoreCase) &&
-            IsSymbol(def, 2, "("))
+            def.Count > 2)
         {
             var computed = new ColumnSchema
             {
@@ -496,7 +540,19 @@ public static class MigrationParser
                 IsNullable = true
             };
             int cp = 2;
-            SkipParenGroup(def, ref cp);
+            // Stryker disable once Equality : `<=` runs one extra iteration at cp == def.Count where Is() and IsSymbol() see no token, so cp ends at Count + 1 and the nullability loop below, bounded by cp < def.Count, is skipped for Count and Count + 1 alike (`>` is also hidden by this disable; the PERSISTED NOT NULL tests kill it)
+            while (cp < def.Count && !Is(def, cp, "PERSISTED"))
+            {
+                if (!IsSymbol(def, cp, "("))
+                {
+                    cp++;
+                    continue;
+                }
+                bool leading = cp == 2;
+                SkipParenGroup(def, ref cp);
+                if (leading && ((Is(def, cp, "NOT") && Is(def, cp + 1, "NULL")) || Is(def, cp, "NULL")))
+                    break;
+            }
             // Stryker disable once Equality : `<=` runs one extra iteration at cp == def.Count where Is() sees no token and the catch-all only advances cp, so it ends in the same state; `<`-to-`>` is also covered by this disable but skips the loop, which any computed-column test with NULL or NOT NULL after the expression kills (`>` is also hidden by this disable; existing tests kill it)
             while (cp < def.Count)
             {
@@ -563,6 +619,28 @@ public static class MigrationParser
         // (facets): (40), (10,2), (max)
         int? first = null, second = null;
         bool isMax = false;
+        // MySQL inline ENUM('a','b'): the member list is the type. Read it
+        // here rather than letting the facet branch below stall on the first
+        // literal, so the simulator can build the {Table}{Column} enum a live
+        // pull would capture (see EnumMembers).
+        if (column.DbType == "enum" && IsSymbol(def, pos, "("))
+        {
+            var members = new List<string>();
+            int ep = pos + 1;
+            while (ep < def.Count && def[ep].Type == TokenType.Literal)
+            {
+                members.Add(def[ep].Value.Replace("''", "'"));
+                ep++;
+                if (!IsSymbol(def, ep, ","))
+                    break;
+                ep++;
+            }
+            if (members.Count > 0 && IsSymbol(def, ep, ")"))
+            {
+                enumMembers = members;
+                pos = ep + 1;
+            }
+        }
         if (IsSymbol(def, pos, "("))
         {
             pos++;
@@ -667,6 +745,16 @@ public static class MigrationParser
                 pos++;
                 continue;
             }
+            if ((Is(def, pos, "CHARACTER") && Is(def, pos + 1, "SET")) || Is(def, pos, "CHARSET"))
+            {
+                pos += Is(def, pos, "CHARSET") ? 1 : 2;
+                if (pos < def.Count)
+                {
+                    charset = def[pos].Value;
+                    pos++;
+                }
+                continue;
+            }
             if (Is(def, pos, "DEFAULT"))
             {
                 // skip the default expression (single token or parenthesized)
@@ -696,20 +784,45 @@ public static class MigrationParser
                 if (Is(def, pos, "AS"))
                 {
                     pos++;
-                    if (Is(def, pos, "IDENTITY"))
-                    {
-                        column.IsIdentity = true;
-                        pos++;
-                        if (IsSymbol(def, pos, "("))
-                            SkipParenGroup(def, ref pos);
-                    }
-                    else if (IsSymbol(def, pos, "("))
+                    // "AS IDENTITY [(seq options)]" falls through to the
+                    // IDENTITY flag above on the next pass of the loop.
+                    if (IsSymbol(def, pos, "("))
                     {
                         column.IsComputed = true;
                         // A trailing STORED/VIRTUAL is left to the outer
                         // loop's catchall, like any other unknown flag.
                         SkipParenGroup(def, ref pos);
                     }
+                }
+                continue;
+            }
+            // Inline "REFERENCES t [(c)] [ON DELETE|UPDATE action ...]". The
+            // catch-all below used to skip it a token at a time, so the
+            // foreign key vanished with no JNT9001 (unlike the table-level
+            // FOREIGN KEY form), and "ON DELETE SET NULL" landed on the NULL
+            // flag above and made a NOT NULL column nullable. The target is
+            // recorded for the simulator, which knows the dialect (MySQL
+            // ignores inline REFERENCES) and can resolve an omitted column
+            // to the target's primary key.
+            if (Is(def, pos, "REFERENCES"))
+            {
+                pos++;
+                string toTable = ReadObjectName(def, ref pos);
+                var toColumns = ReadParenNameList(def, pos);
+                if (IsSymbol(def, pos, "("))
+                    SkipParenGroup(def, ref pos);
+                while (Is(def, pos, "ON") && (Is(def, pos + 1, "DELETE") || Is(def, pos + 1, "UPDATE")))
+                {
+                    pos += 2;
+                    pos += Is(def, pos, "SET") || Is(def, pos, "NO") ? 2 : 1;
+                }
+                if (toTable.Length > 0)
+                {
+                    reference = new ForeignKeySchema
+                    {
+                        ToTable = toTable,
+                        ToColumn = toColumns.Count == 1 ? toColumns[0] : string.Empty
+                    };
                 }
                 continue;
             }

@@ -38,13 +38,15 @@ The generator consumes these `AdditionalFiles` globs:
   <AdditionalFiles Include="db\**\*.sql" />
   <AdditionalFiles Include="db\schema\*.schema.json" />
   <AdditionalFiles Include="db\schema\*.accept.json" />
+  <AdditionalFiles Include="db\schema\*.scope.json" />
 </ItemGroup>
 ```
 
 The single `db\**\*.sql` glob covers queries, migrations, and DDL, they are
-distinguished by folder, not by separate globs. The third glob is optional and
-only needed if you use [the acceptance
-sidecar](#the-acceptance-sidecar-acceptjson).
+distinguished by folder, not by separate globs. The last two globs are optional,
+needed only if you use [the acceptance
+sidecar](#the-acceptance-sidecar-acceptjson) or [the scope
+sidecar](#the-scope-sidecar-scopejson).
 
 ## How files are classified
 
@@ -55,12 +57,17 @@ match):
 |---|---|---|
 | **Schema snapshot** | file ends in `.schema.json` (convention `db/schema/*.schema.json`) | Authoritative schema when present. |
 | **Acceptance sidecar** | file ends in `.accept.json` (convention `db/schema/jaunty.accept.json`) | Accepts unindexed scans in **generated** queries. Optional. |
+| **Scope sidecar** | file ends in `.scope.json` (convention `db/schema/jaunty.scope.json`) | Declares tables scoped by a column (tenant scoping). Optional. |
 | **DDL** | a `ddl` path segment (convention `db/ddl/*.sql`) | Builds the base schema **only when no snapshot exists**. Requires `JauntyQDialect`. |
 | **Migration** | a `migrations` path segment (convention `db/migrations/*.sql`) | Applied on top of the base schema, in filename order. |
 | **Query** | any other `.sql` under `db/` (convention `db/tables/<Entity>/<Method>.sql`) | Parsed, validated, and emitted as a typed method. |
 
 Any path component literally named `ddl` or `migrations` triggers that
 classification, regardless of depth.
+
+JauntyQ never applies migrations to a database. The
+[migration tracking contract](migration-tracking-contract.md) says what your
+own runner needs to do to agree with it.
 
 ## Schema-source precedence
 
@@ -113,14 +120,100 @@ over it.
 example: the SQLite port of Pagila declares its foreign keys without secondary
 indexes, and its 17 entries take the resulting `JNT8004` count to zero.
 
+## The scope sidecar (`*.scope.json`)
+
+Declares the tables that belong to a tenant (or any other owner) and the
+column that says which. With it, a hand-written query that reaches one of
+those tables without filtering on that column is refused, and auto-CRUD for
+those tables takes the value first. The [tenant scoping
+guide](../03-guides/tenant-scoping.md) covers what is checked and what is not.
+
+```json
+{
+  "scopes": [
+    { "table": "orders", "column": "tenant_id" },
+    { "table": "order_lines", "column": "tenant_id" }
+  ]
+}
+```
+
+| Rule | Detail |
+|---|---|
+| **Explicit entries only** | Each entry names one table and one column. There is no wildcard and no "every table with a `tenant_id`" form. |
+| **Several entries per table** | A table may be scoped by more than one column; each must be proven. |
+| **Bindable columns only** | A column that is part of the primary key, an identity, computed, or a rowversion cannot be bound from a parameter. The entry is `JNT6004` and dropped. |
+| **One file** | More than one `*.scope.json` is `JNT6004`; the ordinal-lowest path wins and the others are ignored entirely, they are not merged. |
+| **An unusable file is `JNT6005`** | Unparseable JSON, the literal `null`, a top-level key other than `scopes` (a misspelt `"scope"` would otherwise scope nothing), `"scopes": null`, or no entries (`{}`, `"scopes": []`). It is an error: every table would be unscoped, so the build stops. |
+| **A bad entry is `JNT6004`** | A `null` entry, a missing `table` or `column`, a table or column the snapshot does not have, or a repeated entry (the first stays in force). Each is a warning, the entry is dropped, and the message says the table is now unscoped by it. |
+| **Independent of auto-CRUD** | Hand-written queries are checked whether or not `<JauntyQAutoCrud>` is on. |
+| **Absent** | Nothing is checked, and generated code is byte-identical to a project without the sidecar. |
+
+Tables and columns are matched case-insensitively. Like the acceptance
+sidecar, it is a separate hand-maintained file because `jauntyq schema pull`
+rewrites the snapshot wholesale.
+
+Diagnostics: `JNT4005` (a reach without its scope parameter, Error),
+`JNT4006` (an `-- @unscoped` that accepts nothing), `JNT4007` (no scoped
+Upsert on MySQL), `JNT6004` (a dropped entry), `JNT6005` (an unusable file, Error). See
+[diagnostics](diagnostics.md).
+
 ## Entity and method naming
 
-- **Entity name** = the folder under `db/tables/` (e.g. `Products` →
-  `db.Products`, generated class `Products`).
-- **Method name** = the `.sql` file name without extension (e.g.
-  `GetByCategory.sql` → `GetByCategory`).
-- A hand-written file whose name matches an auto-CRUD method **overrides** the
-  synthetic one; hand-written always wins.
+This mapping is a **stable contract**. Other tools (a scaffolder, a code
+reviewer, a doc generator) may depend on it. Changing it would be a breaking
+change and would be called out as one in the changelog. `NamingContractTests`
+pins every rule below.
+
+**The rule.** A query file's containing folder names the entity, and its file
+name names the method:
+
+| File | Generated call |
+|---|---|
+| `db/Widgets/GetAll.sql` | `db.Widgets.GetAll()` |
+| `db/tables/Widgets/GetAll.sql` | `db.Widgets.GetAll()` |
+| `db/Widgets/Admin/ListAll.sql` | `db.Widgets.ListAll()` |
+| `db/Ping.sql` | `db.Queries.Ping()` |
+
+- **The root.** JauntyQ finds the common folder above all query files (the
+  folder two levels up from each file, shared by all of them). Paths are read
+  relative to that root. Migration and DDL files are not query files and do
+  not count.
+- **Entity name** = the first folder below the root. A leading `tables` or
+  `views` folder is skipped, so `db/tables/Widgets/` and `db/Widgets/` are the
+  same entity. Folders deeper than the entity folder are ignored: they group
+  files, they do not rename anything.
+- **Catch-all.** A file directly in the root, with no entity folder, belongs to
+  the entity `Queries`.
+- **Method name** = the file name without `.sql`.
+- **No case or plural changes.** Folder and file names are used exactly as
+  written. `db/widgets/getAll.sql` gives `db.widgets.getAll()`.
+- **Overrides.** A hand-written file whose entity and method match an auto-CRUD
+  method replaces the generated one. Hand-written always wins.
+
+**Legal names (`JNT2004`).** The entity and method names become a C# class and
+method, so each must be a legal C# identifier: ASCII letters, digits and
+underscores, not starting with a digit, and not a C# reserved keyword such as
+`class` or `int`. `db/Widgets/2Fast.sql`, `db/Wid-gets/GetAll.sql` and
+`db/class/GetAll.sql` are all `JNT2004`, and the file generates nothing until it
+is renamed.
+
+**Row types.** What a query returns is named from the same pair, in one of two
+ways:
+
+- **The table's own type.** A query that selects every column of one table, in
+  the table's column order, with no result-shaping directives, returns the
+  shared per-table type. Its name comes from the **table** name, not the folder:
+  the table name in PascalCase, made singular by these rules, applied in order:
+  - ends in `ies`: replace with `y` (`Categories` → `Category`)
+  - ends in `xes`, `zes`, `ches`, `shes` or `sses`: drop `es` (`Boxes` → `Box`)
+  - ends in `s` but not `ss`, `us` or `is`: drop `s` (`Widgets` → `Widget`)
+  - otherwise unchanged.
+
+  When the rules leave the name unchanged (`Status`, `Region`), the type is the
+  name plus `Row` (`StatusRow`), so it never collides with the entity class.
+- **A query-specific type.** Any other projection (a join, a subset of columns)
+  returns a type nested in the entity and named for the method:
+  `db/Widgets/GetNames.sql` returns `Widgets.Result.GetNames`.
 
 ## Consumer project template
 

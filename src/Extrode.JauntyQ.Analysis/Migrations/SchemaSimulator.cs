@@ -78,7 +78,15 @@ public static class SchemaSimulator
 
     private static void ApplyCreateTable(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
-        if (TryFindTable(schema, stmt.TableName, out _))
+        // Postgres resolves the new name as it stores it: an unquoted name
+        // folded to lower case, a quoted one exactly. Matching it loosely
+        // reported a false "already exists" for customers beside "Customers".
+        // The statement keeps the folded name, so the inline enum and foreign
+        // keys below name the same table; folding again is a no-op.
+        bool postgres = string.Equals(schema.Dialect, "postgres", StringComparison.OrdinalIgnoreCase);
+        if (postgres && !stmt.TableNameQuoted)
+            stmt.TableName = stmt.TableName.ToLowerInvariant();
+        if (postgres ? schema.Tables.ContainsKey(stmt.TableName) : TryFindTable(schema, stmt.TableName, out _))
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
                 $"{fileName}: table '{stmt.TableName}' already exists. If this migration was already deployed, archive it and re-run 'jaunty schema pull'."));
@@ -94,14 +102,23 @@ public static class SchemaSimulator
                     $"{fileName}: duplicate column '{col.Name}' in create table '{stmt.TableName}'."));
                 continue;
             }
-            table.Columns[col.Name] = Finalize(col, schema.Dialect);
+            table.Columns[col.Name] = Finalize(col, schema, stmt);
+            ApplyInlineEnum(schema, stmt, stmt.TableName, col);
         }
         ApplySqliteRowidAliasing(table, schema.Dialect);
         schema.Tables[stmt.TableName] = table;
+        ApplyInlineForeignKeys(schema, stmt, fileName, errors);
     }
 
     private static void ApplyDropTable(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
     {
+        var enumNames = new List<string>();
+        if (TryFindTable(schema, stmt.TableName, out var dropped))
+        {
+            foreach (var col in dropped.Columns.Values)
+                if (col.EnumName != null)
+                    enumNames.Add(col.EnumName);
+        }
         if (!RemoveTable(schema, stmt.TableName) && !stmt.IfExists)
         {
             errors.Add(AnalysisDiagnostic.Error("JNT9002",
@@ -110,6 +127,8 @@ public static class SchemaSimulator
         schema.ForeignKeys.RemoveAll(fk =>
             string.Equals(fk.FromTable, stmt.TableName, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(fk.ToTable, stmt.TableName, StringComparison.OrdinalIgnoreCase));
+        foreach (string enumName in enumNames)
+            RemoveUnusedMySqlEnum(schema, enumName);
     }
 
     private static void ApplyAddColumn(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
@@ -128,7 +147,57 @@ public static class SchemaSimulator
                     $"{fileName}: column '{stmt.TableName}.{col.Name}' already exists. If this migration was already deployed, archive it and re-run 'jaunty schema pull'."));
                 continue;
             }
-            table.Columns[col.Name] = Finalize(col, schema.Dialect);
+            table.Columns[col.Name] = Finalize(col, schema, stmt);
+            ApplyInlineEnum(schema, stmt, table.Name, col);
+        }
+        ApplyInlineForeignKeys(schema, stmt, fileName, errors);
+    }
+
+    /// <summary>
+    /// Inline column-level REFERENCES from CREATE TABLE / ADD COLUMN become
+    /// foreign keys, as a live re-pull reports them. MySQL is skipped: it
+    /// parses the inline form and creates no constraint. A clause naming no
+    /// column targets the referenced table's primary key; when that is not a
+    /// single known column the key is reported (JNT9001) rather than guessed.
+    /// </summary>
+    private static void ApplyInlineForeignKeys(DatabaseSchema schema, MigrationStatement stmt, string fileName, List<AnalysisDiagnostic> errors)
+    {
+        if (string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        foreach (var reference in stmt.ForeignKeys)
+        {
+            string toColumn = reference.ToColumn;
+            if (toColumn.Length == 0)
+            {
+                string? pk = null;
+                int pkCount = 0;
+                if (TryFindTable(schema, reference.ToTable, out var target))
+                {
+                    foreach (var col in target.Columns.Values)
+                    {
+                        if (!col.IsPrimaryKey)
+                            continue;
+                        pkCount++;
+                        pk = col.Name;
+                    }
+                }
+                if (pkCount != 1)
+                {
+                    errors.Add(AnalysisDiagnostic.Warning("JNT9001",
+                        $"{fileName}: foreign key not simulated: '{stmt.TableName}.{reference.FromColumn}' REFERENCES '{reference.ToTable}' names no column, and that table has no single known primary-key column."));
+                    continue;
+                }
+                toColumn = pk!;
+            }
+
+            schema.ForeignKeys.Add(new ForeignKeySchema
+            {
+                FromTable = stmt.TableName,
+                FromColumn = reference.FromColumn,
+                ToTable = reference.ToTable,
+                ToColumn = toColumn
+            });
         }
     }
 
@@ -156,6 +225,7 @@ public static class SchemaSimulator
             // the resolved actual key (not the migration's possibly
             // differently-cased spelling), since that is the real key
             // present in the dictionary.
+            string? enumName = table.Columns[actualKey].EnumName;
             var rebuilt = new Dictionary<string, ColumnSchema>();
             foreach (var kvp in table.Columns)
             {
@@ -165,6 +235,8 @@ public static class SchemaSimulator
             table.Columns = rebuilt;
 
             RemoveColumnFromIndexes(table, actualKey);
+            if (enumName != null)
+                RemoveUnusedMySqlEnum(schema, enumName);
         }
 
         schema.ForeignKeys.RemoveAll(fk =>
@@ -204,10 +276,20 @@ public static class SchemaSimulator
             // no-op: the simulated schema kept reporting non-identity while
             // a live re-pull after the same migration would report identity).
             var existing = table.Columns[actualKey];
-            var updated = Finalize(col, schema.Dialect);
+            var updated = Finalize(col, schema, stmt);
             updated.IsPrimaryKey = existing.IsPrimaryKey;
             if (!string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
                 updated.IsIdentity = existing.IsIdentity;
+            if (stmt.TypeOnly)
+                updated.IsNullable = existing.IsNullable;
+            // MySQL MODIFY redefines the column, enum members included: the
+            // old {Table}{Column} enum goes, and an ENUM(...) in the
+            // statement builds its replacement. Without this the column lost
+            // its EnumName, generated as string, and the enum type vanished
+            // from the generated code while the impact report saw no change.
+            if (existing.EnumName != null && string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
+                schema.Enums.Remove(existing.EnumName);
+            ApplyInlineEnum(schema, stmt, table.Name, updated);
             // Reassign under the RESOLVED key, not col.Name: if the migration
             // spells the column differently-cased than the stored key,
             // indexing by col.Name would silently ADD a second, duplicate
@@ -400,12 +482,110 @@ public static class SchemaSimulator
     }
 
     /// <summary>
+    /// A column declared with a captured alias, DOMAIN or Postgres enum type
+    /// gets what a live pull gives it: an alias or domain resolves to its
+    /// underlying type with the declaration's facets where the column has
+    /// none (UserTypeResolution.Apply's rule, which lives in the extraction
+    /// assembly this one does not reference), and a Postgres enum column is
+    /// tagged with its enum. Without this a migration-added 'ssn' or 'mood'
+    /// column generated as object with a JNT2007 warning, and re-declaring an
+    /// already resolved column reported a phantom type change.
+    /// </summary>
+    private static void ResolveDeclaredType(ColumnSchema col, DatabaseSchema schema)
+    {
+        if (col.ResolvedFromUserType == null &&
+            TryGetByName(schema.UserTypes, col.DbType, out var userType) &&
+            userType.Kind is UserTypeKind.Alias or UserTypeKind.Domain &&
+            !string.IsNullOrEmpty(userType.UnderlyingDbType))
+        {
+            col.ResolvedFromUserType = userType.Name;
+            col.DbType = userType.UnderlyingDbType!;
+            col.MaxLength ??= userType.MaxLength;
+            col.Precision ??= userType.Precision;
+            col.Scale ??= userType.Scale;
+            string t = col.DbType;
+            if (col.IsUnicode == null && (t.Contains("char") || t.Contains("text") || t.Contains("clob")))
+                col.IsUnicode = t.StartsWith("n", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (col.EnumName == null &&
+            string.Equals(schema.Dialect, "postgres", StringComparison.OrdinalIgnoreCase) &&
+            TryGetByName(schema.Enums, col.DbType, out var enumSchema))
+        {
+            col.EnumName = enumSchema.Name;
+        }
+    }
+
+    private static bool TryGetByName<T>(Dictionary<string, T> map, string name, out T value)
+    {
+        if (map.TryGetValue(name, out value!))
+            return true;
+        foreach (var kvp in map)
+        {
+            if (string.Equals(kvp.Key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                value = kvp.Value;
+                return true;
+            }
+        }
+        value = default!;
+        return false;
+    }
+
+    /// <summary>
+    /// A MySQL enum is the inline type of one column, so a live pull stops
+    /// reporting it once that column or its table is gone. A Postgres enum is
+    /// a type of its own and outlives its columns, so it is left alone. Kept
+    /// while any column still names it.
+    /// </summary>
+    private static void RemoveUnusedMySqlEnum(DatabaseSchema schema, string enumName)
+    {
+        if (!string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
+            return;
+        foreach (var table in schema.Tables.Values)
+            foreach (var col in table.Columns.Values)
+                if (string.Equals(col.EnumName, enumName, StringComparison.Ordinal))
+                    return;
+        schema.Enums.Remove(enumName);
+    }
+
+    /// <summary>
+    /// MySQL inline ENUM('a','b'): builds the {Table}{Column} enum and the
+    /// column facets exactly as MySqlExtractor.CaptureInlineEnum and its
+    /// column query do (MaxLength is the longest member, the default
+    /// utf8mb4 charset makes it Unicode), so a simulated column matches a
+    /// live re-pull. Other dialects have no inline enum.
+    /// </summary>
+    private static void ApplyInlineEnum(DatabaseSchema schema, MigrationStatement stmt, string tableName, ColumnSchema col)
+    {
+        if (!string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase) ||
+            !stmt.EnumMembers.TryGetValue(col.Name, out var members))
+            return;
+
+        string name = EnumMemberNaming.Fold(tableName) + EnumMemberNaming.Fold(col.Name);
+        var enumSchema = new EnumSchema { Name = name };
+        int longest = 0;
+        foreach (string value in members)
+        {
+            enumSchema.Members.Add(new EnumMember { Value = value, CSharpName = EnumMemberNaming.Fold(value) });
+            longest = Math.Max(longest, value.Length);
+        }
+        schema.Enums[name] = enumSchema;
+        col.EnumName = name;
+        col.MaxLength = longest;
+        col.IsUnicode = stmt.CharsetIsUnicode.TryGetValue(col.Name, out bool charsetIsUnicode) ? charsetIsUnicode : true;
+    }
+
+    /// <summary>
     /// Post-processing the parser cannot do without dialect knowledge:
     /// SQL Server reports rowversion as 'timestamp', which is a datetime on
     /// PostgreSQL, so the concurrency-token flag is dialect-gated.
     /// </summary>
-    private static ColumnSchema Finalize(ColumnSchema col, string dialect)
+    private static ColumnSchema Finalize(ColumnSchema col, DatabaseSchema schema, MigrationStatement stmt)
     {
+        string dialect = schema.Dialect;
+        ResolveDeclaredType(col, schema);
+
         if (col.DbType == "rowversion" ||
             (col.DbType == "timestamp" && string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase)))
         {
@@ -454,6 +634,26 @@ public static class SchemaSimulator
         {
             col.DbType = "bigint unsigned";
             col.IsNullable = false;
+        }
+
+        // The parser marks a text column Unicode only for an n-prefixed type,
+        // which is SQL Server's rule. The other extractors report every text
+        // column Unicode: Postgres text under its UTF-8 encoding, MySQL under
+        // a utf8* charset (the utf8mb4 default), SQLite for every text
+        // affinity. Left as false, any ALTER/MODIFY of a text column there
+        // showed a "unicode changed" the migration never made. A MySQL column
+        // with an explicit CHARACTER SET takes it from that charset instead; a
+        // table-level DEFAULT CHARSET is still not modelled.
+        if (col.IsUnicode.HasValue && stmt.CharsetIsUnicode.TryGetValue(col.Name, out bool charsetIsUnicode))
+        {
+            col.IsUnicode = charsetIsUnicode;
+        }
+        else if (col.IsUnicode.HasValue &&
+            (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(dialect, "mysql", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(dialect, "sqlite", StringComparison.OrdinalIgnoreCase)))
+        {
+            col.IsUnicode = true;
         }
 
         return col;
@@ -595,6 +795,59 @@ public static class SchemaSimulator
             foreach (var m in en.Members)
                 cloneEnum.Members.Add(new EnumMember { Value = m.Value, CSharpName = m.CSharpName });
             clone.Enums[en.Name] = cloneEnum;
+        }
+        // Keyed by the source key, not fn.Name: an overload's key carries its
+        // argument types (UserTypeResolution.FunctionKey), so re-keying by name
+        // would collapse overloads into one entry.
+        foreach (var pair in source.Functions)
+        {
+            var fn = pair.Value;
+            var cloneFn = new FunctionSchema
+            {
+                Name = fn.Name,
+                Schema = fn.Schema,
+                Return = new FunctionReturn
+                {
+                    DbType = fn.Return.DbType,
+                    IsNullable = fn.Return.IsNullable,
+                    MaxLength = fn.Return.MaxLength,
+                    Precision = fn.Return.Precision,
+                    Scale = fn.Return.Scale,
+                    ResolvedFromUserType = fn.Return.ResolvedFromUserType
+                }
+            };
+            foreach (var p in fn.Params)
+            {
+                cloneFn.Params.Add(new FunctionParam
+                {
+                    Name = p.Name,
+                    DbType = p.DbType,
+                    IsNullable = p.IsNullable,
+                    MaxLength = p.MaxLength,
+                    Precision = p.Precision,
+                    Scale = p.Scale,
+                    ResolvedFromUserType = p.ResolvedFromUserType
+                });
+            }
+            clone.Functions[pair.Key] = cloneFn;
+        }
+        foreach (var pair in source.UserTypes)
+        {
+            var ut = pair.Value;
+            var cloneType = new UserTypeSchema
+            {
+                Name = ut.Name,
+                Schema = ut.Schema,
+                Kind = ut.Kind,
+                UnderlyingDbType = ut.UnderlyingDbType,
+                IsNullable = ut.IsNullable,
+                MaxLength = ut.MaxLength,
+                Precision = ut.Precision,
+                Scale = ut.Scale
+            };
+            foreach (var m in ut.Members)
+                cloneType.Members.Add(CloneColumn(m));
+            clone.UserTypes[pair.Key] = cloneType;
         }
         return clone;
     }

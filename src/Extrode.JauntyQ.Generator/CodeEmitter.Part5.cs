@@ -200,7 +200,7 @@ public static partial class CodeEmitter
     /// identifiers are skipped and the SQL side is emitted through
     /// <see cref="IdentifierGuard.ToStringLiteral"/>.
     /// </summary>
-    private static void EmitSequenceAccessor(System.Text.StringBuilder sb, DatabaseSchema? schema)
+    internal static void EmitSequenceAccessor(System.Text.StringBuilder sb, DatabaseSchema? schema)
     {
         if (schema == null || schema.Sequences.Count == 0)
             return;
@@ -368,7 +368,10 @@ public static partial class CodeEmitter
         }
         sb.AppendLine();
         sb.AppendLine("        /// <summary>Materializes one row; shared by every full-row query of this table.</summary>");
-        sb.AppendLine($"        public static {rowTypeName} Read(DbDataReader reader) => new {rowTypeName}");
+        var columnNames = new System.Collections.Generic.List<string>();
+        foreach (var col in tableSchema.Columns.Values)
+            columnNames.Add(col.Name);
+        sb.AppendLine($"        public static {rowTypeName} {RowReadMethodName(columnNames)}(DbDataReader reader) => new {rowTypeName}");
         sb.AppendLine("        {");
         int ordinal = 0;
         int colCount = tableSchema.Columns.Count;
@@ -386,4 +389,19 @@ public static partial class CodeEmitter
         return sb.ToString();
     }
 
+    /// <summary>
+    /// The row POCO's materializer is named Read, unless a column takes that
+    /// property name; then the materializer gives way, as "conn" does.
+    /// Case-insensitive: the declaration reads the table's spelling and a
+    /// canonical query's call site reads the query's, which may differ in case.
+    /// </summary>
+    internal static string RowReadMethodName(System.Collections.Generic.IEnumerable<string> columnNames)
+    {
+        foreach (string name in columnNames)
+        {
+            if (string.Equals(DialectMapper.ToPascalCase(name), "Read", StringComparison.OrdinalIgnoreCase))
+                return "__Read";
+        }
+        return "Read";
+    }
 }

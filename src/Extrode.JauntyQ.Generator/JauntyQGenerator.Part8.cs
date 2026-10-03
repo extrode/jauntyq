@@ -28,8 +28,16 @@ internal sealed class FileSummary : IEquatable<FileSummary>
     /// <summary>Table whose canonical row POCO this query returns, if any.</summary>
     public string? CanonicalTable { get; }
 
-    public FileSummary(string entityName, string methodName, bool claims, bool emitted, string? canonicalTable)
+    /// <summary>True when the file emits a nested Result.{MethodName} type into its entity.</summary>
+    public bool EmitsResultType { get; }
+
+    /// <summary>True when the file is a -- @proc scaffold, which emits a nested Proc type into its entity.</summary>
+    public bool EmitsProcType { get; }
+
+    public FileSummary(string entityName, string methodName, bool claims, bool emitted, string? canonicalTable, bool emitsResultType = false, bool emitsProcType = false)
     {
+        EmitsResultType = emitsResultType;
+        EmitsProcType = emitsProcType;
         EntityName = entityName;
         MethodName = methodName;
         Claims = claims;
@@ -41,20 +49,25 @@ internal sealed class FileSummary : IEquatable<FileSummary>
         other != null
         && Claims == other.Claims
         && Emitted == other.Emitted
+        && EmitsResultType == other.EmitsResultType
+        && EmitsProcType == other.EmitsProcType
         && string.Equals(EntityName, other.EntityName, StringComparison.Ordinal)
         && string.Equals(MethodName, other.MethodName, StringComparison.Ordinal)
         && string.Equals(CanonicalTable, other.CanonicalTable, StringComparison.Ordinal);
 
     public override bool Equals(object? obj) => Equals(obj as FileSummary);
 
+    // Stryker disable once Block : an empty body yields a constant hash, which still satisfies GetHashCode's contract (equal objects => equal hashes); only bucket distribution, not any observable result, changes
     public override int GetHashCode()
     {
         unchecked
         {
             int hash = EntityName.GetHashCode();
+            // Stryker disable Arithmetic,NullCoalescing,Conditional : GetHashCode's only contract is equal objects => equal hashes, which holds under any fixed combining transform of fields Equals compares
             hash = hash * 31 + MethodName.GetHashCode();
             hash = hash * 31 + (CanonicalTable?.GetHashCode() ?? 0);
-            hash = hash * 31 + (Claims ? 2 : 0) + (Emitted ? 1 : 0);
+            hash = hash * 31 + (EmitsProcType ? 8 : 0) + (EmitsResultType ? 4 : 0) + (Claims ? 2 : 0) + (Emitted ? 1 : 0);
+            // Stryker restore all
             return hash;
         }
     }

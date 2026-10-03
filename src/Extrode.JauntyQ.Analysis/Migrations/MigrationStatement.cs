@@ -40,6 +40,12 @@ public class MigrationStatement
     public MigrationStatementKind Kind { get; set; }
     public string TableName { get; set; } = string.Empty;
 
+    /// <summary>CreateTable only: the table name was written in double quotes
+    /// or backticks. Postgres folds an unquoted name to lower case and keeps a
+    /// quoted one as written, so <c>customers</c> and <c>"Customers"</c> are
+    /// two tables there.</summary>
+    public bool TableNameQuoted { get; set; }
+
     /// <summary>CreateTable: full column list. AddColumn/AlterColumn: the affected column(s).</summary>
     public List<ColumnSchema> Columns { get; } = new();
 
@@ -54,6 +60,32 @@ public class MigrationStatement
     /// statement (true for DROP NOT NULL, false for SET NOT NULL). The
     /// target column name is ColumnNames[0].</summary>
     public bool NullableAfter { get; set; }
+
+    /// <summary>AlterColumn from PostgreSQL's "ALTER COLUMN c [SET DATA] TYPE t":
+    /// only the type and its facets change, so the simulator keeps the
+    /// column's existing nullability instead of reading the missing NULL/NOT
+    /// NULL clause as nullable. False for SQL Server ALTER COLUMN and MySQL
+    /// MODIFY, which redefine the whole column.</summary>
+    public bool TypeOnly { get; set; }
+
+    /// <summary>MySQL inline <c>ENUM('a','b')</c> member lists, keyed by
+    /// column name, for CreateTable/AddColumn/AlterColumn. Values are
+    /// verbatim (a doubled '' is unescaped). The simulator turns each into
+    /// the {Table}{Column} <see cref="EnumSchema"/> a live pull captures.</summary>
+    public Dictionary<string, List<string>> EnumMembers { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>MySQL columns declared with an explicit <c>CHARACTER SET x</c>
+    /// or <c>CHARSET x</c>, keyed by column name. The value is whether x is a
+    /// Unicode charset (utf8*, utf16*, utf32, ucs2), which is what a live pull
+    /// reports as the column's Unicode flag.</summary>
+    public Dictionary<string, bool> CharsetIsUnicode { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Inline column-level <c>REFERENCES t [(c)]</c> targets for
+    /// CreateTable/AddColumn. FromTable is left empty (the statement's table);
+    /// ToColumn is empty when the clause names no column, meaning the
+    /// target's primary key. The simulator adds them to the effective schema
+    /// for every dialect but MySQL, which parses and ignores the inline form.</summary>
+    public List<ForeignKeySchema> ForeignKeys { get; } = new();
 
     /// <summary>Original SQL text, for diagnostics.</summary>
     public string RawText { get; set; } = string.Empty;

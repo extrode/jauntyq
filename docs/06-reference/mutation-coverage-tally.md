@@ -67,9 +67,9 @@ Three things sit outside it, and the table below is the running record of each.
 |---|---|---|---|---|
 | `Extrode.JauntyQ.SqlParser` | 4 | 158 | | whole assembly |
 | `Extrode.JauntyQ.Schema` | 0 | | | whole assembly |
-| `Extrode.JauntyQ.Schema.Extraction` | 4 | | | whole assembly |
-| `Extrode.JauntyQ.Cli.Core` | 2 | 5 | 8 | whole assembly |
-| `Extrode.JauntyQ.Generator` | 2 | 5 | 382 | `**/QueryValidator*.cs`, `**/*Analyzer.cs`, `**/JauntyDiagnostics.cs`, `**/IdentifierGuard.cs` only |
+| `Extrode.JauntyQ.Schema.Extraction` | 2 | | | whole assembly |
+| `Extrode.JauntyQ.Cli.Core` | 1 | 5 | 8 | whole assembly |
+| `Extrode.JauntyQ.Generator` | 30 | 5 + 32 emitter | 382 | `**/QueryValidator*.cs`, `**/*Analyzer.cs`, `**/JauntyDiagnostics.cs`, `**/IdentifierGuard.cs`; emitter files (`CodeEmitter*.cs`, `JauntyQGenerator*.cs`) via `stryker-config.emitter-{1..4}.json` |
 | `Extrode.JauntyQ.Analysis` | 7 | 26 | 108 | whole assembly |
 
 Rules for this table:
@@ -77,7 +77,8 @@ Rules for this table:
   distinguish the mutant (a provably equivalent mutant such as a loop bound). Never for
   a test that is merely inconvenient to write. Prefer, in order: a killing test, simplifying
   the code so the mutated construct disappears, then a disable with the reason on the line.
-- A disable is evidence-based, not proven. The 2026-10 audit removed 146 of the 165 disables the 0.6.0 cut carried (19 remain) over two passes, by deleting dead code or adding tests, and found three real bugs (JNT8008 missed Kelvin-sign table names; SQL Server CLR user-type resolution; the RETURNING alias regression caught in review). Timeout and CompileError columns predate the audit.
+- A disable is evidence-based, not proven. The 2026-10 audit removed 146 of the 165 disables the 0.6.0 cut carried (19 remained then; 43 by the 2026-10-02 sweep) over two passes, by deleting dead code or adding tests, and found three real bugs (JNT8008 missed Kelvin-sign table names; SQL Server CLR user-type resolution; the RETURNING alias regression caught in review). Timeout and CompileError columns predate the audit.
+- 2026-10-02 sweep of all 43 disables then in `src`: each was stripped and its span re-run under Stryker. No mutant a disable was written for was killed; every one survived or had no coverage. Two kinds of side effect were found: a `once` disable on an Equality line also hides the killed `>` mutant beside the equivalent `<=` (MigrationParser, CliHost; Stryker has no per-mutant switch), and the `JauntyQGenerator.Part4` JNT2004 region opened one line early and hid the killed `rowNameOk = true` Boolean mutant (region moved below it). The two MySQL `DATA_TYPE` disables were replaced by a test (`MySqlFunctionReaderTests`), leaving 41. The `ReferencedObjects` `Block` disable and the `Schema.Extraction` sites (container-only tests, no coverage under Stryker) rest on the trace in their reason, not on a run.
 - Refresh the counts with
   `grep -rE 'Stryker disable' src/Extrode.JauntyQ.<Assembly> --include=*.cs | wc -l`
   and the Timeout/CompileError columns from the run's `mutation-report.json`.
@@ -94,6 +95,7 @@ the per-assembly figures in the history below it.
 | `Extrode.JauntyQ.Schema` | none (run ad hoc) | **100%** | | | 0 | 0 | |
 | `Extrode.JauntyQ.Cli.Core` | `tests/Extrode.JauntyQ.Cli.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 1m08s |
 | `Extrode.JauntyQ.Generator` | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 1h34m with shared engines (`eval "$(scripts/mutation-engines.sh --quiet)"`, concurrency 4); CompileError mutants excluded from score |
+| Generator emitter files | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.emitter-{1..4}.json` | **100%** | 4327 | 32 | 0 | 0 | Confirming run 36995854432 (2026-10-02): all 4 shards 100%, slowest shard 18m, about 54 runner-minutes. `--since` ran everything because the shard configs changed (Stryker retests all when a non-C# file in the test project changes). First run 36979486901 (2026-10-02, the first on Blacksmith via `mutation-emitter.yml`): 99.45% (4320 killed, 32 timeout, 13 survived, 11 no coverage), slowest shard 32m, about 67 runner-minutes. All 24 uncaught resolved: 14 equivalent (8 throw-only paths, 3 `GetHashCode` bodies, 3 in `Part4`), now disabled; 10 got tests, 3 of which (`Part10:75`, `CodeEmitter.Part2:31`, `:47`) were real gaps the old tests could not see. Shards rebalanced; they now take 10m to 18m |
 | `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | **100%** | | | 0 | 0 | whole-assembly run 99.91% (2 survivors), both resolved; scoped rerun of those two files 100% |
 | `Extrode.JauntyQ.Schema.Extraction` | `tests/Extrode.JauntyQ.Schema.Extraction.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 22 min with shared engines |
 | `Extrode.JauntyQ.Cli` | — | — | | | | | no testable mutants |

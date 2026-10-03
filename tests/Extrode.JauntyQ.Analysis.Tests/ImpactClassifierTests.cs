@@ -121,6 +121,37 @@ public class ImpactClassifierTests
     }
 
     [Fact]
+    public void Risky_WhenReferencedEnumColumnLosesAMember()
+    {
+        var baseline = Schema(Table("orders", Col("id"), new ColumnSchema { Name = "status", DbType = "enum", EnumName = "OrdersStatus" }));
+        var effective = Schema(Table("orders", Col("id"), new ColumnSchema { Name = "status", DbType = "enum", EnumName = "OrdersStatus" }));
+        baseline.Enums["OrdersStatus"] = new EnumSchema { Name = "OrdersStatus", Members = { new EnumMember { Value = "a" }, new EnumMember { Value = "b" } } };
+        effective.Enums["OrdersStatus"] = new EnumSchema { Name = "OrdersStatus", Members = { new EnumMember { Value = "a" } } };
+
+        var report = Run(Delta(baseline, effective), Input("Order.Get", Select("orders", "id", "status")));
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(Classification.Risky, entry.Classification);
+        var reason = Assert.Single(entry.Reasons);
+        Assert.Equal("orders.status", reason.SchemaObject);
+        Assert.Equal("enum", reason.ChangeKind);
+        Assert.Equal("enum OrdersStatus members changed", reason.Effect);
+    }
+
+    [Fact]
+    public void Risky_WhenReferencedColumnStopsBeingAnEnum()
+    {
+        var baseline = Schema(Table("orders", Col("id"), new ColumnSchema { Name = "status", DbType = "varchar", EnumName = "OrdersStatus" }));
+        var effective = Schema(Table("orders", Col("id"), new ColumnSchema { Name = "status", DbType = "varchar" }));
+
+        var report = Run(Delta(baseline, effective), Input("Order.Get", Select("orders", "status")));
+
+        var reason = Assert.Single(Assert.Single(report.Entries).Reasons);
+        Assert.Equal("enum", reason.ChangeKind);
+        Assert.Equal("enum OrdersStatus → (none)", reason.Effect);
+    }
+
+    [Fact]
     public void Risky_WhenUnmodeledStatementTouchesReferencedTable()
     {
         var baseline = Schema(Table("users", Col("id")));
@@ -769,5 +800,25 @@ public class ImpactClassifierTests
             + "reason's Effect is empty: the CLI prints 'users.name: ' with nothing after the colon and "
             + "the JNT9004 build message emits a trailing space. WireKind already degrades an unknown "
             + "kind to the token \"changed\"; DescribeChange must not be the one site that says nothing.");
+    }
+
+    [Fact]
+    public void ClassifySingle_GivesTheSameEntryAsTheReport()
+    {
+        var baseline = Schema(Table("users", Col("id"), Col("name", "varchar")));
+        var effective = Schema(Table("users", Col("id")));
+        var delta = Delta(baseline, effective);
+        var input = Input("User.Get", Select("users", "id", "name"));
+
+        ImpactEntry single = ImpactClassifier.ClassifySingle(delta, input);
+        ImpactEntry fromReport = Assert.Single(Run(delta, input).Entries);
+
+        Assert.Equal(Classification.Breaking, single.Classification);
+        Assert.Equal(fromReport.QueryFile, single.QueryFile);
+        Assert.Equal(fromReport.EntityMethod, single.EntityMethod);
+        Assert.Equal(fromReport.Classification, single.Classification);
+        Assert.Equal(
+            fromReport.Reasons.Select(r => (r.SchemaObject, r.ChangeKind, r.Effect)),
+            single.Reasons.Select(r => (r.SchemaObject, r.ChangeKind, r.Effect)));
     }
 }

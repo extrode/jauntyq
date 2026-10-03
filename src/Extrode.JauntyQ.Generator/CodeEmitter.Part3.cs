@@ -41,6 +41,8 @@ public static partial class CodeEmitter
         string tokenParamName = cancellationTokenNameCollides ? "__cancellationToken" : "cancellationToken";
 
         string paramList = BuildParamList(paramInfos, isStatic, isAsync, connVarName: connVar, tokenParamName: tokenParamName, trailingNullableDefaults: true, schema: schema);
+        string connectionState = BodyTypeRef(schema, paramInfos, "ConnectionState", "System.Data");
+        string commandBehavior = BodyTypeRef(schema, paramInfos, "CommandBehavior", "System.Data");
 
         sb.AppendLine($"        {modifier}{asyncModifier} {returnType} {methodName}({paramList})");
         sb.AppendLine("        {");
@@ -59,7 +61,7 @@ public static partial class CodeEmitter
         // this round targets (e.g. "@weOpened"/"@cmd"), not every
         // conceivable dunder-prefixed literal; see AUD-R69-01's registry
         // entry for the residual.
-        sb.AppendLine($"            bool __weOpened = {connVar}.State != ConnectionState.Open;");
+        sb.AppendLine($"            bool __weOpened = {connVar}.State != {connectionState}.Open;");
         sb.AppendLine(isAsync
             ? $"            if (__weOpened) await {connVar}.OpenAsync({tokenParamName}).ConfigureAwait(false);"
             : $"            if (__weOpened) {connVar}.Open();");
@@ -104,7 +106,7 @@ public static partial class CodeEmitter
         sb.AppendLine();
         if (identity != null)
         {
-            string behavior = "CommandBehavior.SingleRow | CommandBehavior.SingleResult";
+            string behavior = $"{commandBehavior}.SingleRow | {commandBehavior}.SingleResult";
             // AUD-R69-01: "__reader", not "reader" -- confirmed live that a
             // query parameter literally named "@reader" collides (CS0136)
             // with the bare "reader" local. GetIdentityReaderCall's readback
@@ -153,6 +155,13 @@ public static partial class CodeEmitter
     private static bool AnyParamNameCollidesWith(System.Collections.Generic.List<EmittedParam> paramInfos, string bookkeepingName) =>
         paramInfos.Exists(p => p.CSharpName == bookkeepingName);
 
+    // A type the method body names in expression position (ConnectionState.Open,
+    // DBNull.Value): a parameter of the same name binds first there, so the
+    // reference is qualified when one exists, the "conn" rule above applied
+    // to type names.
+    private static string BodyTypeRef(DatabaseSchema? schema, System.Collections.Generic.List<EmittedParam> paramInfos, string simpleName, string @namespace) =>
+        AnyParamNameCollidesWith(paramInfos, simpleName) ? GlobalTypeName(simpleName, @namespace) : TypeRef(schema, simpleName, @namespace);
+
     private static string BuildParamList(System.Collections.Generic.List<EmittedParam> paramInfos, bool isStatic, bool isAsync, string connVarName = "conn", string tokenParamName = "cancellationToken", bool trailingNullableDefaults = false, bool enumeratorCancellation = false, DatabaseSchema? schema = null)
     {
         // C# optional parameters must be trailing: give `= default` to the
@@ -177,11 +186,9 @@ public static partial class CodeEmitter
             if (i >= firstDefault) sb.Append(" = default");
         }
 
+        // Static only, so the connection parameter is already written.
         if (HasStaticTransactionParam(paramInfos, isStatic))
-        {
-            if (sb.Length > 0) sb.Append(", ");
-            sb.Append("DbTransaction? transaction = null");
-        }
+            sb.Append(", DbTransaction? transaction = null");
 
         if (isAsync)
         {
@@ -202,7 +209,9 @@ public static partial class CodeEmitter
         // AUD-R50-03 (residual): System.Data.DbType was emitted bare — a table
         // named "db_types" (row POCO "DbType") shadowed the enum namespace-wide
         // and broke every `p.DbType = DbType.X` assignment with CS0117.
-        string dbTypeEnum = TypeRef(schema, "DbType", "System.Data");
+        string dbTypeEnum = BodyTypeRef(schema, paramInfos, "DbType", "System.Data");
+        string dbNull = BodyTypeRef(schema, paramInfos, "DBNull", "System");
+        string npgsqlDbTypeEnum = BodyTypeRef(schema, paramInfos, "NpgsqlDbType", "NpgsqlTypes");
         for (int i = 0; i < paramInfos.Count; i++)
         {
             var param = paramInfos[i];
@@ -216,7 +225,7 @@ public static partial class CodeEmitter
 
             if (param.IsEach)
             {
-                EmitEachParameterBinding(sb, param, varName, schema);
+                EmitEachParameterBinding(sb, param, varName, schema, dbTypeEnum, dbNull, npgsqlDbTypeEnum);
                 continue;
             }
 
@@ -246,12 +255,11 @@ public static partial class CodeEmitter
                 // the server's own text-to-enum coercion.
                 if (IsEnumParameterType(param.CSharpType, schema))
                 {
-                    string npgsqlDbTypeEnum = TypeRef(schema, "NpgsqlDbType", "NpgsqlTypes");
                     sb.AppendLine($"                var {varName} = new {npgsqlParameterType} {{ ParameterName = \"@{param.Name}\" }};");
                     sb.AppendLine($"                {varName}.NpgsqlDbType = {npgsqlDbTypeEnum}.Unknown;");
                     string wire = EnumWireCall(param.CSharpType, schema, param.CSharpName)!;
                     sb.AppendLine(param.CSharpType.EndsWith("?")
-                        ? $"                {varName}.Value = {param.CSharpName} is null ? (object)DBNull.Value : {EnumWireCall(param.CSharpType, schema, param.CSharpName + ".Value")!};"
+                        ? $"                {varName}.Value = {param.CSharpName} is null ? (object){dbNull}.Value : {EnumWireCall(param.CSharpType, schema, param.CSharpName + ".Value")!};"
                         : $"                {varName}.Value = {wire};");
                     sb.AppendLine($"                __cmd.Parameters.Add({varName});");
                     continue;
@@ -267,7 +275,7 @@ public static partial class CodeEmitter
                     string? pgAdoDbType = MapCSharpTypeToAdoDbType(param.CSharpType);
                     if (pgAdoDbType != null)
                         sb.AppendLine($"                {varName}.DbType = {dbTypeEnum}.{pgAdoDbType};");
-                    sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? DBNull.Value;");
+                    sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? {dbNull}.Value;");
                 }
                 sb.AppendLine($"                __cmd.Parameters.Add({varName});");
                 continue;
@@ -286,7 +294,7 @@ public static partial class CodeEmitter
             {
                 sb.AppendLine($"                {varName}.DbType = {dbTypeEnum}.String;");
                 sb.AppendLine(param.CSharpType.EndsWith("?")
-                    ? $"                {varName}.Value = {param.CSharpName} is null ? (object)DBNull.Value : {EnumWireCall(param.CSharpType, schema, param.CSharpName + ".Value")!};"
+                    ? $"                {varName}.Value = {param.CSharpName} is null ? (object){dbNull}.Value : {EnumWireCall(param.CSharpType, schema, param.CSharpName + ".Value")!};"
                     : $"                {varName}.Value = {enumWire};");
                 sb.AppendLine($"                __cmd.Parameters.Add({varName});");
                 continue;
@@ -309,7 +317,7 @@ public static partial class CodeEmitter
             }
             else
             {
-                sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? DBNull.Value;");
+                sb.AppendLine($"                {varName}.Value = (object?){param.CSharpName} ?? {dbNull}.Value;");
             }
             sb.AppendLine($"                __cmd.Parameters.Add({varName});");
         }
@@ -321,14 +329,12 @@ public static partial class CodeEmitter
     /// match the CommandText expansion built alongside it in
     /// CodeEmitter.Part8.cs's EmitCommandText.
     /// </summary>
-    private static void EmitEachParameterBinding(System.Text.StringBuilder sb, EmittedParam param, string varName, DatabaseSchema? schema)
+    private static void EmitEachParameterBinding(System.Text.StringBuilder sb, EmittedParam param, string varName, DatabaseSchema? schema, string dbTypeEnum, string dbNull, string npgsqlDbTypeEnum)
     {
         string? dialect = schema?.Dialect;
         string elementType = GetEachElementType(param.CSharpType);
         string loopVar = $"__ib_{param.Name}";
         string? adoDbType = MapCSharpTypeToAdoDbType(elementType);
-        // AUD-R50-03 (residual): same DbType-shadowing guard as EmitParameterBinding.
-        string dbTypeEnum = TypeRef(schema, "DbType", "System.Data");
 
         // Spec 013 T12: WHERE status IN (-- @each) over an enum column is
         // reachable on both dialects. Handled ahead of the dialect split
@@ -343,7 +349,6 @@ public static partial class CodeEmitter
             if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
             {
                 string npgsqlParameterTypeForEnum = TypeRef(schema, "NpgsqlParameter", "Npgsql");
-                string npgsqlDbTypeEnum = TypeRef(schema, "NpgsqlDbType", "NpgsqlTypes");
                 sb.AppendLine($"                    var {varName} = new {npgsqlParameterTypeForEnum} {{ ParameterName = \"@{param.Name}\" + {loopVar} }};");
                 sb.AppendLine($"                    {varName}.NpgsqlDbType = {npgsqlDbTypeEnum}.Unknown;");
             }
@@ -358,7 +363,7 @@ public static partial class CodeEmitter
             // paths do. IN (NULL) never matches in SQL, but binding DBNull is
             // still the only shape that compiles and round-trips.
             sb.AppendLine(elementType.EndsWith("?")
-                ? $"                    {varName}.Value = {param.CSharpName}[{loopVar}] is null ? (object)DBNull.Value : {EnumWireCall(elementType, schema, $"{param.CSharpName}[{loopVar}].Value")!};"
+                ? $"                    {varName}.Value = {param.CSharpName}[{loopVar}] is null ? (object){dbNull}.Value : {EnumWireCall(elementType, schema, $"{param.CSharpName}[{loopVar}].Value")!};"
                 : $"                    {varName}.Value = {eachEnumWire};");
             sb.AppendLine($"                    __cmd.Parameters.Add({varName});");
             sb.AppendLine("                }");
@@ -379,7 +384,7 @@ public static partial class CodeEmitter
                 sb.AppendLine($"                    var {varName} = new {npgsqlParameterType} {{ ParameterName = \"@{param.Name}\" + {loopVar} }};");
                 if (adoDbType != null)
                     sb.AppendLine($"                    {varName}.DbType = {dbTypeEnum}.{adoDbType};");
-                sb.AppendLine($"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? DBNull.Value;");
+                sb.AppendLine($"                    {varName}.Value = (object?){param.CSharpName}[{loopVar}] ?? {dbNull}.Value;");
                 sb.AppendLine($"                    __cmd.Parameters.Add({varName});");
             }
             sb.AppendLine("                }");
@@ -408,7 +413,7 @@ public static partial class CodeEmitter
             isWriteTarget: false, varName, elementVar, indent: "                    ");
         sb.AppendLine(IsNonNullableValueType(elementType, schema)
             ? $"                    {varName}.Value = {elementVar};"
-            : $"                    {varName}.Value = (object?){elementVar} ?? DBNull.Value;");
+            : $"                    {varName}.Value = (object?){elementVar} ?? {dbNull}.Value;");
         sb.AppendLine($"                    __cmd.Parameters.Add({varName});");
         sb.AppendLine("                }");
     }

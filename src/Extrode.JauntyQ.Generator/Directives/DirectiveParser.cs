@@ -84,14 +84,11 @@ public static class DirectiveParser
                 // ("first-thing" is not a known name), so both readings leave
                 // it an ordinary comment. The leading char must still be a
                 // letter, which keeps "@-x" directive-shaped-but-unmatched.
-                int nameEnd = 1;
-                while (nameEnd < commentBody.Length
-                    && (char.IsLetter(commentBody[nameEnd])
-                        || (commentBody[nameEnd] == '-' && nameEnd > 1)))
-                    nameEnd++;
+                // A bare "@" (nameEnd == 1) reaches TryApplyDirective with an
+                // empty name, which matches no case and declines.
+                int nameEnd = NameEnd(commentBody);
 
-                if (nameEnd > 1
-                    && (nameEnd == commentBody.Length || char.IsWhiteSpace(commentBody[nameEnd])))
+                if (nameEnd == commentBody.Length || char.IsWhiteSpace(commentBody[nameEnd]))
                 {
                     var name = commentBody.Substring(1, nameEnd - 1).ToLowerInvariant();
                     var value = commentBody.Substring(nameEnd).Trim();
@@ -194,6 +191,14 @@ public static class DirectiveParser
                 if (value.Length == 0)
                     return false;
                 directives.AllowNPlusOneReason = value;
+                return true;
+
+            // Spec 021: accepts this file's JNT4005s. Mandatory reason, bare
+            // form declines to JNT3008, like the allow-* family.
+            case "unscoped":
+                if (value.Length == 0)
+                    return false;
+                directives.UnscopedReason = value;
                 return true;
 
             case "proc":
@@ -316,7 +321,7 @@ public static class DirectiveParser
         {
             var trimmed = part.Trim();
             var spaceIndex = trimmed.LastIndexOf(' ');
-            if (spaceIndex > 0)
+            if (spaceIndex != -1)
             {
                 var type = trimmed.Substring(0, spaceIndex).Trim();
                 var name = trimmed.Substring(spaceIndex + 1).Trim();
@@ -346,9 +351,9 @@ public static class DirectiveParser
         // through to CheckSuspiciousDirective, whose message for a known
         // value-taking name is "requires a value", and this one HAS a value; so
         // it reports the shortfall it actually has.
-        int space = value.IndexOfAny(new[] { ' ', '\t' });
-        var alias = space > 0 ? value.Substring(0, space).Trim() : value;
-        var dbType = space > 0 ? value.Substring(space + 1).Trim() : string.Empty;
+        var parts = value.Split(new[] { ' ', '\t' }, 2);
+        var alias = parts[0];
+        var dbType = parts.Length == 2 ? parts[1].Trim() : string.Empty;
         if (alias.Length == 0 || dbType.Length == 0)
         {
             directives.SuspiciousDirectives ??= new List<string>();
@@ -368,9 +373,6 @@ public static class DirectiveParser
     /// </summary>
     private static void ParseEachDirective(DirectiveModel directives, string value)
     {
-        if (value.Length == 0)
-            return;
-
         directives.EachParams ??= new List<string>();
         directives.EachParams.Add(value);
     }
@@ -405,14 +407,14 @@ public static class DirectiveParser
     // value-taking directive whose value is empty).
     private static readonly string[] KnownDirectives =
         { "result", "params", "type", "each", "first", "identity", "stream", "call", "proc", "mirrors",
-          "allow-unindexed", "allow-sort", "allow-n-plus-one" };
+          "allow-unindexed", "allow-sort", "allow-n-plus-one", "unscoped" };
 
     // AUD-R79-02 added "call": it names an existing procedure and does nothing
     // at all without one, so bare "-- @call" belongs here rather than in the
     // silently-accepted set. "mirrors" is the same shape -- it names the query
     // to compare against and means nothing without one.
     private static readonly HashSet<string> ValueRequiredDirectives =
-        new(StringComparer.Ordinal) { "result", "params", "type", "each", "call", "mirrors", "allow-unindexed", "allow-sort", "allow-n-plus-one" };
+        new(StringComparer.Ordinal) { "result", "params", "type", "each", "call", "mirrors", "allow-unindexed", "allow-sort", "allow-n-plus-one", "unscoped" };
 
     /// <summary>
     /// Records a JNT3008 warning when an unmatched <c>-- @word</c> comment is
@@ -427,12 +429,9 @@ public static class DirectiveParser
         // Same name class as the real scanner above, or a bare
         // "-- @allow-unindexed" would be read here as the word "allow" and
         // reported as a typo of nothing.
-        int end = 1;
-        while (end < commentBody.Length
-            && (char.IsLetter(commentBody[end]) || (commentBody[end] == '-' && end > 1)))
-            end++;
-        if (end == 1)
-            return; // bare '@' or '@123' — not directive-shaped
+        // A bare '@' or '@123' gives an empty word, which is neither
+        // value-required nor long enough for the near-miss check.
+        int end = NameEnd(commentBody);
         string word = commentBody.Substring(1, end - 1).ToLowerInvariant();
 
         string? message = null;
@@ -442,20 +441,31 @@ public static class DirectiveParser
         }
         else if (word.Length >= 3)
         {
-            foreach (var known in KnownDirectives)
-            {
-                if (IsOneEditAway(word, known))
-                {
-                    message = $"unrecognized directive '-- @{word}'; did you mean '-- @{known}'? The line was kept as a plain comment and had no effect.";
-                    break;
-                }
-            }
+            // No word is one edit from two known names, so the match is unique.
+            var known = Array.Find(KnownDirectives, k => IsOneEditAway(word, k));
+            if (known != null)
+                message = $"unrecognized directive '-- @{word}'; did you mean '-- @{known}'? The line was kept as a plain comment and had no effect.";
         }
 
         if (message == null)
             return;
         directives.SuspiciousDirectives ??= new List<string>();
         directives.SuspiciousDirectives.Add(message);
+    }
+
+    /// <summary>
+    /// End of the directive name in a comment body that starts with '@': the
+    /// letters after it, plus '-' after the first letter (spec 015), so
+    /// "@allow-unindexed" is one name and "@-x" has none. Returns 1 when no
+    /// name follows the '@'.
+    /// </summary>
+    private static int NameEnd(string commentBody)
+    {
+        int end = 1;
+        while (end < commentBody.Length
+            && (char.IsLetter(commentBody[end]) || (commentBody[end] == '-' && end > 1)))
+            end++;
+        return end;
     }
 
     /// <summary>
@@ -472,7 +482,7 @@ public static class DirectiveParser
         if (a.Length == b.Length)
         {
             // One substitution, or one adjacent transposition.
-            int firstDiff = -1, diffs = 0;
+            int firstDiff = 0, diffs = 0;
             for (int i = 0; i < a.Length; i++)
             {
                 if (a[i] != b[i])
@@ -483,20 +493,33 @@ public static class DirectiveParser
                 }
             }
             if (diffs == 1) return true;
-            return diffs == 2 && firstDiff + 1 < a.Length
-                && a[firstDiff] == b[firstDiff + 1] && a[firstDiff + 1] == b[firstDiff]
-                && (firstDiff + 2 >= a.Length || string.CompareOrdinal(a, firstDiff + 2, b, firstDiff + 2, a.Length - firstDiff - 2) == 0);
+            // Exactly two differences, the second after firstDiff. The crossed
+            // checks can only both hold for the pair at firstDiff and
+            // firstDiff + 1 (were firstDiff + 1 equal, they would make
+            // a[firstDiff] equal b[firstDiff]), so the rest already matches.
+            return a[firstDiff] == b[firstDiff + 1] && a[firstDiff + 1] == b[firstDiff];
         }
 
         // One insertion/deletion: lengths differ by 1; the longer must equal
         // the shorter with exactly one char skipped.
-        string longer = a.Length > b.Length ? a : b;
-        string shorter = a.Length > b.Length ? b : a;
-        if (longer.Length - shorter.Length != 1)
-            return false;
+        if (a.Length - b.Length == 1)
+            return IsOneInsertionAway(a, b);
+        if (b.Length - a.Length == 1)
+            return IsOneInsertionAway(b, a);
+        return false;
+    }
+
+    /// <summary>
+    /// True when <paramref name="longer"/>, one character longer, is
+    /// <paramref name="shorter"/> with one character inserted.
+    /// </summary>
+    private static bool IsOneInsertionAway(string longer, string shorter)
+    {
+        // li never passes si + 1, so li is inside longer whenever si is
+        // inside shorter.
         int li = 0, si = 0;
         bool skipped = false;
-        while (li < longer.Length && si < shorter.Length)
+        while (si < shorter.Length)
         {
             if (longer[li] == shorter[si]) { li++; si++; continue; }
             if (skipped) return false;

@@ -17,14 +17,14 @@ public static partial class CodeEmitter
     // NpgsqlParameter<T>.
 
     private static (string Modifier, string AsyncModifier, string Ret, string Name, string ParamList)
-        BulkInsertSignature(string rowType, bool isStatic, bool isAsync, DatabaseSchema? schema = null)
+        BulkInsertSignature(string rowType, bool isStatic, bool isAsync, DatabaseSchema? schema = null, bool scoped = false)
     {
         string taskType = TypeRef(schema, "Task", "System.Threading.Tasks");
         string enumerableType = TypeRef(schema, "IEnumerable", "System.Collections.Generic");
-        string modifier = isStatic ? "public static" : "public";
+        string modifier = BulkInsertModifier(isStatic, scoped);
         string asyncModifier = isAsync ? " async" : "";
         string ret = isAsync ? $"{taskType}<int>" : "int";
-        string name = isAsync ? "BulkInsertAsync" : "BulkInsert";
+        string name = BulkInsertName(isAsync, scoped);
         string rowsParam = $"{enumerableType}<{rowType}> rows";
         // Static variants take an optional trailing DbTransaction so the copy
         // can participate in a caller-managed unit of work (instance variants
@@ -39,6 +39,14 @@ public static partial class CodeEmitter
         return (modifier, asyncModifier, ret, name, paramList);
     }
 
+    // Spec 021: on a scoped table the body is private and renamed, and only
+    // the wrappers EmitBulkInsert adds, which take the scope value, are public.
+    private static string BulkInsertModifier(bool isStatic, bool scoped) =>
+        (scoped ? "private" : "public") + (isStatic ? " static" : "");
+
+    private static string BulkInsertName(bool isAsync, bool scoped) =>
+        (scoped ? "__BulkInsertUnscoped" : "BulkInsert") + (isAsync ? "Async" : "");
+
     /// <summary>
     /// PostgreSQL fast path: Npgsql binary COPY. Writes each row's columns
     /// directly to an NpgsqlBinaryImporter in table-column order — no
@@ -49,9 +57,9 @@ public static partial class CodeEmitter
     private static void EmitBulkInsertBodyPostgres(
         System.Text.StringBuilder sb, string rowType, string tableName,
         System.Collections.Generic.List<ColumnSchema> cols,
-        string connVar, bool isStatic, bool isAsync, string dialect, DatabaseSchema? schema = null)
+        string connVar, bool isStatic, bool isAsync, string dialect, DatabaseSchema? schema = null, bool scoped = false)
     {
-        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync, schema);
+        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync, schema, scoped);
         string npgsqlConnectionType = TypeRef(schema, "NpgsqlConnection", "Npgsql");
         string npgsqlBinaryImporterType = TypeRef(schema, "NpgsqlBinaryImporter", "Npgsql");
         string colList = JoinColumns(cols, ", ", c => c.Name);
@@ -127,6 +135,7 @@ public static partial class CodeEmitter
                 // nullable value type, unwrap to the underlying value so the
                 // importer's generic Write<T> sees the concrete T (e.g. int),
                 // not Nullable<int>.
+                // Stryker disable once String : with "" every type passes EndsWith, but a type with no trailing '?' then has its last letter cut off, and no value type name minus its last letter is a value type
                 bool nullableValueType = ct.EndsWith("?") && IsNonNullableValueType(ct.Substring(0, ct.Length - 1), schema);
                 string writeExpr = nullableValueType ? $"row.{prop}.Value" : $"row.{prop}";
                 sb.AppendLine($"                        if (row.{prop} is null)");
@@ -158,9 +167,9 @@ public static partial class CodeEmitter
     private static void EmitBulkInsertBodySqlServer(
         System.Text.StringBuilder sb, string rowType, string tableName,
         System.Collections.Generic.List<ColumnSchema> cols,
-        string connVar, bool isStatic, bool isAsync, DatabaseSchema? schema = null)
+        string connVar, bool isStatic, bool isAsync, DatabaseSchema? schema = null, bool scoped = false)
     {
-        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync, schema);
+        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync, schema, scoped);
         string readerType = $"__{rowType}BulkReader";
         string sqlTransactionType = TypeRef(schema, "SqlTransaction", "Microsoft.Data.SqlClient");
         string sqlBulkCopyType = TypeRef(schema, "SqlBulkCopy", "Microsoft.Data.SqlClient");
@@ -212,9 +221,9 @@ public static partial class CodeEmitter
     private static void EmitBulkInsertBodyMySql(
         System.Text.StringBuilder sb, string rowType, string tableName,
         System.Collections.Generic.List<ColumnSchema> cols,
-        string connVar, bool isStatic, bool isAsync, DatabaseSchema? schema = null)
+        string connVar, bool isStatic, bool isAsync, DatabaseSchema? schema = null, bool scoped = false)
     {
-        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync, schema);
+        var (modifier, asyncModifier, ret, name, paramList) = BulkInsertSignature(rowType, isStatic, isAsync, schema, scoped);
         string readerType = $"__{rowType}BulkReader";
         string listType = TypeRef(schema, "List", "System.Collections.Generic");
         // AUD-R50-03 (residual): these BCL names appear as bare literals in the
@@ -296,6 +305,49 @@ public static partial class CodeEmitter
         sb.AppendLine("                }");
         sb.AppendLine("                return __reader.RowsRead;");
         EmitFinallyClose(sb, connVar, isAsync);
+        sb.AppendLine("        }");
+    }
+
+    /// <summary>
+    /// Spec 021: the public BulkInsert overloads of a scoped table. Each takes
+    /// the scope value before the rows and sets it on every row as the row is
+    /// read, so no row reaches the database under a scope the caller did not
+    /// pass.
+    /// </summary>
+    private static void EmitScopedBulkInsertWrappers(
+        System.Text.StringBuilder sb, string rowType,
+        System.Collections.Generic.List<ColumnSchema> scopeCols, string dialect, DatabaseSchema? schema)
+    {
+        string taskType = TypeRef(schema, "Task", "System.Threading.Tasks");
+        string enumerableType = TypeRef(schema, "IEnumerable", "System.Collections.Generic");
+        string rowsType = $"{enumerableType}<{rowType}>";
+        string ScopeName(ColumnSchema c) => IdentifierGuard.Escape(c.Name);
+        // A scope parameter is named after its column; ours gives way on a
+        // collision, as in EmitPocoOverloads.
+        string Own(string name) => scopeCols.Exists(c => ScopeName(c) == name) ? "__" + name : name;
+        string connName = Own("conn");
+        string rowsName = Own("rows");
+        string rowLocal = Own("row");
+        string txName = Own("transaction");
+        string tokenName = Own("cancellationToken");
+        string scopeParams = JoinColumns(scopeCols, "", c =>
+            $"{ShortenValueTypeName(schema, DialectMapper.MapColumnToCSharp(c, dialect, schema))} {ScopeName(c)}, ");
+        string scopedRows = $"__ScopeRows({rowsName}, {JoinColumns(scopeCols, ", ", ScopeName)})";
+
+        sb.AppendLine();
+        sb.AppendLine($"        public int BulkInsert({scopeParams}{rowsType} {rowsName}) => __BulkInsertUnscoped({scopedRows});");
+        sb.AppendLine($"        public static int BulkInsert(DbConnection {connName}, {scopeParams}{rowsType} {rowsName}, DbTransaction? {txName} = null) => __BulkInsertUnscoped({connName}, {scopedRows}, {txName});");
+        sb.AppendLine($"        public {taskType}<int> BulkInsertAsync({scopeParams}{rowsType} {rowsName}, CancellationToken {tokenName} = default) => __BulkInsertUnscopedAsync({scopedRows}, {tokenName});");
+        sb.AppendLine($"        public static {taskType}<int> BulkInsertAsync(DbConnection {connName}, {scopeParams}{rowsType} {rowsName}, DbTransaction? {txName} = null, CancellationToken {tokenName} = default) => __BulkInsertUnscopedAsync({connName}, {scopedRows}, {txName}, {tokenName});");
+        sb.AppendLine();
+        sb.AppendLine($"        private static {rowsType} __ScopeRows({rowsType} {rowsName}, {scopeParams.TrimEnd(',', ' ')})");
+        sb.AppendLine("        {");
+        sb.AppendLine($"            foreach (var {rowLocal} in {rowsName})");
+        sb.AppendLine("            {");
+        foreach (var c in scopeCols)
+            sb.AppendLine($"                {rowLocal}.{IdentifierGuard.Escape(DialectMapper.ToPascalCase(c.Name))} = {ScopeName(c)};");
+        sb.AppendLine($"                yield return {rowLocal};");
+        sb.AppendLine("            }");
         sb.AppendLine("        }");
     }
 
@@ -420,11 +472,13 @@ public static partial class CodeEmitter
         sb.AppendLine("            public override bool GetBoolean(int ordinal) => (bool)GetValue(ordinal);");
         sb.AppendLine("            public override byte GetByte(int ordinal) => (byte)GetValue(ordinal);");
         sb.AppendLine("            public override char GetChar(int ordinal) => (char)GetValue(ordinal);");
-        sb.AppendLine("            public override DateTime GetDateTime(int ordinal) => (DateTime)GetValue(ordinal);");
+        string dateTimeType = TypeRef(schema, "DateTime", "System");
+        sb.AppendLine($"            public override {dateTimeType} GetDateTime(int ordinal) => ({dateTimeType})GetValue(ordinal);");
         sb.AppendLine("            public override decimal GetDecimal(int ordinal) => (decimal)GetValue(ordinal);");
         sb.AppendLine("            public override double GetDouble(int ordinal) => (double)GetValue(ordinal);");
         sb.AppendLine("            public override float GetFloat(int ordinal) => (float)GetValue(ordinal);");
-        sb.AppendLine("            public override Guid GetGuid(int ordinal) => (Guid)GetValue(ordinal);");
+        string guidType = TypeRef(schema, "Guid", "System");
+        sb.AppendLine($"            public override {guidType} GetGuid(int ordinal) => ({guidType})GetValue(ordinal);");
         sb.AppendLine("            public override short GetInt16(int ordinal) => (short)GetValue(ordinal);");
         sb.AppendLine("            public override int GetInt32(int ordinal) => (int)GetValue(ordinal);");
         sb.AppendLine("            public override long GetInt64(int ordinal) => (long)GetValue(ordinal);");

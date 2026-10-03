@@ -235,7 +235,7 @@ public static partial class CodeEmitter
         sb.AppendLine("                __cmd.CommandType = CommandType.StoredProcedure;");
 
         // Bind parameters. Track OUT/INOUT parameter variable names for readback.
-        var outReadback = new System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType, bool Nullable)>();
+        var outReadback = new System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType)>();
         int idx = 0;
         foreach (var p in procedure.Params)
         {
@@ -270,7 +270,7 @@ public static partial class CodeEmitter
                         sb.AppendLine($"                {varName}.Precision = {prec};");
                     if (p.Scale is int scl)
                         sb.AppendLine($"                {varName}.Scale = {scl};");
-                    outReadback.Add((varName, pname, ct, p.IsNullable || !IsNonNullableValueType(ct)));
+                    outReadback.Add((varName, pname, ct));
                     break;
                 case Extrode.JauntyQ.Schema.ProcedureParamDirection.InOut:
                     sb.AppendLine($"                {varName}.Direction = ParameterDirection.InputOutput;");
@@ -283,7 +283,7 @@ public static partial class CodeEmitter
                     sb.AppendLine(IsNonNullableValueType(ct)
                         ? $"                {varName}.Value = {pname};"
                         : $"                {varName}.Value = (object?){pname} ?? DBNull.Value;");
-                    outReadback.Add((varName, pname, ct, p.IsNullable || !IsNonNullableValueType(ct)));
+                    outReadback.Add((varName, pname, ct));
                     break;
                 case Extrode.JauntyQ.Schema.ProcedureParamDirection.ReturnValue:
                     // A procedure's return status carries no value inward and
@@ -292,7 +292,7 @@ public static partial class CodeEmitter
                     // direction and nothing more. Everything after it is the
                     // same readback OUT gets.
                     sb.AppendLine($"                {varName}.Direction = ParameterDirection.ReturnValue;");
-                    outReadback.Add((varName, pname, ct, p.IsNullable || !IsNonNullableValueType(ct)));
+                    outReadback.Add((varName, pname, ct));
                     break;
                 default:
                     sb.AppendLine(IsNonNullableValueType(ct)
@@ -416,13 +416,13 @@ public static partial class CodeEmitter
     /// </summary>
     private static System.Collections.Generic.List<string> EmitProcOutReadback(
         System.Text.StringBuilder sb,
-        System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType, bool Nullable)> outParams,
+        System.Collections.Generic.List<(string ParamVar, string CSharpName, string CSharpType)> outParams,
         string indent,
         bool declareLocals,
         DatabaseSchema? schema = null)
     {
         var targetNames = new System.Collections.Generic.List<string>();
-        foreach (var (paramVar, csName, rawCsType, nullable) in outParams)
+        foreach (var (paramVar, csName, rawCsType) in outParams)
         {
             string csType = ShortenValueTypeName(schema, rawCsType);
             string baseType = csType.EndsWith("?") ? csType.Substring(0, csType.Length - 1) : csType;
@@ -453,7 +453,7 @@ public static partial class CodeEmitter
             // keeps the double-underscore collision-safety argument intact
             // (the result still starts with "__", which no schema-derived
             // name can ever produce).
-            string bareCsName = csName.Length > 0 && csName[0] == '@' ? csName.Substring(1) : csName;
+            string bareCsName = csName.TrimStart('@');
             string target = declareLocals ? $"__{bareCsName}Out" : csName;
             string declKeyword = declareLocals ? $"{csType} " : "";
             // DBNull -> default; otherwise unbox to the declared type.
@@ -482,9 +482,11 @@ public static partial class CodeEmitter
     /// columns are database-assigned and excluded. Returns the number of rows
     /// inserted.
     /// </summary>
-    public static string EmitBulkInsert(string entityName, string rowType, TableSchema tableSchema, string dialect, DatabaseSchema? schema = null)
+    public static string EmitBulkInsert(string entityName, string rowType, TableSchema tableSchema, string dialect, DatabaseSchema? schema = null,
+        List<ColumnSchema>? scopeCols = null)
     {
         var cols = CrudColumnRules.InsertableColumns(tableSchema.Columns.Values);
+        bool scoped = scopeCols is { Count: > 0 };
 
         bool isPostgres = string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase);
         bool isSqlServer = string.Equals(dialect, "sqlserver", StringComparison.OrdinalIgnoreCase);
@@ -515,13 +517,13 @@ public static partial class CodeEmitter
         void EmitOne(string connVar, bool isStatic, bool isAsync)
         {
             if (isPostgres)
-                EmitBulkInsertBodyPostgres(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect, schema);
+                EmitBulkInsertBodyPostgres(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect, schema, scoped);
             else if (isSqlServer)
-                EmitBulkInsertBodySqlServer(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, schema);
+                EmitBulkInsertBodySqlServer(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, schema, scoped);
             else if (isMySql)
-                EmitBulkInsertBodyMySql(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, schema);
+                EmitBulkInsertBodyMySql(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, schema, scoped);
             else
-                EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect, schema);
+                EmitBulkInsertBody(sb, rowType, tableSchema.Name, cols, connVar, isStatic, isAsync, dialect, schema, scoped);
         }
 
         EmitOne("_conn", isStatic: false, isAsync: false);
@@ -531,6 +533,9 @@ public static partial class CodeEmitter
         EmitOne("_conn", isStatic: false, isAsync: true);
         sb.AppendLine();
         EmitOne("conn", isStatic: true, isAsync: true);
+
+        if (scoped)
+            EmitScopedBulkInsertWrappers(sb, rowType, scopeCols!, dialect, schema);
 
         // The SqlBulkCopy / MySqlBulkCopy paths write columns through an
         // IDataReader; emit the shared AOT-safe adapter exactly once.

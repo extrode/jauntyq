@@ -16,10 +16,22 @@ public static partial class SqlParser
     /// "lateral" — the exact "JNT2001 points at your schema for a table the
     /// parser invented" failure 015 set out to remove. Guarding one position
     /// made the fix depend on where the consumer happened to write it.
+    ///
+    /// LATERAL is reserved on postgres and mysql but not on sqlserver or
+    /// sqlite, where a table may be named "lateral". Only a LATERAL that
+    /// introduces something, a derived table <c>(...)</c> or a function call
+    /// <c>f(...)</c>, is the keyword; a bare one is a table name.
     /// </summary>
-    private static bool IsLateralKeyword(Token token) =>
-        token.Type == TokenType.Identifier &&
-        string.Equals(token.Value, "LATERAL", StringComparison.OrdinalIgnoreCase);
+    private static bool IsLateralKeyword(List<Token> tokens, int pos)
+    {
+        if (tokens[pos].Type != TokenType.Identifier ||
+            !string.Equals(tokens[pos].Value, "LATERAL", StringComparison.OrdinalIgnoreCase))
+            return false;
+        int next = pos + 1;
+        if (next < tokens.Count && tokens[next].Type == TokenType.Identifier)
+            next++;
+        return next < tokens.Count && tokens[next].Type == TokenType.Symbol && tokens[next].Value == "(";
+    }
 
     /// <summary>
     /// NATURAL is not a tokenizer keyword, so in "FROM t NATURAL JOIN u" it
@@ -49,7 +61,7 @@ public static partial class SqlParser
         // one from model.Tables, breaking any qualified reference to it.
         while (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier)
         {
-            if (IsLateralKeyword(tokens[pos]))
+            if (IsLateralKeyword(tokens, pos))
                 return RecordUnmodeledRelation("LATERAL", pos, model);
 
             string tableName = StripQualifier(tokens[pos].Value);
@@ -118,7 +130,7 @@ public static partial class SqlParser
         // derived table that follows LATERAL also raises SUBQUERY, and a
         // consumer reading "unsupported subquery" for a join form learns the
         // wrong thing about what to change.
-        if (pos < tokens.Count && IsLateralKeyword(tokens[pos]))
+        if (pos < tokens.Count && IsLateralKeyword(tokens, pos))
             return RecordUnmodeledRelation("LATERAL", pos, model);
 
         // T-SQL's CROSS APPLY / OUTER APPLY is the same construct under
@@ -170,12 +182,14 @@ public static partial class SqlParser
                 }
             }
 
-            model.Tables.Add(new TableRef { TableName = tableName, Alias = alias, Join = joinKind });
+            var joined = new TableRef { TableName = tableName, Alias = alias, Join = joinKind };
+            model.Tables.Add(joined);
 
             // Parse ON condition
             if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "ON")
             {
                 pos++; // skip ON
+                SplitIntoAtoms(tokens, pos, FindOnClauseEnd(tokens, pos), joined.OnAtoms);
                 pos = ParseJoinCondition(tokens, pos, model);
             }
             else if (pos < tokens.Count && tokens[pos].Type == TokenType.Identifier &&
@@ -228,6 +242,51 @@ public static partial class SqlParser
 
         return pos;
     }
+
+    /// <summary>
+    /// The index one past the last token of the ON clause starting at
+    /// <paramref name="pos"/>: the next depth-0 keyword that begins another
+    /// join or clause, or a depth-0 comma or semicolon. Without one the clause
+    /// runs to the end, where <see cref="SplitIntoAtoms"/> stops at the End
+    /// sentinel. <c>left(...)</c> and <c>right(...)</c> are the string
+    /// functions, not joins.
+    /// </summary>
+    private static int FindOnClauseEnd(List<Token> tokens, int pos)
+    {
+        int depth = 0;
+        for (int i = pos; i < tokens.Count; i++)
+        {
+            var t = tokens[i];
+            if (t.Type == TokenType.Symbol)
+            {
+                if (t.Value == "(")
+                    depth++;
+                else if (t.Value == ")")
+                    depth--;
+                else if (depth == 0 && (t.Value == "," || t.Value == ";"))
+                    return i;
+                continue;
+            }
+            if (depth != 0)
+                continue;
+            if (t.Type == TokenType.Keyword && OnClauseTerminators.Contains(t.Value) && !IsFunctionCall(tokens, i))
+                return i;
+            if (IsNaturalKeyword(t))
+                return i;
+        }
+        return tokens.Count;
+    }
+
+    private static bool IsFunctionCall(List<Token> tokens, int i) =>
+        (tokens[i].Value == "LEFT" || tokens[i].Value == "RIGHT")
+        && i + 1 < tokens.Count && tokens[i + 1].Type == TokenType.Symbol && tokens[i + 1].Value == "(";
+
+    private static readonly HashSet<string> OnClauseTerminators = new(StringComparer.Ordinal)
+    {
+        "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "CROSS", "FULL",
+        "WHERE", "GROUP", "ORDER", "HAVING", "LIMIT", "OFFSET",
+        "UNION", "INTERSECT", "EXCEPT", "RETURNING", "SET",
+    };
 
     private static int ParseJoinCondition(List<Token> tokens, int pos, QueryModel model)
     {

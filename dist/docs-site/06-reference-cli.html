@@ -119,14 +119,14 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Guides</span>
   </div>
-  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  <a href="03-guides-tenant-scoping.html">Tenant scoping</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="06-reference-readme.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html" class="active" aria-current="page">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-mutation-coverage-report.html">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</a>  <a href="06-reference-mutation-coverage-tally.html">Mutation coverage tally vs. target</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+  <div class="nav-group-items">  <a href="06-reference-readme.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html" class="active" aria-current="page">CLI reference: jauntyq</a>  <a href="06-reference-code-coverage.html">Code coverage</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html">Directives reference</a>  <a href="06-reference-migration-tracking-contract.html">Migration tracking contract</a>  <a href="06-reference-mutation-coverage-report.html">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</a>  <a href="06-reference-mutation-coverage-tally.html">Mutation coverage tally vs. target</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -142,7 +142,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#two-packages-one-command">Two packages, one command</a><a class="toc-l2" href="#synopsis">Synopsis</a><a class="toc-l2" href="#commands">Commands</a><a class="toc-l3" href="#schema-pull">schema pull</a><a class="toc-l3" href="#schema-verify">schema verify</a><a class="toc-l3" href="#usage-export">usage export</a><a class="toc-l3" href="#migrate-impact">migrate impact</a><a class="toc-l3" href="#explain">explain</a><a class="toc-l3" href="#registry-resolve--dependents--validate--list">registry resolve / dependents / validate / list</a><a class="toc-l3" href="#activate">activate</a><a class="toc-l3" href="#license-status--license-deactivate">license status / license deactivate</a><a class="toc-l3" href="#license-and-entitlements">License and entitlements</a><a class="toc-l2" href="#options">Options</a><a class="toc-l3" href="#--output-constraints">--output constraints</a><a class="toc-l2" href="#providers">Providers</a><a class="toc-l2" href="#environment-variables">Environment variables</a><a class="toc-l2" href="#exit-codes">Exit codes</a><a class="toc-l2" href="#examples">Examples</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#two-packages-one-command">Two packages, one command</a><a class="toc-l2" href="#synopsis">Synopsis</a><a class="toc-l2" href="#commands">Commands</a><a class="toc-l3" href="#schema-pull">schema pull</a><a class="toc-l3" href="#schema-verify">schema verify</a><a class="toc-l3" href="#usage-export">usage export</a><a class="toc-l3" href="#migrate-status">migrate status</a><a class="toc-l3" href="#migrate-impact">migrate impact</a><a class="toc-l3" href="#explain">explain</a><a class="toc-l3" href="#registry-resolve--dependents--validate--list">registry resolve / dependents / validate / list</a><a class="toc-l3" href="#activate">activate</a><a class="toc-l3" href="#license-status--license-deactivate">license status / license deactivate</a><a class="toc-l3" href="#license-and-entitlements">License and entitlements</a><a class="toc-l2" href="#options">Options</a><a class="toc-l3" href="#--output-constraints">--output constraints</a><a class="toc-l2" href="#providers">Providers</a><a class="toc-l2" href="#environment-variables">Environment variables</a><a class="toc-l2" href="#exit-codes">Exit codes</a><a class="toc-l2" href="#examples">Examples</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; CLI reference: `jauntyq`</nav>
         <article>
@@ -150,9 +150,10 @@
 <p>The <code>jauntyq</code> command-line tool extracts a database schema into a committed
 <code>.schema.json</code> snapshot (<code>schema pull</code>), checks a snapshot against a live
 database (<code>schema verify</code>), reports the blast radius of a pending migration
-set offline (<code>migrate impact</code>), and runs the query corpus through the
+set offline (<code>migrate impact</code>), reports which migrations a database has
+applied (<code>migrate status</code>), and runs the query corpus through the
 database's estimate-only EXPLAIN (<code>explain</code>). The generator itself never
-connects to a database; only <code>schema pull</code>/<code>schema verify</code>/<code>explain</code> do, <code>migrate impact</code> and <code>registry</code> are fully offline.</p>
+connects to a database; only <code>schema pull</code>/<code>schema verify</code>/<code>migrate status</code>/<code>explain</code> do, <code>migrate impact</code> and <code>registry</code> are fully offline. Every connecting verb only reads.</p>
 <h2 id="two-packages-one-command">Two packages, one command</h2>
 <table>
 <thead>
@@ -167,7 +168,7 @@ connects to a database; only <code>schema pull</code>/<code>schema verify</code>
 <tr>
 <td><code>Extrode.JauntyQ.Cli</code></td>
 <td>NuGet.org</td>
-<td><code>schema pull</code></td>
+<td><code>schema pull</code>, <code>migrate status</code></td>
 <td><code>dotnet tool install --global Extrode.JauntyQ.Cli</code></td>
 </tr>
 <tr>
@@ -179,8 +180,8 @@ connects to a database; only <code>schema pull</code>/<code>schema verify</code>
 </tbody>
 </table>
 <p>Both install the same command, <code>jauntyq</code>. The premium package replaces the
-free one; never install both. <code>schema pull</code> is implemented once, in the shared
-<code>Extrode.JauntyQ.Cli.Core</code> library, so it behaves identically in either. A premium verb
+free one; never install both. <code>schema pull</code> and <code>migrate status</code> are implemented once, in the shared
+<code>Extrode.JauntyQ.Cli.Core</code> library, so they behave identically in either. A premium verb
 typed at the free tool exits <code>3</code> and prints the install line; it never reads
 its inputs.</p>
 <p>In this repository the free tool runs via <code>dotnet run</code>:</p>
@@ -204,6 +205,7 @@ built elsewhere; there is no project here to run them from.</p>
   <pre data-lang="text"><code class="language-text">jauntyq schema pull    --provider &lt;provider&gt; (--connection-env &lt;VAR&gt; | --connection &lt;connstr&gt;) [--output &lt;path&gt;]
 jauntyq schema verify  --provider &lt;provider&gt; (--connection-env &lt;VAR&gt; | --connection &lt;connstr&gt;) [--output &lt;snapshot-path&gt;] [--format text|json] [--fail-on any|breaking] [--service &lt;id&gt; [--registry &lt;path&gt;]] [--usage &lt;path&gt;]
 jauntyq usage export   [--queries &lt;dir&gt;] [--snapshot &lt;path&gt;] [--output &lt;file&gt;] [--no-auto-crud]
+jauntyq migrate status --provider &lt;provider&gt; (--connection-env &lt;VAR&gt; | --connection &lt;connstr&gt;) [--migrations &lt;dir&gt;] [--fail-on pending]
 jauntyq migrate impact [--snapshot &lt;path&gt;] [--migrations &lt;dir&gt;] [--queries &lt;dir&gt;] [--format text|json] [--fail-on breaking|risky] [--fail-on-warnings]
 jauntyq explain        --provider &lt;provider&gt; [--connection-env &lt;VAR&gt; | --connection &lt;connstr&gt;] [--queries &lt;dir&gt;] [--max &lt;n&gt;] [--format text|json] [--fail-on high|informational] [--cache-dir &lt;dir&gt;]
 jauntyq registry resolve    --schema &lt;id&gt; [--registry &lt;path&gt;] [--format text|json]
@@ -216,7 +218,7 @@ jauntyq license deactivate
 </code></pre>
 </div>
 <p>Top-level commands are <code>schema</code> (subcommands <code>pull</code>, <code>verify</code>), <code>usage</code>
-(subcommand <code>export</code>), <code>migrate</code> (subcommand <code>impact</code>), <code>explain</code>, <code>registry</code>
+(subcommand <code>export</code>), <code>migrate</code> (subcommands <code>status</code>, <code>impact</code>), <code>explain</code>, <code>registry</code>
 (subcommands <code>resolve</code>, <code>dependents</code>, <code>validate</code>, <code>list</code>), <code>activate</code>, and
 <code>license</code> (subcommands <code>status</code>, <code>deactivate</code>).</p>
 <p><strong>Premium gating.</strong> <code>migrate impact</code>, <code>schema verify</code>, <code>explain</code>, <code>registry</code>
@@ -225,7 +227,7 @@ entitling license and otherwise exit <code>3</code> without doing the work;
 <code>schema verify --service</code> requires a further, separate entitlement on top of
 base <code>schema verify</code> (see
 <a href="#license-and-entitlements">License and entitlements</a>). <code>schema pull</code>,
-<code>activate</code>, <code>license</code>, and the core source generator are never gated.</p>
+<code>migrate status</code>, <code>activate</code>, <code>license</code>, and the core source generator are never gated.</p>
 <p>Being <strong>offline</strong> and being <strong>ungated</strong> are independent: <code>migrate impact</code>,
 <code>registry</code> and <code>usage export</code> need no database connection and are still gated.</p>
 <h2 id="commands">Commands</h2>
@@ -399,6 +401,71 @@ listing each one).</p>
 <span class="tok-punc">}</span>
 </code></pre>
 </div>
+<h3 id="migrate-status"><code>migrate status</code></h3>
+<p>Reads the <code>schema_migrations</code> table your migration runner keeps and compares it
+with the <code>*.sql</code> files in <code>--migrations</code>, using the table shape and file order
+in the <a href="06-reference-migration-tracking-contract.html">migration tracking contract</a>. Read-only:
+it never creates the table or writes a row. Free in both tools.</p>
+<p>It prints three groups, each only when it is non-empty:</p>
+<ul>
+<li><strong>Pending</strong>, files with no row, in the order a runner must apply them.</li>
+<li><strong>Applied but still present</strong>, files that already have a row. The build
+applies every file in the folder on top of the snapshot, so a deployed
+migration left there is applied twice. Re-pull the snapshot, then move it out.</li>
+<li><strong>Out of order</strong>, pending files that sort before the latest applied
+migration. A runner applies them after migrations they come before, so the
+database is built in a different order from the one the build simulates.</li>
+</ul>
+<p>A database with no <code>schema_migrations</code> table (or view) is reported as having
+nothing applied, not as an error. A row whose <code>version</code> is not a file name
+ending in <code>.sql</code> is an error (exit <code>1</code>): dbmate and golang-migrate keep a table
+with the same name that holds version numbers, which this contract does not
+cover. A MySQL connection string must name a database. A SQLite database is
+opened read-only, so a mistyped path fails instead of creating an empty file.
+Connection flags resolve the same way as for <code>schema pull</code> (see
+<a href="#options">Options</a>).</p>
+<p><strong>Options</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--provider &lt;provider&gt;</code></td>
+<td>,</td>
+<td>Database provider, as for <code>schema pull</code>. Required.</td>
+</tr>
+<tr>
+<td><code>--connection-env &lt;VAR&gt;</code></td>
+<td>,</td>
+<td>Environment variable holding the connection string. Preferred.</td>
+</tr>
+<tr>
+<td><code>--connection &lt;connstr&gt;</code></td>
+<td>,</td>
+<td>Inline connection string. Avoid.</td>
+</tr>
+<tr>
+<td><code>--migrations &lt;dir&gt;</code></td>
+<td><code>db/migrations</code></td>
+<td>Directory of migration files. Every <code>.sql</code> file under it counts, in any subfolder and whatever the extension's case, matching what the build applies.</td>
+</tr>
+<tr>
+<td><code>--fail-on pending</code></td>
+<td>off</td>
+<td>Also exit <code>2</code> when any file is pending, for a deploy gate.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Exit <code>0</code>, no drift (pending files alone do not fail without <code>--fail-on pending</code>).</li>
+<li>Exit <code>2</code>, an applied file is still present, a pending file is out of order, or <code>--fail-on pending</code> is set and a file is pending.</li>
+<li>Exit <code>1</code>, usage error, a missing <code>--migrations</code> directory, or a connection failure.</li>
+</ul>
 <h3 id="migrate-impact"><code>migrate impact</code></h3>
 <p>Reports how a pending <code>db/migrations/*.sql</code> set affects your queries, fully
 offline (snapshot + migration files + query files; no database connection). Each
@@ -813,7 +880,7 @@ emits, so <code>--provider mariadb</code> maps to the <code>mysql</code> dialect
 <tbody>
 <tr>
 <td><code>0</code></td>
-<td>Success. <code>pull</code>: snapshot written. <code>verify</code>: snapshot matches (with <code>--usage</code>, this includes runs whose only drift was downgraded to informational). <code>usage export</code>: manifest written. <code>activate</code>/<code>license</code>: completed.</td>
+<td>Success. <code>pull</code>: snapshot written. <code>verify</code>: snapshot matches (with <code>--usage</code>, this includes runs whose only drift was downgraded to informational). <code>usage export</code>: manifest written. <code>migrate status</code>: no drift. <code>activate</code>/<code>license</code>: completed.</td>
 </tr>
 <tr>
 <td><code>1</code></td>
@@ -821,7 +888,7 @@ emits, so <code>--provider mariadb</code> maps to the <code>mysql</code> dialect
 </tr>
 <tr>
 <td><code>2</code></td>
-<td><code>verify</code>: schema drift detected (differences listed on stderr). <code>migrate impact</code>: an entry at or above <code>--fail-on</code> exists, or <code>--fail-on-warnings</code> is set and the run warned. <code>explain</code>: a plan problem at or above <code>--fail-on</code> exists. <code>registry validate</code>: the registry has problems (each named on stderr).</td>
+<td><code>verify</code>: schema drift detected (differences listed on stderr). <code>migrate status</code>: drift, or a pending file under <code>--fail-on pending</code>. <code>migrate impact</code>: an entry at or above <code>--fail-on</code> exists, or <code>--fail-on-warnings</code> is set and the run warned. <code>explain</code>: a plan problem at or above <code>--fail-on</code> exists. <code>registry validate</code>: the registry has problems (each named on stderr).</td>
 </tr>
 <tr>
 <td><code>3</code></td>
@@ -852,6 +919,16 @@ emits, so <code>--provider mariadb</code> maps to the <code>mysql</code> dialect
 <span class="tok-com"># exit 0 = match, exit 2 = drift</span>
 </code></pre>
 </div>
+<p>Gate a deploy on migrations having been applied:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">jauntyq</span> migrate status <span class="tok-attr">--provider</span> postgres <span class="tok-attr">--connection-env</span> PROD_DB_CONN <span class="tok-attr">--fail-on</span> pending
+<span class="tok-com"># exit 0 = nothing pending, exit 2 = pending or drifted</span>
+</code></pre>
+</div>
 <p>Optional MSBuild wiring that verifies before every build when a connection is
 available (CI often has none, which is why the snapshot is committed):</p>
 <div class="code-block">
@@ -873,9 +950,9 @@ of the file this command writes.</p>
           <div class="prev-next"><a class="pn-prev" href="06-reference-api-overview.html">
   <span class="pn-label">&#8592; prev</span>
   <span class="pn-title">API reference overview</span>
-</a><a class="pn-next" href="06-reference-configuration.html">
+</a><a class="pn-next" href="06-reference-code-coverage.html">
   <span class="pn-label">next &#8594;</span>
-  <span class="pn-title">Configuration reference (MSBuild &amp; file conventions)</span>
+  <span class="pn-title">Code coverage</span>
 </a></div>
         </div>
       </div>

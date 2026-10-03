@@ -65,8 +65,8 @@ public static partial class SqlParser
             var bodyTokens = new List<Token>();
             for (int i = bodyOpen + 1; i < bodyClose; i++)
                 bodyTokens.Add(tokens[i]);
-            // Stryker disable once String : an End token's Value is never read anywhere downstream (every consumer of an End token checks only its Type) -- the placeholder text here is inert
-            bodyTokens.Add(new Token(TokenType.End, string.Empty));
+            // Stryker disable once Statement : every body-parser loop also stops at "pos < tokens.Count" and the Part3 scans are bounded to reach the last real token, so a body without the sentinel parses identically (an empty "AS ()" body included); kept so the sliced list matches the tokenizer's shape
+            bodyTokens.Add(Token.End);
 
             cte.Body = Parse(bodyTokens, model.Name + "_" + cte.Name);
             PopulateVirtualColumns(cte);
@@ -84,7 +84,9 @@ public static partial class SqlParser
                     existing.BoundTableAlias = p.BoundTableAlias;
                     existing.BoundColumnName = p.BoundColumnName;
                     existing.IsWriteTarget = p.IsWriteTarget;
+                    existing.IsUpsertAssignment = p.IsUpsertAssignment;
                     existing.ComparisonOp = p.ComparisonOp;
+                    existing.BoundScope = ScopeOf(p, cte.Body);
                 }
             }
 
@@ -146,6 +148,7 @@ public static partial class SqlParser
     {
         to.StatementType = from.StatementType;
         to.TargetTable = from.TargetTable;
+        to.TargetAlias = from.TargetAlias;
         to.Tables.AddRange(from.Tables);
         to.Columns.AddRange(from.Columns);
         to.Joins.AddRange(from.Joins);
@@ -159,6 +162,9 @@ public static partial class SqlParser
         to.HasGroupBy = from.HasGroupBy;
         to.ExpressionsMissingAlias.AddRange(from.ExpressionsMissingAlias);
         to.Subqueries.AddRange(from.Subqueries);
+        to.ExistsExpressions.AddRange(from.ExistsExpressions);
+        to.Upsert = from.Upsert;
+        to.UpsertAtoms.AddRange(from.UpsertAtoms);
 
         // Merge parameters (bindings resolved by the final statement's parse).
         foreach (var p in from.Parameters)
@@ -169,7 +175,9 @@ public static partial class SqlParser
                 existing.BoundTableAlias = p.BoundTableAlias;
                 existing.BoundColumnName = p.BoundColumnName;
                 existing.IsWriteTarget = p.IsWriteTarget;
+                    existing.IsUpsertAssignment = p.IsUpsertAssignment;
                 existing.ComparisonOp = p.ComparisonOp;
+                existing.BoundScope = p.BoundScope;
             }
         }
 

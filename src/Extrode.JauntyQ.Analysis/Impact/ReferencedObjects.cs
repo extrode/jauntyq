@@ -47,15 +47,23 @@ public sealed class ReferencedObjects
     /// every nested statement scope it carries — WHERE-clause predicate
     /// subqueries (<see cref="QueryModel.Subqueries"/>) and CTE bodies
     /// (<see cref="QueryModel.Ctes"/>) — each resolved against its own alias
-    /// map, not the outer statement's. Without this, a migration that only
+    /// map, not the outer statement's. A predicate subquery's map starts from
+    /// <paramref name="outerAliases"/>, the enclosing statement's, because a
+    /// correlated reference (<c>o.total</c> inside
+    /// <c>exists (select 1 from items i where ...)</c>) names an outer table;
+    /// the subquery's own tables shadow it. A CTE body cannot be correlated
+    /// and gets none. Without this, a migration that only
     /// touched a column referenced inside a subquery/CTE body, a WHERE/SET
     /// predicate, or an ORDER BY clause produced a false SAFE verdict: the
     /// query's dependency on that column was never recorded at all.
     /// </summary>
-    private static void ResolveInto(QueryModel model, HashSet<string> tables, HashSet<ReferencedColumn> columns)
+    private static void ResolveInto(QueryModel model, HashSet<string> tables, HashSet<ReferencedColumn> columns,
+        Dictionary<string, string>? outerAliases = null, List<string>? outerScope = null)
     {
         // alias -> real table name; also every real table name maps to itself.
-        var aliasToTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var aliasToTable = outerAliases == null
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(outerAliases, StringComparer.OrdinalIgnoreCase);
         var inScope = new List<string>();
         foreach (var t in model.Tables)
         {
@@ -86,8 +94,16 @@ public sealed class ReferencedObjects
                 return;
             }
             // Unqualified: attribute to every in-scope table (over-approximation).
+            // Inside a predicate subquery that includes the enclosing
+            // statement's tables, since an unqualified column the subquery's own
+            // tables lack is a correlated reference to one of them.
             foreach (var table in inScope)
                 columns.Add(new ReferencedColumn(table, column));
+            if (outerScope != null)
+            {
+                foreach (var table in outerScope)
+                    columns.Add(new ReferencedColumn(table, column));
+            }
         }
 
         foreach (var c in model.Columns)
@@ -125,8 +141,13 @@ public sealed class ReferencedObjects
         // WHERE-bound predicate parameters and literals, and SET/VALUES write
         // targets: a query that only compares/writes a column (never
         // projects, joins or returns it) still depends on that column's shape.
+        // A binding carried up from a subquery or CTE body is added when that
+        // scope is walked below, against its own tables.
         foreach (var p in model.Parameters)
-            AddColumn(p.BoundTableAlias, p.BoundColumnName);
+        {
+            if (p.BoundScope == null)
+                AddColumn(p.BoundTableAlias, p.BoundColumnName);
+        }
 
         foreach (var l in model.Literals)
             AddColumn(l.BoundTableAlias, l.BoundColumnName);
@@ -164,10 +185,21 @@ public sealed class ReferencedObjects
         // Nested statement scopes: each resolved against its own FROM/JOIN
         // tables, not this statement's aliasToTable/inScope.
         foreach (var sq in model.Subqueries)
-            ResolveInto(sq.Body, tables, columns);
+            ResolveInto(sq.Body, tables, columns, aliasToTable, Concat(inScope, outerScope));
+
+        foreach (var body in model.ExistsExpressions)
+            ResolveInto(body, tables, columns, aliasToTable, Concat(inScope, outerScope));
 
         foreach (var cte in model.Ctes)
             ResolveInto(cte.Body, tables, columns);
+    }
+
+    private static List<string> Concat(List<string> inner, List<string>? outer)
+    {
+        var all = new List<string>(inner);
+        if (outer != null)
+            all.AddRange(outer);
+        return all;
     }
 
     private sealed class ReferencedColumnComparer : IEqualityComparer<ReferencedColumn>

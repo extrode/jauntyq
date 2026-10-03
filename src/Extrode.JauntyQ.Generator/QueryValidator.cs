@@ -79,11 +79,9 @@ public static partial class QueryValidator
     /// whose columns are the mapped list. Errors are appended to <paramref name="errors"/>.
     /// </summary>
     private static void ValidateStatement(QueryModel query, DatabaseSchema schema,
-        Dictionary<string, List<string>>? virtualTables, List<ValidationError> errors,
+        Dictionary<string, List<string>> virtualTables, List<ValidationError> errors,
         bool isSubquery = false, Dictionary<string, string>? parentAliasToTable = null)
     {
-        virtualTables ??= EmptyScope;
-
         // JNT3001: Empty query (SELECT only — CRUD has no columns). A predicate
         // subquery produces no generated result type, so its projection shape is
         // never surfaced to the caller — skip the projection-shape diagnostics
@@ -325,8 +323,4 @@ public static partial class QueryValidator
         // JNT1001: Unsupported SQL constructs
         DetectUnsupportedConstructs(query, errors);
     }
-
-    private static readonly Dictionary<string, List<string>> EmptyScope =
-        new(StringComparer.OrdinalIgnoreCase);
-
 }

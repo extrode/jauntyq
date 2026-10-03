@@ -29,9 +29,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         var dirs = new System.Collections.Generic.List<string>();
         foreach (var path in paths)
         {
-            string dir = (System.IO.Path.GetDirectoryName(path) ?? "").Replace('\\', '/');
-            string grandparent = (System.IO.Path.GetDirectoryName(dir) ?? "").Replace('\\', '/');
-            dirs.Add(grandparent);
+            dirs.Add(DirOf(DirOf(path)));
         }
 
         // Filter to non-empty grandparents (files with entity subfolders).
@@ -46,7 +44,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         if (nonEmpty.Count == 0)
         {
             // ALL files are at most 1 folder deep — use the direct parent as root
-            string firstDir = (System.IO.Path.GetDirectoryName(paths[0]) ?? "").Replace('\\', '/');
+            string firstDir = DirOf(paths[0]);
             if (firstDir.Length > 0 && !firstDir.EndsWith("/"))
                 firstDir += "/";
             return firstDir;
@@ -83,8 +81,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 }
                 else
                 {
-                    string longer = prefix.Length > dir.Length ? prefix : dir;
-                    if (longer.Length > len && longer[len] == '/')
+                    // Lengths differ here, so the longer string has a char at len.
+                    string longer = prefix.Length == len ? dir : prefix;
+                    if (longer[len] == '/')
                         matchEnd = len;
                 }
             }
@@ -97,4 +96,11 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
         return prefix;
     }
+
+    /// <summary>
+    /// Parent directory with '/' separators; "" for a bare file name, and for
+    /// "" itself, where GetDirectoryName returns null.
+    /// </summary>
+    private static string DirOf(string path) =>
+        (System.IO.Path.GetDirectoryName(path) ?? "").Replace('\\', '/');
 }

@@ -20,7 +20,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// (Keywords are safe because emission '@'-escapes them, so only the
     /// bare-identifier shape is enforced here.)
     /// </summary>
-    private static DiagnosticInfo? ValidateParameterNames(QueryModel queryModel, string entityName, string methodName)
+    internal static DiagnosticInfo? ValidateParameterNames(QueryModel queryModel, string entityName, string methodName)
     {
         var seen = new System.Collections.Generic.Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var param in queryModel.Parameters)
@@ -104,7 +104,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// <paramref name="projection"/> is the built projection carrying resolution
     /// state. Returns a (possibly empty) list of diagnostics.
     /// </summary>
-    private static System.Collections.Generic.List<DiagnosticInfo> ValidateExpressionTypes(
+    internal static System.Collections.Generic.List<DiagnosticInfo> ValidateExpressionTypes(
         System.Collections.Generic.List<ColumnRef> sourceColumns,
         ProjectionModel projection,
         Directives.DirectiveModel? directives)
@@ -139,11 +139,13 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 {
                     if (!string.IsNullOrEmpty(col.OutputAlias))
                         exprAliases.Add(col.OutputAlias);
-                    continue;
                 }
-                string name = !string.IsNullOrEmpty(col.OutputAlias) ? col.OutputAlias : col.ColumnName;
-                if (!string.IsNullOrEmpty(name) && name != "*")
-                    plainNames.Add(name);
+                else
+                {
+                    string name = !string.IsNullOrEmpty(col.OutputAlias) ? col.OutputAlias : col.ColumnName;
+                    if (!string.IsNullOrEmpty(name) && name != "*")
+                        plainNames.Add(name);
+                }
             }
 
             foreach (var td in directives.TypeDirectives)
@@ -168,7 +170,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// Case-insensitive lookup of a stored procedure in the snapshot (the
     /// dictionary key casing may differ from the -- @call name as written).
     /// </summary>
-    private static bool TryResolveProcedure(DatabaseSchema schema, string name, out ProcedureSchema? procedure)
+    internal static bool TryResolveProcedure(DatabaseSchema schema, string name, out ProcedureSchema? procedure)
     {
         if (schema.Procedures.TryGetValue(name, out procedure))
             return true;
@@ -189,7 +191,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// and comments gone. Two queries with equal fingerprints do identical
     /// work regardless of formatting (JNT8005).
     /// </summary>
-    private static string ComputeFingerprint(System.Collections.Generic.List<Token> tokens)
+    internal static string ComputeFingerprint(System.Collections.Generic.List<Token> tokens)
     {
         var sb = new StringBuilder();
         foreach (var token in tokens)

@@ -48,6 +48,20 @@ public class MigrationImpactWarningTests
     }
 
     [Fact]
+    public void TwoRiskyReasons_AreJoinedBySemicolons()
+    {
+        var result = Run(
+            ("db/Products/GetBoth.sql", "select product_name, reorder_level\nfrom products"),
+            ("db/migrations/0001_widen.sql",
+                "alter table products alter column product_name nvarchar(80) not null;\n"
+                + "alter table products alter column reorder_level int null"));
+
+        string message = Assert.Single(result.Diagnostics, d => d.Id == "JNT9004").GetMessage();
+        Assert.StartsWith("Products.GetBoth: ", message);
+        Assert.Equal(2, message.Substring("Products.GetBoth: ".Length).Split("; ").Length);
+    }
+
+    [Fact]
     public void WidenedReferencedColumn_EmitsJNT9004_BuildStillSucceeds()
     {
         var result = Run(

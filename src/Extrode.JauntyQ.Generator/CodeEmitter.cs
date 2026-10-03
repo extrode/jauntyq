@@ -60,7 +60,7 @@ public static partial class CodeEmitter
     /// demonstrated collision shape, matching the PascalCase-folding defect
     /// class JNT2009/JNT2010 already guard.
     /// </summary>
-    private static bool SchemaHasEntityNamed(DatabaseSchema? schema, string simpleName)
+    internal static bool SchemaHasEntityNamed(DatabaseSchema? schema, string simpleName)
     {
         if (schema == null)
             return false;
@@ -90,8 +90,29 @@ public static partial class CodeEmitter
         if (!SchemaHasEntityNamed(schema, simpleName))
             return simpleName;
 
-        return @namespace.Length == 0 ? $"global::{simpleName}" : $"global::{@namespace}.{simpleName}";
+        return GlobalTypeName(simpleName, @namespace);
     }
+
+    /// <summary>
+    /// Every simple name the emitter routes through <see cref="TypeRef"/>.
+    /// TypeRef qualifies one only when a table generates a type of that name;
+    /// an entity named by a hand-written db/ folder is invisible to it, so the
+    /// generator refuses such a folder name (JNT2006) instead. A test keeps
+    /// this list in step with the TypeRef call sites.
+    /// </summary>
+    internal static readonly System.Collections.Generic.HashSet<string> TypeRefNames = new(StringComparer.Ordinal)
+    {
+        "ArgumentException", "ArgumentNullException", "Array", "Convert", "DateTime", "DateTimeOffset",
+        "DbEnumerator", "DbType", "Guid", "IAsyncEnumerable", "IDisposable", "IEnumerable", "IEnumerator",
+        "IndexOutOfRangeException", "InvalidOperationException", "List", "Math", "MySqlBulkCopy",
+        "MySqlBulkCopyColumnMapping", "MySqlConnection", "MySqlTransaction", "NpgsqlBinaryImporter",
+        "NpgsqlConnection", "NpgsqlDbType", "NpgsqlParameter", "SqlBulkCopy", "SqlBulkCopyOptions",
+        "SqlConnection", "SqlTransaction", "StringComparison", "Task", "TimeSpan", "Type", "Volatile",
+        "ConnectionState", "CommandBehavior", "DBNull", "JauntyQShapeGuard",
+    };
+
+    internal static string GlobalTypeName(string simpleName, string @namespace)
+        => @namespace.Length == 0 ? $"global::{simpleName}" : $"global::{@namespace}.{simpleName}";
 
     /// <summary>
     /// Shortens the fixed set of fully-qualified value types
@@ -201,7 +222,8 @@ public static partial class CodeEmitter
         if (procName != null)
         {
             sb.AppendLine();
-            EmitProcScript(sb, procName, query.Name, originalSql, query, projection, schema, directives, isCrud: false);
+            EmitProcScript(sb, procName, query.Name, originalSql, query,
+                p => InferParameterType(p.Name, query, projection, schema, directives), schema, directives);
         }
 
         sb.AppendLine("    }");
@@ -263,7 +285,8 @@ public static partial class CodeEmitter
         if (procName != null)
         {
             sb.AppendLine();
-            EmitProcScript(sb, procName, query.Name, originalSql, query, null, schema, directives, isCrud: true);
+            EmitProcScript(sb, procName, query.Name, originalSql, query,
+                p => InferCrudParameterType(p, query, schema, directives), schema, directives);
         }
 
         sb.AppendLine("    }");

@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using Extrode.JauntyQ.Analysis.Scoping;
 using Extrode.JauntyQ.Schema;
 using Extrode.JauntyQ.SqlParser;
 using Extrode.JauntyQ.SqlParser.IR;
@@ -61,6 +62,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // always overrides the auto-CRUD synthetic of the same name, even
         // when it currently fails validation.
         if (schemaState.ParseFailed)
+            // Stryker disable once Boolean : with no parsed schema there are no synthetics for a claim to suppress
             return FileResult.None(entityName, methodName, claims: true); // JNT6001 comes from the aggregate step
 
         var schema = schemaState.Schema;
@@ -78,20 +80,14 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // one silently. Both are collected before the -- @call short-circuit
         // below, so a file that binds a procedure still reports its directive
         // hygiene.
-        var directiveWarnings = ImmutableArray<DiagnosticInfo>.Empty;
-        var suspicious = directives.SuspiciousDirectives;
-        var duplicates = directives.DuplicateDirectives;
-        if (suspicious is { Count: > 0 } || duplicates is { Count: > 0 })
-        {
-            var warnBuilder = ImmutableArray.CreateBuilder<DiagnosticInfo>();
-            if (suspicious != null)
-                foreach (var message in suspicious)
-                    warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3008, message));
-            if (duplicates != null)
-                foreach (var message in duplicates)
-                    warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3011, message));
-            directiveWarnings = warnBuilder.ToImmutable();
-        }
+        var warnBuilder = ImmutableArray.CreateBuilder<DiagnosticInfo>();
+        if (directives.SuspiciousDirectives != null)
+            foreach (var message in directives.SuspiciousDirectives)
+                warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3008, message));
+        if (directives.DuplicateDirectives != null)
+            foreach (var message in directives.DuplicateDirectives)
+                warnBuilder.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT3011, message));
+        var directiveWarnings = warnBuilder.ToImmutable();
 
         // -- @call binds to an existing stored procedure. The file has no SQL
         // body of its own; the callable contract (params + result columns)
@@ -169,6 +165,17 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     $"The Result DTO cannot declare '{dupProcCol}' twice; alias one column distinctly in the procedure's own SELECT."));
                 return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
             }
+            foreach (var resultCol in procedure.Results)
+            {
+                if (DialectMapper.ToPascalCase(resultCol.Name) == methodName)
+                {
+                    callDiagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT2011,
+                        $"Stored procedure '{procedure.Name}' returns a column '{resultCol.Name}' that maps to the property '{methodName}', " +
+                        $"the name of its own generated type Result.{methodName}, and a C# member cannot share its type's name. " +
+                        $"Alias the column in the procedure's SELECT or rename the .sql file."));
+                    return FileResult.WithDiagnostics(entityName, methodName, callDiagnostics.ToImmutable());
+                }
+            }
 
             // JNT2013: two distinct parameters folding to the same C# formal
             // would emit a duplicate parameter into every EmitProcCall
@@ -218,7 +225,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 $"{entityName}.{methodName}.g.cs",
                 callSource,
                 callDiagnostics.ToImmutable(),
-                new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable: null),
+                new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable: null, emitsResultType: procedure.Results.Count > 0),
                 fingerprint: $"@call:{procedure.Name}",
                 path: sqlFile.Path);
         }
@@ -325,6 +332,26 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 hasErrors = true;
         }
 
+        // Spec 021: each reach of a scoped table with no scope-parameter proof
+        // is an error. The file still claims its method slot, so a synthetic
+        // auto-CRUD method of the same name does not quietly take its place.
+        // -- @unscoped <reason> accepts them for this file only.
+        bool unscoped = directives.UnscopedReason != null;
+        bool suppressedUnscoped = false;
+        if (schemaState.Scopes != null)
+        {
+            foreach (var reach in ScopeAnalyzer.FindUnproven(queryModel, schemaState.Scopes))
+            {
+                if (unscoped)
+                {
+                    suppressedUnscoped = true;
+                    continue;
+                }
+                diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT4005, reach.Message));
+                hasErrors = true;
+            }
+        }
+
         // JNT8012: the directive is present but nothing needed suppressing. An
         // exemption that outlives the condition that justified it is how an
         // escape hatch quietly becomes the default, so a dead one is reported
@@ -356,6 +383,16 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 "-- @allow-unindexed is declared but no filter column on this query is unindexed, so it " +
                 "suppresses nothing. The index it was waiting for probably exists now: remove the directive. " +
                 $"(Stated reason: {directives.AllowUnindexedReason})"));
+        }
+
+        // JNT4006, gated like JNT8012: only when the scope analysis reached a
+        // verdict, which needs a scope file with at least one entry left.
+        if (unscoped && !suppressedUnscoped && schemaState.Scopes is { Count: > 0 })
+        {
+            diagnostics.Add(DiagnosticInfo.From(JauntyDiagnostics.JNT4006,
+                "-- @unscoped is declared but this query reaches every scoped table with its scope parameter, " +
+                "so it accepts nothing. Remove the directive. " +
+                $"(Stated reason: {directives.UnscopedReason})"));
         }
 
         // The sort half, gated identically. Naming the directive in the message
@@ -439,7 +476,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // statement, the directive would be SILENTLY ignored (the parameter
         // stays scalar and the SQL is never expanded) — fail the file with a
         // clear message instead.
-        if (directives.EachParams is { Count: > 0 })
+        // EachParams is null until a name is added, so non-null means non-empty.
+        if (directives.EachParams != null)
         {
             string? eachProblem = null;
             if (queryModel.StatementType != StatementType.Select)
@@ -502,6 +540,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
         string source;
         string? canonicalTable = null;
+        bool emitsResultType = false;
 
         if (queryModel.StatementType != StatementType.Select)
         {
@@ -559,12 +598,14 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
                 // JNT3009: duplicate emitted property name in the RETURNING row
                 // type (same rule as the SELECT projection below).
-                var dupReturningCol = FindDuplicateResultColumn(returningProjection);
+                var dupReturningCol = FindDuplicateResultColumn(returningProjection)
+                    ?? FindResultColumnNamedLikeItsType(returningProjection);
                 if (dupReturningCol != null)
                 {
                     diagnostics.Add(dupReturningCol);
                     return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
                 }
+                emitsResultType = true;
 
                 source = CodeEmitter.EmitCrudReturning(queryModel, returningProjection, cleanedSql, entityName, schema, directives);
             }
@@ -640,6 +681,16 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             string? canonicalRowType = ResolveCanonicalRowType(queryModel, projection, schema, directives);
             if (canonicalRowType != null)
                 canonicalTable = queryModel.Tables[0].TableName;
+            else
+            {
+                var aliasNamedLikeType = FindResultColumnNamedLikeItsType(projection);
+                if (aliasNamedLikeType != null)
+                {
+                    diagnostics.Add(aliasNamedLikeType);
+                    return FileResult.WithDiagnostics(entityName, methodName, diagnostics.ToImmutable());
+                }
+                emitsResultType = true;
+            }
 
             source = CodeEmitter.Emit(queryModel, projection, cleanedSql, entityName, schema, directives, canonicalRowType);
         }
@@ -651,6 +702,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // what fails the build.
         if (schemaState.MigrationDelta != null)
         {
+            // Stryker disable once String : ClassifySingle copies EntityMethod into its result and the JNT9004 text below builds its own
             var impactInput = new QueryImpactInput(sqlFile.Path, $"{entityName}.{methodName}",
                 ReferencedObjects.Resolve(queryModel));
             var impact = ImpactClassifier.ClassifySingle(schemaState.MigrationDelta, impactInput);
@@ -669,7 +721,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             $"{entityName}.{methodName}.g.cs",
             source,
             diagnostics.ToImmutable(),
-            new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable),
+            new FileSummary(entityName, methodName, claims: true, emitted: true, canonicalTable, emitsResultType, emitsProcType: directives.IsProc),
             ComputeFingerprint(tokens),
             queryModel,
             sqlFile.Path,
@@ -695,6 +747,24 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             if (!seen.Add(emitted))
                 return DiagnosticInfo.From(JauntyDiagnostics.JNT3009,
                     $"Two result columns map to the same generated property '{emitted}'. Give each SELECT/RETURNING item a distinct alias (AS) — the generated row type cannot declare '{emitted}' twice.");
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// JNT3009's other shape: a query's own result type is named after the
+    /// query (Result.{Name}), so a column folding to that name would be a
+    /// member named like its enclosing type (CS0542).
+    /// </summary>
+    private static DiagnosticInfo? FindResultColumnNamedLikeItsType(ProjectionModel projection)
+    {
+        foreach (var pcol in projection.Columns)
+        {
+            string emitted = DialectMapper.ToPascalCase(pcol.Name);
+            if (emitted == projection.Name)
+                return DiagnosticInfo.From(JauntyDiagnostics.JNT3009,
+                    $"Result column '{pcol.Name}' maps to the property '{emitted}', the name of its own generated type Result.{projection.Name}, " +
+                    $"and a C# member cannot share its type's name. Alias the column (AS) or rename the .sql file.");
         }
         return null;
     }

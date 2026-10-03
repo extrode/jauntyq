@@ -11,7 +11,9 @@ enum Extrode.JauntyQ.Analysis.AnalysisSeverity
     field Warning:AnalysisSeverity
 class Extrode.JauntyQ.Analysis.AutoCrud
     method DescribeUnusableTable(TableSchema,String):String
+    method ScopeFirst(List<ColumnSchema>,List<ColumnSchema>):List<ColumnSchema>
     method Synthesize(DatabaseSchema):List<SyntheticQuery>
+    method Synthesize(DatabaseSchema,IReadOnlyList<ScopeColumn>):List<SyntheticQuery>
 class Extrode.JauntyQ.Analysis.AutoCrud+SyntheticQuery
     ctor .ctor(String,String,String,String,Boolean,String)
     prop EntityName:String
@@ -52,6 +54,7 @@ class Extrode.JauntyQ.Analysis.Diff.ColumnChange
     prop Kinds:IReadOnlyList<ColumnChangeKind>
 enum Extrode.JauntyQ.Analysis.Diff.ColumnChangeKind
     field Computed:ColumnChangeKind
+    field Enum:ColumnChangeKind
     field Identity:ColumnChangeKind
     field MaxLength:ColumnChangeKind
     field Nullability:ColumnChangeKind
@@ -129,17 +132,24 @@ class Extrode.JauntyQ.Analysis.Impact.ReferencedObjects
     method Resolve(QueryModel):ReferencedObjects
     prop Columns:IReadOnlyCollection<ReferencedColumn>
     prop Tables:IReadOnlyCollection<String>
+class Extrode.JauntyQ.Analysis.Migrations.MigrationOrder
+    method Compare(String,String):Int32
 class Extrode.JauntyQ.Analysis.Migrations.MigrationParser
     method Parse(String):List<MigrationStatement>
 class Extrode.JauntyQ.Analysis.Migrations.MigrationStatement
     ctor .ctor()
+    prop CharsetIsUnicode:Dictionary<String,Boolean>
     prop ColumnNames:List<String>
     prop Columns:List<ColumnSchema>
+    prop EnumMembers:Dictionary<String,List<String>>
+    prop ForeignKeys:List<ForeignKeySchema>
     prop IfExists:Boolean
     prop Kind:MigrationStatementKind
     prop NullableAfter:Boolean
     prop RawText:String
     prop TableName:String
+    prop TableNameQuoted:Boolean
+    prop TypeOnly:Boolean
 enum Extrode.JauntyQ.Analysis.Migrations.MigrationStatementKind
     field AddColumn:MigrationStatementKind
     field AddPrimaryKey:MigrationStatementKind
@@ -152,6 +162,20 @@ enum Extrode.JauntyQ.Analysis.Migrations.MigrationStatementKind
     field Unsupported:MigrationStatementKind
 class Extrode.JauntyQ.Analysis.Migrations.SchemaSimulator
     method Apply(DatabaseSchema,IEnumerable<ValueTuple<String,List<MigrationStatement>>>,List<AnalysisDiagnostic>):DatabaseSchema
+class Extrode.JauntyQ.Analysis.Scoping.ScopeAnalyzer
+    method FindUnproven(QueryModel,IReadOnlyList<ScopeColumn>):List<UnprovenReach>
+class Extrode.JauntyQ.Analysis.Scoping.ScopeColumn
+    ctor .ctor(String,String)
+    prop Column:String
+    prop Table:String
+class Extrode.JauntyQ.Analysis.Scoping.ScopeResolver
+    method ColumnsOf(TableSchema,IReadOnlyList<ScopeColumn>):List<ColumnSchema>
+    method Resolve(ScopeFile,DatabaseSchema,List<String>):List<ScopeColumn>
+class Extrode.JauntyQ.Analysis.Scoping.UnprovenReach
+    ctor .ctor(String,String,String)
+    prop Column:String
+    prop Message:String
+    prop Table:String
 enum Extrode.JauntyQ.Analysis.SqlIdentifierPosition
     field Column:SqlIdentifierPosition
     field Object:SqlIdentifierPosition
@@ -164,16 +188,16 @@ class Extrode.JauntyQ.Generator.CSharpToSqlTypeMapper
     method Map(String):String
 class Extrode.JauntyQ.Generator.CodeEmitter
     method Emit(QueryModel,ProjectionModel,String,String,DatabaseSchema,DirectiveModel,String):String
-    method EmitBulkInsert(String,String,TableSchema,String,DatabaseSchema):String
+    method EmitBulkInsert(String,String,TableSchema,String,DatabaseSchema,List<ColumnSchema>):String
     method EmitCrud(QueryModel,String,String,DatabaseSchema,DirectiveModel):String
     method EmitEntityCore(String):String
     method EmitEnums(DatabaseSchema):String
     method EmitJauntyDb(IEnumerable<String>,DatabaseSchema):String
-    method EmitPocoOverloads(String,String,TableSchema,String,Boolean,Boolean,Boolean,Boolean,DatabaseSchema):String
+    method EmitPocoOverloads(String,String,TableSchema,String,Boolean,Boolean,Boolean,Boolean,DatabaseSchema,List<ColumnSchema>):String
     method EmitProcCall(String,String,ProcedureSchema,String,DatabaseSchema):String
     method EmitRowPoco(String,TableSchema,String,DatabaseSchema):String
     method EmitShapeGuardSource():String
-    method EmitUpsert(String,TableSchema,String,DatabaseSchema):String
+    method EmitUpsert(String,TableSchema,String,DatabaseSchema,List<ColumnSchema>):String
     method InferParameterType(String,QueryModel,ProjectionModel,DatabaseSchema,DirectiveModel):String
 class Extrode.JauntyQ.Generator.Directives.DirectiveModel
     ctor .ctor()
@@ -196,6 +220,7 @@ class Extrode.JauntyQ.Generator.Directives.DirectiveModel
     prop ReturnsIdentity:Boolean
     prop SuspiciousDirectives:List<String>
     prop TypeDirectives:List<TypeDirective>
+    prop UnscopedReason:String
 class Extrode.JauntyQ.Generator.Directives.DirectiveParser
     method Parse(String):ValueTuple<DirectiveModel,String>
 class Extrode.JauntyQ.Generator.Directives.ExplicitParam
@@ -255,6 +280,7 @@ class Extrode.JauntyQ.Generator.JauntyDiagnostics
     field JNT2024:DiagnosticDescriptor
     field JNT2025:DiagnosticDescriptor
     field JNT2026:DiagnosticDescriptor
+    field JNT2027:DiagnosticDescriptor
     field JNT3001:DiagnosticDescriptor
     field JNT3002:DiagnosticDescriptor
     field JNT3003:DiagnosticDescriptor
@@ -268,12 +294,17 @@ class Extrode.JauntyQ.Generator.JauntyDiagnostics
     field JNT3011:DiagnosticDescriptor
     field JNT4003:DiagnosticDescriptor
     field JNT4004:DiagnosticDescriptor
+    field JNT4005:DiagnosticDescriptor
+    field JNT4006:DiagnosticDescriptor
+    field JNT4007:DiagnosticDescriptor
     field JNT5001:DiagnosticDescriptor
     field JNT5002:DiagnosticDescriptor
     field JNT5003:DiagnosticDescriptor
     field JNT6001:DiagnosticDescriptor
     field JNT6002:DiagnosticDescriptor
     field JNT6003:DiagnosticDescriptor
+    field JNT6004:DiagnosticDescriptor
+    field JNT6005:DiagnosticDescriptor
     field JNT7001:DiagnosticDescriptor
     field JNT7002:DiagnosticDescriptor
     field JNT7003:DiagnosticDescriptor
@@ -427,6 +458,15 @@ class Extrode.JauntyQ.Schema.ProcedureSchema
 class Extrode.JauntyQ.Schema.SchemaLoader
     method Load(String):DatabaseSchema
     method Serialize(DatabaseSchema):String
+class Extrode.JauntyQ.Schema.ScopeEntry
+    ctor .ctor()
+    prop Column:String
+    prop Table:String
+class Extrode.JauntyQ.Schema.ScopeFile
+    ctor .ctor()
+    prop Scopes:List<ScopeEntry>
+class Extrode.JauntyQ.Schema.ScopeLoader
+    method Load(String):ScopeFile
 class Extrode.JauntyQ.Schema.SequenceSchema
     ctor .ctor()
     prop CurrentValue:Nullable<Int64>
@@ -521,8 +561,10 @@ class Extrode.JauntyQ.SqlParser.IR.OrderByRef
 class Extrode.JauntyQ.SqlParser.IR.ParameterRef
     ctor .ctor()
     prop BoundColumnName:String
+    prop BoundScope:QueryModel
     prop BoundTableAlias:String
     prop ComparisonOp:String
+    prop IsUpsertAssignment:Boolean
     prop IsWriteTarget:Boolean
     prop Name:String
 class Extrode.JauntyQ.SqlParser.IR.PerfHint
@@ -543,6 +585,7 @@ class Extrode.JauntyQ.SqlParser.IR.QueryModel
     ctor .ctor()
     prop Columns:List<ColumnRef>
     prop Ctes:List<CteRef>
+    prop ExistsExpressions:List<QueryModel>
     prop ExpressionsMissingAlias:List<String>
     prop HasGroupBy:Boolean
     prop HasReturning:Boolean
@@ -558,8 +601,11 @@ class Extrode.JauntyQ.SqlParser.IR.QueryModel
     prop StatementType:StatementType
     prop Subqueries:List<SubqueryRef>
     prop Tables:List<TableRef>
+    prop TargetAlias:String
     prop TargetTable:String
     prop UnsupportedConstructs:List<String>
+    prop Upsert:UpsertKind
+    prop UpsertAtoms:List<PredicateAtom>
     prop WithRecursive:Boolean
 enum Extrode.JauntyQ.SqlParser.IR.StatementType
     field Delete:StatementType
@@ -577,7 +623,12 @@ class Extrode.JauntyQ.SqlParser.IR.TableRef
     ctor .ctor()
     prop Alias:String
     prop Join:JoinKind
+    prop OnAtoms:List<PredicateAtom>
     prop TableName:String
+enum Extrode.JauntyQ.SqlParser.IR.UpsertKind
+    field None:UpsertKind
+    field OnConflictUpdate:UpsertKind
+    field OnDuplicateKeyUpdate:UpsertKind
 class Extrode.JauntyQ.SqlParser.SqlParser
     method Parse(List<Token>,String):QueryModel
 class Extrode.JauntyQ.SqlParser.SqlTokenizer
@@ -588,7 +639,9 @@ class Extrode.JauntyQ.SqlParser.SqlTokenizer
     method Tokenize(String):List<Token>
 struct Extrode.JauntyQ.SqlParser.Token
     ctor .ctor(TokenType,String)
+    ctor .ctor(TokenType,String,Boolean)
     method ToString():String
+    prop IsQuoted:Boolean
     prop Type:TokenType
     prop Value:String
 enum Extrode.JauntyQ.SqlParser.Tokens.TokenType

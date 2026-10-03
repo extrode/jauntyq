@@ -94,15 +94,24 @@ public static partial class CodeEmitter
         {
             char c = sql[i];
             if (inString) { if (c == '\'') inString = false; i++; continue; }
-            if (inBracket) { if (c == ']') inBracket = false; i++; continue; }
+            if (inBracket)
+            {
+                // ']]' is an escaped ']' inside the identifier, not its end.
+                if (c == ']' && i + 1 < sql.Length && sql[i + 1] == ']') i++;
+                else if (c == ']') inBracket = false;
+                i++;
+                continue;
+            }
             if (inQuote) { if (c == '"') inQuote = false; i++; continue; }
             if (c == '\'') { inString = true; i++; continue; }
+            // Stryker disable once Statement : without this i++ the next pass re-reads the '[' inside the bracket run, where it is not ']' and that branch's own i++ steps past it -- same index either way
             if (c == '[') { inBracket = true; i++; continue; }
             if (c == '"') { inQuote = true; i++; continue; }
             if (c == '-' && i + 1 < sql.Length && sql[i + 1] == '-')
             {
                 while (i < sql.Length && sql[i] != '\n')
                     i++;
+                // Stryker disable once Statement : falling through tests "values" at the '\n' (never a match) and steps past it, which the next pass does anyway
                 continue;
             }
             if (c == '/' && i + 1 < sql.Length && sql[i + 1] == '*')
@@ -110,11 +119,11 @@ public static partial class CodeEmitter
                 int end = i + 2;
                 while (end + 1 < sql.Length && !(sql[end] == '*' && sql[end + 1] == '/'))
                     end++;
-                i = end + 1 < sql.Length ? end + 2 : sql.Length;
+                i = end + 2;
                 continue;
             }
 
-            if (i + 6 <= sql.Length && string.Compare(sql, i, "values", 0, 6, StringComparison.OrdinalIgnoreCase) == 0)
+            if (string.Compare(sql, i, "values", 0, 6, StringComparison.OrdinalIgnoreCase) == 0)
             {
                 bool startOk = i == 0 || !char.IsLetterOrDigit(sql[i - 1]) && sql[i - 1] != '_' && sql[i - 1] != '@';
                 bool endOk = i + 6 == sql.Length || !char.IsLetterOrDigit(sql[i + 6]) && sql[i + 6] != '_';
@@ -249,7 +258,7 @@ public static partial class CodeEmitter
         };
     }
 
-    private static bool IsBoundColumnNullable(ParameterRef param, QueryModel query, DatabaseSchema? schema)
+    internal static bool IsBoundColumnNullable(ParameterRef param, QueryModel query, DatabaseSchema? schema)
         => ResolveBoundColumn(param, query, schema, out _)?.IsNullable ?? false;
 
     internal static string InferCrudParameterType(ParameterRef param, QueryModel query, DatabaseSchema? schema, Directives.DirectiveModel? directives = null)

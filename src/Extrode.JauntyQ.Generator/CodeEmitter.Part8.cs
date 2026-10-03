@@ -27,6 +27,7 @@ public static partial class CodeEmitter
             var column = ResolveBoundColumn(param, query, schema, out string? boundTable);
             bool isEach = directives?.EachParams != null &&
                 directives.EachParams.Exists(n => string.Equals(n, param.Name, StringComparison.OrdinalIgnoreCase));
+            // Stryker disable once Boolean : query-method signatures never take trailing defaults (BuildParamList runs without trailingNullableDefaults here), so IsNullable is never read on this path
             paramInfos.Add(CreateEmittedParam(param.Name, paramType, isNullable: false, column, boundTable, isWriteTarget: false, isEach: isEach));
         }
 
@@ -45,7 +46,13 @@ public static partial class CodeEmitter
             // local), not "reader" -- the callee's OWN "reader" parameter
             // (declared right below / on the row type itself) is a separate,
             // immune scope and is intentionally left unrenamed.
-            mapperCall = $"{canonicalRowType}.Read(__reader)";
+            string rowTypeRef = AnyParamNameCollidesWith(paramInfos, canonicalRowType)
+                ? GlobalTypeName(canonicalRowType, "Extrode.JauntyQ.Generated")
+                : canonicalRowType;
+            var columnNames = new System.Collections.Generic.List<string>();
+            foreach (var col in projection.Columns)
+                columnNames.Add(col.SourceName);
+            mapperCall = $"{rowTypeRef}.{RowReadMethodName(columnNames)}(__reader)";
         }
         else
         {
@@ -126,6 +133,8 @@ public static partial class CodeEmitter
         string tokenParamName = cancellationTokenNameCollides ? "__cancellationToken" : "cancellationToken";
 
         string paramList = BuildParamList(paramInfos, isStatic, isAsync, connVarName: connVar, tokenParamName: tokenParamName, enumeratorCancellation: cancelAttr, schema: schema);
+        string connectionState = BodyTypeRef(schema, paramInfos, "ConnectionState", "System.Data");
+        string commandBehavior = BodyTypeRef(schema, paramInfos, "CommandBehavior", "System.Data");
 
         sb.AppendLine($"        {modifier}{asyncModifier} {declaredReturn} {methodName}({paramList})");
         sb.AppendLine("        {");
@@ -136,7 +145,7 @@ public static partial class CodeEmitter
         // Connection lifecycle. AUD-R69-01: "__weOpened", "__cmd" -- pure
         // internal locals, unconditionally renamed (see EmitCrudMethodBody's
         // identical comment).
-        sb.AppendLine($"            bool __weOpened = {connVar}.State != ConnectionState.Open;");
+        sb.AppendLine($"            bool __weOpened = {connVar}.State != {connectionState}.Open;");
         sb.AppendLine(isAsync
             ? $"            if (__weOpened) await {connVar}.OpenAsync({tokenParamName}).ConfigureAwait(false);"
             : $"            if (__weOpened) {connVar}.Open();");
@@ -171,8 +180,8 @@ public static partial class CodeEmitter
         // for @first) lets the provider optimize buffering for the shape we
         // are guaranteed to consume.
         string behavior = isFirst
-            ? "CommandBehavior.SingleRow | CommandBehavior.SingleResult"
-            : "CommandBehavior.SingleResult";
+            ? $"{commandBehavior}.SingleRow | {commandBehavior}.SingleResult"
+            : $"{commandBehavior}.SingleResult";
         sb.AppendLine();
         // AUD-R69-01: "__reader", not "reader" -- confirmed live that a query
         // parameter literally named "@reader" collides (CS0136) with the
@@ -183,10 +192,10 @@ public static partial class CodeEmitter
         // AUD-R50-03 (residual): Volatile was emitted bare — a table named
         // "volatiles" (row POCO "Volatile") shadowed System.Threading.Volatile
         // namespace-wide, breaking Volatile.Read/Write with CS1615/CS0117.
-        string volatileType = TypeRef(schema, "Volatile", "System.Threading");
+        string volatileType = BodyTypeRef(schema, paramInfos, "Volatile", "System.Threading");
         sb.AppendLine($"                if ({volatileType}.Read(ref __{query.Name}Validated) == 0)");
         sb.AppendLine("                {");
-        sb.AppendLine($"                    JauntyQShapeGuard.Validate(__reader, __{query.Name}Columns, \"{queryId}\");");
+        sb.AppendLine($"                    {BodyTypeRef(schema, paramInfos, "JauntyQShapeGuard", "Extrode.JauntyQ.Generated")}.Validate(__reader, __{query.Name}Columns, \"{queryId}\");");
         sb.AppendLine($"                    {volatileType}.Write(ref __{query.Name}Validated, 1);");
         sb.AppendLine("                }");
 
@@ -275,6 +284,7 @@ public static partial class CodeEmitter
         "postgres" => 65_000,
         "mysql" => 65_000,
         "sqlite" => 32_000,
+        // Stryker disable once String : SQL Server's budget equals the unknown-dialect fallback, so the arm cannot be told apart; CodeEmitterDialectParityTests requires it to be named
         "sqlserver" => 2_000,
         _ => 2_000,
     };
@@ -306,7 +316,7 @@ public static partial class CodeEmitter
             sb.AppendLine("                }");
         }
 
-        var segments = SplitSqlForEach(sql, eachParams);
+        var segments = SplitSqlForEach(sql, eachParams.ConvertAll(p => p.Name));
         sb.Append("                __cmd.CommandText = ");
         for (int i = 0; i < segments.Count; i++)
         {
@@ -325,7 +335,7 @@ public static partial class CodeEmitter
     /// string literals, quoted/bracketed identifiers, and comments so text
     /// like <c>'ops@Ids'</c> is never expanded (it is not a parameter there).
     /// </summary>
-    private static System.Collections.Generic.List<(bool IsEachRef, string Value)> SplitSqlForEach(string sql, System.Collections.Generic.List<EmittedParam> eachParams)
+    internal static System.Collections.Generic.List<(bool IsEachRef, string Value)> SplitSqlForEach(string sql, System.Collections.Generic.List<string> eachNames)
     {
         var segments = new System.Collections.Generic.List<(bool, string)>();
         var literal = new System.Text.StringBuilder();
@@ -345,10 +355,10 @@ public static partial class CodeEmitter
             }
             if (c == '[')
             {
+                // ']]' is an escaped ']' inside the identifier, not its end.
                 int end = i + 1;
-                while (end < sql.Length && sql[end] != ']')
-                    end++;
-                if (end < sql.Length) end++; // include the closing ]
+                while (end < sql.Length && (sql[end] != ']' || end + 1 < sql.Length && sql[end + 1] == ']'))
+                    end += sql[end] == ']' ? 2 : 1;
                 literal.Append(sql, i, end - i);
                 i = end;
                 continue;
@@ -380,15 +390,15 @@ public static partial class CodeEmitter
                 while (j < sql.Length && (char.IsLetterOrDigit(sql[j]) || sql[j] == '_'))
                     j++;
                 string token = sql.Substring(start, j - start);
-                var matched = eachParams.Find(p => string.Equals(p.Name, token, StringComparison.OrdinalIgnoreCase));
-                if (token.Length > 0 && matched.Name != null)
+                string? matched = eachNames.Find(n => string.Equals(n, token, StringComparison.OrdinalIgnoreCase));
+                if (matched != null)
                 {
                     if (literal.Length > 0)
                     {
                         segments.Add((false, literal.ToString()));
                         literal.Clear();
                     }
-                    segments.Add((true, matched.Name));
+                    segments.Add((true, matched));
                     i = j;
                     continue;
                 }
@@ -403,28 +413,17 @@ public static partial class CodeEmitter
 
     /// <summary>
     /// Returns the index just past a quoted run starting at <paramref name="start"/>
-    /// (which holds the opening <paramref name="quote"/>). A doubled delimiter is
-    /// an escape in every supported dialect ('' / "" / ``). An unterminated run
-    /// extends to end-of-input — by emission time the tokenizer has already
-    /// rejected unterminated constructs, so this is defensive only.
+    /// (which holds the opening <paramref name="quote"/>). A doubled delimiter
+    /// ('' / "" / ``) needs no special case: it closes this run and the caller
+    /// immediately opens the next one, so the text is copied through unchanged
+    /// either way. An unterminated run extends to end-of-input — by emission
+    /// time the tokenizer has already rejected unterminated constructs, so this
+    /// is defensive only.
     /// </summary>
     private static int SkipQuotedRun(string sql, int start, char quote)
     {
-        int i = start + 1;
-        while (i < sql.Length)
-        {
-            if (sql[i] == quote)
-            {
-                if (i + 1 < sql.Length && sql[i + 1] == quote)
-                {
-                    i += 2; // escaped delimiter
-                    continue;
-                }
-                return i + 1; // past the closing quote
-            }
-            i++;
-        }
-        return sql.Length;
+        int end = sql.IndexOf(quote, start + 1);
+        return end == -1 ? sql.Length : end + 1;
     }
 
 }

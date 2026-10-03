@@ -2,6 +2,7 @@
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using Extrode.JauntyQ.Analysis.Scoping;
 using Extrode.JauntyQ.Schema;
 using Extrode.JauntyQ.SqlParser;
 using Extrode.JauntyQ.SqlParser.IR;
@@ -54,8 +55,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // Single-line: build output is line-oriented and the synthesized FK
         // loader is one SELECT, so it stays paste-able. Never truncated -- a
         // shortened column list pasted into the file is a silently different
-        // query, which is worse than a long warning.
-        string oneLineSql = cleanedSql.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ').Trim();
+        // query, which is worse than a long warning. AutoCrud joins its
+        // clauses with '\n' alone, so there is no '\r' to fold.
+        string oneLineSql = cleanedSql.Replace('\n', ' ').Trim();
 
         string where = commonPrefix.Length > 0
             ? $"'{commonPrefix.TrimEnd('/')}/{synth.EntityName}/{synth.MethodName}.sql'"
@@ -74,6 +76,29 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     }
 
     /// <summary>
+    /// JNT2027 for an auto-CRUD query that failed validation. Kept apart from
+    /// the loop because no known schema reaches that branch, so this is the
+    /// only part of it a test can run.
+    /// </summary>
+    internal static Diagnostic SyntheticSkipDiagnostic(
+        AutoCrud.SyntheticQuery synth, List<ValidationError> errors, string commonPrefix)
+    {
+        var reasons = new List<string>(errors.Count);
+        foreach (var e in errors)
+            reasons.Add($"{e.Code}: {e.Message}");
+
+        string where = commonPrefix.Length > 0
+            ? $"'{commonPrefix.TrimEnd('/')}/{synth.EntityName}/{synth.MethodName}.sql'"
+            : $"'{synth.EntityName}/{synth.MethodName}.sql' under your SQL query root";
+
+        return Diagnostic.Create(JauntyDiagnostics.JNT2027, Location.None,
+            $"No auto-CRUD '{synth.EntityName}.{synth.MethodName}' is generated for table '{synth.TableName}': " +
+            $"the SQL JauntyQ generated for it fails JauntyQ's own validation ({string.Join("; ", reasons)}). " +
+            "This is a JauntyQ bug, not a problem with your schema; please report it with the table's definition. " +
+            $"To get the method meanwhile, write the query by hand as {where}, quoting any identifier the error names.");
+    }
+
+    /// <summary>
     /// One validated entry from jaunty.accept.json, plus whether any synthetic
     /// actually used it. Spec 016. A class rather than a struct because
     /// <see cref="Used"/> is set through the reference held in the list while
@@ -81,10 +106,17 @@ public partial class JauntyQGenerator : IIncrementalGenerator
     /// </summary>
     private sealed class AcceptedColumn
     {
-        public string Table = "";
-        public string Column = "";
-        public string Reason = "";
+        public readonly string Table;
+        public readonly string Column;
+        public readonly string Reason;
         public bool Used;
+
+        public AcceptedColumn(string table, string column, string reason)
+        {
+            Table = table;
+            Column = column;
+            Reason = reason;
+        }
     }
 
     /// <summary>
@@ -112,7 +144,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         if (string.IsNullOrWhiteSpace(acceptJson) || schema == null)
             return accepted;
 
-        string where = acceptPath ?? "the acceptance file";
+        // The path and the text come from the same AdditionalText, so text
+        // without a path cannot arrive.
+        string where = acceptPath!;
 
         AcceptanceFile parsed;
         try
@@ -187,12 +221,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 continue;
             }
 
-            accepted.Add(new AcceptedColumn
-            {
-                Table = tableSchema.Name,
-                Column = column,
-                Reason = reason.Trim(),
-            });
+            accepted.Add(new AcceptedColumn(tableSchema.Name, column, reason.Trim()));
         }
 
         return accepted;
@@ -231,10 +260,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         string? acceptPath = null,
         string? acceptJson = null)
     {
-        // A schema snapshot alone is enough: auto-CRUD generates without any .sql files
-        if (files.IsEmpty && !schemaState.HasJson)
-            return;
-
+        // A schema snapshot alone is enough: auto-CRUD generates without any
+        // .sql files. With neither, the schema is null and nothing below emits.
         foreach (var diag in schemaState.MigrationDiagnostics)
             context.ReportDiagnostic(diag.ToDiagnostic());
 
@@ -242,6 +269,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 JauntyDiagnostics.JNT6001, Location.None));
+            // Stryker disable once Statement : the schema is null here and no file emitted without one, so everything below emits nothing
             return;
         }
 
@@ -313,6 +341,19 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             "ConnectionState", "CommandType", "CommandBehavior", "ParameterDirection"
         };
 
+        // Every method each entity class declares, for the check that no
+        // entity is named like one of its own methods (CS0542).
+        var methodsByEntity = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>(StringComparer.Ordinal);
+        void RecordMethod(string entity, string method)
+        {
+            if (!methodsByEntity.TryGetValue(entity, out var methods))
+                methodsByEntity[entity] = methods = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+            methods.Add(method);
+        }
+        // entities that hold a nested Result type (a query's own DTO)
+        var entitiesWithResultType = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        var entitiesWithProcType = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+
         // entity.method slots claimed by user SQL files: a user file always
         // overrides the auto-CRUD synthetic of the same name
         var claimedMethods = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -329,7 +370,14 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             if (file.Claims)
                 claimedMethods.Add($"{file.EntityName}.{file.MethodName}");
             if (file.Emitted)
+            {
                 entityNames.Add(file.EntityName);
+                RecordMethod(file.EntityName, file.MethodName);
+                if (file.EmitsResultType)
+                    entitiesWithResultType.Add(file.EntityName);
+                if (file.EmitsProcType)
+                    entitiesWithProcType.Add(file.EntityName);
+            }
             if (file.CanonicalTable != null)
                 neededRowTables.Add(file.CanonicalTable);
         }
@@ -532,15 +580,28 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // Auto-CRUD: synthesize per-table CRUD for everything the user didn't write
         if (autoCrud && schema != null)
         {
-            foreach (var synth in AutoCrud.Synthesize(schema))
+            foreach (var synth in AutoCrud.Synthesize(schema, schemaState.Scopes))
             {
+                // Stryker disable once Statement : only an in-flight cancellation observes it, and a cancelled run's output is discarded
                 context.CancellationToken.ThrowIfCancellationRequested();
 
                 if (!claimedMethods.Add($"{synth.EntityName}.{synth.MethodName}"))
                     continue; // user SQL file wins
 
+                var synthScope = ScopeResolver.ColumnsOf(schema.Tables[synth.TableName], schemaState.Scopes);
+
                 if (synth.IsUpsert)
                 {
+                    if (synthScope.Count > 0 && string.Equals(schema.Dialect, "mysql", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT4007, Location.None,
+                            $"No Upsert is generated for table '{synth.TableName}': it is scoped by " +
+                            $"{ScopeColumnList(synthScope)}, and MySQL's ON DUPLICATE KEY UPDATE has no WHERE, so a key " +
+                            "collision with another scope's row would overwrite that row. Use Insert and Update, " +
+                            "or write the upsert by hand and prove the scope in it."));
+                        continue;
+                    }
+
                     // AUD-R4-16 (JNT2018): reported here rather than in a table
                     // loop of its own, because here is the one place that knows
                     // an Upsert is actually being emitted for this table -- a
@@ -574,9 +635,10 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
                     // Dialect-native upsert bypasses the minimal SQL parser;
                     // correctness comes from the schema snapshot itself.
-                    string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, upsertTable, schema.Dialect, schema);
+                    string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, upsertTable, schema.Dialect, schema, synthScope);
                     context.AddSource($"{synth.EntityName}.Upsert.auto.g.cs", SourceText.From(upsertSource, Encoding.UTF8));
                     entityNames.Add(synth.EntityName);
+                    RecordMethod(synth.EntityName, "Upsert");
                     RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, "Upsert");
                     continue;
                 }
@@ -584,19 +646,24 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 var (directives, cleanedSql) = Directives.DirectiveParser.Parse(synth.Sql);
                 var tokens = SqlTokenizer.Tokenize(cleanedSql);
                 var queryModel = SqlParser.SqlParser.Parse(tokens, synth.MethodName);
+                // Spec 021, R2: the scope parameter comes first. Update's SQL
+                // binds SET before WHERE, so its scope parameter parses last.
+                MoveScopeParametersFirst(queryModel, synthScope);
 
                 // Synthesized SQL is derived from the schema itself; validation
                 // errors here indicate a synthesis bug, not a user error, so
-                // emission is skipped rather than surfaced as a build error.
+                // the method is skipped with JNT2027 (a Warning) rather than
+                // surfaced as the validator's build error.
                 // Warnings (JNT8xxx performance advice) are real findings
                 // about the user's own schema/indexes, so they ARE reported —
                 // unlike errors, they were previously computed and discarded.
                 var errors = QueryValidator.Validate(queryModel, schema);
-                bool hasSynthError = false;
+                var synthErrors = new List<ValidationError>();
                 foreach (var error in errors)
                 {
                     if (error.Severity == ValidationSeverity.Error)
-                        hasSynthError = true;
+                        // Stryker disable once Statement : no known schema yields an error here; a 2026-10-02 probe of every repo snapshot and of every parser keyword as a table or column name found only "lateral", since fixed. SyntheticSkipDiagnostic is tested directly
+                        synthErrors.Add(error);
                     else if (error.Code == "JNT8004")
                     {
                         // Spec 016: the acceptance sidecar answers exactly this
@@ -613,10 +680,16 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                                 error.Message + SyntheticOverrideHint(synth, cleanedSql, commonPrefix)));
                     }
                     else
+                        // Stryker disable once Statement : JNT8004 is the only warning a synthesized query is known to raise
                         context.ReportDiagnostic(DiagnosticInfo.ForValidation(error).ToDiagnostic());
                 }
-                if (hasSynthError)
+                // Stryker disable Statement,Block,Equality : see synthErrors above
+                if (synthErrors.Count > 0)
+                {
+                    context.ReportDiagnostic(SyntheticSkipDiagnostic(synth, synthErrors, commonPrefix));
                     continue;
+                }
+                // Stryker restore all
 
                 string source;
                 if (queryModel.StatementType != StatementType.Select)
@@ -634,6 +707,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
                 context.AddSource($"{synth.EntityName}.{synth.MethodName}.auto.g.cs", SourceText.From(source, Encoding.UTF8));
                 entityNames.Add(synth.EntityName);
+                RecordMethod(synth.EntityName, synth.MethodName);
                 if (synth.MethodName is "Insert" or "Update" or "Delete")
                     RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, synth.MethodName);
             }
@@ -655,7 +729,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     continue;
                 context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT8012, Location.None,
                     $"'{entry.Table}.{entry.Column}' is accepted as an unindexed scan in " +
-                    $"'{acceptPath ?? "the acceptance file"}', but no generated query scans it, so the entry " +
+                    $"'{acceptPath}', but no generated query scans it, so the entry " +
                     "suppresses nothing. Either an index covers it now -- remove the entry -- or a hand-written " +
                     $".sql file has claimed '{entry.Table}'s loader for that column, in which case the acceptance " +
                     "belongs in that file as '-- @allow-unindexed <reason>' instead. " +
@@ -668,14 +742,14 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         {
             foreach (var kvp in syntheticWrites)
             {
-                if (!SchemaLookup.TryGetTable(schema, kvp.Key, out var tableSchema))
-                    continue;
-                var table = tableSchema!;
+                // Keyed by synth.TableName, which AutoCrud took from schema.Tables.
+                var table = schema.Tables[kvp.Key];
                 var info = kvp.Value;
                 string rowType = Inflector.RowTypeName(DialectMapper.ToPascalCase(table.Name));
+                var scopeCols = ScopeResolver.ColumnsOf(table, schemaState.Scopes);
                 string overloadSource = CodeEmitter.EmitPocoOverloads(
                     info.Entity, rowType, table, schema.Dialect,
-                    info.Insert, info.Update, info.Delete, info.Upsert, schema);
+                    info.Insert, info.Update, info.Delete, info.Upsert, schema, scopeCols);
                 context.AddSource($"{info.Entity}.Poco.auto.g.cs", SourceText.From(overloadSource, Encoding.UTF8));
                 neededRowTables.Add(table.Name);
 
@@ -683,8 +757,9 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // for tables that have a synthetic Insert (and thus a row POCO).
                 if (info.Insert && !string.IsNullOrEmpty(schema.Dialect))
                 {
-                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, table, schema.Dialect, schema);
+                    string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, table, schema.Dialect, schema, scopeCols);
                     context.AddSource($"{info.Entity}.BulkInsert.auto.g.cs", SourceText.From(bulkSource, Encoding.UTF8));
+                    RecordMethod(info.Entity, "BulkInsert");
                 }
             }
         }
@@ -695,6 +770,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             foreach (var tableName in neededRowTables)
             {
                 if (!SchemaLookup.TryGetTable(schema, tableName, out var resolvedTableSchema))
+                    // Stryker disable once Statement : every name in neededRowTables was resolved against this schema before it was added
                     continue;
                 var tableSchema = resolvedTableSchema!;
 
@@ -705,6 +781,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // a malicious snapshot cannot inject code if the transform ever
                 // changes. Skip the table and report rather than emit.
                 bool rowNameOk = true;
+                // Stryker disable Statement,String,Boolean,Block : unreachable while ToPascalCase maps every non-empty name to a legal identifier, AutoCrud refuses a table with an empty one, and a query selecting it fails JNT2004 before its row type resolves
                 foreach (var rcol in tableSchema.Columns.Values)
                 {
                     if (!IdentifierGuard.IsValidIdentifier(DialectMapper.ToPascalCase(rcol.Name)))
@@ -730,6 +807,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 // covered the table's own full column set feeding the
                 // canonical row POCO. Skip the table and report, matching the
                 // JNT2004 (C2) precedent immediately above.
+                // Stryker disable Statement,String,Block : Part5's ResolveCanonicalRowType and AutoCrud both refuse such a table, so it never reaches neededRowTables; JNT2014 reports it instead
                 string? dupRowCol = FindDuplicateColumnPropertyName(tableSchema.Columns.Values);
                 if (dupRowCol != null)
                 {
@@ -738,6 +816,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         $"The row type cannot declare '{dupRowCol}' twice; rename one column or exclude it from full-row queries."));
                     continue;
                 }
+                // Stryker restore all
 
                 // JNT2007: a column whose db type has no case in
                 // DialectMapper.MapDbTypeToCSharp silently degrades to
@@ -838,6 +917,26 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // pointing at the real cause. Reported (not skipped) to match the
         // existing JNT2006 row-POCO check's own report-but-still-emit
         // convention above.
+        // Each entity also becomes a property E and a field _e on JauntyDb,
+        // so neither may repeat a member JauntyDb declares itself: the
+        // members below, and _conn/_tx/_txOpenedConnection by their field
+        // form. Sequences and Functions exist only when the schema has some.
+        var reservedJauntyDbMembers = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal)
+        {
+            "Connection", "CurrentTransaction", "BeginTransaction", "BeginTransactionAsync", "EndTransaction",
+            "Transaction", "Conn", "Tx", "TxOpenedConnection"
+        };
+        if (schema != null && schema.Sequences.Count > 0)
+        {
+            reservedJauntyDbMembers.Add("Sequences");
+            reservedJauntyDbMembers.Add("SequenceAccessor");
+        }
+        if (CodeEmitter.PlanFunctionEmission(schema).Count > 0)
+        {
+            reservedJauntyDbMembers.Add("Functions");
+            reservedJauntyDbMembers.Add("FunctionAccessor");
+        }
+
         foreach (var entity in entityNames)
         {
             if (reservedGeneratedTypeNames.Contains(entity))
@@ -845,6 +944,44 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
                     $"Generated entity accessor '{entity}' (db.{entity}) has the same name as a JauntyQ-reserved generated type ('{entity}'). " +
                     $"Rename the table (or its db/tables/ folder) so its PascalCase form no longer collides with a reserved name."));
+            }
+            if (!reservedGeneratedTypeNames.Contains(entity)
+                && CodeEmitter.TypeRefNames.Contains(entity)
+                && !CodeEmitter.SchemaHasEntityNamed(schema, entity))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    $"The db/{entity}/ folder generates a class '{entity}' that hides the framework type of the same name, which the generated code uses. " +
+                    $"Rename the folder."));
+            }
+            if (reservedJauntyDbMembers.Contains(entity))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    $"Generated entity accessor 'db.{entity}' has the same name as a member JauntyDb already declares " +
+                    $"('{entity}', or its backing field '_{CodeEmitter.ToCamelCase(entity)}'). Rename the table (or its db/ folder) so its PascalCase form no longer collides."));
+            }
+            if (methodsByEntity.TryGetValue(entity, out var methods) && FindMethodNamedLikeEntity(entity, methods) is string method)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    $"Entity '{entity}' would declare a method '{method}', and a C# class cannot have a member named like itself. " +
+                    $"Rename the table, its db/ folder or the .sql file so the entity and method names differ."));
+            }
+            if (entitiesWithResultType.Contains(entity) && (entity == "Result" || (methods != null && methods.Contains("Result"))))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    entity == "Result"
+                        ? "Entity 'Result' would contain a nested type also named Result, which holds its queries' result types, and a C# class cannot have a member named like itself. " +
+                          "Rename the table or its db/ folder."
+                        : $"Entity '{entity}' would declare both a method 'Result' and the nested type Result that holds its queries' result types. " +
+                          "Rename the Result.sql file."));
+            }
+            if (entitiesWithProcType.Contains(entity) && (entity == "Proc" || (methods != null && methods.Contains("Proc"))))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    entity == "Proc"
+                        ? "Entity 'Proc' would contain a nested type also named Proc, which holds its -- @proc scripts, and a C# class cannot have a member named like itself. " +
+                          "Rename the table or its db/ folder."
+                        : $"Entity '{entity}' would declare both a method 'Proc' and the nested type Proc that holds its -- @proc scripts. " +
+                          "Rename the Proc.sql file."));
             }
         }
 
@@ -863,7 +1000,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // JNT2006/JNT3009 already enforce for row POCOs and result columns.
         // CodeEmitter.EmitSequenceAccessor keeps only the first on collision
         // regardless; this reports it so the drop isn't silent.
-        if (schema != null && schema.Sequences.Count > 0)
+        // An empty collection reports nothing in each of the three blocks below.
+        if (schema != null)
         {
             var byMethodName = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>(StringComparer.Ordinal);
             foreach (var seq in schema.Sequences.Values)
@@ -899,7 +1037,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // is: a refusal the user cannot see is worse on the hand-written-query
         // path, not better, since nothing else there hints that db.Functions is
         // missing a method it should have.
-        if (schema != null && schema.Functions.Count > 0)
+        if (schema != null)
         {
             var functionCollisions = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>(StringComparer.Ordinal);
             var functionUnmappable = new System.Collections.Generic.List<(string Function, string Reason)>();
@@ -939,7 +1077,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // through any query that selects an enum column, not just through
         // auto-CRUD, so gating this on autoCrud would let the collision
         // through on exactly the hand-written-queries path.
-        if (schema != null && schema.Enums.Count > 0)
+        if (schema != null)
         {
             ReportEnumDiagnostics(context, schema);
 
@@ -1034,8 +1172,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 conflict = $"the generated enum type '{typeName}' collides with {owner}";
             else if (claimed.TryGetValue(companion, out string? companionOwner))
                 conflict = $"its generated companion class '{companion}' collides with {companionOwner}";
-            else if (string.Equals(typeName, EnumValueExceptionTypeName, StringComparison.Ordinal) ||
-                     string.Equals(companion, EnumValueExceptionTypeName, StringComparison.Ordinal))
+            // The companion ends in "Values", so only the type itself can be the exception's name.
+            else if (string.Equals(typeName, EnumValueExceptionTypeName, StringComparison.Ordinal))
                 conflict = $"it collides with the generated exception type '{EnumValueExceptionTypeName}'";
 
             if (conflict != null)
@@ -1100,5 +1238,38 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         firstRawName = null;
         secondRawName = null;
         return null;
+    }
+
+    private static void MoveScopeParametersFirst(QueryModel model, List<ColumnSchema> scopeCols)
+    {
+        var moved = model.Parameters.FindAll(p => scopeCols.Exists(c => c.Name == p.Name));
+        model.Parameters.RemoveAll(moved.Contains);
+        model.Parameters.InsertRange(0, moved);
+    }
+
+    /// <summary>
+    /// The method of <paramref name="entity"/> whose name equals the entity's
+    /// own, or null. Every method is emitted with an Async twin, so an entity
+    /// named "GetAllAsync" collides with GetAll too.
+    /// </summary>
+    private static string? FindMethodNamedLikeEntity(string entity, System.Collections.Generic.HashSet<string> methods)
+    {
+        if (methods.Contains(entity))
+            return entity;
+        const string asyncSuffix = "Async";
+        if (entity.EndsWith(asyncSuffix, StringComparison.Ordinal)
+            && methods.Contains(entity.Substring(0, entity.Length - asyncSuffix.Length)))
+            return entity;
+        return null;
+    }
+
+    // "'a'", "'a' and 'b'", "'a', 'b' and 'c'": every scope column, so a
+    // table scoped twice names both in the one message it gets.
+    private static string ScopeColumnList(List<ColumnSchema> scopeCols)
+    {
+        var quoted = scopeCols.ConvertAll(c => $"'{c.Name}'");
+        return quoted.Count == 1
+            ? quoted[0]
+            : string.Join(", ", quoted.GetRange(0, quoted.Count - 1)) + " and " + quoted[quoted.Count - 1];
     }
 }

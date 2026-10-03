@@ -63,9 +63,11 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         int i = 0;
         foreach (var col in tableSchema.Columns.Values)
         {
+            // SourceName is never empty here: every ProjectionBuilder path
+            // sets it from the schema column, the column reference, or the
+            // expression's alias, the same alias its Name is derived from.
             var proj = projection.Columns[i++];
-            string sourceName = string.IsNullOrEmpty(proj.SourceName) ? proj.Name : proj.SourceName;
-            if (!string.Equals(sourceName, col.Name, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(proj.SourceName, col.Name, StringComparison.OrdinalIgnoreCase))
                 return null;
         }
 

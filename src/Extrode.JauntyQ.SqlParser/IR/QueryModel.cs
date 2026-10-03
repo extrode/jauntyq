@@ -5,6 +5,13 @@ public class QueryModel
     public string Name { get; set; } = string.Empty;
     public StatementType StatementType { get; set; } = StatementType.Select;
     public string? TargetTable { get; set; }
+
+    /// <summary>
+    /// The alias an UPDATE or DELETE gives its target table, or empty when it
+    /// gives none. Kept off the target's <see cref="TableRef"/> so existing
+    /// column resolution is unchanged.
+    /// </summary>
+    public string TargetAlias { get; set; } = string.Empty;
     public List<TableRef> Tables { get; } = new();
     public List<ColumnRef> Columns { get; } = new();
     public List<JoinRef> Joins { get; } = new();
@@ -87,4 +94,27 @@ public class QueryModel
     /// statement's result shape.
     /// </summary>
     public List<SubqueryRef> Subqueries { get; } = new();
+
+    /// <summary>
+    /// The bodies of <c>EXISTS (SELECT ...)</c> expressions that are not lifted
+    /// as a WHERE predicate: a projection-list EXISTS, or one in a JOIN's ON.
+    /// Unlike <see cref="Subqueries"/> they stay in the token stream; the body
+    /// is parsed only so the tenant-scope check can see the tables it reads.
+    /// </summary>
+    public List<QueryModel> ExistsExpressions { get; } = new();
+
+    /// <summary>
+    /// The update branch of an INSERT: <c>ON CONFLICT ... DO UPDATE</c> or
+    /// <c>ON DUPLICATE KEY UPDATE</c>. <see cref="UpsertKind.None"/> for a
+    /// plain INSERT, <c>DO NOTHING</c>, and every other statement.
+    /// </summary>
+    public UpsertKind Upsert { get; set; }
+
+    /// <summary>
+    /// The WHERE of an <c>ON CONFLICT ... DO UPDATE</c> split into top-level
+    /// AND-conjuncts, as <see cref="PredicateAtoms"/> is for a statement's own
+    /// WHERE. The tenant-scope check reads it: the update branch can reach a
+    /// row the INSERT never wrote.
+    /// </summary>
+    public List<PredicateAtom> UpsertAtoms { get; } = new();
 }

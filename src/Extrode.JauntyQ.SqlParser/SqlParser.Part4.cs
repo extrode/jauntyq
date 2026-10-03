@@ -174,9 +174,16 @@ public static partial class SqlParser
     /// </summary>
     private static void ExtractPredicateAtoms(List<Token> tokens, QueryModel model)
     {
-        // Identical bounding to ExtractPerfHints: WHERE to GROUP/ORDER/HAVING or
-        // end, depth-gated so a projection-list EXISTS(...) subquery's own
-        // clause keywords are never mistaken for this statement's.
+        // WHERE to the first clause after it or end, depth-gated so a
+        // projection-list EXISTS(...) subquery's own clause keywords are never
+        // mistaken for this statement's. LIMIT, OFFSET, RETURNING and a locking
+        // FOR UPDATE/SHARE also end it, as do an upsert's ON CONFLICT or ON
+        // DUPLICATE KEY after an INSERT...SELECT's WHERE, a statement-ending `;`, FETCH
+        // FIRST/NEXT, SQL Server's OPTION (...) and a WINDOW clause: left in,
+        // they join the last conjunct, and the tenant-scope proof
+        // `tenant_id = @t limit 10` no longer reads as an equality. The words
+        // that are not keywords need their next token too, so a column named
+        // `option` or `window` is still a column.
         int start = -1;
         int end = tokens.Count;
         int boundaryDepth = 0;
@@ -186,14 +193,22 @@ public static partial class SqlParser
                 boundaryDepth++;
             if (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ")")
                 boundaryDepth--;
-            if (tokens[i].Type != TokenType.Keyword || boundaryDepth != 0)
+            if (boundaryDepth != 0)
+                continue;
+            if (start != -1 && (IsTrailingClause(tokens, i)
+                || (tokens[i].Type == TokenType.Symbol && tokens[i].Value == ";")))
+            {
+                end = i;
+                break;
+            }
+            if (tokens[i].Type != TokenType.Keyword)
                 continue;
             if (start == -1)
             {
                 if (tokens[i].Value == "WHERE")
                     start = i + 1;
             }
-            else if (tokens[i].Value is "GROUP" or "ORDER" or "HAVING")
+            else if (tokens[i].Value is "GROUP" or "ORDER" or "HAVING" or "LIMIT" or "OFFSET" or "RETURNING" or "ON")
             {
                 end = i;
                 break;
@@ -202,6 +217,38 @@ public static partial class SqlParser
         if (start == -1)
             return;
 
+        SplitIntoAtoms(tokens, start, end, model.PredicateAtoms);
+    }
+
+    private static bool IsTrailingClause(List<Token> tokens, int i)
+    {
+        if (tokens[i].Type != TokenType.Identifier)
+            return false;
+        string word = tokens[i].Value;
+        if (string.Equals(word, "FOR", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (i + 1 >= tokens.Count)
+            return false;
+        var next = tokens[i + 1];
+        if (string.Equals(word, "FETCH", StringComparison.OrdinalIgnoreCase))
+            return next.Type == TokenType.Identifier
+                && (string.Equals(next.Value, "FIRST", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(next.Value, "NEXT", StringComparison.OrdinalIgnoreCase));
+        if (string.Equals(word, "OPTION", StringComparison.OrdinalIgnoreCase))
+            return next.Type == TokenType.Symbol && next.Value == "(";
+        if (string.Equals(word, "WINDOW", StringComparison.OrdinalIgnoreCase))
+            return next.Type == TokenType.Identifier;
+        return false;
+    }
+
+    /// <summary>
+    /// Splits <c>tokens[start..end)</c> into top-level AND-conjuncts, appending
+    /// each to <paramref name="target"/>. Shared by the WHERE clause and each
+    /// join's ON clause (<see cref="TableRef.OnAtoms"/>), under the same two
+    /// conservatisms described on <see cref="ExtractPredicateAtoms"/>.
+    /// </summary>
+    private static void SplitIntoAtoms(List<Token> tokens, int start, int end, List<PredicateAtom> target)
+    {
         bool hasTopLevelOr = false;
         int scanDepth = 0;
         for (int i = start; i < end; i++)
@@ -245,7 +292,7 @@ public static partial class SqlParser
                 else if (!hasTopLevelOr)
                 {
                     if (current.Terms.Count > 0)
-                        model.PredicateAtoms.Add(current);
+                        target.Add(current);
                     current = new PredicateAtom();
                     continue;
                 }
@@ -254,7 +301,7 @@ public static partial class SqlParser
             current.Terms.Add(ClassifyAtomTerm(t));
         }
         if (current.Terms.Count > 0)
-            model.PredicateAtoms.Add(current);
+            target.Add(current);
     }
 
     /// <summary>

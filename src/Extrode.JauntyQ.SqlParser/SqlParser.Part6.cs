@@ -8,6 +8,14 @@ public static partial class SqlParser
     /// <summary>
     /// DELETE FROM Table WHERE ... or DELETE Table WHERE ...
     /// </summary>
+    private static string ReadTargetAlias(List<Token> tokens, int pos)
+    {
+        // Tokenize ends every list with an End token, and pos is at most its index.
+        if (tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "AS")
+            pos++;
+        return tokens[pos].Type == TokenType.Identifier ? tokens[pos].Value : string.Empty;
+    }
+
     private static void ParseDelete(List<Token> tokens, int pos, QueryModel model)
     {
         // Skip optional FROM
@@ -20,6 +28,7 @@ public static partial class SqlParser
             string tableName = StripQualifier(tokens[pos].Value);
             model.TargetTable = tableName;
             model.Tables.Add(new TableRef { TableName = tableName, Alias = string.Empty });
+            model.TargetAlias = ReadTargetAlias(tokens, pos + 1);
         }
 
         // Parameter bindings handled by ExtractParameterBindings (col = @param in WHERE)
@@ -127,6 +136,7 @@ public static partial class SqlParser
         // SELECT remains after this is a genuinely unsupported subquery.
         ExtractPredicateSubqueries(tokens, model);
 
+        int existsEnd = -1;
         for (int i = 0; i < tokens.Count; i++)
         {
             var token = tokens[i];
@@ -156,10 +166,14 @@ public static partial class SqlParser
                         // possibly only) SELECT keyword in the whole statement
                         // IS the illegal subquery: it slipped through
                         // undetected, e.g. `UPDATE t SET x = (SELECT ...)`.
-                        if (i > 0 && tokens[i - 1].Type == TokenType.Symbol && tokens[i - 1].Value == "(" &&
-                            !IsExistsSubquery(tokens, i))
+                        if (i > 0 && tokens[i - 1].Type == TokenType.Symbol && tokens[i - 1].Value == "(")
                         {
-                            if (!model.UnsupportedConstructs.Contains("SUBQUERY"))
+                            if (IsExistsSubquery(tokens, i))
+                            {
+                                if (i > existsEnd)
+                                    existsEnd = ParseExistsExpression(tokens, i - 1, model);
+                            }
+                            else if (!model.UnsupportedConstructs.Contains("SUBQUERY"))
                                 model.UnsupportedConstructs.Add("SUBQUERY");
                         }
                         break;
@@ -197,6 +211,47 @@ public static partial class SqlParser
         if (selectIndex < 2)
             return false;
         return tokens[selectIndex - 2].Type == TokenType.Keyword && tokens[selectIndex - 2].Value == "EXISTS";
+    }
+
+    /// <summary>
+    /// Parses the body of the unlifted <c>EXISTS (</c> at <paramref name="open"/>
+    /// into <see cref="QueryModel.ExistsExpressions"/>, leaving the tokens in
+    /// place, and returns the index of its closing paren. An EXISTS nested in
+    /// the body is reached by the recursive parse, so the caller does not
+    /// record it again.
+    /// </summary>
+    private static int ParseExistsExpression(List<Token> tokens, int open, QueryModel model)
+    {
+        int close = FindMatchingParen(tokens, open, tokens.Count);
+        if (close == -1)
+            return open;
+        var innerTokens = new List<Token>();
+        for (int j = open + 1; j < close; j++)
+            innerTokens.Add(tokens[j]);
+        innerTokens.Add(Token.End);
+        model.ExistsExpressions.Add(Parse(innerTokens, model.Name + "_exists" + model.ExistsExpressions.Count));
+        return close;
+    }
+
+    /// <summary>
+    /// The scope a binding carried out of <paramref name="body"/> resolves in:
+    /// the scope an inner body already recorded, else <paramref name="body"/>
+    /// itself, unless the binding's qualifier names no table there. A
+    /// correlated reference such as <c>o.total</c> inside
+    /// <c>exists (select 1 from items i where ...)</c> binds to the enclosing
+    /// statement's <c>o</c>, so it carries no scope out of this body.
+    /// </summary>
+    private static QueryModel? ScopeOf(ParameterRef p, QueryModel body)
+    {
+        if (p.BoundScope != null || string.IsNullOrEmpty(p.BoundTableAlias))
+            return p.BoundScope ?? body;
+        foreach (var table in body.Tables)
+        {
+            string key = !string.IsNullOrEmpty(table.Alias) ? table.Alias : table.TableName;
+            if (string.Equals(key, p.BoundTableAlias, StringComparison.OrdinalIgnoreCase))
+                return body;
+        }
+        return null;
     }
 
     /// <summary>
@@ -273,7 +328,7 @@ public static partial class SqlParser
 
             int open = i + 1;
             int close = FindMatchingParen(tokens, open, tokens.Count);
-            if (close < 0)
+            if (close == -1)
                 continue; // malformed; leave for the generic detector
 
             // Slice the inner statement (between the parens) and parse it with a
@@ -282,7 +337,7 @@ public static partial class SqlParser
             var innerTokens = new List<Token>();
             for (int j = open + 1; j < close; j++)
                 innerTokens.Add(tokens[j]);
-            innerTokens.Add(new Token(TokenType.End, string.Empty));
+            innerTokens.Add(Token.End);
 
             var body = Parse(innerTokens, model.Name + "_sub" + model.Subqueries.Count);
             model.Subqueries.Add(new SubqueryRef { Kind = kind, Body = body });
@@ -301,6 +356,7 @@ public static partial class SqlParser
                         BoundTableAlias = p.BoundTableAlias,
                         BoundColumnName = p.BoundColumnName,
                         IsWriteTarget = p.IsWriteTarget,
+                        IsUpsertAssignment = p.IsUpsertAssignment,
                         ComparisonOp = p.ComparisonOp
                     });
                 }
@@ -309,7 +365,9 @@ public static partial class SqlParser
                     existing.BoundTableAlias = p.BoundTableAlias;
                     existing.BoundColumnName = p.BoundColumnName;
                     existing.IsWriteTarget = p.IsWriteTarget;
+                    existing.IsUpsertAssignment = p.IsUpsertAssignment;
                     existing.ComparisonOp = p.ComparisonOp;
+                    existing.BoundScope = ScopeOf(p, body);
                 }
             }
 

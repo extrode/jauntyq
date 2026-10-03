@@ -524,6 +524,20 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    // An auto-CRUD query that fails JauntyQ's own validation is a generator
+    // bug, not a schema error, so it is not raised as the validator's Error:
+    // the method is skipped and the build goes on. Until this existed the skip
+    // was silent, and a SQL Server table named "lateral" lost GetAll and
+    // GetById with nothing in the build output (fixed 2026-10-02). Warning,
+    // matching JNT2015's "a member is missing from the API" precedent.
+    public static readonly DiagnosticDescriptor JNT2027 = new(
+        "JNT2027",
+        "Auto-CRUD Method Skipped",
+        "{0}",
+        "JauntyQ.Schema",
+        DiagnosticSeverity.Warning,
+        true);
+
     // ── 3xxx: Query Shape / Projection ────────────────────
 
     public static readonly DiagnosticDescriptor JNT3001 = new(
@@ -636,6 +650,45 @@ public static class JauntyDiagnostics
         DiagnosticSeverity.Error,
         true);
 
+    /// <summary>
+    /// Spec 021: a table declared in <c>jaunty.scope.json</c> is reached
+    /// without a <c>column = @param</c> proof where SQL would apply it. One
+    /// per unproven reach; the message names the reach and the fix.
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT4005 = new(
+        "JNT4005",
+        "Scoped Table Reached Without Its Scope Parameter",
+        "{0}",
+        "JauntyQ.Parameters",
+        DiagnosticSeverity.Error,
+        true);
+
+    /// <summary>
+    /// Spec 021: a file declares <c>-- @unscoped</c> but every scoped table it
+    /// reaches is proven, so the directive accepts nothing. Warning, as for
+    /// JNT8012.
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT4006 = new(
+        "JNT4006",
+        "Unnecessary Unscoped Acceptance",
+        "{0}",
+        "JauntyQ.Parameters",
+        DiagnosticSeverity.Warning,
+        true);
+
+    /// <summary>
+    /// Spec 021, R4: a scoped MySQL table gets no synthetic Upsert. ON
+    /// DUPLICATE KEY UPDATE has no WHERE, so a key collision with another
+    /// scope's row would overwrite it.
+    /// </summary>
+    public static readonly DiagnosticDescriptor JNT4007 = new(
+        "JNT4007",
+        "Scoped Upsert Not Generated",
+        "{0}",
+        "JauntyQ.Parameters",
+        DiagnosticSeverity.Info,
+        true);
+
     // ── 5xxx: Value safety ────────────────────────────────
 
     public static readonly DiagnosticDescriptor JNT5001 = new(
@@ -701,6 +754,28 @@ public static class JauntyDiagnostics
         "{0}",
         "JauntyQ.Configuration",
         DiagnosticSeverity.Warning,
+        true);
+
+    // Spec 021. Warning, for JNT6003's reason: a malformed sidecar must not
+    // stop a build. Every message says the affected table is unscoped, so a
+    // dropped entry is never mistaken for an enforced one.
+    public static readonly DiagnosticDescriptor JNT6004 = new(
+        "JNT6004",
+        "Invalid Scope File",
+        "{0}",
+        "JauntyQ.Configuration",
+        DiagnosticSeverity.Warning,
+        true);
+
+    // Spec 021. Error, unlike JNT6004: a scope file that cannot be read, or
+    // declares no entries, turns every JNT4005 off at once, so a JSON typo
+    // must stop the build rather than quietly unscope every table.
+    public static readonly DiagnosticDescriptor JNT6005 = new(
+        "JNT6005",
+        "Unusable Scope File",
+        "{0}",
+        "JauntyQ.Configuration",
+        DiagnosticSeverity.Error,
         true);
 
     // ── 7xxx: Dialect ─────────────────────────────────────

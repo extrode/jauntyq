@@ -1,3 +1,4 @@
+using Extrode.JauntyQ.Analysis.Scoping;
 using Extrode.JauntyQ.Schema;
 using Extrode.JauntyQ.SqlParser;
 
@@ -71,7 +72,17 @@ public static class AutoCrud
         return string.Join(separator, parts);
     }
 
-    public static List<SyntheticQuery> Synthesize(DatabaseSchema schema)
+    public static List<SyntheticQuery> Synthesize(DatabaseSchema schema) => Synthesize(schema, null);
+
+    /// <summary>
+    /// Spec 021: on a table <paramref name="scopes"/> names, every method
+    /// takes the scope value as its first parameter. Reads and Delete filter
+    /// on it first, Insert lists it first, and Update removes it from SET and
+    /// filters on it (the generator moves its parameter to the front). A
+    /// <c>GetBy&lt;Fk&gt;</c> on the scope column itself is not synthesized:
+    /// GetAll already is that query. With no scopes the SQL is unchanged.
+    /// </summary>
+    public static List<SyntheticQuery> Synthesize(DatabaseSchema schema, IReadOnlyList<ScopeColumn>? scopes)
     {
         var result = new List<SyntheticQuery>();
 
@@ -87,7 +98,8 @@ public static class AutoCrud
             bool allColumnsUsable = true;
             foreach (var col in table.Columns.Values)
             {
-                if (!IsBareIdentifier(col.Name, schema.Dialect, SqlIdentifierPosition.Column))
+                if (!IsBareIdentifier(col.Name, schema.Dialect, SqlIdentifierPosition.Column)
+                    || DescribeGeneratorReservedColumn(col.Name) != null)
                 {
                     allColumnsUsable = false;
                 }
@@ -116,10 +128,15 @@ public static class AutoCrud
 
             string entityName = DialectMapper.ToPascalCase(table.Name);
             string colList = JoinColumns(columns, ", ", c => c.Name);
+            var scopeCols = ScopeResolver.ColumnsOf(table, scopes);
+            string scopeWhere = JoinColumns(scopeCols, " AND ", c => $"{table.Name}.{c.Name} = @{c.Name}");
+            string ScopedFirst(string where) => scopeCols.Count == 0 ? where : $"{scopeWhere} AND {where}";
 
             // GetAll — always (works for views and PK-less tables too)
             result.Add(new SyntheticQuery(entityName, "GetAll",
-                $"SELECT {colList}\nFROM {table.Name}", table.Name));
+                scopeCols.Count == 0
+                    ? $"SELECT {colList}\nFROM {table.Name}"
+                    : $"SELECT {colList}\nFROM {table.Name}\nWHERE {scopeWhere}", table.Name));
 
             var pkCols = CrudColumnRules.PrimaryKeyColumns(columns);
 
@@ -137,9 +154,11 @@ public static class AutoCrud
                     continue;
                 if (!table.Columns.ContainsKey(fk.FromColumn))
                     continue;
+                if (scopeCols.Contains(table.Columns[fk.FromColumn]))
+                    continue;
 
                 result.Add(new SyntheticQuery(entityName, $"GetBy{DialectMapper.ToPascalCase(fk.FromColumn)}",
-                    $"SELECT {colList}\nFROM {table.Name}\nWHERE {table.Name}.{fk.FromColumn} = @{fk.FromColumn}", table.Name,
+                    $"SELECT {colList}\nFROM {table.Name}\nWHERE {ScopedFirst($"{table.Name}.{fk.FromColumn} = @{fk.FromColumn}")}", table.Name,
                     filterColumn: fk.FromColumn));
             }
 
@@ -158,7 +177,7 @@ public static class AutoCrud
 
             // GetById — single row by primary key
             result.Add(new SyntheticQuery(entityName, "GetById",
-                $"-- @first\nSELECT {colList}\nFROM {table.Name}\nWHERE {pkWhere}", table.Name));
+                $"-- @first\nSELECT {colList}\nFROM {table.Name}\nWHERE {ScopedFirst(pkWhere)}", table.Name));
 
             // Optimistic concurrency: rowversion columns are database-assigned
             // tokens — never inserted or updated, but required in the WHERE of
@@ -169,7 +188,7 @@ public static class AutoCrud
             // Insert — identity columns are database-assigned, never bound.
             // When the table has a single identity key and the snapshot knows
             // the dialect, the synthetic Insert returns the new id (-- @identity).
-            var insertCols = CrudColumnRules.InsertableColumns(columns);
+            var insertCols = ScopeFirst(CrudColumnRules.InsertableColumns(columns), scopeCols);
             if (insertCols.Count > 0)
             {
                 string insertColList = JoinColumns(insertCols, ", ", c => c.Name);
@@ -192,7 +211,9 @@ public static class AutoCrud
             // supplies the Update(row) POCO overload's forwarded arguments
             // and has to match this SQL's @parameter list one-for-one.
             var setCols = CrudColumnRules.UpdatableColumns(columns);
-            var whereCols = new List<ColumnSchema>(pkCols.Count + versionCols.Count);
+            setCols.RemoveAll(scopeCols.Contains);
+            var whereCols = new List<ColumnSchema>(scopeCols.Count + pkCols.Count + versionCols.Count);
+            whereCols.AddRange(scopeCols);
             whereCols.AddRange(pkCols);
             whereCols.AddRange(versionCols);
             if (setCols.Count > 0)
@@ -250,6 +271,22 @@ public static class AutoCrud
             }
         }
 
+        return result;
+    }
+
+    /// <summary>
+    /// <paramref name="cols"/> with the scope columns moved to the front, in
+    /// scope order.
+    /// </summary>
+    public static List<ColumnSchema> ScopeFirst(List<ColumnSchema> cols, List<ColumnSchema> scopeCols)
+    {
+        var result = new List<ColumnSchema>(cols.Count);
+        foreach (var c in scopeCols)
+            if (cols.Contains(c))
+                result.Add(c);
+        foreach (var c in cols)
+            if (!scopeCols.Contains(c))
+                result.Add(c);
         return result;
     }
 
@@ -345,7 +382,7 @@ public static class AutoCrud
     }
 
     /// <summary>
-    /// AUD-R64-01 (T8 residual, 2026-07-29): why <see cref="Synthesize"/> will
+    /// AUD-R64-01 (T8 residual, 2026-07-29): why <see cref="Synthesize(DatabaseSchema)"/> will
     /// refuse to emit any CRUD for <paramref name="table"/>, or null when it
     /// will not refuse. Exposed so <c>JauntyQGenerator</c> can turn what was a
     /// silent <c>continue</c> — a table simply absent from the generated API,
@@ -368,13 +405,26 @@ public static class AutoCrud
 
         foreach (var col in table.Columns.Values)
         {
-            why = DescribeIdentifier(col.Name, dialect, SqlIdentifierPosition.Column);
+            why = DescribeIdentifier(col.Name, dialect, SqlIdentifierPosition.Column)
+                ?? DescribeGeneratorReservedColumn(col.Name);
             if (why != null)
                 return $"its column '{col.Name}' {why}";
         }
 
         return null;
     }
+
+    /// <summary>
+    /// Why a column name, valid in SQL, still cannot become a parameter of the
+    /// generated C# methods, or null. A synthetic method's parameters are the
+    /// column names verbatim, and the generator names its own locals with a
+    /// '__' prefix (__cmd, __reader, __weOpened); JNT2012 refuses the same
+    /// prefix for a hand-written query's parameters.
+    /// </summary>
+    private static string? DescribeGeneratorReservedColumn(string name)
+        => name.StartsWith("__", StringComparison.Ordinal)
+            ? "starts with '__', the prefix JauntyQ reserves for the names inside generated methods"
+            : null;
 
     /// <summary>
     /// True when two columns in <paramref name="columns"/> fold to the same

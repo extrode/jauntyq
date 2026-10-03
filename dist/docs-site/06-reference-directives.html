@@ -119,14 +119,14 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Guides</span>
   </div>
-  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  </div>
+  <div class="nav-group-items">  <a href="03-guides-readme.html">Guides</a>  <a href="03-guides-bulk-insert.html">Bulk insert</a>  <a href="03-guides-contract-testing.html">Database contract testing</a>  <a href="03-guides-ddl-as-schema-source.html">DDL as schema source</a>  <a href="03-guides-explain-analysis.html">Live EXPLAIN plan analysis</a>  <a href="03-guides-licensing-and-activation.html">Licensing and activation</a>  <a href="03-guides-loading-related-rows.html">Loading parents with their children</a>  <a href="03-guides-migrating-from-dapper-and-ef.html">Migrating from Dapper or EF Core</a>  <a href="03-guides-schema-registry.html">Central schema-dependency registry</a>  <a href="03-guides-sequences.html">Sequences</a>  <a href="03-guides-startup-verification.html">Runtime startup schema verification</a>  <a href="03-guides-tenant-scoping.html">Tenant scoping</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="06-reference-readme.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html" class="active" aria-current="page">Directives reference</a>  <a href="06-reference-mutation-coverage-report.html">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</a>  <a href="06-reference-mutation-coverage-tally.html">Mutation coverage tally vs. target</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
+  <div class="nav-group-items">  <a href="06-reference-readme.html">Reference</a>  <a href="06-reference-api-overview.html">API reference overview</a>  <a href="06-reference-cli.html">CLI reference: jauntyq</a>  <a href="06-reference-code-coverage.html">Code coverage</a>  <a href="06-reference-configuration.html">Configuration reference (MSBuild &amp; file conventions)</a>  <a href="06-reference-cross-dialect-compatibility.html">Cross-dialect compatibility</a>  <a href="06-reference-diagnostics.html">JNT diagnostics reference</a>  <a href="06-reference-dialects.html">Dialect differences</a>  <a href="06-reference-directives.html" class="active" aria-current="page">Directives reference</a>  <a href="06-reference-migration-tracking-contract.html">Migration tracking contract</a>  <a href="06-reference-mutation-coverage-report.html">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</a>  <a href="06-reference-mutation-coverage-tally.html">Mutation coverage tally vs. target</a>  <a href="06-reference-schema-snapshot-format.html">Schema snapshot format (.schema.json)</a>  <a href="06-reference-supported-sql.html">Supported SQL surface</a>  <a href="06-reference-troubleshooting.html">Troubleshooting &amp; FAQ</a>  <a href="06-reference-versioning-and-support.html">Versioning &amp; support policy</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -142,7 +142,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#syntax-rules">Syntax rules</a><a class="toc-l2" href="#directive-summary">Directive summary</a><a class="toc-l3" href="#---first">-- @first</a><a class="toc-l3" href="#---stream">-- @stream</a><a class="toc-l3" href="#---identity">-- @identity</a><a class="toc-l3" href="#---result">-- @result</a><a class="toc-l3" href="#---params">-- @params</a><a class="toc-l3" href="#---each">-- @each</a><a class="toc-l3" href="#---type">-- @type</a><a class="toc-l3" href="#---proc">-- @proc</a><a class="toc-l3" href="#---call">-- @call</a><a class="toc-l3" href="#---mirrors">-- @mirrors</a><a class="toc-l3" href="#---allow-unindexed">-- @allow-unindexed</a><a class="toc-l3" href="#---allow-sort">-- @allow-sort</a><a class="toc-l3" href="#---allow-n-plus-one">-- @allow-n-plus-one</a><a class="toc-l2" href="#related-diagnostics">Related diagnostics</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#syntax-rules">Syntax rules</a><a class="toc-l2" href="#directive-summary">Directive summary</a><a class="toc-l3" href="#---first">-- @first</a><a class="toc-l3" href="#---stream">-- @stream</a><a class="toc-l3" href="#---identity">-- @identity</a><a class="toc-l3" href="#---result">-- @result</a><a class="toc-l3" href="#---params">-- @params</a><a class="toc-l3" href="#---each">-- @each</a><a class="toc-l3" href="#---type">-- @type</a><a class="toc-l3" href="#---proc">-- @proc</a><a class="toc-l3" href="#---call">-- @call</a><a class="toc-l3" href="#---mirrors">-- @mirrors</a><a class="toc-l3" href="#---allow-unindexed">-- @allow-unindexed</a><a class="toc-l3" href="#---allow-sort">-- @allow-sort</a><a class="toc-l3" href="#---allow-n-plus-one">-- @allow-n-plus-one</a><a class="toc-l3" href="#---unscoped">-- @unscoped</a><a class="toc-l2" href="#related-diagnostics">Related diagnostics</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Directives reference</nav>
         <article>
@@ -237,6 +237,11 @@ reasons, with nothing to show which one the build acted on.</li>
 <td><a href="#-allow-n-plus-one"><code>-- @allow-n-plus-one</code></a></td>
 <td>any child point lookup by a foreign key</td>
 <td>Accept this query's N+1 shape deliberately. Reason mandatory.</td>
+</tr>
+<tr>
+<td><a href="#-unscoped"><code>-- @unscoped</code></a></td>
+<td>any reaching a table in <code>jaunty.scope.json</code></td>
+<td>Accept that this query reaches scoped rows without the scope parameter. Reason mandatory.</td>
 </tr>
 </tbody>
 </table>
@@ -614,6 +619,29 @@ gone, because the parent-collection query was deleted or the child lookup was
 made set-based, the directive stops hiding an accepted pattern and starts hiding
 a future one, so the build asks for it to be removed. The message repeats the
 stated reason.</p>
+<h3 id="---unscoped"><code>-- @unscoped</code></h3>
+<p>Accepts that this query reaches a scoped table without proving it is filtered by
+its scope column, suppressing <code>JNT4005</code> for this file and nothing else. A reason
+is required.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @unscoped nightly billing totals every tenant's orders</span>
+<span class="tok-kw">SELECT</span> o.tenant_id, <span class="tok-fn">SUM</span>(o.total) <span class="tok-kw">AS</span> total
+<span class="tok-kw">FROM</span> orders o
+<span class="tok-kw">GROUP</span> <span class="tok-kw">BY</span> o.tenant_id
+</code></pre>
+</div>
+<p>A table is scoped when <code>jaunty.scope.json</code> names it (see
+<a href="06-reference-configuration.html">configuration</a>). Without this directive, every reach of a
+scoped table needs a top-level <code>&lt;ref&gt;.&lt;column&gt; = @param</code> condition where SQL
+applies it; <code>JNT4005</code> lists the rules. The directive covers its own file only: a
+query in another file reaching the same table is still checked.</p>
+<p>A bare <code>-- @unscoped</code> accepts nothing and is reported as <code>JNT3008</code>. Once the
+query proves every scoped reach, the directive is reported as unnecessary
+(<code>JNT4006</code>): remove it.</p>
 <h2 id="related-diagnostics">Related diagnostics</h2>
 <p><code>JNT3003</code> (invalid directive combination), <code>JNT7001</code> (identity unavailable),
 <code>JNT7002</code> (construct unavailable on dialect, <code>-- @proc</code> outside <code>sqlserver</code>),
@@ -628,9 +656,9 @@ acceptance), <code>JNT8013</code> (unnecessary N+1 acceptance). Full list in
           <div class="prev-next"><a class="pn-prev" href="06-reference-dialects.html">
   <span class="pn-label">&#8592; prev</span>
   <span class="pn-title">Dialect differences</span>
-</a><a class="pn-next" href="06-reference-mutation-coverage-report.html">
+</a><a class="pn-next" href="06-reference-migration-tracking-contract.html">
   <span class="pn-label">next &#8594;</span>
-  <span class="pn-title">Mutation coverage report — Extrode.JauntyQ.Analysis / SqlParser</span>
+  <span class="pn-title">Migration tracking contract</span>
 </a></div>
         </div>
       </div>

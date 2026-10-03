@@ -9,6 +9,7 @@ public class CSharpToSqlTypeMapperTests
     [InlineData("int", "int")]
     [InlineData("long", "bigint")]
     [InlineData("short", "smallint")]
+    [InlineData("byte", "tinyint")]
     [InlineData("bool", "bit")]
     [InlineData("decimal", "decimal(18,2)")]
     [InlineData("double", "float")]

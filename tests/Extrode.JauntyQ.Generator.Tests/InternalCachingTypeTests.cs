@@ -75,6 +75,8 @@ public class InternalCachingTypeTests
         Assert.False(s.Equals(new FileSummary("Users", "GetAll", false, true, "users")));
         Assert.False(s.Equals(new FileSummary("Users", "GetAll", true, false, "users")));
         Assert.False(s.Equals(new FileSummary("Users", "GetAll", true, true, canonicalTable: null)));
+        Assert.False(s.Equals(new FileSummary("Users", "GetAll", true, true, "users", emitsResultType: true)));
+        Assert.False(s.Equals(new FileSummary("Users", "GetAll", true, true, "users", emitsProcType: true)));
         Assert.False(s.Equals((object?)null));
 
         // Null canonical table is a valid, hashable shape.

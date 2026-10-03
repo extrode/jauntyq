@@ -9,6 +9,169 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 before 0.5.0 were released from the original repository; their entries below are
 condensed.
 
+## [Unreleased]
+
+## [0.7.0] - 2026-10-03
+
+### Breaking
+- Generated names: a row type whose column maps to `Read` exposes its materializer as `__Read`;
+  code that called `Read` must call `__Read`.
+- Postgres migration simulation folds an unquoted `CREATE TABLE` name to lower case, as Postgres
+  stores it. A pending `CREATE TABLE OrderItems` now generates `db.Orderitems` and row type
+  `Orderitems` (was `OrderItems`), matching what a live pull produces. Quote the name to keep its
+  case.
+- Parameters compared inside an `IN`/`EXISTS` subquery or CTE body are typed from that body's
+  column, so a generated parameter type can change (`@id` in
+  `... in (select id from customers where id = @id)` is `customers.id`, no longer `orders.id`).
+- Migration simulation changes can change generated members: a Postgres `ALTER COLUMN ... TYPE`
+  keeps `NOT NULL` (property no longer nullable), a MySQL `MODIFY ... ENUM(...)` column is an enum
+  property, an inline `REFERENCES` adds `GetBy<Fk>`, and text columns on Postgres/MySQL/SQLite
+  now carry the Unicode flag.
+- New warnings `JNT2027`, `JNT4006` and `JNT6004` fail builds that treat warnings as errors;
+  `JNT2027` fires on existing projects where an auto-CRUD method was silently skipped. A scope
+  file that cannot be read, or declares no entries, is the new error `JNT6005`.
+- `-- @allow-unindexed` and `-- @allow-sort` directives that suppressed the JNT8004/JNT8007 false
+  positives fixed below now report `JNT8012`.
+- A snapshot with two entries sharing a `name`, or a `null` entry in a collection, no longer loads.
+- `-- @unscoped <reason>` is a directive; a comment line of that shape is consumed.
+- `CliHost.Verbs` removed from `Extrode.JauntyQ.Cli.Core`. Nothing read it.
+
+### Added
+- Tenant scoping (spec 021): `jaunty.scope.json` declares tables scoped by a column. A
+  hand-written query that reaches one without `<ref>.<column> = @param` in the right place is
+  refused with `JNT4005` (Error), one per unproven reach, an `EXISTS (...)` expression included;
+  a proof written directly before `LIMIT`, `OFFSET`, `FETCH`, `RETURNING`, `FOR UPDATE`,
+  `OPTION`, `WINDOW` or a closing `;` counts. A hand-written `ON CONFLICT ... DO UPDATE` must
+  also prove the scope in its `DO UPDATE`'s `WHERE`, since the update branch can reach another
+  scope's row; `ON DUPLICATE KEY UPDATE` has no `WHERE` and is always refused.
+  `-- @unscoped <reason>` accepts a query that must cross tenants, and `JNT4006` reports one that accepts nothing. Auto-CRUD on a scoped
+  table takes the scope value first in every method, never moves a row between scopes, and its
+  Upsert cannot overwrite another scope's row; MySQL gets no scoped Upsert (`JNT4007`, Info).
+  Problems in the file are `JNT6004` (Warning), including an unknown top-level property and a
+  null entry. A file that does not parse, or declares no entries, is `JNT6005` (Error): it would
+  leave every table unscoped. Views and procedures are not checked. With no scope file
+  the generated code is unchanged. See the [tenant scoping guide](docs/03-guides/tenant-scoping.md).
+- `JNT2027` (Warning): an auto-CRUD method whose generated SQL fails JauntyQ's own validation is
+  now reported, naming the method, the table and each error. The method was always skipped; the
+  skip used to be silent, which is how the `lateral` table bug below went unnoticed.
+- `jauntyq migrate status`, free in both tools: reads `schema_migrations` and compares it with
+  `db/migrations/*.sql` under the [migration tracking contract](docs/06-reference/migration-tracking-contract.md).
+  Lists pending files in apply order; exits `2` when a recorded migration is still in the folder
+  or a pending one sorts before the latest applied, and on any pending file with
+  `--fail-on pending`. Read-only on all four dialects; a missing table means nothing applied.
+- `MigrationOrder.Compare` in `Extrode.JauntyQ.Analysis`: the migration file order the generator
+  simulates in, now public so a runner or tool can sort the same way.
+
+### Changed
+- Generated names give way instead of colliding. A row type whose column maps to the property
+  `Read` gets its materializer as `__Read`, and a framework type the generated code uses
+  (`ArgumentException`, `ArgumentNullException` and the rest routed through one helper) is written
+  `global::`-qualified when a table generates a type of the same name. Code that called a row
+  type's `Read` directly on such a table must call `__Read`.
+- Migration simulation on Postgres resolves an unquoted `CREATE TABLE` name as Postgres stores it,
+  in lower case, and matches existing tables exactly. `create table customers` beside an existing
+  `"Customers"` is a new table, not `JNT9002` "already exists"; `create table Customers` beside
+  `customers` still is. A quoted name, schema-qualified or not (`public."OrderItems"`), keeps its
+  case. Other dialects keep case-insensitive matching.
+- Framework types the generated code uses are also `global::`-qualified inside a method body when
+  a query parameter is named like one (`@NpgsqlDbType`, `@DbType`, `@DBNull`).
+- `JNT8008` now names its fix: for a single-column foreign key the message suggests
+  `WHERE fk IN (@ParentIds)` under `-- @each ParentIds`, one query for all parents, and points
+  at the new [loading parents with their children](docs/03-guides/loading-related-rows.md)
+  guide. Composite keys keep the generic `IN (...)` wording. Eager loading is not planned.
+
+### Documentation
+- The folder-to-entity and file-to-method naming rules (`db/Widgets/GetAll.sql` becomes
+  `db.Widgets.GetAll()`), the row-type naming rules and `JNT2004`'s identifier rule are stated
+  as a stable contract in [configuration](docs/06-reference/configuration.md#entity-and-method-naming)
+  and pinned by `NamingContractTests`.
+
+### Fixed
+- `JNT8004` no longer fires on a residual filter or a later composite-index column when the
+  table is aliased and one reference is qualified while the other is not
+  (`from t x join s y on ... where x.u = @u and d = @d`, or `where x.a = @a and b = @b` on an
+  index over `(a, b)`). The unqualified column was keyed by table name, the qualified one by alias.
+- `JNT8007` no longer fires on an unqualified ORDER BY column of an aliased table whose leading
+  index column is filtered (`from products p where p.launched_at = @d order by product_name` on an
+  index over `(launched_at, product_name)`). Same alias-versus-table-name keying as the JNT8004
+  fix above.
+- A pending file under `db/migrations/` no longer erases the snapshot's functions and user types.
+  Migration simulation copied tables, procedures, sequences and enums but not functions or user
+  types, so `db.Functions` disappeared from the generated code with no diagnostic as soon as one
+  migration existed. Present since 0.5.0.
+- A SQL Server or SQLite table named `lateral` gets its auto-CRUD `GetAll` and `GetById` again,
+  and a hand-written `select ... from lateral` no longer fails with JNT1009. The parser read any
+  `lateral` in a table position as the LATERAL keyword; it now does so only before `(` or a
+  function call. The two read methods were dropped with no diagnostic.
+- A SQL Server bracketed identifier containing the `]]` escape (`[a]]b]`) is now read as one
+  identifier by the `@each` expander and the `@identity` `OUTPUT INSERTED` splicer. Before, the
+  first `]` ended it, so an `@each` name or the word `values` later inside the identifier was
+  treated as live SQL.
+- A schema snapshot whose table, column, procedure, sequence or enum key differs from the entry's
+  `name` (`"Customers": { "name": "customers" }`, typically after a hand edit) no longer crashes
+  auto-CRUD emission with JNT0001. The loader now keys each entry by its `name`; an entry with no
+  `name` takes its key, and two entries with the same `name` fail the load like any malformed
+  snapshot.
+- A schema snapshot with an explicit JSON `null` (`"indexes": null`, `"foreignKeys": null`,
+  `"dbType": null`) no longer crashes every generator stage with JNT0001. A `null` property now
+  loads like an omitted one; a `null` entry inside a collection (`"tables": { "t": null }`,
+  `"foreignKeys": [ null ]`) fails the load like any malformed snapshot.
+- A SQL Server computed column written without parentheses (`Total AS Qty * Price [PERSISTED]`)
+  in a DDL or migration file now enters the schema. It used to be dropped silently, so a later
+  query selecting it failed with a false JNT2002.
+- A computed column whose expression contains a parenthesised group followed by more expression
+  (`Flag AS (Qty) + CASE WHEN Note IS NOT NULL THEN 1 ELSE 0 END`,
+  `Flag AS CASE WHEN (Qty) NOT IN (1, 2) AND Note IS NOT NULL THEN 1 ELSE 0 END`) is no longer
+  marked NOT NULL by the `IS NOT NULL` inside its expression. Only `PERSISTED NOT NULL`, or
+  `NOT NULL` straight after a fully parenthesised expression, sets the column's nullability.
+- A parameter compared inside an `IN`/`EXISTS` subquery or a CTE body now takes its type, length
+  and nullability from the column SQL binds it to, the subquery's own table. Before,
+  `delete from orders where customer_id in (select id from customers where id = @id)` typed `@id`
+  from `orders.id`. An INSERT...SELECT's `WHERE` parameters likewise no longer resolve against
+  the insert target, which is not in scope there.
+  A column only the outer table has (a correlated filter such as `status = @s` inside the
+  subquery) still resolves against the outer table, as SQL does, unless the subquery reads a CTE
+  or another relation the schema does not list; then it stays in the subquery and is typed
+  through the CTE.
+- The same subquery parameters no longer count as filters on the outer statement's same-named
+  column. They had suppressed JNT8004 and JNT8009/JNT8010 on the outer table, raised JNT8004
+  against it, made JNT8008 report an N+1 child lookup, and added the outer column to migration
+  impact analysis.
+- Migration impact analysis now attributes a correlated subquery's reference to an outer alias
+  (`o.total` inside `exists (select 1 from items i where ...)`) to the outer table. It used to
+  record a table named after the alias, so a migration touching `orders.total` reported SAFE.
+  An `EXISTS (...)` in the select list or a `JOIN ... ON` is now walked too.
+- A column or parameter named `await` is now emitted as `@await`; the generated async overloads
+  used to read it as the operator and fail to compile.
+- Generated code that used to fail with raw C# errors (CS0102, CS0542, CS0260) on a name
+  collision is now refused with a JauntyQ diagnostic naming the fix:
+  - `JNT2006`: a `db/` folder named like a framework type the generated code uses, an entity
+    accessor named like a `JauntyDb` member or its backing field, an entity that would declare a
+    method of its own name (`Foo/Foo.sql`, or `FooAsync/Foo.sql`), and an entity or method named
+    `Result` or `Proc` beside the nested type of that name.
+  - `JNT3009`: a result column that maps to the name of its own `Result.X` type, in a SELECT or a
+    RETURNING clause.
+  - `JNT2011`: the same for a stored procedure's result column.
+  - `JNT2015`: a table with a column whose name starts with `__`, the prefix reserved for the
+    generator's own locals, now gets no auto-CRUD and says so instead of failing to compile.
+- Parameters assigned in an upsert's update branch (`ON CONFLICT ... DO UPDATE SET col = @p`,
+  `ON DUPLICATE KEY UPDATE col = @p`) are now typed from the target column and length-checked
+  like any write. They failed with `JNT4003`. Such an assignment does not prove a tenant scope
+  value for the INSERT itself.
+- Migration simulation:
+  - A Postgres `ALTER COLUMN ... TYPE` (or `SET DATA TYPE`) keeps the column's nullability; it
+    changes the type only.
+  - MySQL inline `ENUM(...)` columns keep their enum through `MODIFY`, `CREATE TABLE` and `ADD`,
+    enum member changes show in the schema diff, and dropping the last column that uses an enum
+    drops the enum, as a live pull would.
+  - Text columns get the Unicode flag each dialect's extractor gives them, and a MySQL column's
+    explicit `CHARACTER SET` / `CHARSET` decides it (`latin1` is not Unicode, `utf8mb4` is),
+    inline `ENUM(...)` columns included.
+  - Columns typed by an alias, a domain or a Postgres enum resolve like a live pull.
+  - An inline column `REFERENCES` is captured as a foreign key instead of being dropped.
+  - The schema diff matches tables case-insensitively as documented, so dropping and recreating a
+    table under another casing is a modification, not a remove and an add.
+
 ## [0.6.1] - 2026-10-01
 
 ### Fixed

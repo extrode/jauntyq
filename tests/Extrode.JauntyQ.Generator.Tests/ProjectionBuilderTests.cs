@@ -404,4 +404,14 @@ full join categories c on p.category_id = c.category_id", "GetAllProductsAndCate
         Assert.Single(projection.Columns);
         Assert.Equal("double?", projection.Columns[0].Type);
     }
+
+    [Fact]
+    public void NewProjectionTypes_StartWithEmptyNames()
+    {
+        var column = new ProjectionColumn();
+        Assert.Equal("", column.Name);
+        Assert.Equal("", column.Type);
+        Assert.Equal("", column.SourceName);
+        Assert.Equal("", new ProjectionModel().Name);
+    }
 }

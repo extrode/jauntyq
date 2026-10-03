@@ -54,6 +54,18 @@ public class SchemaModelMutationCoverageTests
         Assert.Equal("acceptance file JSON was the literal 'null', not an acceptance object", ex.Message);
     }
 
+    [Fact]
+    public void AnAcceptanceFile_LoadsEachEntrysTableColumnAndReason()
+    {
+        AcceptanceFile file = AcceptanceLoader.Load(
+            @"{ ""allowUnindexed"": [ { ""table"": ""orders"", ""column"": ""note"", ""reason"": ""admin-only report"" } ] }");
+
+        AcceptanceEntry entry = Assert.Single(file.AllowUnindexed);
+        Assert.Equal("orders", entry.Table);
+        Assert.Equal("note", entry.Column);
+        Assert.Equal("admin-only report", entry.Reason);
+    }
+
     [Theory]
     [InlineData("z", "Z")]
     [InlineData("A", "A")]

@@ -47,8 +47,6 @@ public sealed class CliHost
                     throw new ArgumentException($"Verb '{verbs[i].Name}' is registered twice.", nameof(verbs));
     }
 
-    public IReadOnlyList<IVerb> Verbs => _verbs;
-
     /// <summary>True when the premium verbs are part of this tool.</summary>
     public bool HasPremiumVerbs => Find("schema verify") != null;
 
