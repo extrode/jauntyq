@@ -392,12 +392,14 @@ public static partial class CodeEmitter
     /// <summary>
     /// The row POCO's materializer is named Read, unless a column takes that
     /// property name; then the materializer gives way, as "conn" does.
+    /// Case-insensitive: the declaration reads the table's spelling and a
+    /// canonical query's call site reads the query's, which may differ in case.
     /// </summary>
     internal static string RowReadMethodName(System.Collections.Generic.IEnumerable<string> columnNames)
     {
         foreach (string name in columnNames)
         {
-            if (DialectMapper.ToPascalCase(name) == "Read")
+            if (string.Equals(DialectMapper.ToPascalCase(name), "Read", StringComparison.OrdinalIgnoreCase))
                 return "__Read";
         }
         return "Read";

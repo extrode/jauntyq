@@ -211,6 +211,7 @@ public static partial class CodeEmitter
         // and broke every `p.DbType = DbType.X` assignment with CS0117.
         string dbTypeEnum = BodyTypeRef(schema, paramInfos, "DbType", "System.Data");
         string dbNull = BodyTypeRef(schema, paramInfos, "DBNull", "System");
+        string npgsqlDbTypeEnum = BodyTypeRef(schema, paramInfos, "NpgsqlDbType", "NpgsqlTypes");
         for (int i = 0; i < paramInfos.Count; i++)
         {
             var param = paramInfos[i];
@@ -224,7 +225,7 @@ public static partial class CodeEmitter
 
             if (param.IsEach)
             {
-                EmitEachParameterBinding(sb, param, varName, schema, dbTypeEnum, dbNull);
+                EmitEachParameterBinding(sb, param, varName, schema, dbTypeEnum, dbNull, npgsqlDbTypeEnum);
                 continue;
             }
 
@@ -254,7 +255,6 @@ public static partial class CodeEmitter
                 // the server's own text-to-enum coercion.
                 if (IsEnumParameterType(param.CSharpType, schema))
                 {
-                    string npgsqlDbTypeEnum = TypeRef(schema, "NpgsqlDbType", "NpgsqlTypes");
                     sb.AppendLine($"                var {varName} = new {npgsqlParameterType} {{ ParameterName = \"@{param.Name}\" }};");
                     sb.AppendLine($"                {varName}.NpgsqlDbType = {npgsqlDbTypeEnum}.Unknown;");
                     string wire = EnumWireCall(param.CSharpType, schema, param.CSharpName)!;
@@ -329,7 +329,7 @@ public static partial class CodeEmitter
     /// match the CommandText expansion built alongside it in
     /// CodeEmitter.Part8.cs's EmitCommandText.
     /// </summary>
-    private static void EmitEachParameterBinding(System.Text.StringBuilder sb, EmittedParam param, string varName, DatabaseSchema? schema, string dbTypeEnum, string dbNull)
+    private static void EmitEachParameterBinding(System.Text.StringBuilder sb, EmittedParam param, string varName, DatabaseSchema? schema, string dbTypeEnum, string dbNull, string npgsqlDbTypeEnum)
     {
         string? dialect = schema?.Dialect;
         string elementType = GetEachElementType(param.CSharpType);
@@ -349,7 +349,6 @@ public static partial class CodeEmitter
             if (string.Equals(dialect, "postgres", StringComparison.OrdinalIgnoreCase))
             {
                 string npgsqlParameterTypeForEnum = TypeRef(schema, "NpgsqlParameter", "Npgsql");
-                string npgsqlDbTypeEnum = TypeRef(schema, "NpgsqlDbType", "NpgsqlTypes");
                 sb.AppendLine($"                    var {varName} = new {npgsqlParameterTypeForEnum} {{ ParameterName = \"@{param.Name}\" + {loopVar} }};");
                 sb.AppendLine($"                    {varName}.NpgsqlDbType = {npgsqlDbTypeEnum}.Unknown;");
             }

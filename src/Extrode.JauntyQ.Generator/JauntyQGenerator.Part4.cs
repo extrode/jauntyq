@@ -352,6 +352,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         }
         // entities that hold a nested Result type (a query's own DTO)
         var entitiesWithResultType = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        var entitiesWithProcType = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
 
         // entity.method slots claimed by user SQL files: a user file always
         // overrides the auto-CRUD synthetic of the same name
@@ -374,6 +375,8 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 RecordMethod(file.EntityName, file.MethodName);
                 if (file.EmitsResultType)
                     entitiesWithResultType.Add(file.EntityName);
+                if (file.EmitsProcType)
+                    entitiesWithProcType.Add(file.EntityName);
             }
             if (file.CanonicalTable != null)
                 neededRowTables.Add(file.CanonicalTable);
@@ -593,7 +596,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     {
                         context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT4007, Location.None,
                             $"No Upsert is generated for table '{synth.TableName}': it is scoped by " +
-                            $"'{synthScope[0].Name}', and MySQL's ON DUPLICATE KEY UPDATE has no WHERE, so a key " +
+                            $"{ScopeColumnList(synthScope)}, and MySQL's ON DUPLICATE KEY UPDATE has no WHERE, so a key " +
                             "collision with another scope's row would overwrite that row. Use Insert and Update, " +
                             "or write the upsert by hand and prove the scope in it."));
                         continue;
@@ -971,6 +974,15 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                         : $"Entity '{entity}' would declare both a method 'Result' and the nested type Result that holds its queries' result types. " +
                           "Rename the Result.sql file."));
             }
+            if (entitiesWithProcType.Contains(entity) && (entity == "Proc" || (methods != null && methods.Contains("Proc"))))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    entity == "Proc"
+                        ? "Entity 'Proc' would contain a nested type also named Proc, which holds its -- @proc scripts, and a C# class cannot have a member named like itself. " +
+                          "Rename the table or its db/ folder."
+                        : $"Entity '{entity}' would declare both a method 'Proc' and the nested type Proc that holds its -- @proc scripts. " +
+                          "Rename the Proc.sql file."));
+            }
         }
 
         // Emit entity core files (constructor + _conn field per entity)
@@ -1249,5 +1261,15 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             && methods.Contains(entity.Substring(0, entity.Length - asyncSuffix.Length)))
             return entity;
         return null;
+    }
+
+    // "'a'", "'a' and 'b'", "'a', 'b' and 'c'": every scope column, so a
+    // table scoped twice names both in the one message it gets.
+    private static string ScopeColumnList(List<ColumnSchema> scopeCols)
+    {
+        var quoted = scopeCols.ConvertAll(c => $"'{c.Name}'");
+        return quoted.Count == 1
+            ? quoted[0]
+            : string.Join(", ", quoted.GetRange(0, quoted.Count - 1)) + " and " + quoted[quoted.Count - 1];
     }
 }
