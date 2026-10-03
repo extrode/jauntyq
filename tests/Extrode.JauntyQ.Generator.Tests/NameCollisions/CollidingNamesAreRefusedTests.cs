@@ -198,6 +198,23 @@ public class CollidingNamesAreRefusedTests
     }
 
     [Fact]
+    public void AFolderWithAnOrdinaryName_IsNotReported()
+    {
+        var result = HandWritten(("db/Reports/Ids.sql", "SELECT id FROM orders"));
+
+        Assert.Empty(Errors(result));
+        Assert.Empty(CompileErrors(result));
+    }
+
+    [Fact]
+    public void AFolderNamedLikeAReservedGeneratedType_IsReportedOnce()
+    {
+        var result = HandWritten(("db/ConnectionState/Ids.sql", "SELECT id FROM orders"));
+
+        Assert.Single(Errors(result), m => m.StartsWith("JNT2006"));
+    }
+
+    [Fact]
     public void AFolderNamedLikeAFrameworkTypeThatATableAlsoGenerates_IsLeftToTypeQualification()
     {
         var result = Run(Array.Empty<(string, string)>(), NameCollisionHarness.Schema("sqlite", Table("task", "id", ("note", "varchar", true))), null, false,
