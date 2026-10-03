@@ -12,7 +12,10 @@ public static class ScopeLoader
 {
     public static ScopeFile Load(string json)
     {
-        return JsonSerializer.Deserialize(json, SchemaJsonContext.Default.ScopeFile)
+        var file = JsonSerializer.Deserialize(json, SchemaJsonContext.Default.ScopeFile)
             ?? throw new JsonException("scope file JSON was the literal 'null', not a scope object");
+        if (file.Scopes == null)
+            throw new JsonException("\"scopes\" was null, not an array of entries");
+        return file;
     }
 }

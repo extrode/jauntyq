@@ -40,10 +40,17 @@ public static class ScopeResolver
     {
         var result = new List<ScopeColumn>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        if (file.Scopes.Count == 0)
+            problems.Add("The scope file declares no entries under \"scopes\", so every table is unscoped.");
         for (int i = 0; i < file.Scopes.Count; i++)
         {
             var entry = file.Scopes[i];
             string where = $"Scope entry {i + 1}";
+            if (entry == null)
+            {
+                problems.Add($"{where} is null. It was dropped, so it scopes no table.");
+                continue;
+            }
             if (string.IsNullOrWhiteSpace(entry.Table) || string.IsNullOrWhiteSpace(entry.Column))
             {
                 string table = string.IsNullOrWhiteSpace(entry.Table) ? "(no table)" : entry.Table!;

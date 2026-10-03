@@ -143,9 +143,9 @@ guide](../03-guides/tenant-scoping.md) covers what is checked and what is not.
 | **Several entries per table** | A table may be scoped by more than one column; each must be proven. |
 | **Bindable columns only** | A column that is part of the primary key, an identity, computed, or a rowversion cannot be bound from a parameter. The entry is `JNT6004` and dropped. |
 | **One file** | More than one `*.scope.json` is `JNT6004`; the ordinal-lowest path wins and the others are ignored entirely, they are not merged. |
-| **Structural problems are `JNT6004`** | Unparseable JSON, the literal `null`, a missing `table` or `column`, a table or column the snapshot does not have, or a repeated entry (the first stays in force). Each is a warning, the entry is dropped, and the message says the table is now unscoped by it. |
+| **Structural problems are `JNT6004`** | Unparseable JSON, the literal `null`, a top-level key other than `scopes` (a misspelt `"scope"` would otherwise scope nothing), `"scopes": null`, a `null` entry, a missing `table` or `column`, a table or column the snapshot does not have, or a repeated entry (the first stays in force). Each is a warning, the entry is dropped, and the message says the table is now unscoped by it. |
 | **Independent of auto-CRUD** | Hand-written queries are checked whether or not `<JauntyQAutoCrud>` is on. |
-| **Absent or empty** | Nothing is checked, and generated code is byte-identical to a project without the sidecar. |
+| **Absent or empty** | Nothing is checked, and generated code is byte-identical to a project without the sidecar. A file with no entries (`{}` or `"scopes": []`) also raises `JNT6004`, since it is more likely a mistake than intended. |
 
 Tables and columns are matched case-insensitively. Like the acceptance
 sidecar, it is a separate hand-maintained file because `jauntyq schema pull`
