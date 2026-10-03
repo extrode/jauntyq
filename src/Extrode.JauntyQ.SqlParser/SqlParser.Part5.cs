@@ -46,6 +46,7 @@ public static partial class SqlParser
         if (pos < tokens.Count && tokens[pos].Type == TokenType.Keyword && tokens[pos].Value == "SELECT")
         {
             ParseInsertSelect(tokens, pos, insertColumns, model);
+            BindUpsertAssignments(tokens, model);
             // WHERE-clause bindings in the SELECT source (e.g. id = @userId) so
             // those parameters get a type. Slot-bound write params already set
             // their column; first-binding-wins leaves them intact.
@@ -100,8 +101,72 @@ public static partial class SqlParser
             }
         }
 
+        // Upsert assignments, then any comparison in the upsert's own WHERE.
+        BindUpsertAssignments(tokens, model);
+        ExtractParameterBindings(tokens, model);
+
         // RETURNING on a VALUES insert.
         ExtractReturning(tokens, model);
+    }
+
+    /// <summary>
+    /// Binds <c>col = @param</c> in an upsert's update branch, the SET list of
+    /// <c>ON CONFLICT ... DO UPDATE</c> or the list after <c>ON DUPLICATE KEY
+    /// UPDATE</c>, to the target column as a write target. Only a top-level
+    /// item that starts the list or follows a comma counts, so <c>k = @p</c>
+    /// inside a CASE or subquery is left to the comparison scan; the list ends
+    /// at WHERE or RETURNING.
+    /// </summary>
+    private static void BindUpsertAssignments(List<Token> tokens, QueryModel model)
+    {
+        int depth = 0;
+        bool inList = false;
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            var t = tokens[i];
+            if (t.Type == TokenType.Symbol && t.Value == "(")
+            {
+                depth++;
+                continue;
+            }
+            if (t.Type == TokenType.Symbol && t.Value == ")")
+            {
+                if (depth > 0) depth--;
+                continue;
+            }
+            if (depth != 0)
+                continue;
+            if (t.Type == TokenType.Keyword && t.Value == "UPDATE" && i > 0 && tokens[i - 1].Type == TokenType.Identifier
+                && (string.Equals(tokens[i - 1].Value, "DO", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(tokens[i - 1].Value, "KEY", StringComparison.OrdinalIgnoreCase)))
+            {
+                inList = true;
+                continue;
+            }
+            if (t.Type == TokenType.Keyword && (t.Value == "WHERE" || t.Value == "RETURNING"))
+            {
+                inList = false;
+                continue;
+            }
+            if (!inList || t.Type != TokenType.Symbol || t.Value != "=" || i == 0 || i + 1 >= tokens.Count)
+                continue;
+            if (tokens[i - 1].Type != TokenType.Identifier || tokens[i + 1].Type != TokenType.Parameter || i < 2)
+                continue;
+            var before = tokens[i - 2];
+            bool startsItem = (before.Type == TokenType.Symbol && before.Value == ",")
+                || (before.Type == TokenType.Keyword && (before.Value == "SET" || before.Value == "UPDATE"));
+            if (!startsItem)
+                continue;
+            var param = model.Parameters.Find(p => p.Name == tokens[i + 1].Value);
+            if (param == null || !string.IsNullOrEmpty(param.BoundColumnName))
+                continue;
+            var (alias, column) = SplitQualifiedName(tokens[i - 1].Value);
+            param.BoundTableAlias = alias;
+            param.BoundColumnName = column;
+            param.IsWriteTarget = true;
+            param.IsUpsertAssignment = true;
+            param.ComparisonOp = "=";
+        }
     }
 
     /// <summary>

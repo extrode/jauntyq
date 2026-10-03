@@ -177,7 +177,7 @@ public static class ScopeAnalyzer
             if (string.Equals(literal.BoundColumnName, column, StringComparison.OrdinalIgnoreCase))
                 return false;
         foreach (var p in model.Parameters)
-            if (p.IsWriteTarget && string.Equals(p.BoundColumnName, column, StringComparison.OrdinalIgnoreCase))
+            if (p.IsWriteTarget && !p.IsUpsertAssignment && string.Equals(p.BoundColumnName, column, StringComparison.OrdinalIgnoreCase))
                 return true;
         return false;
     }

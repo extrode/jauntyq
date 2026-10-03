@@ -356,6 +356,7 @@ public static partial class SqlParser
                         BoundTableAlias = p.BoundTableAlias,
                         BoundColumnName = p.BoundColumnName,
                         IsWriteTarget = p.IsWriteTarget,
+                        IsUpsertAssignment = p.IsUpsertAssignment,
                         ComparisonOp = p.ComparisonOp
                     });
                 }
@@ -364,6 +365,7 @@ public static partial class SqlParser
                     existing.BoundTableAlias = p.BoundTableAlias;
                     existing.BoundColumnName = p.BoundColumnName;
                     existing.IsWriteTarget = p.IsWriteTarget;
+                    existing.IsUpsertAssignment = p.IsUpsertAssignment;
                     existing.ComparisonOp = p.ComparisonOp;
                     existing.BoundScope = ScopeOf(p, body);
                 }

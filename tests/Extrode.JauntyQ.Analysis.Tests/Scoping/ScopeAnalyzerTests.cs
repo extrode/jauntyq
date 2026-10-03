@@ -227,6 +227,8 @@ public class ScopeAnalyzerTests
     [InlineData("insert into orders (id, tenant_id, note) values (@id, 42, @note)")]
     [InlineData("insert into orders (id, tenant_id, note) values (@id, -1, @note)")]
     [InlineData("insert into orders (id, tenant_id, note) values (@id, 'a', @note)")]
+    [InlineData("insert into orders (id, note) values (@id, @note) on conflict (id) do update set tenant_id = @tenantId")]
+    [InlineData("insert into orders (id, note) values (@id, @note) on duplicate key update tenant_id = @tenantId")]
     public void AnInsertWithoutAParameterScopeValue_IsRefused(string sql)
     {
         Assert.Equal(
