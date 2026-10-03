@@ -209,6 +209,27 @@ public class PredicateAtomTests
         Assert.Equal(new[] { "status = 1" }, Rendered(model));
     }
 
+    [Theory]
+    [InlineData("select id from t where status = @s limit 10")]
+    [InlineData("select id from t where status = @s limit 10 offset 5")]
+    [InlineData("select id from t where status = @s offset 5")]
+    [InlineData("delete from t where status = @s returning id")]
+    [InlineData("update t set x = 1 where status = @s returning id")]
+    [InlineData("select id from t where status = @s for update")]
+    [InlineData("select id from t where status = @s FOR SHARE")]
+    public void ATrailingClause_EndsTheRegion(string sql)
+    {
+        Assert.Equal(new[] { "status = @s" }, Rendered(ParseSql(sql)));
+    }
+
+    [Fact]
+    public void ALimitInsideParens_DoesNotEndTheRegion()
+    {
+        var model = ParseSql("select id from t where status = @s and id in (select id from u limit 1)");
+
+        Assert.Equal(2, model.PredicateAtoms.Count);
+    }
+
     [Fact]
     public void HavingAlone_EndsTheRegion()
     {
