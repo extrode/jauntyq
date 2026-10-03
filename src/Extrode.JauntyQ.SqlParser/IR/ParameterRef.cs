@@ -16,6 +16,15 @@ public class ParameterRef
     public bool IsWriteTarget { get; set; }
 
     /// <summary>
+    /// True when the parameter is assigned in an upsert's update branch
+    /// (<c>ON CONFLICT ... DO UPDATE SET col = @p</c> or <c>ON DUPLICATE KEY
+    /// UPDATE col = @p</c>). It is also a write target, but it writes only
+    /// when the row already exists, so it does not prove what the INSERT
+    /// itself writes.
+    /// </summary>
+    public bool IsUpsertAssignment { get; set; }
+
+    /// <summary>
     /// The predicate operator that bound this parameter to its column: "=",
     /// "!=", "&lt;&gt;", "&lt;", "&gt;", "&lt;=", "&gt;=", "IN", "LIKE" or
     /// "BETWEEN". Empty when the parameter is unbound or is an INSERT value slot;

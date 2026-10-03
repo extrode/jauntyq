@@ -563,6 +563,7 @@ class Extrode.JauntyQ.SqlParser.IR.ParameterRef
     prop BoundScope:QueryModel
     prop BoundTableAlias:String
     prop ComparisonOp:String
+    prop IsUpsertAssignment:Boolean
     prop IsWriteTarget:Boolean
     prop Name:String
 class Extrode.JauntyQ.SqlParser.IR.PerfHint
