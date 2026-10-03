@@ -14,11 +14,13 @@ condensed.
 ### Added
 - Tenant scoping (spec 021): `jaunty.scope.json` declares tables scoped by a column. A
   hand-written query that reaches one without `<ref>.<column> = @param` in the right place is
-  refused with `JNT4005` (Error), one per unproven reach; `-- @unscoped <reason>` accepts a query
-  that must cross tenants, and `JNT4006` reports one that accepts nothing. Auto-CRUD on a scoped
+  refused with `JNT4005` (Error), one per unproven reach, an `EXISTS (...)` expression included;
+  a filter after `LIMIT`, `OFFSET`, `RETURNING` or `FOR UPDATE` is not proof.
+  `-- @unscoped <reason>` accepts a query that must cross tenants, and `JNT4006` reports one that accepts nothing. Auto-CRUD on a scoped
   table takes the scope value first in every method, never moves a row between scopes, and its
   Upsert cannot overwrite another scope's row; MySQL gets no scoped Upsert (`JNT4007`, Info).
-  Problems in the file are `JNT6004`. Views and procedures are not checked. With no scope file
+  Problems in the file are `JNT6004`, including an unknown property, a missing or empty
+  `scopes` list and a null entry. Views and procedures are not checked. With no scope file
   the generated code is unchanged. See the [tenant scoping guide](docs/03-guides/tenant-scoping.md).
 - `JNT2027` (Warning): an auto-CRUD method whose generated SQL fails JauntyQ's own validation is
   now reported, naming the method, the table and each error. The method was always skipped; the
@@ -32,6 +34,15 @@ condensed.
   simulates in, now public so a runner or tool can sort the same way.
 
 ### Changed
+- Generated names give way instead of colliding. A row type whose column maps to the property
+  `Read` gets its materializer as `__Read`, and a framework type the generated code uses
+  (`ArgumentException`, `ArgumentNullException` and the rest routed through one helper) is written
+  `global::`-qualified when a table generates a type of the same name. Code that called a row
+  type's `Read` directly on such a table must call `__Read`.
+- Migration simulation on Postgres resolves an unquoted `CREATE TABLE` name as Postgres stores it,
+  in lower case, and matches existing tables exactly. `create table customers` beside an existing
+  `"Customers"` is a new table, not `JNT9002` "already exists"; `create table Customers` beside
+  `customers` still is. Other dialects keep case-insensitive matching.
 - `JNT8008` now names its fix: for a single-column foreign key the message suggests
   `WHERE fk IN (@ParentIds)` under `-- @each ParentIds`, one query for all parents, and points
   at the new [loading parents with their children](docs/03-guides/loading-related-rows.md)
@@ -86,6 +97,8 @@ condensed.
   `delete from orders where customer_id in (select id from customers where id = @id)` typed `@id`
   from `orders.id`. An INSERT...SELECT's `WHERE` parameters likewise no longer resolve against
   the insert target, which is not in scope there.
+  A column only the outer table has (a correlated filter such as `status = @s` inside the
+  subquery) still resolves against the outer table, as SQL does.
 - The same subquery parameters no longer count as filters on the outer statement's same-named
   column. They had suppressed JNT8004 and JNT8009/JNT8010 on the outer table, raised JNT8004
   against it, made JNT8008 report an N+1 child lookup, and added the outer column to migration
@@ -93,11 +106,36 @@ condensed.
 - Migration impact analysis now attributes a correlated subquery's reference to an outer alias
   (`o.total` inside `exists (select 1 from items i where ...)`) to the outer table. It used to
   record a table named after the alias, so a migration touching `orders.total` reported SAFE.
+- Generated code that used to fail with raw C# errors (CS0102, CS0542, CS0260) on a name
+  collision is now refused with a JauntyQ diagnostic naming the fix:
+  - `JNT2006`: a `db/` folder named like a framework type the generated code uses, an entity
+    accessor named like a `JauntyDb` member or its backing field, an entity that would declare a
+    method of its own name (`Foo/Foo.sql`, or `FooAsync/Foo.sql`), and an entity or method named
+    `Result` or `Proc` beside the nested type of that name.
+  - `JNT3009`: a result column that maps to the name of its own `Result.X` type, in a SELECT or a
+    RETURNING clause.
+  - `JNT2011`: the same for a stored procedure's result column.
+  - `JNT2015`: a table with a column whose name starts with `__`, the prefix reserved for the
+    generator's own locals, now gets no auto-CRUD and says so instead of failing to compile.
+- Parameters assigned in an upsert's update branch (`ON CONFLICT ... DO UPDATE SET col = @p`,
+  `ON DUPLICATE KEY UPDATE col = @p`) are now typed from the target column and length-checked
+  like any write. They failed with `JNT4003`. Such an assignment does not prove a tenant scope
+  value for the INSERT itself.
+- Migration simulation:
+  - A Postgres `ALTER COLUMN ... TYPE` (or `SET DATA TYPE`) keeps the column's nullability; it
+    changes the type only.
+  - MySQL inline `ENUM(...)` columns keep their enum through `MODIFY`, `CREATE TABLE` and `ADD`,
+    enum member changes show in the schema diff, and dropping the last column that uses an enum
+    drops the enum, as a live pull would.
+  - Text columns get the Unicode flag each dialect's extractor gives them, and a MySQL column's
+    explicit `CHARACTER SET` / `CHARSET` decides it (`latin1` is not Unicode, `utf8mb4` is).
+  - Columns typed by an alias, a domain or a Postgres enum resolve like a live pull.
+  - An inline column `REFERENCES` is captured as a foreign key instead of being dropped.
+  - The schema diff matches tables case-insensitively as documented, so dropping and recreating a
+    table under another casing is a modification, not a remove and an add.
 
-### Changed
-- MySQL schema extraction reads function rows through `MySqlExtractor.ReadFunctionsAsync`, so a
-  NULL return or parameter `DATA_TYPE` is now covered by a test instead of a mutation-testing
-  exclusion. No behaviour change.
+### Removed
+- `CliHost.Verbs` in `Extrode.JauntyQ.Cli.Core`. Nothing read it.
 
 ## [0.6.1] - 2026-10-01
 
