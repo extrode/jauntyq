@@ -111,6 +111,19 @@ public class EnumWriteBindingTests
         Assert.Contains("prior_status is null ? (object)DBNull.Value : OrderStatusValues.ToWire(prior_status.Value)", src);
     }
 
+    [Theory]
+    [InlineData("select id, status from orders where status = @NpgsqlDbType", "__p0.NpgsqlDbType = global::NpgsqlTypes.NpgsqlDbType.Unknown;")]
+    [InlineData("-- @each NpgsqlDbType\nselect id, status from orders where status in (@NpgsqlDbType)", "+ __ib_NpgsqlDbType };")]
+    public void PostgresParameterNamedNpgsqlDbType_QualifiesTheEnumType(string sql, string expected)
+    {
+        string src = Run("postgres", ("db/Orders/ByStatus.sql", sql)).Results[0].GeneratedSources
+            .Single(s => s.HintName == "Orders.ByStatus.g.cs").SourceText.ToString();
+
+        Assert.Contains(expected, src);
+        Assert.Contains(".NpgsqlDbType = global::NpgsqlTypes.NpgsqlDbType.Unknown;", src);
+        Assert.DoesNotContain(" = NpgsqlDbType.Unknown;", src);
+    }
+
     // ---- T12: the non-Postgres scalar path -------------------------------
 
     /// <summary>
