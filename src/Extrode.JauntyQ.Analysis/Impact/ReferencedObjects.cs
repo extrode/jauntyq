@@ -187,6 +187,9 @@ public sealed class ReferencedObjects
         foreach (var sq in model.Subqueries)
             ResolveInto(sq.Body, tables, columns, aliasToTable, Concat(inScope, outerScope));
 
+        foreach (var body in model.ExistsExpressions)
+            ResolveInto(body, tables, columns, aliasToTable, Concat(inScope, outerScope));
+
         foreach (var cte in model.Ctes)
             ResolveInto(cte.Body, tables, columns);
     }
