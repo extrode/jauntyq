@@ -1,4 +1,4 @@
-﻿using Extrode.JauntyQ.Schema;
+using Extrode.JauntyQ.Schema;
 using Extrode.JauntyQ.SqlParser.IR;
 
 namespace Extrode.JauntyQ.Generator;

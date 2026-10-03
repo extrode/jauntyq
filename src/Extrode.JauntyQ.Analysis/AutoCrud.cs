@@ -98,7 +98,8 @@ public static class AutoCrud
             bool allColumnsUsable = true;
             foreach (var col in table.Columns.Values)
             {
-                if (!IsBareIdentifier(col.Name, schema.Dialect, SqlIdentifierPosition.Column))
+                if (!IsBareIdentifier(col.Name, schema.Dialect, SqlIdentifierPosition.Column)
+                    || DescribeGeneratorReservedColumn(col.Name) != null)
                 {
                     allColumnsUsable = false;
                 }
@@ -404,13 +405,26 @@ public static class AutoCrud
 
         foreach (var col in table.Columns.Values)
         {
-            why = DescribeIdentifier(col.Name, dialect, SqlIdentifierPosition.Column);
+            why = DescribeIdentifier(col.Name, dialect, SqlIdentifierPosition.Column)
+                ?? DescribeGeneratorReservedColumn(col.Name);
             if (why != null)
                 return $"its column '{col.Name}' {why}";
         }
 
         return null;
     }
+
+    /// <summary>
+    /// Why a column name, valid in SQL, still cannot become a parameter of the
+    /// generated C# methods, or null. A synthetic method's parameters are the
+    /// column names verbatim, and the generator names its own locals with a
+    /// '__' prefix (__cmd, __reader, __weOpened); JNT2012 refuses the same
+    /// prefix for a hand-written query's parameters.
+    /// </summary>
+    private static string? DescribeGeneratorReservedColumn(string name)
+        => name.StartsWith("__", StringComparison.Ordinal)
+            ? "starts with '__', the prefix JauntyQ reserves for the names inside generated methods"
+            : null;
 
     /// <summary>
     /// True when two columns in <paramref name="columns"/> fold to the same

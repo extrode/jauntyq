@@ -60,7 +60,7 @@ public static partial class CodeEmitter
     /// demonstrated collision shape, matching the PascalCase-folding defect
     /// class JNT2009/JNT2010 already guard.
     /// </summary>
-    private static bool SchemaHasEntityNamed(DatabaseSchema? schema, string simpleName)
+    internal static bool SchemaHasEntityNamed(DatabaseSchema? schema, string simpleName)
     {
         if (schema == null)
             return false;
@@ -92,6 +92,24 @@ public static partial class CodeEmitter
 
         return GlobalTypeName(simpleName, @namespace);
     }
+
+    /// <summary>
+    /// Every simple name the emitter routes through <see cref="TypeRef"/>.
+    /// TypeRef qualifies one only when a table generates a type of that name;
+    /// an entity named by a hand-written db/ folder is invisible to it, so the
+    /// generator refuses such a folder name (JNT2006) instead. A test keeps
+    /// this list in step with the TypeRef call sites.
+    /// </summary>
+    internal static readonly System.Collections.Generic.HashSet<string> TypeRefNames = new(StringComparer.Ordinal)
+    {
+        "ArgumentException", "ArgumentNullException", "Array", "Convert", "DateTime", "DateTimeOffset",
+        "DbEnumerator", "DbType", "Guid", "IAsyncEnumerable", "IDisposable", "IEnumerable", "IEnumerator",
+        "IndexOutOfRangeException", "InvalidOperationException", "List", "Math", "MySqlBulkCopy",
+        "MySqlBulkCopyColumnMapping", "MySqlConnection", "MySqlTransaction", "NpgsqlBinaryImporter",
+        "NpgsqlConnection", "NpgsqlDbType", "NpgsqlParameter", "SqlBulkCopy", "SqlBulkCopyOptions",
+        "SqlConnection", "SqlTransaction", "StringComparison", "Task", "TimeSpan", "Type", "Volatile",
+        "ConnectionState", "CommandBehavior", "DBNull", "JauntyQShapeGuard",
+    };
 
     internal static string GlobalTypeName(string simpleName, string @namespace)
         => @namespace.Length == 0 ? $"global::{simpleName}" : $"global::{@namespace}.{simpleName}";

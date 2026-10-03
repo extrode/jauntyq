@@ -341,6 +341,18 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             "ConnectionState", "CommandType", "CommandBehavior", "ParameterDirection"
         };
 
+        // Every method each entity class declares, for the check that no
+        // entity is named like one of its own methods (CS0542).
+        var methodsByEntity = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>(StringComparer.Ordinal);
+        void RecordMethod(string entity, string method)
+        {
+            if (!methodsByEntity.TryGetValue(entity, out var methods))
+                methodsByEntity[entity] = methods = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+            methods.Add(method);
+        }
+        // entities that hold a nested Result type (a query's own DTO)
+        var entitiesWithResultType = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+
         // entity.method slots claimed by user SQL files: a user file always
         // overrides the auto-CRUD synthetic of the same name
         var claimedMethods = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -357,7 +369,12 @@ public partial class JauntyQGenerator : IIncrementalGenerator
             if (file.Claims)
                 claimedMethods.Add($"{file.EntityName}.{file.MethodName}");
             if (file.Emitted)
+            {
                 entityNames.Add(file.EntityName);
+                RecordMethod(file.EntityName, file.MethodName);
+                if (file.EmitsResultType)
+                    entitiesWithResultType.Add(file.EntityName);
+            }
             if (file.CanonicalTable != null)
                 neededRowTables.Add(file.CanonicalTable);
         }
@@ -618,6 +635,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                     string upsertSource = CodeEmitter.EmitUpsert(synth.EntityName, upsertTable, schema.Dialect, schema, synthScope);
                     context.AddSource($"{synth.EntityName}.Upsert.auto.g.cs", SourceText.From(upsertSource, Encoding.UTF8));
                     entityNames.Add(synth.EntityName);
+                    RecordMethod(synth.EntityName, "Upsert");
                     RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, "Upsert");
                     continue;
                 }
@@ -686,6 +704,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
 
                 context.AddSource($"{synth.EntityName}.{synth.MethodName}.auto.g.cs", SourceText.From(source, Encoding.UTF8));
                 entityNames.Add(synth.EntityName);
+                RecordMethod(synth.EntityName, synth.MethodName);
                 if (synth.MethodName is "Insert" or "Update" or "Delete")
                     RecordSyntheticWrite(syntheticWrites, synth.TableName, synth.EntityName, synth.MethodName);
             }
@@ -737,6 +756,7 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 {
                     string bulkSource = CodeEmitter.EmitBulkInsert(info.Entity, rowType, table, schema.Dialect, schema, scopeCols);
                     context.AddSource($"{info.Entity}.BulkInsert.auto.g.cs", SourceText.From(bulkSource, Encoding.UTF8));
+                    RecordMethod(info.Entity, "BulkInsert");
                 }
             }
         }
@@ -894,6 +914,26 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         // pointing at the real cause. Reported (not skipped) to match the
         // existing JNT2006 row-POCO check's own report-but-still-emit
         // convention above.
+        // Each entity also becomes a property E and a field _e on JauntyDb,
+        // so neither may repeat a member JauntyDb declares itself: the
+        // members below, and _conn/_tx/_txOpenedConnection by their field
+        // form. Sequences and Functions exist only when the schema has some.
+        var reservedJauntyDbMembers = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal)
+        {
+            "Connection", "CurrentTransaction", "BeginTransaction", "BeginTransactionAsync", "EndTransaction",
+            "Transaction", "Conn", "Tx", "TxOpenedConnection"
+        };
+        if (schema != null && schema.Sequences.Count > 0)
+        {
+            reservedJauntyDbMembers.Add("Sequences");
+            reservedJauntyDbMembers.Add("SequenceAccessor");
+        }
+        if (CodeEmitter.PlanFunctionEmission(schema).Count > 0)
+        {
+            reservedJauntyDbMembers.Add("Functions");
+            reservedJauntyDbMembers.Add("FunctionAccessor");
+        }
+
         foreach (var entity in entityNames)
         {
             if (reservedGeneratedTypeNames.Contains(entity))
@@ -901,6 +941,35 @@ public partial class JauntyQGenerator : IIncrementalGenerator
                 context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
                     $"Generated entity accessor '{entity}' (db.{entity}) has the same name as a JauntyQ-reserved generated type ('{entity}'). " +
                     $"Rename the table (or its db/tables/ folder) so its PascalCase form no longer collides with a reserved name."));
+            }
+            if (!reservedGeneratedTypeNames.Contains(entity)
+                && CodeEmitter.TypeRefNames.Contains(entity)
+                && !CodeEmitter.SchemaHasEntityNamed(schema, entity))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    $"The db/{entity}/ folder generates a class '{entity}' that hides the framework type of the same name, which the generated code uses. " +
+                    $"Rename the folder."));
+            }
+            if (reservedJauntyDbMembers.Contains(entity))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    $"Generated entity accessor 'db.{entity}' has the same name as a member JauntyDb already declares " +
+                    $"('{entity}', or its backing field '_{CodeEmitter.ToCamelCase(entity)}'). Rename the table (or its db/ folder) so its PascalCase form no longer collides."));
+            }
+            if (methodsByEntity.TryGetValue(entity, out var methods) && FindMethodNamedLikeEntity(entity, methods) is string method)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    $"Entity '{entity}' would declare a method '{method}', and a C# class cannot have a member named like itself. " +
+                    $"Rename the table, its db/ folder or the .sql file so the entity and method names differ."));
+            }
+            if (entitiesWithResultType.Contains(entity) && (entity == "Result" || (methods != null && methods.Contains("Result"))))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(JauntyDiagnostics.JNT2006, Location.None,
+                    entity == "Result"
+                        ? "Entity 'Result' would contain a nested type also named Result, which holds its queries' result types, and a C# class cannot have a member named like itself. " +
+                          "Rename the table or its db/ folder."
+                        : $"Entity '{entity}' would declare both a method 'Result' and the nested type Result that holds its queries' result types. " +
+                          "Rename the Result.sql file."));
             }
         }
 
@@ -1164,5 +1233,21 @@ public partial class JauntyQGenerator : IIncrementalGenerator
         var moved = model.Parameters.FindAll(p => scopeCols.Exists(c => c.Name == p.Name));
         model.Parameters.RemoveAll(moved.Contains);
         model.Parameters.InsertRange(0, moved);
+    }
+
+    /// <summary>
+    /// The method of <paramref name="entity"/> whose name equals the entity's
+    /// own, or null. Every method is emitted with an Async twin, so an entity
+    /// named "GetAllAsync" collides with GetAll too.
+    /// </summary>
+    private static string? FindMethodNamedLikeEntity(string entity, System.Collections.Generic.HashSet<string> methods)
+    {
+        if (methods.Contains(entity))
+            return entity;
+        const string asyncSuffix = "Async";
+        if (entity.EndsWith(asyncSuffix, StringComparison.Ordinal)
+            && methods.Contains(entity.Substring(0, entity.Length - asyncSuffix.Length)))
+            return entity;
+        return null;
     }
 }
