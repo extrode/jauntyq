@@ -66,7 +66,9 @@ $branches = @(
     'fix/binding-scope-unknown-relation',
     'fix/impact-walks-exists-expressions',
     'fix/inline-enum-explicit-charset',
-    'chore/release-0.7.0')
+    'chore/release-0.7.0',
+    'fix/release-pre-1-0-prerelease',
+    'chore/cleanup-script-prerelease-branch')
 foreach ($target in $branches) {
     git rev-parse --verify --quiet "refs/heads/$target" > $null
     if ($LASTEXITCODE -ne 0) {
