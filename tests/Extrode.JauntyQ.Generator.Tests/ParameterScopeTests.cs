@@ -68,7 +68,10 @@ public class ParameterScopeTests
     [InlineData("select o.id from orders o where exists (select 1 from customers c where c.id = o.customer_id and o.id = @Id)", "Q(long Id)")]
     [InlineData("select id from orders where customer_id in (select id from customers c where exists (select 1 from regions r where r.id = c.region_id and c.id = @Id))", "Q(int Id)")]
     [InlineData("select id from orders where exists (select 1 from customers where status = @S)", "Q(string S)")]
-    [InlineData("select id from orders where exists (select 1 from customers where id = @Id and customer_id = @C)", "Q(int Id, int C)")]    public void AParameterIsTypedFromTheScopeThatBindsIt(string sql, string signature)
+    [InlineData("select id from orders where exists (select 1 from customers where id = @Id and customer_id = @C)", "Q(int Id, int C)")]
+    [InlineData("with recent as (select id from customers) select id from orders where customer_id in (select id from recent where id = @Id)", "Q(int Id)")]
+    [InlineData("with recent as (select id from customers) select id from orders where customer_id in (select r.id from recent r where r.id = @Id)", "Q(int Id)")]
+    public void AParameterIsTypedFromTheScopeThatBindsIt(string sql, string signature)
     {
         var result = Run(sql);
 
@@ -132,5 +135,13 @@ public class ParameterScopeTests
         var result = Run("select id from orders where exists (select 1 from customers where status = @S)");
 
         Assert.Contains(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("orders.status"));
+    }
+
+    [Fact]
+    public void ASubqueryFilterOnACteColumn_IsNotCheckedAgainstTheOuterTable()
+    {
+        var result = Run("with recent as (select id, note as status from customers) select id from orders where customer_id in (select id from recent where status = @S)");
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Id == "JNT8004" && d.GetMessage().Contains("orders.status"));
     }
 }
