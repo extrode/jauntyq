@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Extrode.JauntyQ.Generator;
 
@@ -21,10 +21,11 @@ namespace Extrode.JauntyQ.Generator;
 public static class IdentifierGuard
 {
     // C# reserved keywords that must be '@'-escaped when used as identifiers.
-    // Contextual keywords (e.g. 'value', 'var') are legal identifiers and omitted.
+    // Contextual keywords (e.g. 'value', 'var') are legal identifiers and omitted,
+    // except 'await': the generated async overloads would read it as the operator.
     private static readonly HashSet<string> Keywords = new(System.StringComparer.Ordinal)
     {
-        "abstract", "as", "base", "bool", "break", "byte", "case", "catch",
+        "abstract", "as", "await", "base", "bool", "break", "byte", "case", "catch",
         "char", "checked", "class", "const", "continue", "decimal", "default",
         "delegate", "do", "double", "else", "enum", "event", "explicit",
         "extern", "false", "finally", "fixed", "float", "for", "foreach",

@@ -472,11 +472,13 @@ public static partial class CodeEmitter
         sb.AppendLine("            public override bool GetBoolean(int ordinal) => (bool)GetValue(ordinal);");
         sb.AppendLine("            public override byte GetByte(int ordinal) => (byte)GetValue(ordinal);");
         sb.AppendLine("            public override char GetChar(int ordinal) => (char)GetValue(ordinal);");
-        sb.AppendLine("            public override DateTime GetDateTime(int ordinal) => (DateTime)GetValue(ordinal);");
+        string dateTimeType = TypeRef(schema, "DateTime", "System");
+        sb.AppendLine($"            public override {dateTimeType} GetDateTime(int ordinal) => ({dateTimeType})GetValue(ordinal);");
         sb.AppendLine("            public override decimal GetDecimal(int ordinal) => (decimal)GetValue(ordinal);");
         sb.AppendLine("            public override double GetDouble(int ordinal) => (double)GetValue(ordinal);");
         sb.AppendLine("            public override float GetFloat(int ordinal) => (float)GetValue(ordinal);");
-        sb.AppendLine("            public override Guid GetGuid(int ordinal) => (Guid)GetValue(ordinal);");
+        string guidType = TypeRef(schema, "Guid", "System");
+        sb.AppendLine($"            public override {guidType} GetGuid(int ordinal) => ({guidType})GetValue(ordinal);");
         sb.AppendLine("            public override short GetInt16(int ordinal) => (short)GetValue(ordinal);");
         sb.AppendLine("            public override int GetInt32(int ordinal) => (int)GetValue(ordinal);");
         sb.AppendLine("            public override long GetInt64(int ordinal) => (long)GetValue(ordinal);");
