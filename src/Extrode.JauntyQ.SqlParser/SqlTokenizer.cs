@@ -228,7 +228,7 @@ public static class SqlTokenizer
                     tokens.Add(Token.End);
                     return tokens;
                 }
-                tokens.Add(new Token(TokenType.Identifier, name.ToString()));
+                tokens.Add(new Token(TokenType.Identifier, name.ToString(), isQuoted: true));
                 continue;
             }
 

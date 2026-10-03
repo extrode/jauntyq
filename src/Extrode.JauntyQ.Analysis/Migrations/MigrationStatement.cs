@@ -40,6 +40,12 @@ public class MigrationStatement
     public MigrationStatementKind Kind { get; set; }
     public string TableName { get; set; } = string.Empty;
 
+    /// <summary>CreateTable only: the table name was written in double quotes
+    /// or backticks. Postgres folds an unquoted name to lower case and keeps a
+    /// quoted one as written, so <c>customers</c> and <c>"Customers"</c> are
+    /// two tables there.</summary>
+    public bool TableNameQuoted { get; set; }
+
     /// <summary>CreateTable: full column list. AddColumn/AlterColumn: the affected column(s).</summary>
     public List<ColumnSchema> Columns { get; } = new();
 

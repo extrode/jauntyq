@@ -97,6 +97,7 @@ public static class MigrationParser
         var stmt = new MigrationStatement { Kind = MigrationStatementKind.CreateTable, RawText = raw };
         int pos = 2;
         stmt.TableName = ReadObjectName(tokens, ref pos);
+        stmt.TableNameQuoted = pos > 0 && tokens[pos - 1].IsQuoted;
         if (stmt.TableName.Length == 0 || !IsSymbol(tokens, pos, "("))
             return new List<MigrationStatement> { Unsupported(raw) };
         pos++; // skip (

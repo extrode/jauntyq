@@ -148,6 +148,7 @@ class Extrode.JauntyQ.Analysis.Migrations.MigrationStatement
     prop NullableAfter:Boolean
     prop RawText:String
     prop TableName:String
+    prop TableNameQuoted:Boolean
     prop TypeOnly:Boolean
 enum Extrode.JauntyQ.Analysis.Migrations.MigrationStatementKind
     field AddColumn:MigrationStatementKind
@@ -630,7 +631,9 @@ class Extrode.JauntyQ.SqlParser.SqlTokenizer
     method Tokenize(String):List<Token>
 struct Extrode.JauntyQ.SqlParser.Token
     ctor .ctor(TokenType,String)
+    ctor .ctor(TokenType,String,Boolean)
     method ToString():String
+    prop IsQuoted:Boolean
     prop Type:TokenType
     prop Value:String
 enum Extrode.JauntyQ.SqlParser.Tokens.TokenType
