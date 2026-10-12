@@ -174,4 +174,57 @@ public class MigrationParserMalformedInputTests
         Assert.Equal(MigrationStatementKind.CreateTable, stmt.Kind);
         Assert.Equal("gadgets", stmt.TableName);
     }
+
+    private static ColumnSchema Column(string sql) =>
+        Assert.Single(Only(sql).Columns, c => c.Name == "c");
+
+    [Fact]
+    public void AParenthesizedLiteralAfterANonEnumType_IsNotAnEnum()
+    {
+        Assert.Empty(Only("create table t (id int primary key, c varchar('a'))").EnumMembers);
+    }
+
+    [Fact]
+    public void AnEmptyEnumMemberList_RecordsNoMembers()
+    {
+        Assert.Empty(Only("create table t (id int primary key, c enum())").EnumMembers);
+    }
+
+    [Fact]
+    public void AnEnumCutOffAfterAComma_RecordsNoMembers()
+    {
+        Assert.Empty(Only("create table t (id int primary key, c enum('a',").EnumMembers);
+    }
+
+    [Fact]
+    public void ASetNotPrecededByCharacter_IsNotACharset()
+    {
+        Assert.Empty(Only("create table t (id int primary key, c varchar(10) foo set latin1)").CharsetIsUnicode);
+    }
+
+    [Fact]
+    public void ACharsetNamedLikeAFlag_IsConsumedAsTheCharsetName()
+    {
+        Assert.False(Column("create table t (id int primary key, c varchar(10) not null charset null)").IsNullable);
+    }
+
+    [Fact]
+    public void AReferenceActionNeedsItsOnKeyword()
+    {
+        Assert.False(Column("create table t (id int primary key, c int references u (id) x delete not null)").IsNullable);
+    }
+
+    [Fact]
+    public void ANoReferenceAction_ConsumesTheWordAfterNo()
+    {
+        Assert.True(Column("create table t (id int primary key, c int references u (id) on delete no not null)").IsNullable);
+    }
+
+    [Theory]
+    [InlineData("alter table people alter column c int x type")]
+    [InlineData("alter table people alter column c x data type")]
+    public void ATypeWordAfterTheColumnType_IsNotATypeOnlyChange(string sql)
+    {
+        Assert.False(Only(sql).TypeOnly);
+    }
 }

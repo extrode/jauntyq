@@ -179,7 +179,7 @@ public static class ScopeAnalyzer
     private static bool ProvesUpdateBranch(QueryModel model, AtomTerm target, AtomTerm value, string column)
     {
         if (target.Kind != AtomTermKind.Column || !string.Equals(target.Text, column, StringComparison.OrdinalIgnoreCase)
-            || !TargetQualifier(model, 0, target.TableAlias ?? ""))
+            || !TargetQualifier(model, 0, target.TableAlias))
             return false;
         if (value.Kind == AtomTermKind.Parameter)
             return true;

@@ -80,6 +80,22 @@ public class SchemaSimulatorTypeResolutionTests
     }
 
     [Fact]
+    public void A_column_keeps_the_facets_its_own_type_text_gives_it()
+    {
+        // ApplyFacets reads facets from the type name's text, so a user type
+        // whose name looks like a text or decimal type carries the column's own.
+        var snapshot = Snapshot("postgres");
+        snapshot.UserTypes["short_text"] = new UserTypeSchema { Name = "short_text", Kind = UserTypeKind.Domain, UnderlyingDbType = "varchar", MaxLength = 11 };
+        snapshot.UserTypes["money"] = new UserTypeSchema { Name = "money", Kind = UserTypeKind.Domain, UnderlyingDbType = "numeric", Precision = 19, Scale = 4 };
+
+        var columns = Apply(snapshot, "ALTER TABLE people ADD COLUMN c short_text(20), ADD COLUMN amount money(12, 2);").Tables["people"].Columns;
+
+        Assert.Equal(20, columns["c"].MaxLength);
+        Assert.Equal(12, columns["amount"].Precision);
+        Assert.Equal(2, columns["amount"].Scale);
+    }
+
+    [Fact]
     public void A_user_type_resolves_without_regard_to_case()
     {
         var taxId = Apply(SqlServerWithSsn(), "ALTER TABLE people ADD tax_id SSN NOT NULL;").Tables["people"].Columns["tax_id"];

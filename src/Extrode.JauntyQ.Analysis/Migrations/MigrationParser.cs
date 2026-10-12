@@ -97,7 +97,7 @@ public static class MigrationParser
         var stmt = new MigrationStatement { Kind = MigrationStatementKind.CreateTable, RawText = raw };
         int pos = 2;
         stmt.TableName = ReadObjectName(tokens, ref pos);
-        stmt.TableNameQuoted = pos > 0 && tokens[pos - 1].IsQuoted;
+        stmt.TableNameQuoted = tokens[pos - 1].IsQuoted;
         if (stmt.TableName.Length == 0 || !IsSymbol(tokens, pos, "("))
             return new List<MigrationStatement> { Unsupported(raw) };
         pos++; // skip (
@@ -459,10 +459,13 @@ public static class MigrationParser
         // it might contain is overridden by TypeOnly.
         bool typeOnly = false;
         int typeAt = p + 1;
-        if (isAlterColumn && Is(body, typeAt, "SET") && Is(body, typeAt + 1, "DATA") && Is(body, typeAt + 2, "TYPE"))
-            typeAt += 2;
-        if (isAlterColumn && p < body.Count && body[p].Type == TokenType.Identifier && Is(body, typeAt, "TYPE"))
-            typeOnly = true;
+        if (isAlterColumn)
+        {
+            if (Is(body, typeAt, "SET") && Is(body, typeAt + 1, "DATA") && Is(body, typeAt + 2, "TYPE"))
+                typeAt += 2;
+            if (p < body.Count && body[p].Type == TokenType.Identifier && Is(body, typeAt, "TYPE"))
+                typeOnly = true;
+        }
 
         var def = new List<Token>();
         for (int i = p; i < body.Count; i++)
@@ -638,6 +641,7 @@ public static class MigrationParser
             if (members.Count > 0 && IsSymbol(def, ep, ")"))
             {
                 enumMembers = members;
+                // Stryker disable once Arithmetic : stopping on the last member instead leaves a literal and the ")" for the flags loop, whose Is() matches no literal and whose catch-all skips both
                 pos = ep + 1;
             }
         }
