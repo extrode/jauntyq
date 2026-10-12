@@ -105,6 +105,18 @@ public class SchemaSimulatorTypeResolutionTests
     }
 
     [Fact]
+    public void A_user_type_keyed_in_upper_case_still_resolves()
+    {
+        var snapshot = Snapshot("sqlserver");
+        snapshot.UserTypes["SSN"] = new UserTypeSchema { Name = "SSN", Kind = UserTypeKind.Alias, UnderlyingDbType = "varchar", MaxLength = 11 };
+
+        var taxId = Apply(snapshot, "ALTER TABLE people ADD tax_id ssn NOT NULL;").Tables["people"].Columns["tax_id"];
+
+        Assert.Equal("varchar", taxId.DbType);
+        Assert.Equal("SSN", taxId.ResolvedFromUserType);
+    }
+
+    [Fact]
     public void Postgres_enum_column_is_tagged_with_its_enum()
     {
         var snapshot = Snapshot("postgres");

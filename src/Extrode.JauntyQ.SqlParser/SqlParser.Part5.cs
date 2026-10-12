@@ -149,6 +149,7 @@ public static partial class SqlParser
                 model.Upsert = string.Equals(tokens[i - 1].Value, "DO", StringComparison.OrdinalIgnoreCase)
                     ? UpsertKind.OnConflictUpdate
                     : UpsertKind.OnDuplicateKeyUpdate;
+                // Stryker disable once Statement : an UPDATE keyword falling through fails every check below: none matches UPDATE
                 continue;
             }
             if (model.Upsert != UpsertKind.None && whereStart == -1 && t.Type == TokenType.Keyword && t.Value == "WHERE")
@@ -164,12 +165,12 @@ public static partial class SqlParser
             }
             if (!inList || t.Type != TokenType.Symbol || t.Value != "=" || i == 0)
                 continue;
-            // Stryker disable once Equality,Arithmetic : the stream ends with the End sentinel, so an "=" symbol is never last
+            // Stryker disable once Equality,Arithmetic,Statement : the stream ends with the End sentinel, so an "=" symbol is never last
             if (i + 1 >= tokens.Count)
                 continue;
             if (tokens[i - 1].Type != TokenType.Identifier || tokens[i + 1].Type != TokenType.Parameter)
                 continue;
-            // Stryker disable once Equality : the stream starts INSERT INTO or WITH, so an "=" after an identifier is at index 4 or later
+            // Stryker disable once Equality,Statement : the stream starts INSERT INTO or WITH, so an "=" after an identifier is at index 4 or later
             if (i < 2)
                 continue;
             var before = tokens[i - 2];

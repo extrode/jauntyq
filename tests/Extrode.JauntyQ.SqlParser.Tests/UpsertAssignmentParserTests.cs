@@ -100,6 +100,16 @@ public class UpsertAssignmentParserTests
         Assert.Equal(UpsertKind.None, model.Upsert);
     }
 
+    [Theory]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set a = 1 where t.k = excluded.k returning id;")]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set a = 1 returning id where t.k = excluded.k")]
+    public void AnUpsertAtomEndsAtTheFirstReturningOrSemicolonAfterTheWhere(string sql)
+    {
+        var atom = Assert.Single(Model(sql).UpsertAtoms);
+
+        Assert.Equal(3, atom.Terms.Count);
+    }
+
     [Fact]
     public void AnUpsertAtomEndsAtTheSemicolon()
     {

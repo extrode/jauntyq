@@ -75,6 +75,8 @@ public class OnAtomTests
 
     [Theory]
     [InlineData("select o.id from orders o join lines l on l.order_id = o.id, items i")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id and left = 1")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id left '('")]
     [InlineData("select o.id from orders o join lines l on l.order_id = o.id natural join items")]
     [InlineData("select o.id from orders o join lines l on l.order_id = o.id cross join items i")]
     [InlineData("select o.id from orders o join lines l on l.order_id = o.id having count(*) > 1")]
@@ -115,6 +117,14 @@ public class OnAtomTests
 
         Assert.Equal(3, model.Tables[1].OnAtoms.Count);
         Assert.Equal("l.tenant_id = @t", Rendered(model.Tables[1])[2]);
+    }
+
+    [Fact]
+    public void AnOnFollowedByAnyOtherWord_DoesNotEndIt()
+    {
+        var model = ParseSql("select o.id from orders o join lines l on l.order_id = o.id on x");
+
+        Assert.Equal(new[] { "l.order_id = o.id ON x" }, Rendered(model.Tables[1]));
     }
 
     [Theory]

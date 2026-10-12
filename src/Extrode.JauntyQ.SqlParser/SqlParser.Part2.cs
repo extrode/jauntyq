@@ -28,12 +28,12 @@ public static partial class SqlParser
             !string.Equals(tokens[pos].Value, "LATERAL", StringComparison.OrdinalIgnoreCase))
             return false;
         int next = pos + 1;
-        // Stryker disable once Equality : every token list the parser builds ends with the End sentinel, which is not LATERAL, so pos + 1 is a valid index
+        // Stryker disable once Equality,Boolean : every token list the parser builds ends with the End sentinel, which is not LATERAL, so pos + 1 is a valid index
         if (next >= tokens.Count)
             return false;
         if (tokens[next].Type == TokenType.Identifier)
             next++;
-        // Stryker disable once Equality : next moved past an identifier, which is not the End sentinel, so it is still a valid index
+        // Stryker disable once Equality,Boolean : next moved past an identifier, which is not the End sentinel, so it is still a valid index
         if (next >= tokens.Count)
             return false;
         return tokens[next].Type == TokenType.Symbol && tokens[next].Value == "(";
@@ -293,7 +293,7 @@ public static partial class SqlParser
     {
         if (tokens[i].Type != TokenType.Keyword || tokens[i].Value != "ON")
             return false;
-        // Stryker disable once Equality,Arithmetic : tokens[i] is the ON keyword, and every token list the parser builds ends with the End sentinel, so ON is never last
+        // Stryker disable once Equality,Arithmetic,Boolean : tokens[i] is the ON keyword, and every token list the parser builds ends with the End sentinel, so ON is never last
         if (i + 1 >= tokens.Count)
             return false;
         var next = tokens[i + 1];
@@ -306,7 +306,7 @@ public static partial class SqlParser
     {
         if (tokens[i].Value != "LEFT" && tokens[i].Value != "RIGHT")
             return false;
-        // Stryker disable once Equality,Arithmetic : the caller passes only a terminator keyword, and every token list the parser builds ends with the End sentinel, so it is never last
+        // Stryker disable once Equality,Arithmetic,Boolean : the caller passes only a terminator keyword, and every token list the parser builds ends with the End sentinel, so it is never last
         if (i + 1 >= tokens.Count)
             return false;
         return tokens[i + 1].Type == TokenType.Symbol && tokens[i + 1].Value == "(";

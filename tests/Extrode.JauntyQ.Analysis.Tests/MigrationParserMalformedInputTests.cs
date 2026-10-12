@@ -223,6 +223,8 @@ public class MigrationParserMalformedInputTests
     [Theory]
     [InlineData("alter table people alter column c int x type")]
     [InlineData("alter table people alter column c x data type")]
+    [InlineData("alter table people alter column c x data type int")]
+    [InlineData("alter table people alter column c set x type int")]
     public void ATypeWordAfterTheColumnType_IsNotATypeOnlyChange(string sql)
     {
         Assert.False(Only(sql).TypeOnly);
