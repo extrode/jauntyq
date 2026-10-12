@@ -76,6 +76,16 @@ public class SchemaSimulatorTypeResolutionTests
         Assert.Equal("price", amount.ResolvedFromUserType);
         Assert.Equal(10, amount.Precision);
         Assert.Equal(2, amount.Scale);
+        Assert.Null(amount.IsUnicode);
+    }
+
+    [Fact]
+    public void A_user_type_resolves_without_regard_to_case()
+    {
+        var taxId = Apply(SqlServerWithSsn(), "ALTER TABLE people ADD tax_id SSN NOT NULL;").Tables["people"].Columns["tax_id"];
+
+        Assert.Equal("varchar", taxId.DbType);
+        Assert.Equal("ssn", taxId.ResolvedFromUserType);
     }
 
     [Fact]

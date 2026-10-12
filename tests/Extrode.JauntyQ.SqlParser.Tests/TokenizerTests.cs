@@ -740,4 +740,17 @@ select product_id /* inline comment */ from products");
         Assert.Contains(tokens, t => t.Type == TokenType.Literal && t.Value == @"C:\");
         Assert.DoesNotContain(tokens, t => t.Type == TokenType.Unterminated);
     }
+
+    [Theory]
+    [InlineData("\"Customers\"", true)]
+    [InlineData("`Customers`", true)]
+    [InlineData("Customers", false)]
+    [InlineData("[Customers]", false)]
+    [InlineData("public.\"Customers\"", true)]
+    [InlineData("\"s\".\"Customers\"", true)]
+    [InlineData("\"public\".Customers", false)]
+    public void QuotedIdentifiers_AreMarked(string identifier, bool quoted)
+    {
+        Assert.Equal(quoted, SqlTokenizer.Tokenize("select 1 from " + identifier)[3].IsQuoted);
+    }
 }

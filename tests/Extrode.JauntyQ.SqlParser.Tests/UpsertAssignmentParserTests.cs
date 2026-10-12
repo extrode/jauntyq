@@ -62,6 +62,40 @@ public class UpsertAssignmentParserTests
         Assert.False(p.IsUpsertAssignment);
     }
 
+    [Theory]
+    [InlineData("insert into t (a, b) select 1, k = @s from u")]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set a = 1 returning id, k = @s as same")]
+    [InlineData("insert into t (id) values (@id) on conflict (id) do update set same = k = @s")]
+    public void AComparisonOutsideTheUpdateList_IsNotAnUpsertWrite(string sql)
+    {
+        Assert.False(Param(sql, "s").IsUpsertAssignment);
+    }
+
+    [Fact]
+    public void AnIdentifierNamedLikeAParameter_IsNotBound()
+    {
+        var p = Param("insert into t (id) values (@id) on conflict (id) do update set a = s, b = coalesce(@s, 1)", "s");
+
+        Assert.Equal("", p.BoundColumnName);
+        Assert.False(p.IsUpsertAssignment);
+    }
+
+    [Fact]
+    public void AColumnNamedKey_DoesNotStartAnUpdateBranch()
+    {
+        var model = Model("insert into t (id) select key from u");
+
+        Assert.Equal(UpsertKind.None, model.Upsert);
+    }
+
+    [Fact]
+    public void AnUpsertAtomEndsAtTheSemicolon()
+    {
+        var atom = Assert.Single(Model("insert into t (id) values (@id) on conflict (id) do update set a = 1 where t.k = excluded.k;").UpsertAtoms);
+
+        Assert.Equal(3, atom.Terms.Count);
+    }
+
     [Fact]
     public void AnUpdateStatementIsNotAnUpsert()
     {

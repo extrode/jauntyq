@@ -104,4 +104,39 @@ public class ScopeResolverTests
             "Scope entry 2 repeats table 'Orders', column 'Tenant_Id'. The repeat was dropped; the first entry still scopes the table.",
             Assert.Single(problems));
     }
+
+    [Fact]
+    public void AnEmptyFile_IsReported()
+    {
+        var (scopes, problems) = Resolve();
+
+        Assert.Empty(scopes);
+        Assert.Equal("The scope file declares no entries under \"scopes\", so every table is unscoped.", Assert.Single(problems));
+    }
+
+    [Fact]
+    public void ANullEntry_IsDropped_AndLaterEntriesStillScope()
+    {
+        var (scopes, problems) = Resolve(null!, new ScopeEntry { Table = "orders", Column = "tenant_id" });
+
+        Assert.Equal("Tenant_Id", Assert.Single(scopes).Column);
+        Assert.Equal("Scope entry 1 is null. It was dropped, so it scopes no table.", Assert.Single(problems));
+    }
+
+    [Fact]
+    public void TableAndColumnNamesThatConcatenateAlike_AreNotARepeat()
+    {
+        var schema = new DatabaseSchema { Dialect = "postgres" };
+        schema.Tables["ab"] = new TableSchema { Name = "ab", Columns = { ["c"] = new ColumnSchema { Name = "c", DbType = "int" } } };
+        schema.Tables["a"] = new TableSchema { Name = "a", Columns = { ["bc"] = new ColumnSchema { Name = "bc", DbType = "int" } } };
+        var file = new ScopeFile();
+        file.Scopes.Add(new ScopeEntry { Table = "ab", Column = "c" });
+        file.Scopes.Add(new ScopeEntry { Table = "a", Column = "bc" });
+        var problems = new List<string>();
+
+        var scopes = ScopeResolver.Resolve(file, schema, problems);
+
+        Assert.Empty(problems);
+        Assert.Equal(2, scopes.Count);
+    }
 }

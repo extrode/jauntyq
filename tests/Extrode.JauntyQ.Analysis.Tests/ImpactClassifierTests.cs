@@ -152,6 +152,18 @@ public class ImpactClassifierTests
     }
 
     [Fact]
+    public void ReferencedColumnBecomingAnEnum_NamesTheMissingSideAsNone()
+    {
+        var baseline = Schema(Table("orders", Col("id"), new ColumnSchema { Name = "status", DbType = "varchar" }));
+        var effective = Schema(Table("orders", Col("id"), new ColumnSchema { Name = "status", DbType = "varchar", EnumName = "OrdersStatus" }));
+
+        var report = Run(Delta(baseline, effective), Input("Order.Get", Select("orders", "status")));
+
+        var reason = Assert.Single(Assert.Single(report.Entries).Reasons);
+        Assert.Equal("enum (none) → OrdersStatus", reason.Effect);
+    }
+
+    [Fact]
     public void Risky_WhenUnmodeledStatementTouchesReferencedTable()
     {
         var baseline = Schema(Table("users", Col("id")));

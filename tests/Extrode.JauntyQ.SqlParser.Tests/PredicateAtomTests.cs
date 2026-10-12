@@ -216,6 +216,8 @@ public class PredicateAtomTests
     [InlineData("delete from t where status = @s returning id")]
     [InlineData("update t set x = 1 where status = @s returning id")]
     [InlineData("select id from t where status = @s for update")]
+    [InlineData("select id from t where status = @s for update;")]
+    [InlineData("select \"WHERE\" from t where status = @s")]
     [InlineData("select id from t where status = @s FOR SHARE")]
     [InlineData("select id from t where status = @s;")]
     [InlineData("insert into t (id) select id from u where status = @s on conflict (id) do nothing")]

@@ -105,6 +105,23 @@ public class SubqueryParserTests
     }
 
     [Fact]
+    public void ProjectionExists_BodyIsNamedAfterItsParent()
+    {
+        var model = ParseSql(
+            "select exists(select 1 from categories c) as a, exists(select 1 from tags t) as b from products p");
+
+        Assert.Equal(new[] { "TestQuery_exists0", "TestQuery_exists1" }, model.ExistsExpressions.Select(e => e.Name));
+    }
+
+    [Fact]
+    public void AnUnclosedProjectionExists_HasNoBody()
+    {
+        var model = ParseSql("select exists(select 1 from categories c as x from products p");
+
+        Assert.Empty(model.ExistsExpressions);
+    }
+
+    [Fact]
     public void NestedProjectionExists_IsRecordedOnlyInsideItsParent()
     {
         var model = ParseSql(

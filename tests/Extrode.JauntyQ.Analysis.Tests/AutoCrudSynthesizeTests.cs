@@ -338,6 +338,25 @@ public class AutoCrudSynthesizeTests
             why);
     }
 
+    [Fact]
+    public void DescribeUnusableTable_GeneratorReservedPrefixColumn_IsReported()
+    {
+        var why = AutoCrud.DescribeUnusableTable(Table("widgets", Col("id", pk: true), Col("__cmd")), null);
+
+        Assert.Equal(
+            "its column '__cmd' starts with '__', the prefix JauntyQ reserves for the names inside generated methods",
+            why);
+    }
+
+    [Fact]
+    public void DescribeUnusableTable_AnInvalidSqlName_IsReportedBeforeTheReservedPrefix()
+    {
+        var why = AutoCrud.DescribeUnusableTable(Table("widgets", Col("id", pk: true), Col("__a b")), null);
+
+        Assert.NotNull(why);
+        Assert.DoesNotContain("starts with '__'", why);
+    }
+
     [Theory]
     [InlineData(SqlIdentifierPosition.Column, "as a column name")]
     [InlineData(SqlIdentifierPosition.Object, "as an object name")]
