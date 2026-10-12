@@ -117,6 +117,17 @@ public class OnAtomTests
         Assert.Equal("l.tenant_id = @t", Rendered(model.Tables[1])[2]);
     }
 
+    [Theory]
+    [InlineData("conflict")]
+    [InlineData("duplicate")]
+    public void AColumnNamedLikeAnUpsertWord_DoesNotEndIt(string column)
+    {
+        var model = ParseSql(
+            $"select o.id from orders o join lines l on l.order_id = o.id and {column} = 1 and l.tenant_id = @t");
+
+        Assert.Equal(new[] { "l.order_id = o.id", column + " = 1", "l.tenant_id = @t" }, Rendered(model.Tables[1]));
+    }
+
     [Fact]
     public void LeftAndRightFunctionCalls_DoNotEndIt()
     {
