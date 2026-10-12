@@ -48,7 +48,8 @@ public static class AppliedMigrations
         await using var reader = await select.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            string version = Convert.ToString(reader.GetValue(0), CultureInfo.InvariantCulture) ?? "";
+            // A NULL version reads as DBNull, never null, and DBNull converts to "".
+            string version = Convert.ToString(reader.GetValue(0), CultureInfo.InvariantCulture)!;
             if (!version.EndsWith(".sql", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException(
                     $"{TableName} holds version '{version}', not a migration file name. "

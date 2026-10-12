@@ -189,5 +189,62 @@ public class AppliedMigrationsTests
         var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => AppliedMigrations.ReadAsync("oracle", "x"));
 
         Assert.Equal("dialect", ex.ParamName);
+        Assert.StartsWith("No connection is wired for this dialect.", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("version TEXT", "'20240101120000'", "20240101120000")]
+    [InlineData("version INTEGER", "20240101120000", "20240101120000")]
+    [InlineData("version TEXT", "NULL", "")]
+    [InlineData("version TEXT", "'0001_init.sql.bak'", "0001_init.sql.bak")]
+    public async Task Sqlite_AVersionThatIsNotAFileName_IsRefused(string column, string value, string shown)
+    {
+        string path = Path.Combine(Path.GetTempPath(), "jq-applied-" + Guid.NewGuid().ToString("N") + ".db");
+        string connection = $"Data Source={path}";
+        try
+        {
+            await using (var conn = new SqliteConnection(connection))
+            {
+                await conn.OpenAsync();
+                await ExecuteAsync(conn, $"CREATE TABLE schema_migrations ({column})");
+                await ExecuteAsync(conn, "INSERT INTO schema_migrations (version) VALUES ('0001_init.sql')");
+                await ExecuteAsync(conn, $"INSERT INTO schema_migrations (version) VALUES ({value})");
+            }
+
+            var ex = await Assert.ThrowsAsync<InvalidDataException>(() => AppliedMigrations.ReadAsync("sqlite", connection));
+
+            Assert.Equal(
+                $"schema_migrations holds version '{shown}', not a migration file name. "
+                + "This table belongs to a runner that does not follow the migration tracking contract.",
+                ex.Message);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Sqlite_AnUpperCaseExtension_IsAFileName()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "jq-applied-" + Guid.NewGuid().ToString("N") + ".db");
+        string connection = $"Data Source={path}";
+        try
+        {
+            await using (var conn = new SqliteConnection(connection))
+            {
+                await conn.OpenAsync();
+                await ExecuteAsync(conn, "CREATE TABLE schema_migrations (version TEXT)");
+                await ExecuteAsync(conn, "INSERT INTO schema_migrations (version) VALUES ('V1__A.SQL')");
+            }
+
+            Assert.Equal(new[] { "V1__A.SQL" }, await AppliedMigrations.ReadAsync("sqlite", connection));
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            File.Delete(path);
+        }
     }
 }
