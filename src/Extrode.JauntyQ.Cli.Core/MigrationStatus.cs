@@ -42,6 +42,7 @@ public sealed record MigrationStatus(
 
         string? latest = null;
         foreach (var version in recorded)
+            // Stryker disable once Equality : MigrationOrder.Compare returns 0 only for identical names and recorded is a set, so ">=" never meets a tie and picks the same latest
             if (latest == null || MigrationOrder.Compare(version, latest) > 0)
                 latest = version;
 
@@ -59,6 +60,7 @@ public sealed record MigrationStatus(
                 continue;
             }
             pending.Add(file);
+            // Stryker disable once Equality : a pending file is not in recorded, so it is never the latest itself, and MigrationOrder.Compare returns 0 only for identical names
             if (latest != null && MigrationOrder.Compare(file, latest) < 0)
                 outOfOrder.Add(file);
         }

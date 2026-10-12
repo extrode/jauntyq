@@ -69,6 +69,7 @@ public sealed class MigrateStatusVerb : IVerb
             return 1;
 
         var files = new List<string>();
+        // Stryker disable once String : Directory.GetFiles treats an empty search pattern as "*", so the mutant lists the same files
         foreach (var path in Directory.GetFiles(migrationsDir, "*", SearchOption.AllDirectories))
             if (path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase))
                 files.Add(Path.GetFileName(path));
