@@ -95,6 +95,16 @@ public class SchemaLoaderExplicitNullTests
         return root.ToJsonString();
     }
 
+    private static JsonNode? At(JsonNode root, string path)
+    {
+        JsonNode? node = root;
+        foreach (var segment in path.Substring(1).Replace("[", ".[").Split('.'))
+            node = node == null ? null
+                : segment.StartsWith("[") ? node.AsArray()[int.Parse(segment.Trim('[', ']'))]
+                : node.AsObject()[segment];
+        return node;
+    }
+
     private static void CollectNulls(object node, string path, NullabilityInfoContext context, List<string> nulls)
     {
         if (node is string || node.GetType().IsValueType)
@@ -169,6 +179,61 @@ public class SchemaLoaderExplicitNullTests
     }
 
     [Fact]
+    public void AFullSnapshot_RoundTripsUnchanged()
+    {
+        string json = FullSnapshot();
+
+        Assert.Equal(json, SchemaLoader.Serialize(SchemaLoader.Load(json)));
+    }
+
+    [Fact]
+    public void ANullString_LoadsAsEmpty_AsItsKey_OrStaysNull()
+    {
+        string json = FullSnapshot();
+        var original = JsonNode.Parse(json)!;
+        var failures = new List<string>();
+
+        foreach (var path in NullablePaths(original, "").Where(p => At(original, p) is JsonValue))
+        {
+            DatabaseSchema schema;
+            try
+            {
+                schema = SchemaLoader.Load(WithNullAt(json, path));
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+            // A nullable member stays null and is omitted; a rekeyed name takes its key.
+            string? loaded = At(JsonNode.Parse(SchemaLoader.Serialize(schema))!, path)?.GetValue<string>();
+            if (loaded != null && loaded != "" && loaded != At(original, path)!.GetValue<string>())
+                failures.Add(path + " loaded as '" + loaded + "'");
+        }
+
+        Assert.Empty(failures);
+    }
+
+    [Fact]
+    public void ANullName_TakesItsKey()
+    {
+        var schema = SchemaLoader.Load(@"{ ""tables"": { ""t"": { ""name"": null } }, ""procedures"": { ""p"": { ""name"": null } },
+            ""sequences"": { ""s"": { ""name"": null } }, ""enums"": { ""e"": { ""name"": null } } }");
+
+        Assert.Equal("t", schema.Tables["t"].Name);
+        Assert.Equal("p", schema.Procedures["p"].Name);
+        Assert.Equal("s", schema.Sequences["s"].Name);
+        Assert.Equal("e", schema.Enums["e"].Name);
+    }
+
+    [Fact]
+    public void ANullEntry_IsReportedAsAMalformedSnapshot()
+    {
+        var ex = Assert.Throws<JsonException>(() => SchemaLoader.Load(@"{ ""foreignKeys"": [ null ] }"));
+
+        Assert.Equal("schema snapshot has a null foreign key in a list", ex.Message);
+    }
+
+    [Fact]
     public void ANullCollection_LoadsAsAnEmptyOne()
     {
         var schema = SchemaLoader.Load(@"{ ""foreignKeys"": null, ""procedures"": null, ""tables"": { ""t"": { ""name"": ""t"",
@@ -195,6 +260,16 @@ public class SchemaLoaderExplicitNullTests
     [InlineData(@"{ ""foreignKeys"": [ null ] }", "null foreign key")]
     [InlineData(@"{ ""tables"": { ""t"": { ""indexes"": [ { ""columns"": [ ""a"", null ] } ] } } }", "null index column")]
     [InlineData(@"{ ""userTypes"": { ""u"": null } }", "null user type entry 'u'")]
+    [InlineData(@"{ ""tables"": { ""t"": { ""indexes"": [ null ] } } }", "null index in a list")]
+    [InlineData(@"{ ""procedures"": { ""p"": null } }", "null procedure entry 'p'")]
+    [InlineData(@"{ ""procedures"": { ""p"": { ""params"": [ null ] } } }", "null procedure parameter in a list")]
+    [InlineData(@"{ ""procedures"": { ""p"": { ""results"": [ null ] } } }", "null procedure result column in a list")]
+    [InlineData(@"{ ""sequences"": { ""s"": null } }", "null sequence entry 's'")]
+    [InlineData(@"{ ""enums"": { ""e"": null } }", "null enum entry 'e'")]
+    [InlineData(@"{ ""enums"": { ""e"": { ""members"": [ null ] } } }", "null enum member in a list")]
+    [InlineData(@"{ ""functions"": { ""f"": null } }", "null function entry 'f'")]
+    [InlineData(@"{ ""functions"": { ""f"": { ""params"": [ null ] } } }", "null function parameter in a list")]
+    [InlineData(@"{ ""userTypes"": { ""u"": { ""members"": [ null ] } } }", "null user type member in a list")]
     public void ANullEntryInACollection_IsAMalformedSnapshot(string json, string message)
     {
         var ex = Assert.Throws<JsonException>(() => SchemaLoader.Load(json));

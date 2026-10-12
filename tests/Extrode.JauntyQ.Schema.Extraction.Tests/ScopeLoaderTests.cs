@@ -15,6 +15,14 @@ public class ScopeLoaderTests
     }
 
     [Fact]
+    public void ANullScopesArray_IsRefused()
+    {
+        var ex = Assert.Throws<JsonException>(() => ScopeLoader.Load(@"{ ""scopes"": null }"));
+
+        Assert.Equal("\"scopes\" was null, not an array of entries", ex.Message);
+    }
+
+    [Fact]
     public void EachEntry_LoadsItsTableAndColumn()
     {
         ScopeFile file = ScopeLoader.Load(
