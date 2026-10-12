@@ -218,6 +218,7 @@ public class PredicateAtomTests
     [InlineData("select id from t where status = @s for update")]
     [InlineData("select id from t where status = @s for update;")]
     [InlineData("select \"WHERE\" from t where status = @s")]
+    [InlineData("select \"for\" from t where status = @s")]
     [InlineData("select id from t where status = @s FOR SHARE")]
     [InlineData("select id from t where status = @s;")]
     [InlineData("insert into t (id) select id from u where status = @s on conflict (id) do nothing")]
@@ -236,6 +237,7 @@ public class PredicateAtomTests
     [InlineData("select id from t where status = @s and option = 1", "option = 1")]
     [InlineData("select id from t where status = @s and fetch = 1", "fetch = 1")]
     [InlineData("select id from t where status = @s and window = 1", "window = 1")]
+    [InlineData("select id from t where status = @s and fetch ilike 'a%'", "fetch ilike a%")]
     public void AColumnNamedLikeAClause_DoesNotEndTheRegion(string sql, string second)
     {
         Assert.Equal(new[] { "status = @s", second }, Rendered(ParseSql(sql)));

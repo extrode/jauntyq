@@ -136,6 +136,7 @@ public static partial class SqlParser
         // SELECT remains after this is a genuinely unsupported subquery.
         ExtractPredicateSubqueries(tokens, model);
 
+        // Stryker disable once Unary : a projection EXISTS's SELECT is at index 3 or later, so starting at 1 instead of -1 lets the same SELECTs through
         int existsEnd = -1;
         for (int i = 0; i < tokens.Count; i++)
         {
@@ -170,6 +171,7 @@ public static partial class SqlParser
                         {
                             if (IsExistsSubquery(tokens, i))
                             {
+                                // Stryker disable once Equality : existsEnd indexes a paren, never this SELECT, so ">=" admits the same SELECTs
                                 if (i > existsEnd)
                                     existsEnd = ParseExistsExpression(tokens, i - 1, model);
                             }
@@ -228,6 +230,7 @@ public static partial class SqlParser
         var innerTokens = new List<Token>();
         for (int j = open + 1; j < close; j++)
             innerTokens.Add(tokens[j]);
+        // Stryker disable once Statement : as in Part7's body slice, every body-parser loop also stops at the list's end, so a body without the sentinel parses identically
         innerTokens.Add(Token.End);
         model.ExistsExpressions.Add(Parse(innerTokens, model.Name + "_exists" + model.ExistsExpressions.Count));
         return close;

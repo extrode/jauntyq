@@ -114,6 +114,14 @@ public class SubqueryParserTests
     }
 
     [Fact]
+    public void ProjectionExists_BodyEndsBeforeItsCloseParen()
+    {
+        var model = ParseSql("select exists(select 1 from categories c where c.id = @id) as x from products p");
+
+        Assert.Equal(3, Assert.Single(Assert.Single(model.ExistsExpressions).PredicateAtoms).Terms.Count);
+    }
+
+    [Fact]
     public void AnUnclosedProjectionExists_HasNoBody()
     {
         var model = ParseSql("select exists(select 1 from categories c as x from products p");

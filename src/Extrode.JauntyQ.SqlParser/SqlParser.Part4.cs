@@ -227,6 +227,7 @@ public static partial class SqlParser
         string word = tokens[i].Value;
         if (string.Equals(word, "FOR", StringComparison.OrdinalIgnoreCase))
             return true;
+        // Stryker disable once Boolean : tokens[i] is an identifier here, and the only token with no successor is the End sentinel
         if (i + 1 >= tokens.Count)
             return false;
         var next = tokens[i + 1];

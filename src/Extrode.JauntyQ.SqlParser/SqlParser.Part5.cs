@@ -130,16 +130,18 @@ public static partial class SqlParser
             if (t.Type == TokenType.Symbol && t.Value == "(")
             {
                 depth++;
+                // Stryker disable once Statement : "(" falling through is skipped by the depth check below, since depth is now at least 1
                 continue;
             }
             if (t.Type == TokenType.Symbol && t.Value == ")")
             {
                 if (depth > 0) depth--;
+                // Stryker disable once Statement : ")" falling through fails every check below: none of them matches a ")" symbol
                 continue;
             }
             if (depth != 0)
                 continue;
-            if (t.Type == TokenType.Keyword && t.Value == "UPDATE" && i > 0 && tokens[i - 1].Type == TokenType.Identifier
+            if (t.Type == TokenType.Keyword && t.Value == "UPDATE" && i != 0 && tokens[i - 1].Type == TokenType.Identifier
                 && (string.Equals(tokens[i - 1].Value, "DO", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(tokens[i - 1].Value, "KEY", StringComparison.OrdinalIgnoreCase)))
             {
@@ -157,11 +159,18 @@ public static partial class SqlParser
             if (t.Type == TokenType.Keyword && (t.Value == "WHERE" || t.Value == "RETURNING"))
             {
                 inList = false;
+                // Stryker disable once Statement : a WHERE or RETURNING keyword falling through fails the "=" symbol check below
                 continue;
             }
-            if (!inList || t.Type != TokenType.Symbol || t.Value != "=" || i == 0 || i + 1 >= tokens.Count)
+            if (!inList || t.Type != TokenType.Symbol || t.Value != "=" || i == 0)
                 continue;
-            if (tokens[i - 1].Type != TokenType.Identifier || tokens[i + 1].Type != TokenType.Parameter || i < 2)
+            // Stryker disable once Equality,Arithmetic : the stream ends with the End sentinel, so an "=" symbol is never last
+            if (i + 1 >= tokens.Count)
+                continue;
+            if (tokens[i - 1].Type != TokenType.Identifier || tokens[i + 1].Type != TokenType.Parameter)
+                continue;
+            // Stryker disable once Equality : the stream starts INSERT INTO or WITH, so an "=" after an identifier is at index 4 or later
+            if (i < 2)
                 continue;
             var before = tokens[i - 2];
             bool startsItem = (before.Type == TokenType.Symbol && before.Value == ",")

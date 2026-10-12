@@ -28,9 +28,15 @@ public static partial class SqlParser
             !string.Equals(tokens[pos].Value, "LATERAL", StringComparison.OrdinalIgnoreCase))
             return false;
         int next = pos + 1;
-        if (next < tokens.Count && tokens[next].Type == TokenType.Identifier)
+        // Stryker disable once Equality : every token list the parser builds ends with the End sentinel, which is not LATERAL, so pos + 1 is a valid index
+        if (next >= tokens.Count)
+            return false;
+        if (tokens[next].Type == TokenType.Identifier)
             next++;
-        return next < tokens.Count && tokens[next].Type == TokenType.Symbol && tokens[next].Value == "(";
+        // Stryker disable once Equality : next moved past an identifier, which is not the End sentinel, so it is still a valid index
+        if (next >= tokens.Count)
+            return false;
+        return tokens[next].Type == TokenType.Symbol && tokens[next].Value == "(";
     }
 
     /// <summary>
@@ -266,6 +272,7 @@ public static partial class SqlParser
                     depth--;
                 else if (depth == 0 && (t.Value == "," || t.Value == ";"))
                     return i;
+                // Stryker disable once Statement : a symbol falling through fails every check below: the terminator and ON checks need a keyword and no symbol's value is NATURAL
                 continue;
             }
             if (depth != 0)
@@ -282,21 +289,36 @@ public static partial class SqlParser
 
     // An INSERT ... SELECT's last join is followed directly by its upsert
     // branch, ON CONFLICT or ON DUPLICATE KEY, which is not part of the clause.
-    private static bool IsUpsertOn(List<Token> tokens, int i) =>
-        tokens[i].Type == TokenType.Keyword && tokens[i].Value == "ON"
-        && i + 1 < tokens.Count && tokens[i + 1].Type == TokenType.Identifier
-        && (string.Equals(tokens[i + 1].Value, "CONFLICT", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(tokens[i + 1].Value, "DUPLICATE", StringComparison.OrdinalIgnoreCase));
+    private static bool IsUpsertOn(List<Token> tokens, int i)
+    {
+        if (tokens[i].Type != TokenType.Keyword || tokens[i].Value != "ON")
+            return false;
+        // Stryker disable once Equality,Arithmetic : tokens[i] is the ON keyword, and every token list the parser builds ends with the End sentinel, so ON is never last
+        if (i + 1 >= tokens.Count)
+            return false;
+        var next = tokens[i + 1];
+        return next.Type == TokenType.Identifier
+            && (string.Equals(next.Value, "CONFLICT", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(next.Value, "DUPLICATE", StringComparison.OrdinalIgnoreCase));
+    }
 
-    private static bool IsFunctionCall(List<Token> tokens, int i) =>
-        (tokens[i].Value == "LEFT" || tokens[i].Value == "RIGHT")
-        && i + 1 < tokens.Count && tokens[i + 1].Type == TokenType.Symbol && tokens[i + 1].Value == "(";
+    private static bool IsFunctionCall(List<Token> tokens, int i)
+    {
+        if (tokens[i].Value != "LEFT" && tokens[i].Value != "RIGHT")
+            return false;
+        // Stryker disable once Equality,Arithmetic : the caller passes only a terminator keyword, and every token list the parser builds ends with the End sentinel, so it is never last
+        if (i + 1 >= tokens.Count)
+            return false;
+        return tokens[i + 1].Type == TokenType.Symbol && tokens[i + 1].Value == "(";
+    }
 
     private static readonly HashSet<string> OnClauseTerminators = new(StringComparer.Ordinal)
     {
         "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "CROSS", "FULL",
         "WHERE", "GROUP", "ORDER", "HAVING", "LIMIT", "OFFSET",
-        "UNION", "INTERSECT", "EXCEPT", "RETURNING", "SET",
+        "UNION", "INTERSECT", "EXCEPT", "RETURNING",
+        // Stryker disable once String : joins are parsed only for SELECT and INSERT ... SELECT, where SET follows an ON clause only as an upsert's DO UPDATE SET, already ended at its ON
+        "SET",
     };
 
     private static int ParseJoinCondition(List<Token> tokens, int pos, QueryModel model)

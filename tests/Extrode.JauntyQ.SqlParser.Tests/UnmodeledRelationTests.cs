@@ -77,6 +77,7 @@ public class UnmodeledRelationTests
     [InlineData("select l.id from lateral l where l.id = @id")]
     [InlineData("select t.id from t, lateral")]
     [InlineData("select lateral.id from lateral, t")]
+    [InlineData("select lateral.id from lateral where lateral.id = '('")]
     [InlineData("select t.id from t join lateral on lateral.id = t.id")]
     public void ATableActuallyNamedLateral_StillParsesAsATable(string sql)
     {

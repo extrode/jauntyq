@@ -924,12 +924,14 @@ public static partial class SqlParser
         }
 
         // EXISTS(...) as the head -> boolean NOT NULL.
-        if (span >= 2 &&
-            run[lo].Type == TokenType.Keyword && run[lo].Value == "EXISTS" &&
-            run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(")
+        if (span >= 2)
         {
-            col.InferredDbType = "boolean";
-            col.InferredNotNull = true;
+            if (run[lo].Type == TokenType.Keyword && run[lo].Value == "EXISTS"
+                && run[lo + 1].Type == TokenType.Symbol && run[lo + 1].Value == "(")
+            {
+                col.InferredDbType = "boolean";
+                col.InferredNotNull = true;
+            }
         }
 
         // sum(<col>) / avg(<col>) as the *entire* expression body, with a

@@ -72,6 +72,18 @@ public class UpsertAssignmentParserTests
     }
 
     [Fact]
+    public void AStrayCloseParen_DoesNotHideTheUpdateBranch()
+    {
+        Assert.True(Param("insert into t (id) values (@id)) on duplicate key update status = @s", "s").IsUpsertAssignment);
+    }
+
+    [Fact]
+    public void AnAssignmentShapeAfterTheUpsertWhere_IsNotAnUpsertWrite()
+    {
+        Assert.False(Param("insert into t (id) values (@id) on conflict (id) do update set a = 1 where t.k = excluded.k, b = @s", "s").IsUpsertAssignment);
+    }
+
+    [Fact]
     public void AnIdentifierNamedLikeAParameter_IsNotBound()
     {
         var p = Param("insert into t (id) values (@id) on conflict (id) do update set a = s, b = coalesce(@s, 1)", "s");

@@ -150,10 +150,11 @@ public class OnAtomTests
     [InlineData("insert into t (id) select o.id from orders o join lines l on l.order_id = o.id returning id")]
     [InlineData("insert into t (id) select o.id from orders o join lines l on l.order_id = o.id on conflict (id) do update set a = 1")]
     [InlineData("insert into t (id) select o.id from orders o join lines l on l.order_id = o.id on duplicate key update a = 1")]
-    public void AnInsertSelectJoin_EndsBeforeTheInsertTail(string sql)
+    [InlineData("insert into t (id) select o.id from orders o join lines l on l.order_id = 1 on conflict (id) do nothing", "l.order_id = 1")]
+    public void AnInsertSelectJoin_EndsBeforeTheInsertTail(string sql, string atom = "l.order_id = o.id")
     {
         var lines = ParseSql(sql).Tables.Single(t => t.TableName == "lines");
 
-        Assert.Equal(new[] { "l.order_id = o.id" }, Rendered(lines));
+        Assert.Equal(new[] { atom }, Rendered(lines));
     }
 }
