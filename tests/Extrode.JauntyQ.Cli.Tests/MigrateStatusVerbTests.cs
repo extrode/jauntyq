@@ -146,6 +146,28 @@ public class MigrateStatusVerbTests : IDisposable
     }
 
     [Fact]
+    public async Task FailOnPending_WithNothingPending_ExitsZero()
+    {
+        Record("0001_a.sql");
+
+        Assert.Equal(0, (await RunAsync("--fail-on", "pending")).Code);
+    }
+
+    [Theory]
+    [InlineData("--provider")]
+    [InlineData("--connection")]
+    [InlineData("--connection-env")]
+    [InlineData("--migrations")]
+    [InlineData("--fail-on")]
+    public async Task AFlagWithNoValue_IsAnUnknownArgument(string flag)
+    {
+        var (code, _, err) = await RunAsync(flag);
+
+        Assert.Equal(1, code);
+        Assert.StartsWith("Unknown argument: " + flag, err);
+    }
+
+    [Fact]
     public async Task AnUnknownFailOnValue_IsAnUnknownArgument()
     {
         var (code, output, err) = await RunAsync("--fail-on", "drift");

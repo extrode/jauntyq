@@ -123,4 +123,12 @@ public class MigrationStatusTests
             "Pending, in apply order (1):\n",
             Report(status, 1));
     }
+
+    [Fact]
+    public void TheReport_IsNotUpToDate_WhenOnlyPendingFilesRemain()
+    {
+        var status = MigrationStatus.Compute(new[] { "0002_b.sql" }, new[] { "0001_a.sql" });
+
+        Assert.DoesNotContain("Up to date", Report(status, 1));
+    }
 }
