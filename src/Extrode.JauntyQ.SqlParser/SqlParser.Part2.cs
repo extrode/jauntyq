@@ -249,7 +249,8 @@ public static partial class SqlParser
     /// join or clause, or a depth-0 comma or semicolon. Without one the clause
     /// runs to the end, where <see cref="SplitIntoAtoms"/> stops at the End
     /// sentinel. <c>left(...)</c> and <c>right(...)</c> are the string
-    /// functions, not joins.
+    /// functions, not joins. An upsert's <c>ON CONFLICT</c> or <c>ON DUPLICATE
+    /// KEY</c> also ends it.
     /// </summary>
     private static int FindOnClauseEnd(List<Token> tokens, int pos)
     {
@@ -273,9 +274,19 @@ public static partial class SqlParser
                 return i;
             if (IsNaturalKeyword(t))
                 return i;
+            if (IsUpsertOn(tokens, i))
+                return i;
         }
         return tokens.Count;
     }
+
+    // An INSERT ... SELECT's last join is followed directly by its upsert
+    // branch, ON CONFLICT or ON DUPLICATE KEY, which is not part of the clause.
+    private static bool IsUpsertOn(List<Token> tokens, int i) =>
+        tokens[i].Type == TokenType.Keyword && tokens[i].Value == "ON"
+        && i + 1 < tokens.Count && tokens[i + 1].Type == TokenType.Identifier
+        && (string.Equals(tokens[i + 1].Value, "CONFLICT", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(tokens[i + 1].Value, "DUPLICATE", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsFunctionCall(List<Token> tokens, int i) =>
         (tokens[i].Value == "LEFT" || tokens[i].Value == "RIGHT")

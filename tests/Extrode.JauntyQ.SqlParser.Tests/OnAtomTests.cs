@@ -80,6 +80,17 @@ public class OnAtomTests
     [InlineData("select o.id from orders o join lines l on l.order_id = o.id having count(*) > 1")]
     [InlineData("select o.id from orders o join lines l on l.order_id = o.id limit 5")]
     [InlineData("select o.id from orders o join lines l on l.order_id = o.id;")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id join items i on i.id = l.item_id")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id left join items i on i.id = l.item_id")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id inner join items i on i.id = l.item_id")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id full join items i on i.id = l.item_id")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id outer apply f(o.id) x")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id where (o.id > 0)")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id order by o.id offset 5")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id offset 5")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id union select 1")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id intersect select 1")]
+    [InlineData("select o.id from orders o join lines l on l.order_id = o.id except select 1")]
     public void TheClauseEnds_AtTheNextClauseOrJoin(string sql)
     {
         var model = ParseSql(sql);
@@ -122,5 +133,16 @@ public class OnAtomTests
         var model = ParseSql("select o.id from orders o join lines l using (order_id)");
 
         Assert.Empty(model.Tables[1].OnAtoms);
+    }
+
+    [Theory]
+    [InlineData("insert into t (id) select o.id from orders o join lines l on l.order_id = o.id returning id")]
+    [InlineData("insert into t (id) select o.id from orders o join lines l on l.order_id = o.id on conflict (id) do update set a = 1")]
+    [InlineData("insert into t (id) select o.id from orders o join lines l on l.order_id = o.id on duplicate key update a = 1")]
+    public void AnInsertSelectJoin_EndsBeforeTheInsertTail(string sql)
+    {
+        var lines = ParseSql(sql).Tables.Single(t => t.TableName == "lines");
+
+        Assert.Equal(new[] { "l.order_id = o.id" }, Rendered(lines));
     }
 }
