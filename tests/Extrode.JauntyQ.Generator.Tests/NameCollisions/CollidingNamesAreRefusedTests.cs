@@ -76,11 +76,47 @@ public class CollidingNamesAreRefusedTests
     }
 
     [Fact]
+    public void ATableNamedLikeAJauntyDbMember_IsReportedInFull()
+    {
+        Assert.Contains("JNT2006: Generated entity accessor 'db.Connection' has the same name as a member JauntyDb already declares "
+            + "('Connection', or its backing field '_connection'). Rename the table (or its db/ folder) so its PascalCase form no longer collides.",
+            Errors(Generate("table", "connection", "sqlite")));
+    }
+
+    [Fact]
+    public void ATableNamedLikeTheSequenceOrFunctionAccessor_IsReportedOnlyWhenThatAccessorIsEmitted()
+    {
+        string sequences = @"""sequences"": { ""order_seq"": { ""name"": ""order_seq"", ""startValue"": 1, ""increment"": 1 } },";
+        string functions = @"""functions"": { ""calc_tax(decimal)"": { ""name"": ""calc_tax"", ""schema"": ""public"", ""params"": [ { ""name"": ""amount"", ""dbType"": ""numeric"", ""isNullable"": false } ], ""returnType"": { ""dbType"": ""numeric"", ""isNullable"": true } } },";
+        var sequenceAccessor = Run(Array.Empty<(string, string)>(),
+            NameCollisionHarness.Schema("postgres", Table("sequence_accessor", "id", ("note", "varchar", true)), sequences), null, true);
+        var functionAccessor = Run(Array.Empty<(string, string)>(),
+            NameCollisionHarness.Schema("postgres", Table("function_accessor", "id", ("note", "varchar", true)), functions), null, true);
+
+        Assert.Contains(Errors(sequenceAccessor), m => m.Contains(MemberOfJauntyDb) && m.Contains("db.SequenceAccessor"));
+        Assert.Contains(Errors(functionAccessor), m => m.Contains(MemberOfJauntyDb) && m.Contains("db.FunctionAccessor"));
+        Assert.Empty(Errors(Generate("table", "sequence_accessor", "postgres")));
+        Assert.Empty(Errors(Generate("table", "function_accessor", "postgres")));
+    }
+
+    [Fact]
+    public void AReturningWithADuplicateAndAColumnNamedLikeItsQuery_ReportsTheDuplicate()
+    {
+        var result = HandWritten(("db/Orders/Add.sql", "INSERT INTO orders (note) VALUES (@note) RETURNING id, id, note AS add"));
+
+        Assert.Equal(new[]
+        {
+            "JNT3009: Two result columns map to the same generated property 'Id'. Give each SELECT/RETURNING item a distinct alias (AS) — the generated row type cannot declare 'Id' twice.",
+        }, Errors(result));
+    }
+
+    [Fact]
     public void ASqlFileNamedLikeItsFolder_IsReported()
     {
         var result = HandWritten(("db/Orders/Orders.sql", "SELECT id, note FROM orders"));
 
-        Assert.Contains(Errors(result), m => m.StartsWith("JNT2006") && m.Contains("method 'Orders'"));
+        Assert.Contains("JNT2006: Entity 'Orders' would declare a method 'Orders', and a C# class cannot have a member named like itself. "
+            + "Rename the table, its db/ folder or the .sql file so the entity and method names differ.", Errors(result));
     }
 
     [Theory]
@@ -109,7 +145,8 @@ public class CollidingNamesAreRefusedTests
     {
         var result = Generate("alias", "find", "sqlite");
 
-        Assert.Contains(Errors(result), m => m.StartsWith("JNT3009") && m.Contains("the name of its own generated type Result.Find"));
+        Assert.Contains("JNT3009: Result column 'Find' maps to the property 'Find', the name of its own generated type Result.Find, "
+            + "and a C# member cannot share its type's name. Alias the column (AS) or rename the .sql file.", Errors(result));
         Assert.Empty(CompileErrors(result));
     }
 
@@ -137,7 +174,9 @@ public class CollidingNamesAreRefusedTests
         var result = Run(Array.Empty<(string, string)>(), NameCollisionHarness.Schema("sqlserver", Table("orders", "id", ("note", "varchar", true)), proc), null, false,
             ("db/Orders/Call.sql", "-- @call find_orders\n"));
 
-        Assert.Contains(Errors(result), m => m.StartsWith("JNT2011") && m.Contains("Result.Call"));
+        Assert.Contains("JNT2011: Stored procedure 'find_orders' returns a column 'call' that maps to the property 'Call', "
+            + "the name of its own generated type Result.Call, and a C# member cannot share its type's name. "
+            + "Alias the column in the procedure's SELECT or rename the .sql file.", Errors(result));
     }
 
     [Fact]
@@ -147,7 +186,8 @@ public class CollidingNamesAreRefusedTests
             ("db/Orders/Result.sql", "SELECT id, note FROM orders"),
             ("db/Orders/Ids.sql", "SELECT id FROM orders"));
 
-        Assert.Contains(Errors(result), m => m.StartsWith("JNT2006") && m.Contains("method 'Result' and the nested type Result"));
+        Assert.Contains("JNT2006: Entity 'Orders' would declare both a method 'Result' and the nested type Result that holds its queries' result types. "
+            + "Rename the Result.sql file.", Errors(result));
     }
 
     [Fact]
@@ -172,6 +212,18 @@ public class CollidingNamesAreRefusedTests
     }
 
     [Fact]
+    public void AResultQueryNextToAProcedureCallWithNoResults_IsNotReported()
+    {
+        string proc = @"""procedures"": { ""touch_orders"": { ""name"": ""touch_orders"", ""params"": [], ""results"": [] } },";
+        var result = Run(Array.Empty<(string, string)>(), NameCollisionHarness.Schema("sqlserver", Table("orders", "id", ("note", "varchar", true)), proc), null, false,
+            ("db/Orders/Result.sql", "SELECT id, note FROM orders"),
+            ("db/Orders/Call.sql", "-- @call touch_orders\n"));
+
+        Assert.Empty(Errors(result));
+        Assert.Empty(CompileErrors(result));
+    }
+
+    [Fact]
     public void AResultQueryWithNoResultTypeBesideIt_IsNotReported()
     {
         var result = HandWritten(("db/Orders/Result.sql", "SELECT id, note FROM orders"));
@@ -186,7 +238,8 @@ public class CollidingNamesAreRefusedTests
         var result = Run(Array.Empty<(string, string)>(), NameCollisionHarness.Schema("sqlite", Table("result", "id", ("note", "varchar", true))), null, false,
             ("db/Result/Ids.sql", "SELECT id FROM result"));
 
-        Assert.Contains(Errors(result), m => m.StartsWith("JNT2006") && m.Contains("Entity 'Result' would contain a nested type"));
+        Assert.Contains("JNT2006: Entity 'Result' would contain a nested type also named Result, which holds its queries' result types, "
+            + "and a C# class cannot have a member named like itself. Rename the table or its db/ folder.", Errors(result));
     }
 
     [Theory]
@@ -196,7 +249,8 @@ public class CollidingNamesAreRefusedTests
     {
         var files = otherPath == null ? new[] { (path, sql) } : new[] { (path, sql), (otherPath, otherSql!) };
 
-        Assert.Contains(Errors(SqlServer(files)), m => m.StartsWith("JNT2006") && m.Contains("method 'Proc' and the nested type Proc"));
+        Assert.Contains("JNT2006: Entity 'Orders' would declare both a method 'Proc' and the nested type Proc that holds its -- @proc scripts. "
+            + "Rename the Proc.sql file.", Errors(SqlServer(files)));
     }
 
     [Fact]
@@ -205,7 +259,8 @@ public class CollidingNamesAreRefusedTests
         var result = Run(Array.Empty<(string, string)>(), NameCollisionHarness.Schema("sqlserver", Table("proc", "id", ("note", "varchar", true))), null, false,
             ("db/Proc/Find.sql", "-- @proc\nSELECT id, note FROM proc WHERE id = @id"));
 
-        Assert.Contains(Errors(result), m => m.StartsWith("JNT2006") && m.Contains("Entity 'Proc' would contain a nested type"));
+        Assert.Contains("JNT2006: Entity 'Proc' would contain a nested type also named Proc, which holds its -- @proc scripts, "
+            + "and a C# class cannot have a member named like itself. Rename the table or its db/ folder.", Errors(result));
     }
 
     [Fact]
@@ -222,7 +277,8 @@ public class CollidingNamesAreRefusedTests
     {
         var result = HandWritten(("db/Task/Ids.sql", "SELECT id FROM orders"));
 
-        Assert.Contains(Errors(result), m => m.StartsWith("JNT2006") && m.Contains("db/Task/ folder"));
+        Assert.Contains("JNT2006: The db/Task/ folder generates a class 'Task' that hides the framework type of the same name, "
+            + "which the generated code uses. Rename the folder.", Errors(result));
     }
 
     [Fact]
