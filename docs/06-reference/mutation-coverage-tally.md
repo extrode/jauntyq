@@ -65,12 +65,12 @@ Three things sit outside it, and the table below is the running record of each.
 
 | Assembly | `// Stryker disable` lines in `src` | Timeouts (count as killed) | CompileError (excluded) | Mutate scope |
 |---|---|---|---|---|
-| `Extrode.JauntyQ.SqlParser` | 4 | 158 | | whole assembly |
-| `Extrode.JauntyQ.Schema` | 0 | | | whole assembly |
-| `Extrode.JauntyQ.Schema.Extraction` | 2 | | | whole assembly |
-| `Extrode.JauntyQ.Cli.Core` | 1 | 5 | 8 | whole assembly |
-| `Extrode.JauntyQ.Generator` | 30 | 5 + 32 emitter | 382 | `**/QueryValidator*.cs`, `**/*Analyzer.cs`, `**/JauntyDiagnostics.cs`, `**/IdentifierGuard.cs`; emitter files (`CodeEmitter*.cs`, `JauntyQGenerator*.cs`) via `stryker-config.emitter-{1..4}.json` |
-| `Extrode.JauntyQ.Analysis` | 7 | 26 | 108 | whole assembly |
+| `Extrode.JauntyQ.SqlParser` | 20 | 138 | 582 | whole assembly |
+| `Extrode.JauntyQ.Schema` | 0 | 0 | 5 | whole assembly |
+| `Extrode.JauntyQ.Schema.Extraction` | 2 | 3 | 28 | whole assembly |
+| `Extrode.JauntyQ.Cli.Core` | 4 | 10 | 25 | whole assembly |
+| `Extrode.JauntyQ.Generator` | 33 | 10 + 59 emitter | 390 | `**/QueryValidator*.cs`, `**/*Analyzer.cs`, `**/JauntyDiagnostics.cs`, `**/IdentifierGuard.cs`, excluding the compile-included Analysis kernel (`!**/Extrode.JauntyQ.Analysis/**/*.cs`); emitter files (`CodeEmitter*.cs`, `JauntyQGenerator*.cs`) via `stryker-config.emitter-{1..4}.json` |
+| `Extrode.JauntyQ.Analysis` | 9 | 37 | 192 | whole assembly |
 
 Rules for this table:
 - A `// Stryker disable once <Mutators> : <reason>` is allowed only where no test can
@@ -86,18 +86,18 @@ Rules for this table:
 
 ## Assemblies covered by Stryker
 
-Latest whole-assembly runs (2026-09-24 to 2026-09-30, all on mb1). This table supersedes
+Latest whole-assembly runs (2026-10-12 to 2026-10-13, in a 4-core cloud container). This table supersedes
 the per-assembly figures in the history below it.
 
 | Assembly | Stryker config | Score | Killed | Timeout | Survived | NoCov | Notes |
 |---|---|---|---|---|---|---|---|
-| `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | **100%** | 2464 | 158 | 0 | 0 | `additional-timeout` 2000; timeouts are mutants that turn a parser loop infinite |
-| `Extrode.JauntyQ.Schema` | none (run ad hoc) | **100%** | | | 0 | 0 | |
-| `Extrode.JauntyQ.Cli.Core` | `tests/Extrode.JauntyQ.Cli.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 1m08s |
-| `Extrode.JauntyQ.Generator` | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 1h34m with shared engines (`eval "$(scripts/mutation-engines.sh --quiet)"`, concurrency 4); CompileError mutants excluded from score |
-| Generator emitter files | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.emitter-{1..4}.json` | **100%** | 4327 | 32 | 0 | 0 | Confirming run 36995854432 (2026-10-02): all 4 shards 100%, slowest shard 18m, about 54 runner-minutes. `--since` ran everything because the shard configs changed (Stryker retests all when a non-C# file in the test project changes). First run 36979486901 (2026-10-02, the first on Blacksmith via `mutation-emitter.yml`): 99.45% (4320 killed, 32 timeout, 13 survived, 11 no coverage), slowest shard 32m, about 67 runner-minutes. All 24 uncaught resolved: 14 equivalent (8 throw-only paths, 3 `GetHashCode` bodies, 3 in `Part4`), now disabled; 10 got tests, 3 of which (`Part10:75`, `CodeEmitter.Part2:31`, `:47`) were real gaps the old tests could not see. Shards rebalanced; they now take 10m to 18m |
-| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | **100%** | | | 0 | 0 | whole-assembly run 99.91% (2 survivors), both resolved; scoped rerun of those two files 100% |
-| `Extrode.JauntyQ.Schema.Extraction` | `tests/Extrode.JauntyQ.Schema.Extraction.Tests/stryker-config.json` | **100%** | | | 0 | 0 | 22 min with shared engines |
+| `Extrode.JauntyQ.SqlParser` | `tests/Extrode.JauntyQ.SqlParser.Tests/stryker-config.json` | **100%** | 2691 | 138 | 0 | 0 | `additional-timeout` 2000; timeouts are mutants that turn a parser loop infinite. 2026-10-12: first run 97.78% (63 survived) after new parser code; one survivor was a real bug, an INSERT ... SELECT join's ON clause swallowing its ON CONFLICT / ON DUPLICATE KEY branch (`6f408e4`). Whole-assembly rerun 99.61% (5 survived, 6 no coverage), all resolved; scoped rerun of `Part2`/`Part5` 100% |
+| `Extrode.JauntyQ.Schema` | `tests/Extrode.JauntyQ.Schema.Extraction.Tests/stryker-config.schema.json` | **100%** | 158 | 0 | 0 | 0 | 29m. 2026-10-12: first run 74.68% (38 survived, 2 no coverage): the snapshot and scope loaders' null handling and error wording were barely asserted; now covered |
+| `Extrode.JauntyQ.Cli.Core` | `tests/Extrode.JauntyQ.Cli.Tests/stryker-config.json` | **100%** | 335 | 10 | 0 | 0 | 5m28s. 2026-10-12: first run 95.75% (15 survived, all in `migrate status`); 3 equivalent, now disabled |
+| `Extrode.JauntyQ.Generator` | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.json` | **100%** | 1603 | 10 | 0 | 0 | 3h45m with shared engines (`eval "$(scripts/mutation-engines.sh --quiet)"`, concurrency 4); CompileError mutants excluded from score. 2026-10-12 run 95.88%: every uncaught mutant (27 survived, 46 no coverage) was in `Analysis/Scoping/ScopeAnalyzer.cs`, which the `*Analyzer.cs` glob matched through the compile-include once it landed; the Analysis config already covers it, so it is excluded here (`c1b27aa`) |
+| Generator emitter files | `tests/Extrode.JauntyQ.Generator.Tests/stryker-config.emitter-{1..4}.json` | **100%** | 4578 | 59 | 0 | 0 | 2026-10-12/13 local runs: shard 1 99.88% (1 no coverage), shard 2 100%, shard 3 99.38% (9 survived), shard 4 98.97% (16 survived), together 99.44%, 72m / 50m / 82m / 113m. All new since 2026-10-02: spec 021's scoped CRUD and the name-collision refusals. 2 equivalent (`Call("Insert", ...)` in `CodeEmitter.Part7`: a column named Insert is a JauntyQ keyword, so AutoCrud refuses the table), now disabled; the rest got tests, mostly full-message assertions on JNT2006/JNT2011/JNT3009 and an unreadable scope file. Span-scoped rerun of every survivor's lines: 186 killed, 100%. Earlier: confirming run 36995854432 (2026-10-02) all 4 shards 100% on Blacksmith |
+| `Extrode.JauntyQ.Analysis` | `tests/Extrode.JauntyQ.Analysis.Tests/stryker-config.json` | **100%** | 2727 | 37 | 0 | 0 | 2026-10-12: first run 98.81% (24 survived, 9 no coverage); whole-assembly rerun 99.89% (2 survived, 1 no coverage), all resolved; scoped rerun of `MigrationParser.cs` and `SchemaSimulator.cs` 100% |
+| `Extrode.JauntyQ.Schema.Extraction` | `tests/Extrode.JauntyQ.Schema.Extraction.Tests/stryker-config.json` | **100%** | 673 | 3 | 0 | 0 | 35m with shared engines. 2026-10-12 run 99.12% (2 survived, 4 no coverage), all in `AppliedMigrations.cs`: its refusal of a non-file version was untested, and a dead `?? ""` was removed; scoped rerun 100% |
 | `Extrode.JauntyQ.Cli` | — | — | | | | | no testable mutants |
 | `Extrode.JauntyQ.Runtime` | — | — | | | | | no source |
 
