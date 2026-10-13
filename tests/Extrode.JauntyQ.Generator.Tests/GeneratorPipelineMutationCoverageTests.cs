@@ -54,6 +54,19 @@ public class GeneratorPipelineMutationCoverageTests
     private static AdditionalText Text(string path, string text) => new InMemoryAdditionalText(path, text);
 
     [Fact]
+    public void AScopeFileThatCannotBeRead_IsReportedAsUnreadable_NotIgnored()
+    {
+        var result = Run(null, Text("schema/jaunty.schema.json", SchemaJson), new NullTextAdditionalText("db/schema/jaunty.scope.json"));
+
+        // An unreadable file reads as empty, so it fails to parse instead of passing as no scope file at all.
+        var scopeError = Assert.Single(result.Diagnostics, d => d.Id == "JNT6005");
+        string message = scopeError.GetMessage();
+        Assert.Equal(DiagnosticSeverity.Error, scopeError.Severity);
+        Assert.StartsWith("Scope file 'db/schema/jaunty.scope.json' could not be read (The input does not contain any JSON tokens.", message);
+        Assert.EndsWith("). Every table is unscoped until it is fixed. (db/schema/jaunty.scope.json)", message);
+    }
+
+    [Fact]
     public void EveryPipelineNodeCarriesItsTrackingName()
     {
         var steps = Run(("schema/jaunty.schema.json", SchemaJson), ("db/Widgets/GetAll.sql", "select id from widgets"))
