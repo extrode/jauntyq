@@ -106,6 +106,7 @@ public static partial class CodeEmitter
                 sb.AppendLine($"        /// <summary>Inserts the row and writes the database-assigned {idProp} back onto it.</summary>");
                 sb.AppendLine($"        public {idType} Insert({scopeParams}{rowType} {rowName})");
                 sb.AppendLine("        {");
+                // Stryker disable once Boolean : a scope parameter is named after its column, and a column named Insert is a JauntyQ keyword, so AutoCrud refuses the table and this is never emitted for it
                 sb.AppendLine($"            {idType} {idLocal} = {Call("Insert", false)}({args});");
                 sb.AppendLine($"            {rowName}.{idProp} = {idLocal};");
                 sb.AppendLine($"            return {idLocal};");
@@ -116,6 +117,7 @@ public static partial class CodeEmitter
                 string insertTxArg = insertTx ? ", transaction" : "";
                 sb.AppendLine($"        public static {idType} Insert(DbConnection {connName}, {scopeParams}{rowType} {rowName}{insertTxParam})");
                 sb.AppendLine("        {");
+                // Stryker disable once Boolean : a scope parameter is named after its column, and a column named Insert is a JauntyQ keyword, so AutoCrud refuses the table and this is never emitted for it
                 sb.AppendLine($"            {idType} {idLocal} = {Call("Insert", true)}({connName}, {args}{insertTxArg});");
                 sb.AppendLine($"            {rowName}.{idProp} = {idLocal};");
                 sb.AppendLine($"            return {idLocal};");

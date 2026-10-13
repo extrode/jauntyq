@@ -86,6 +86,16 @@ public class ScopedAutoCrudEmitTests
     }
 
     [Fact]
+    public void Upsert_OnSqlite_ChecksEveryScopeColumn()
+    {
+        var upsert = Source(Generate(
+            @"{ ""scopes"": [ { ""table"": ""order_lines"", ""column"": ""tenant_id"" }, { ""table"": ""order_lines"", ""column"": ""order_id"" } ] }"),
+            "OrderLines.Upsert.auto.g.cs");
+
+        Assert.Contains("WHERE order_lines.tenant_id = EXCLUDED.tenant_id AND order_lines.order_id = EXCLUDED.order_id\"", upsert);
+    }
+
+    [Fact]
     public void Upsert_OnSqlServer_MatchesOnTheScopeToo()
     {
         var upsert = Source(Generate(OrdersOnly, "sqlserver"), "Orders.Upsert.auto.g.cs");
@@ -174,6 +184,36 @@ public class ScopedAutoCrudEmitTests
         Assert.Contains("row.TenantId = tenant_id;", bulk);
     }
 
+    [Fact]
+    public void BulkInsert_OfAScopedTable_SetsItsWrappersApart()
+    {
+        var bulk = Source(Generate(OrdersOnly), "Orders.BulkInsert.auto.g.cs").Replace("\r\n", "\n");
+
+        Assert.Contains(
+            "        }\n\n" +
+            "        public int BulkInsert(int tenant_id, IEnumerable<Order> rows) => __BulkInsertUnscoped(__ScopeRows(rows, tenant_id));\n",
+            bulk);
+        Assert.Contains(
+            "transaction, cancellationToken);\n\n" +
+            "        private static IEnumerable<Order> __ScopeRows(IEnumerable<Order> rows, int tenant_id)\n",
+            bulk);
+    }
+
+    [Fact]
+    public void BulkInsert_OfAScopedTable_QualifiesTaskAndIEnumerable_WhenATableTakesTheirNames()
+    {
+        const string table = @"{ ""name"": ""NAME"", ""columns"": { ""id"": { ""name"": ""id"", ""dbType"": ""int"", ""isNullable"": false, ""isPrimaryKey"": true } } }";
+        var schema = SchemaJson.Replace(@"""customers"": {",
+            @"""task"": " + table.Replace("NAME", "task") + @", ""i_enumerable"": " + table.Replace("NAME", "i_enumerable") + @", ""customers"": {");
+
+        var result = Run(new[] { (ScopePath, OrdersOnly) }, schema, null, true);
+        var bulk = Source(result, "Orders.BulkInsert.auto.g.cs");
+
+        Assert.Contains("public global::System.Threading.Tasks.Task<int> BulkInsertAsync(int tenant_id, global::System.Collections.Generic.IEnumerable<Order> rows, CancellationToken cancellationToken = default)", bulk);
+        var errors = CompileErrors(result);
+        Assert.True(errors.Count == 0, string.Join("\n", errors));
+    }
+
     [Theory]
     [InlineData("sqlite")]
     [InlineData("postgres")]
@@ -246,6 +286,8 @@ public class ScopedAutoCrudEmitTests
     [InlineData("transaction", "mysql")]
     [InlineData("row", "postgres")]
     [InlineData("transaction", "postgres")]
+    [InlineData("InsertAsync", "sqlite")]
+    [InlineData("InsertAsync", "sqlserver")]
     public void AScopeColumn_NamedLikeAGeneratedParameter_StillCompiles(string scopeColumn, string dialect)
     {
         var result = GenerateScopedBy(scopeColumn, dialect);
