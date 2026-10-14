@@ -45,11 +45,27 @@ internal static class EngineContainers
         {
             case EngineKind.MsSql:
             {
-                await using var conn = new SqlConnection(engine.AdminConnectionString);
-                await conn.OpenAsync();
-                await using var cmd = conn.CreateCommand();
-                cmd.CommandText = $"CREATE DATABASE [{databaseName}]";
-                await cmd.ExecuteNonQueryAsync();
+                // CREATE DATABASE copies 'model' under an exclusive lock, so two
+                // fixtures creating at once on one instance can lose with error
+                // 1807 (seen 2026-10-14 in Schema.Extraction.Tests). The
+                // contenders may sit in other processes sharing an external
+                // engine, so a lock here would not cover them; retrying does.
+                for (var attempt = 1; ; attempt++)
+                {
+                    try
+                    {
+                        await using var conn = new SqlConnection(engine.AdminConnectionString);
+                        await conn.OpenAsync();
+                        await using var cmd = conn.CreateCommand();
+                        cmd.CommandText = $"CREATE DATABASE [{databaseName}]";
+                        await cmd.ExecuteNonQueryAsync();
+                        break;
+                    }
+                    catch (SqlException e) when (e.Number == 1807 && attempt < 10)
+                    {
+                        await Task.Delay(500 * attempt);
+                    }
+                }
                 return new SqlConnectionStringBuilder(engine.AdminConnectionString) { InitialCatalog = databaseName }.ConnectionString;
             }
             case EngineKind.Postgres:
