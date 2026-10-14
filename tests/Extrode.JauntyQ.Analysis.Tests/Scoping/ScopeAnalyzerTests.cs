@@ -201,6 +201,18 @@ public class ScopeAnalyzerTests
     }
 
     [Fact]
+    public void ATableScopedTwice_NamesTheColumnStillUnproven()
+    {
+        var scopes = new ScopeColumn[] { new("orders", "tenant_id"), new("orders", "region_id") };
+        var model = SqlParser.SqlParser.Parse(
+            SqlTokenizer.Tokenize("select o.id from orders o where o.tenant_id = @t"), "Q");
+
+        var reach = Assert.Single(ScopeAnalyzer.FindUnproven(model, scopes));
+
+        Assert.Equal("region_id", reach.Column);
+    }
+
+    [Fact]
     public void AnUnfilteredUpdateTarget_IsRefused()
     {
         Assert.Equal(
