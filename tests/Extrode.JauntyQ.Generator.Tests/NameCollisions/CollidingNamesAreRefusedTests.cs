@@ -17,9 +17,12 @@ public class CollidingNamesAreRefusedTests
     [InlineData("transaction", "mysql")]
     [InlineData("current_transaction", "sqlite")]
     [InlineData("begin_transaction", "postgres")]
+    [InlineData("begin_transaction_async", "sqlserver")]
+    [InlineData("end_transaction", "mysql")]
     [InlineData("conn", "sqlite")]
     [InlineData("tx", "mysql")]
     [InlineData("_tx", "sqlite")]
+    [InlineData("tx_opened_connection", "postgres")]
     [InlineData("__conn", "sqlserver")]
     public void ATableNamedLikeAJauntyDbMember_IsReported(string table, string dialect)
     {
