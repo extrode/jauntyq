@@ -3,7 +3,7 @@
 -- types match what the generated reader expects). Seed data is reused from
 -- Microsoft's canonical instnwnd.sql (MIT). Views are ported to the
 -- PascalCase-no-spaces names this repo's db/views/*.sql queries reference.
--- Regenerate with db/build_sqlserver_seed.py. Batches are separated by GO;
+-- Regenerate with db/build-sqlserver-seed.cs. Batches are separated by GO;
 -- NorthwindFixture splits on GO before executing.
 
 -- ==== schema ====
@@ -21,6 +21,8 @@ CREATE TABLE [Categories] (
     CONSTRAINT [PK_Categories] PRIMARY KEY ([CategoryId])
 )
 GO
+CREATE INDEX [IX_Categories_CategoryName] ON [Categories] ([CategoryName])
+GO
 CREATE TABLE [Suppliers] (
     [SupplierId] int IDENTITY(1,1) NOT NULL,
     [CompanyName] nvarchar(40) NOT NULL,
@@ -36,6 +38,10 @@ CREATE TABLE [Suppliers] (
     [HomePage] ntext NULL,
     CONSTRAINT [PK_Suppliers] PRIMARY KEY ([SupplierId])
 )
+GO
+CREATE INDEX [IX_Suppliers_CompanyName] ON [Suppliers] ([CompanyName])
+GO
+CREATE INDEX [IX_Suppliers_PostalCode] ON [Suppliers] ([PostalCode])
 GO
 CREATE TABLE [Shippers] (
     [ShipperId] int IDENTITY(1,1) NOT NULL,
@@ -64,6 +70,14 @@ CREATE TABLE [Customers] (
     [Fax] nvarchar(24) NULL,
     CONSTRAINT [PK_Customers] PRIMARY KEY ([CustomerId])
 )
+GO
+CREATE INDEX [IX_Customers_City] ON [Customers] ([City])
+GO
+CREATE INDEX [IX_Customers_CompanyName] ON [Customers] ([CompanyName])
+GO
+CREATE INDEX [IX_Customers_PostalCode] ON [Customers] ([PostalCode])
+GO
+CREATE INDEX [IX_Customers_Region] ON [Customers] ([Region])
 GO
 CREATE TABLE [Employees] (
     [EmployeeId] smallint IDENTITY(1,1) NOT NULL,
@@ -107,6 +121,12 @@ CREATE TABLE [Products] (
     CONSTRAINT [PK_Products] PRIMARY KEY ([ProductId])
 )
 GO
+CREATE INDEX [IX_Products_CategoriesProducts] ON [Products] ([CategoryId])
+GO
+CREATE INDEX [IX_Products_ProductName] ON [Products] ([ProductName])
+GO
+CREATE INDEX [IX_Products_SupplierId] ON [Products] ([SupplierId])
+GO
 CREATE TABLE [Territories] (
     [TerritoryId] nvarchar(20) NOT NULL,
     [Description] nvarchar(50) NOT NULL,
@@ -134,6 +154,18 @@ CREATE TABLE [Orders] (
     CONSTRAINT [PK_Orders] PRIMARY KEY ([OrderId])
 )
 GO
+CREATE INDEX [IX_Orders_CustomerId] ON [Orders] ([CustomerId])
+GO
+CREATE INDEX [IX_Orders_EmployeeId] ON [Orders] ([EmployeeId])
+GO
+CREATE INDEX [IX_Orders_OrderDate] ON [Orders] ([OrderDate])
+GO
+CREATE INDEX [IX_Orders_ShippedDate] ON [Orders] ([ShippedDate])
+GO
+CREATE INDEX [IX_Orders_ShippedVia] ON [Orders] ([ShipVia])
+GO
+CREATE INDEX [IX_Orders_ShipPostalCode] ON [Orders] ([ShipPostalCode])
+GO
 CREATE TABLE [Order Details] (
     [OrderId] int NOT NULL,
     [ProductId] int NOT NULL,
@@ -142,6 +174,10 @@ CREATE TABLE [Order Details] (
     [Discount] real NOT NULL,
     CONSTRAINT [PK_Order_Details] PRIMARY KEY ([OrderId], [ProductId])
 )
+GO
+CREATE INDEX [IX_OrderDetails_OrderId] ON [Order Details] ([OrderId])
+GO
+CREATE INDEX [IX_OrderDetails_ProductId] ON [Order Details] ([ProductId])
 GO
 CREATE TABLE [EmployeeTerritories] (
     [EmployeeId] smallint NOT NULL,
