@@ -39,7 +39,7 @@ catch (Exception e)
     return 1;
 }
 
-static class Seed
+static partial class Seed
 {
     static string Here([CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
     static readonly string Snapshot = Path.Combine(Here(), "schema", "jaunty.schema.json");
@@ -113,7 +113,20 @@ static class Seed
         return string.Join("\n", output);
     }
 
-    static readonly Regex GoLine = Py.Re(@"^\s*" + Py.Ci("go") + @"\s*$");
+    // re.IGNORECASE on these literals: Python also folds ı/İ to i and ſ to s.
+    const string Go = "[gG][oO]";
+    const string Set = "[sS\u017f][eE][tT]";
+    const string IdentityInsertWord = "[iI\u0131\u0130][dD][eE][nN][tT][iI\u0131\u0130][tT][yY]_[iI\u0131\u0130][nN][sS\u017f][eE][rR][tT]";
+    const string On = "[oO][nN]";
+    const string Off = "[oO][fF][fF]";
+    const string Insert = "[iI\u0131\u0130][nN][sS\u017f][eE][rR][tT]";
+    const string Into = "[iI\u0131\u0130][nN][tT][oO]";
+    const string Values = "[vV][aA][lL][uU][eE][sS\u017f]";
+    const string Region = "[rR][eE][gG][iI\u0131\u0130][oO][nN]";
+    const string S = Py.Space;
+
+    [GeneratedRegex("^" + S + "*" + Go + S + "*$", RegexOptions.CultureInvariant)]
+    private static partial Regex GoLine { get; }
 
     static List<string> SplitBatches(string sql)
     {
@@ -137,10 +150,14 @@ static class Seed
         return batches;
     }
 
-    static readonly Regex IdentityInsert = Py.Re(Py.Ci("set") + @"\s+" + Py.Ci("identity_insert") + @"\s+""?([^""\s]+)""?\s+(" + Py.Ci("on") + "|" + Py.Ci("off") + ")");
-    static readonly Regex QuotedInsert = Py.Re(Py.Ci("INSERT") + @"\s+(?:" + Py.Ci("INTO") + @"\s+)?""([^""]+)""");
-    static readonly Regex PlainInsert = Py.Re(Py.Ci("Insert") + @"\s+" + Py.Ci("Into") + @"\s+(\w+)\s+" + Py.Ci("Values"));
-    static readonly Regex TailInsert = Py.Re(@"^\s*" + Py.Ci("Insert") + @"\s+" + Py.Ci("Into") + @"\s+(\w+)\s+" + Py.Ci("Values"));
+    [GeneratedRegex(Set + S + "+" + IdentityInsertWord + S + "+\"?(" + Py.NotQuoteOrSpace + "+)\"?" + S + "+(" + On + "|" + Off + ")", RegexOptions.CultureInvariant)]
+    private static partial Regex IdentityInsert { get; }
+    [GeneratedRegex(Insert + S + "+(?:" + Into + S + "+)?\"([^\"]+)\"", RegexOptions.CultureInvariant)]
+    private static partial Regex QuotedInsert { get; }
+    [GeneratedRegex(Insert + S + "+" + Into + S + "+(" + Py.Word + "+)" + S + "+" + Values, RegexOptions.CultureInvariant)]
+    private static partial Regex PlainInsert { get; }
+    [GeneratedRegex("^" + S + "*" + Insert + S + "+" + Into + S + "+(" + Py.Word + "+)" + S + "+" + Values, RegexOptions.CultureInvariant)]
+    private static partial Regex TailInsert { get; }
 
     // The target table of a data/identity batch, or null to skip.
     static string? BatchTable(string batch)
@@ -175,7 +192,11 @@ static class Seed
         return perTable;
     }
 
-    static readonly Regex RegionInsert = Py.Re(Py.Ci("Insert") + @"\s+" + Py.Ci("Into") + @"\s+" + Py.Ci("Region") + @"\s+" + Py.Ci("Values"));
+    [GeneratedRegex(Insert + S + "+" + Into + S + "+" + Region + S + "+" + Values, RegexOptions.CultureInvariant)]
+    private static partial Regex RegionInsert { get; }
+
+    [GeneratedRegex("INSERT|Insert Into", RegexOptions.CultureInvariant)]
+    private static partial Regex InsertCount { get; }
 
     static string EmitData(Dictionary<string, List<string>> perTable)
     {
@@ -382,8 +403,7 @@ static class Seed
         ];
         Py.WriteText(Out, string.Join("\n", parts) + "\n");
 
-        var insert = new Regex("INSERT|Insert Into", RegexOptions.CultureInvariant);
-        var counts = perTable.ToDictionary(p => p.Key, p => p.Value.Sum(b => insert.Matches(b).Count));
+        var counts = perTable.ToDictionary(p => p.Key, p => p.Value.Sum(b => InsertCount.Count(b)));
         Console.WriteLine($"wrote {Out}");
         foreach (var t in TableOrder)
             if (counts.TryGetValue(t, out var n))
@@ -396,29 +416,11 @@ static class Seed
 static class Py
 {
     // str.isspace(): what \s and strip() mean in Python.
-    const string Space = @"\t\n\v\f\r\x1c-\x1f \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000";
+    const string SpaceChars = @"\t\n\v\f\r\x1c-\x1f \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000";
+    internal const string Space = "[" + SpaceChars + "]";
+    internal const string NotQuoteOrSpace = "[^\"" + SpaceChars + "]";
     // str.isalnum() or "_": what \w means in Python (letters and all numbers, no combining marks).
-    const string Word = @"\p{L}\p{N}_";
-
-    internal static Regex Re(string pattern) =>
-        new(pattern.Replace(@"[^""\s]", $"[^\"{Space}]").Replace(@"\s", $"[{Space}]").Replace(@"\w", $"[{Word}]"),
-            RegexOptions.CultureInvariant);
-
-    // re.IGNORECASE on a literal: Python also folds ı/İ to i, ſ to s and K (Kelvin) to k.
-    internal static string Ci(string literal)
-    {
-        var sb = new StringBuilder();
-        foreach (var c in literal)
-            sb.Append(char.ToLowerInvariant(c) switch
-            {
-                'i' => "[iI\u0131\u0130]",
-                's' => "[sS\u017f]",
-                'k' => "[kK\u212a]",
-                var l when char.IsAsciiLetterLower(l) => $"[{l}{char.ToUpperInvariant(l)}]",
-                _ => Regex.Escape(c.ToString()),
-            });
-        return sb.ToString();
-    }
+    internal const string Word = @"[\p{L}\p{N}_]";
 
     static bool IsSpace(char c) => c is '\t' or '\n' or '\v' or '\f' or '\r' or ' ' or '\x85' or '\xa0' or '\u1680'
         or '\u2028' or '\u2029' or '\u202f' or '\u205f' or '\u3000' || c is >= '\x1c' and <= '\x1f' || c is >= '\u2000' and <= '\u200a';
