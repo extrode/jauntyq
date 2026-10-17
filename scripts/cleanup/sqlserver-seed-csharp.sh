@@ -26,7 +26,7 @@ fi
 failed=0
 
 echo "== 1. merged branch"
-branches=(feat/sqlserver-seed-csharp)
+branches=(feat/sqlserver-seed-csharp chore/cleanup-sqlserver-seed)
 for b in "${branches[@]}"; do
   if ! git -C "$repo" rev-parse --verify --quiet "refs/heads/$b" >/dev/null; then
     printf 'skip:  branch %s no longer exists\n' "$b"
