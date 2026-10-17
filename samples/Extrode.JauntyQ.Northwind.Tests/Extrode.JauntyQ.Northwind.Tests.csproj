@@ -21,6 +21,10 @@
     <PackageReference Include="Testcontainers.MsSql" />
   </ItemGroup>
   <ItemGroup>
+    <!-- db/build-sqlserver-seed.cs is a standalone script (kiln), not part of this project. -->
+    <Compile Remove="db\**\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <AdditionalFiles Include="db\**\*.sql" />
     <AdditionalFiles Include="db\schema\*.schema.json" />
   </ItemGroup>
