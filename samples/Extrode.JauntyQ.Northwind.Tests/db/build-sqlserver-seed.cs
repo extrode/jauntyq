@@ -14,7 +14,7 @@
 // Run from anywhere:
 //     kiln samples/Extrode.JauntyQ.Northwind.Tests/db/build-sqlserver-seed.cs <path-to-instnwnd.sql>
 //
-// Ported from build_sqlserver_seed.py with the same output byte for byte, including on inputs the
+// Ported from build_sqlserver_seed.py (removed) with the same output byte for byte, including on inputs the
 // real files never contain: the Python text and regex rules it relied on are spelled out in Py below.
 using System.Globalization;
 using System.Numerics;
@@ -387,7 +387,7 @@ static partial class Seed
             "-- types match what the generated reader expects). Seed data is reused from\n" +
             "-- Microsoft's canonical instnwnd.sql (MIT). Views are ported to the\n" +
             "-- PascalCase-no-spaces names this repo's db/views/*.sql queries reference.\n" +
-            "-- Regenerate with db/build_sqlserver_seed.py. Batches are separated by GO;\n" +
+            "-- Regenerate with db/build-sqlserver-seed.cs. Batches are separated by GO;\n" +
             "-- NorthwindFixture splits on GO before executing.\n";
         var perTable = CollectData(canonical);
         string[] parts =
