@@ -74,7 +74,7 @@ public class GeneratorPipelineMutationCoverageTests
 
         Assert.Subset(steps.ToHashSet(), new[]
         {
-            "JauntyQ_SchemaCandidates", "JauntyQ_CommonPrefix", "JauntyQ_PerFile", "JauntyQ_HintCollisions",
+            "JauntyQ_SchemaCandidates", "JauntyQ_ScopeCandidates", "JauntyQ_CommonPrefix", "JauntyQ_PerFile", "JauntyQ_HintCollisions",
             "JauntyQ_Fingerprints", "JauntyQ_NPlusOne", "JauntyQ_PredicateDrift", "JauntyQ_Summaries",
             "JauntyQ_AcceptCandidates", "JauntyQ_AggregateInput",
         }.ToHashSet());
